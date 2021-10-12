@@ -1,0 +1,13 @@
+Timers: {}
+errors:
+  L2 error domain: 0.0033396256165033763
+  L2 error including Dirichlet domain: 0.0033396256165033763
+  L2 error natural: 0.0033396256165033763
+  Linf error natural: 0.002894714947692556
+  rel L2 error domain: 0.0023375547097963267
+  rel L2 error natural: 0.0023375547097963267
+  rel Linf error natural: 0.002894714947692556
+  residual norm: 9.8482135268577e-15
+meshes: {}
+results: {}
+vectors: {}

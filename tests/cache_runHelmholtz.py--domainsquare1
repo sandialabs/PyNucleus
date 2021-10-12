@@ -1,0 +1,6 @@
+results:
+  L2 error: 8.912742605830698e-06
+  Tolerance: 1.0e-05
+  numIter: 26
+  res: 9.049271861945027e-06
+  solution L2 norm: 0.9999999668131542
