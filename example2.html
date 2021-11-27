@@ -1,0 +1,363 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Example 2 - Nonlocal problems &#8212; PyNucleus  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/bizstyle.css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="PyNucleus.base package" href="PyNucleus_base.html" />
+    <link rel="prev" title="Example 1 - A simple PDE problem" href="example1.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="PyNucleus_base.html" title="PyNucleus.base package"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="example1.html" title="Example 1 - A simple PDE problem"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">PyNucleus  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Example 2 - Nonlocal problems</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="example-2-nonlocal-problems">
+<h1>Example 2 - Nonlocal problems<a class="headerlink" href="#example-2-nonlocal-problems" title="Permalink to this headline">¶</a></h1>
+<p>I this second example, we will assemble and solve several nonlocal equations.
+The full code of this example can be found in <code class="docutils literal notranslate"><span class="pre">drivers/example2.py</span></code>.</p>
+<p>PyNucleus can assemble operators of the form</p>
+<div class="math notranslate nohighlight">
+\[\mathcal{L}u(x) = \int_{\mathbb{R}^d} [u(y)-u(x)] \gamma(x, y) dy.\]</div>
+<p>The kernel <span class="math notranslate nohighlight">\(\gamma\)</span> is of the form</p>
+<div class="math notranslate nohighlight">
+\[\gamma(x,y) = \phi(x, y) |x-y|^{-\beta(x,y)} \chi_{V_\delta(x)}(y).\]</div>
+<p>Here, <span class="math notranslate nohighlight">\(\phi\)</span> is a positive function, and <span class="math notranslate nohighlight">\(\chi\)</span> is the indicator function.
+<span class="math notranslate nohighlight">\(0&lt;\delta\le\infty\)</span> is called the horizon and determines the size of the kernel support <span class="math notranslate nohighlight">\(V_\delta(x) \subset \mathbb{R}^d\)</span>.
+The singularity <span class="math notranslate nohighlight">\(\beta\)</span> of the kernel depends on the family of kernels:</p>
+<ul class="simple">
+<li><p>fractional type: <span class="math notranslate nohighlight">\(\beta(x,y)=d+2s(x,y)\)</span>, where <span class="math notranslate nohighlight">\(d\)</span> is the spatial dimension and <span class="math notranslate nohighlight">\(s(x,y)\)</span> is the fractional order.</p></li>
+<li><p>constant type <span class="math notranslate nohighlight">\(\beta(x,y)=0\)</span></p></li>
+<li><p>peridynamic type <span class="math notranslate nohighlight">\(\beta(x,y)=-1\)</span></p></li>
+</ul>
+<p>At present, the only implemented interaction regions are balls in the 2-norm:</p>
+<div class="math notranslate nohighlight">
+\[V_{\delta}^{(2)}(x) = \{y \in \mathbb{R}^d | ||x-y||_2&lt;\delta\}.\]</div>
+<section id="a-fractional-kernel">
+<h2>A fractional kernel<a class="headerlink" href="#a-fractional-kernel" title="Permalink to this headline">¶</a></h2>
+<p>We start off by creating a fractional kernel with infinite horizon and constant fractional order <span class="math notranslate nohighlight">\(s=0.75\)</span>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="linenos">15</span><span class="kn">from</span> <span class="nn">PyNucleus</span> <span class="kn">import</span> <span class="n">kernelFactory</span>
+<span class="linenos">16</span>
+<span class="linenos">17</span><span class="c1"># show available options</span>
+<span class="linenos">18</span><span class="n">kernelFactory</span><span class="o">.</span><span class="n">print</span><span class="p">()</span>
+<span class="linenos">19</span>
+<span class="linenos">20</span><span class="kn">from</span> <span class="nn">numpy</span> <span class="kn">import</span> <span class="n">inf</span>
+<span class="linenos">21</span><span class="n">kernelFracInf</span> <span class="o">=</span> <span class="n">kernelFactory</span><span class="p">(</span><span class="s1">&#39;fractional&#39;</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mf">0.75</span><span class="p">,</span> <span class="n">horizon</span><span class="o">=</span><span class="n">inf</span><span class="p">)</span>
+<span class="linenos">22</span>
+<span class="linenos">23</span><span class="nb">print</span><span class="p">(</span><span class="n">kernelFracInf</span><span class="p">)</span>
+<span class="linenos">24</span><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Fractional kernel&#39;</span><span class="p">)</span>
+<span class="linenos">25</span><span class="n">kernelFracInf</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+<span class="linenos">26</span>
+</pre></div>
+</div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Available:
+&#39;fractional&#39;, signature: &#39;(dim, s, horizon=None, interaction=None, scaling=None, normalized=True, piecewise=True, phi=None)&#39;
+&#39;indicator&#39; with aliases [&#39;constant&#39;], signature: &#39;(dim, kernel, horizon, scaling=None, interaction=None, normalized=True, piecewise=True, phi=None)&#39;
+&#39;peridynamic&#39;, signature: &#39;(dim, kernel, horizon, scaling=None, interaction=None, normalized=True, piecewise=True, phi=None)&#39;
+
+
+
+kernel(fractional, 0.75, R^2, constantFractionalLaplacianScaling(0.75,inf -&gt; 0.0855835648452762))
+</pre></div>
+</div>
+<p>(<a class="reference external" href=".//example2_stepKernelFracInf.py">Source code</a>, <a class="reference external" href=".//example2_stepKernelFracInf.png">png</a>, <a class="reference external" href=".//example2_stepKernelFracInf.hires.png">hires.png</a>, <a class="reference external" href=".//example2_stepKernelFracInf.pdf">pdf</a>)</p>
+<figure class="align-default">
+<img alt="_images/example2_stepKernelFracInf.png" src="_images/example2_stepKernelFracInf.png" />
+</figure>
+<p>By default, kernels are normalized. This can be disabled by passing <cite>normalized=False</cite>.</p>
+</section>
+<section id="nonlocal-assembly">
+<h2>Nonlocal assembly<a class="headerlink" href="#nonlocal-assembly" title="Permalink to this headline">¶</a></h2>
+<p>We will be solving the problem</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}-\mathcal{L} u &amp;= f &amp;&amp; \text{ in } \Omega=B(0,1)\subset\mathbb{R}^2, \\
+u &amp;= 0 &amp;&amp; \text{ in } \mathbb{R}^2 \setminus \Omega,\end{split}\]</div>
+<p>for constant forcing function <span class="math notranslate nohighlight">\(f=1\)</span>.</p>
+<p>First, we generate a mesh.
+Instead of the <cite>meshFactory</cite> used in the previous example, we now use the <cite>nonlocalMeshFactory</cite>.
+The advantage is that this factory can generate meshes with appropriate interaction domains.
+For this particular example, the factory will not generate any interaction domain, since the homogeneous Dirichlet condition on <span class="math notranslate nohighlight">\(\mathbb{R}^2\setminus\Omega\)</span> can be enforced via a boundary integral.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="linenos">29</span><span class="kn">from</span> <span class="nn">PyNucleus</span> <span class="kn">import</span> <span class="n">nonlocalMeshFactory</span><span class="p">,</span> <span class="n">HOMOGENEOUS_DIRICHLET</span>
+<span class="linenos">30</span>
+<span class="linenos">31</span><span class="c1"># Get a mesh that is appropriate for the problem, i.e. with the required interaction domain.</span>
+<span class="linenos">32</span><span class="n">meshFracInf</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">nonlocalMeshFactory</span><span class="p">(</span><span class="s1">&#39;disc&#39;</span><span class="p">,</span> <span class="n">kernel</span><span class="o">=</span><span class="n">kernelFracInf</span><span class="p">,</span> <span class="n">boundaryCondition</span><span class="o">=</span><span class="n">HOMOGENEOUS_DIRICHLET</span><span class="p">,</span> <span class="n">hTarget</span><span class="o">=</span><span class="mf">0.15</span><span class="p">)</span>
+<span class="linenos">33</span>
+<span class="linenos">34</span><span class="nb">print</span><span class="p">(</span><span class="n">meshFracInf</span><span class="p">)</span>
+<span class="linenos">35</span><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Mesh for fractional kernel&#39;</span><span class="p">)</span>
+<span class="linenos">36</span><span class="n">meshFracInf</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+<span class="linenos">37</span>
+</pre></div>
+</div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>mesh2d with 763 vertices and 1,424 cells
+</pre></div>
+</div>
+<p>(<a class="reference external" href=".//example2_stepMeshFracInf.py">Source code</a>, <a class="reference external" href=".//example2_stepMeshFracInf.png">png</a>, <a class="reference external" href=".//example2_stepMeshFracInf.hires.png">hires.png</a>, <a class="reference external" href=".//example2_stepMeshFracInf.pdf">pdf</a>)</p>
+<figure class="align-default">
+<img alt="_images/example2_stepMeshFracInf.png" src="_images/example2_stepMeshFracInf.png" />
+</figure>
+<p>Next, we obtain a piecewise linear, continuous DoFMap on the mesh, assemble the RHS and interpolate the known analytic solution.
+We assemble the nonlocal operator by passing the kernel to the <cite>assembleNonlocal</cite> method of the DoFMap object.
+The optional parameter <cite>matrixFormat</cite> determines what kind of linear operator is assembled.
+We time the assembly of the operator as a dense matrix, and as a hierarchical matrix, and inspect the resulting objects.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="linenos">40</span><span class="kn">from</span> <span class="nn">PyNucleus</span> <span class="kn">import</span> <span class="n">dofmapFactory</span><span class="p">,</span> <span class="n">functionFactory</span>
+<span class="linenos">41</span>
+<span class="linenos">42</span><span class="n">dmFracInf</span> <span class="o">=</span> <span class="n">dofmapFactory</span><span class="p">(</span><span class="s1">&#39;P1&#39;</span><span class="p">,</span> <span class="n">meshFracInf</span><span class="p">)</span>
+<span class="linenos">43</span>
+<span class="linenos">44</span><span class="n">rhs</span> <span class="o">=</span> <span class="n">functionFactory</span><span class="p">(</span><span class="s1">&#39;constant&#39;</span><span class="p">,</span> <span class="mf">1.</span><span class="p">)</span>
+<span class="linenos">45</span><span class="n">exact_solution</span> <span class="o">=</span> <span class="n">functionFactory</span><span class="p">(</span><span class="s1">&#39;solFractional&#39;</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mf">0.75</span><span class="p">)</span>
+<span class="linenos">46</span>
+<span class="linenos">47</span><span class="n">b</span> <span class="o">=</span> <span class="n">dmFracInf</span><span class="o">.</span><span class="n">assembleRHS</span><span class="p">(</span><span class="n">rhs</span><span class="p">)</span>
+<span class="linenos">48</span><span class="n">u_exact</span> <span class="o">=</span> <span class="n">dmFracInf</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">exact_solution</span><span class="p">)</span>
+<span class="linenos">49</span><span class="n">u</span> <span class="o">=</span> <span class="n">dmFracInf</span><span class="o">.</span><span class="n">zeros</span><span class="p">()</span>
+<span class="linenos">50</span>
+<span class="linenos">51</span><span class="c1"># Assemble the operator in dense format.</span>
+<span class="linenos">52</span><span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+<span class="linenos">53</span><span class="n">A_fracInf</span> <span class="o">=</span> <span class="n">dmFracInf</span><span class="o">.</span><span class="n">assembleNonlocal</span><span class="p">(</span><span class="n">kernelFracInf</span><span class="p">,</span> <span class="n">matrixFormat</span><span class="o">=</span><span class="s1">&#39;dense&#39;</span><span class="p">)</span>
+<span class="linenos">54</span>
+<span class="linenos">55</span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Dense assembly took </span><span class="si">{}</span><span class="s1">s&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">start</span><span class="p">))</span>
+<span class="linenos">56</span>
+<span class="linenos">57</span><span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+<span class="linenos">58</span><span class="n">A_fracInf_h2</span> <span class="o">=</span> <span class="n">dmFracInf</span><span class="o">.</span><span class="n">assembleNonlocal</span><span class="p">(</span><span class="n">kernelFracInf</span><span class="p">,</span> <span class="n">matrixFormat</span><span class="o">=</span><span class="s1">&#39;h2&#39;</span><span class="p">)</span>
+<span class="linenos">59</span>
+<span class="linenos">60</span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Hierarchical assembly took </span><span class="si">{}</span><span class="s1">s&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">time</span><span class="p">()</span><span class="o">-</span><span class="n">start</span><span class="p">))</span>
+<span class="linenos">61</span>
+<span class="linenos">62</span><span class="nb">print</span><span class="p">(</span><span class="n">A_fracInf</span><span class="p">)</span>
+<span class="linenos">63</span><span class="nb">print</span><span class="p">(</span><span class="n">A_fracInf_h2</span><span class="p">)</span>
+<span class="linenos">64</span>
+</pre></div>
+</div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Dense assembly took 4.963354825973511s
+
+
+Hierarchical assembly took 4.501574516296387s
+&lt;663x663 Dense_LinearOperator&gt;
+&lt;663x663 H2Matrix 0.226995 fill from near field, 0.135815 fill from tree, 0.204746 fill from clusters, 144 far-field clusters&gt;
+</pre></div>
+</div>
+<p>It can be observed that both assembly routines take roughly the same amount of time.
+The reason for this is that the operator itself has quite small dimensions.
+For larger number of unknowns, we expect the hierarchical assembly scale like <span class="math notranslate nohighlight">\(\mathcal{O}(N \log^{2d} N)\)</span>, whereas the dense assembly will scale at best like <span class="math notranslate nohighlight">\(\mathcal{O}(N^2)\)</span>.</p>
+<p>Similar to the local PDE example, we can then solve the resulting linear equation and compute the error in energy norm.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="linenos">67</span><span class="kn">from</span> <span class="nn">PyNucleus</span> <span class="kn">import</span> <span class="n">solverFactory</span>
+<span class="linenos">68</span><span class="kn">from</span> <span class="nn">numpy</span> <span class="kn">import</span> <span class="n">sqrt</span>
+<span class="linenos">69</span>
+<span class="linenos">70</span><span class="n">solver</span> <span class="o">=</span> <span class="n">solverFactory</span><span class="p">(</span><span class="s1">&#39;lu&#39;</span><span class="p">,</span> <span class="n">A</span><span class="o">=</span><span class="n">A_fracInf</span><span class="p">,</span> <span class="n">setup</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="linenos">71</span><span class="n">solver</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+<span class="linenos">72</span>
+<span class="linenos">73</span><span class="n">Hs_err</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">u</span><span class="o">-</span><span class="n">u_exact</span><span class="p">)))</span>
+<span class="linenos">74</span>
+<span class="linenos">75</span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Hs error: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">Hs_err</span><span class="p">))</span>
+<span class="linenos">76</span><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Numerical solution, fractional kernel&#39;</span><span class="p">)</span>
+<span class="linenos">77</span><span class="n">u</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+<span class="linenos">78</span>
+</pre></div>
+</div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Hs error: 0.05503841439833495
+</pre></div>
+</div>
+<p>(<a class="reference external" href=".//example2_stepSolveFracInf.py">Source code</a>, <a class="reference external" href=".//example2_stepSolveFracInf.png">png</a>, <a class="reference external" href=".//example2_stepSolveFracInf.hires.png">hires.png</a>, <a class="reference external" href=".//example2_stepSolveFracInf.pdf">pdf</a>)</p>
+<figure class="align-default">
+<img alt="_images/example2_stepSolveFracInf.png" src="_images/example2_stepSolveFracInf.png" />
+</figure>
+</section>
+<section id="a-finite-horizon-case">
+<h2>A finite horizon case<a class="headerlink" href="#a-finite-horizon-case" title="Permalink to this headline">¶</a></h2>
+<p>Next, we solve a nonlocal Poisson problem involving a constant kernel with finite horizon.
+We will choose <span class="math notranslate nohighlight">\(\gamma(x,y) \sim \chi_{V_{\delta}^{(2)}(x)}(y)\)</span> for <span class="math notranslate nohighlight">\(\delta=0.2\)</span>, and solve</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}-\mathcal{L} u &amp;= f &amp;&amp; \text{ in } \Omega=[0,1]^2, \\
+u &amp;= -(x_1^2 + x_2^2)/4 &amp;&amp; \text{ in } \mathcal{I},\end{split}\]</div>
+<p>where <span class="math notranslate nohighlight">\(\mathcal{I}:=\{y\in\mathbb{R}^2\setminus\Omega | \exists x\in\Omega: \gamma(x,y)\neq 0\}\)</span> is the interaction domain.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 81</span><span class="n">kernelConst</span> <span class="o">=</span> <span class="n">kernelFactory</span><span class="p">(</span><span class="s1">&#39;constant&#39;</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">horizon</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
+<span class="linenos"> 82</span>
+<span class="linenos"> 83</span><span class="nb">print</span><span class="p">(</span><span class="n">kernelConst</span><span class="p">)</span>
+<span class="linenos"> 84</span><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Constant kernel&#39;</span><span class="p">)</span>
+<span class="linenos"> 85</span><span class="n">kernelConst</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+<span class="linenos"> 86</span>
+<span class="linenos"> 87</span><span class="kn">from</span> <span class="nn">PyNucleus</span> <span class="kn">import</span> <span class="n">DIRICHLET</span>
+<span class="linenos"> 88</span>
+<span class="linenos"> 89</span><span class="n">meshConst</span><span class="p">,</span> <span class="n">nIConst</span> <span class="o">=</span> <span class="n">nonlocalMeshFactory</span><span class="p">(</span><span class="s1">&#39;square&#39;</span><span class="p">,</span> <span class="n">kernel</span><span class="o">=</span><span class="n">kernelConst</span><span class="p">,</span> <span class="n">boundaryCondition</span><span class="o">=</span><span class="n">DIRICHLET</span><span class="p">,</span> <span class="n">hTarget</span><span class="o">=</span><span class="mf">0.18</span><span class="p">)</span>
+<span class="linenos"> 90</span>
+<span class="linenos"> 91</span><span class="nb">print</span><span class="p">(</span><span class="n">meshConst</span><span class="p">)</span>
+<span class="linenos"> 92</span><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Mesh for constant kernel&#39;</span><span class="p">)</span>
+<span class="linenos"> 93</span><span class="n">meshConst</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+<span class="linenos"> 94</span>
+<span class="linenos"> 95</span><span class="n">dmConst</span> <span class="o">=</span> <span class="n">dofmapFactory</span><span class="p">(</span><span class="s1">&#39;P1&#39;</span><span class="p">,</span> <span class="n">meshConst</span><span class="p">,</span> <span class="n">nIConst</span><span class="p">[</span><span class="s1">&#39;domain&#39;</span><span class="p">])</span>
+<span class="linenos"> 96</span><span class="n">dmConstInteraction</span> <span class="o">=</span> <span class="n">dmConst</span><span class="o">.</span><span class="n">getComplementDoFMap</span><span class="p">()</span>
+<span class="linenos"> 97</span>
+<span class="linenos"> 98</span><span class="n">A_const</span> <span class="o">=</span> <span class="n">dmConst</span><span class="o">.</span><span class="n">assembleNonlocal</span><span class="p">(</span><span class="n">kernelConst</span><span class="p">,</span> <span class="n">matrixFormat</span><span class="o">=</span><span class="s1">&#39;sparse&#39;</span><span class="p">)</span>
+<span class="linenos"> 99</span><span class="n">B_const</span> <span class="o">=</span> <span class="n">dmConst</span><span class="o">.</span><span class="n">assembleNonlocal</span><span class="p">(</span><span class="n">kernelConst</span><span class="p">,</span> <span class="n">dm2</span><span class="o">=</span><span class="n">dmConstInteraction</span><span class="p">,</span> <span class="n">matrixFormat</span><span class="o">=</span><span class="s1">&#39;sparse&#39;</span><span class="p">)</span>
+<span class="linenos">100</span>
+<span class="linenos">101</span><span class="n">g</span> <span class="o">=</span> <span class="n">functionFactory</span><span class="p">(</span><span class="s1">&#39;Lambda&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="o">-</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">/</span><span class="mi">4</span><span class="p">)</span>
+<span class="linenos">102</span><span class="n">g_interp</span> <span class="o">=</span> <span class="n">dmConstInteraction</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+<span class="linenos">103</span>
+<span class="linenos">104</span><span class="n">b</span> <span class="o">=</span> <span class="n">dmConst</span><span class="o">.</span><span class="n">assembleRHS</span><span class="p">(</span><span class="n">rhs</span><span class="p">)</span><span class="o">-</span><span class="p">(</span><span class="n">B_const</span><span class="o">*</span><span class="n">g_interp</span><span class="p">)</span>
+<span class="linenos">105</span><span class="n">u</span> <span class="o">=</span> <span class="n">dmConst</span><span class="o">.</span><span class="n">zeros</span><span class="p">()</span>
+<span class="linenos">106</span>
+<span class="linenos">107</span><span class="n">solver</span> <span class="o">=</span> <span class="n">solverFactory</span><span class="p">(</span><span class="s1">&#39;cg&#39;</span><span class="p">,</span> <span class="n">A</span><span class="o">=</span><span class="n">A_const</span><span class="p">,</span> <span class="n">setup</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="linenos">108</span><span class="n">solver</span><span class="o">.</span><span class="n">maxIter</span> <span class="o">=</span> <span class="mi">1000</span>
+<span class="linenos">109</span><span class="n">solver</span><span class="o">.</span><span class="n">tolerance</span> <span class="o">=</span> <span class="mf">1e-8</span>
+<span class="linenos">110</span>
+<span class="linenos">111</span><span class="n">solver</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+<span class="linenos">112</span>
+<span class="linenos">113</span><span class="n">u_global</span> <span class="o">=</span> <span class="n">dmConst</span><span class="o">.</span><span class="n">augmentWithBoundaryData</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">g_interp</span><span class="p">)</span>
+<span class="linenos">114</span>
+<span class="linenos">115</span><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Numerical solution, constant kernel&#39;</span><span class="p">)</span>
+<span class="linenos">116</span><span class="n">u_global</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+<span class="linenos">117</span>
+<span class="linenos">118</span><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Analytic solution, constant kernel&#39;</span><span class="p">)</span>
+<span class="linenos">119</span><span class="n">u_global</span><span class="o">.</span><span class="n">dm</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">g</span><span class="p">)</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+<span class="linenos">120</span>
+<span class="linenos">121</span><span class="nb">print</span><span class="p">(</span><span class="n">A_const</span><span class="p">)</span>
+<span class="linenos">122</span>
+</pre></div>
+</div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Assembling into sparse, symmetric matrix, since 83.82814814814814% of entries are zero.
+Efficiency of assembly with 2 DoFMaps is bad.
+Converting dense to sparse matrix, since 95.91358024691358% of entries are zero.
+
+Kernel(indicator, |x-y|_2 &lt;= 0.2, constantIntegrableScaling(0.2 -&gt; 795.7747154594766))
+
+
+mesh2d with 441 vertices and 800 cells
+
+
+&lt;225x225 SSS_LinearOperator with 7962 stored elements&gt;
+</pre></div>
+</div>
+<p>(<a class="reference external" href=".//example2_stepFiniteHorizon.py">Source code</a>)</p>
+<figure class="align-default" id="id1">
+<img alt="_images/example2_stepFiniteHorizon_00.png" src="_images/example2_stepFiniteHorizon_00.png" />
+<figcaption>
+<p><span class="caption-text">(<a class="reference external" href=".//example2_stepFiniteHorizon_00.png">png</a>, <a class="reference external" href=".//example2_stepFiniteHorizon_00.hires.png">hires.png</a>, <a class="reference external" href=".//example2_stepFiniteHorizon_00.pdf">pdf</a>)</span><a class="headerlink" href="#id1" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<figure class="align-default" id="id2">
+<img alt="_images/example2_stepFiniteHorizon_01.png" src="_images/example2_stepFiniteHorizon_01.png" />
+<figcaption>
+<p><span class="caption-text">(<a class="reference external" href=".//example2_stepFiniteHorizon_01.png">png</a>, <a class="reference external" href=".//example2_stepFiniteHorizon_01.hires.png">hires.png</a>, <a class="reference external" href=".//example2_stepFiniteHorizon_01.pdf">pdf</a>)</span><a class="headerlink" href="#id2" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<figure class="align-default" id="id3">
+<img alt="_images/example2_stepFiniteHorizon_02.png" src="_images/example2_stepFiniteHorizon_02.png" />
+<figcaption>
+<p><span class="caption-text">(<a class="reference external" href=".//example2_stepFiniteHorizon_02.png">png</a>, <a class="reference external" href=".//example2_stepFiniteHorizon_02.hires.png">hires.png</a>, <a class="reference external" href=".//example2_stepFiniteHorizon_02.pdf">pdf</a>)</span><a class="headerlink" href="#id3" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+<figure class="align-default" id="id4">
+<img alt="_images/example2_stepFiniteHorizon_03.png" src="_images/example2_stepFiniteHorizon_03.png" />
+<figcaption>
+<p><span class="caption-text">(<a class="reference external" href=".//example2_stepFiniteHorizon_03.png">png</a>, <a class="reference external" href=".//example2_stepFiniteHorizon_03.hires.png">hires.png</a>, <a class="reference external" href=".//example2_stepFiniteHorizon_03.pdf">pdf</a>)</span><a class="headerlink" href="#id4" title="Permalink to this image">¶</a></p>
+</figcaption>
+</figure>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Example 2 - Nonlocal problems</a><ul>
+<li><a class="reference internal" href="#a-fractional-kernel">A fractional kernel</a></li>
+<li><a class="reference internal" href="#nonlocal-assembly">Nonlocal assembly</a></li>
+<li><a class="reference internal" href="#a-finite-horizon-case">A finite horizon case</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="example1.html"
+                        title="previous chapter">Example 1 - A simple PDE problem</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="PyNucleus_base.html"
+                        title="next chapter">PyNucleus.base package</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/example2.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="PyNucleus_base.html" title="PyNucleus.base package"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="example1.html" title="Example 1 - A simple PDE problem"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">PyNucleus  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Example 2 - Nonlocal problems</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2021, Christian Glusa.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.2.0.
+    </div>
+  </body>
+</html>

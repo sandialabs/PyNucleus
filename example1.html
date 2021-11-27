@@ -1,0 +1,421 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Example 1 - A simple PDE problem &#8212; PyNucleus  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/bizstyle.css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Example 2 - Nonlocal problems" href="example2.html" />
+    <link rel="prev" title="Prerequisites" href="installation.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="example2.html" title="Example 2 - Nonlocal problems"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="installation.html" title="Prerequisites"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">PyNucleus  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Example 1 - A simple PDE problem</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="example-1-a-simple-pde-problem">
+<h1>Example 1 - A simple PDE problem<a class="headerlink" href="#example-1-a-simple-pde-problem" title="Permalink to this headline">¶</a></h1>
+<p>In this first example, we will construct a finite element discretization of a classical PDE problem and solve it.
+The full code of this example can be found in <code class="docutils literal notranslate"><span class="pre">drivers/example1.py</span></code>.</p>
+<section id="factories">
+<h2>Factories<a class="headerlink" href="#factories" title="Permalink to this headline">¶</a></h2>
+<p>The creation of different groups of objects, such as finite element spaces or meshes, use factories.
+The available classes that a factory provides can be displayed by calling the <code class="docutils literal notranslate"><span class="pre">print()</span></code> method of the factory.
+An object is built by passing the name of the desired class and additional parameters to the factory.
+If this sounds vague now, don’t worry, the examples below will make it clear.</p>
+</section>
+<section id="meshes">
+<h2>Meshes<a class="headerlink" href="#meshes" title="Permalink to this headline">¶</a></h2>
+<p>The first object we need to create is a mesh to support the finite element discretization.
+We start by construction a mesh for a square domain <span class="math notranslate nohighlight">\(\Omega=[0, 1] \times [0, 1]\)</span> and refining it uniformly three times:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="linenos">15</span>
+<span class="linenos">16</span><span class="kn">from</span> <span class="nn">PyNucleus</span> <span class="kn">import</span> <span class="n">meshFactory</span>
+<span class="linenos">17</span>
+<span class="linenos">18</span><span class="c1"># show available options</span>
+<span class="linenos">19</span><span class="n">meshFactory</span><span class="o">.</span><span class="n">print</span><span class="p">()</span>
+<span class="linenos">20</span>
+<span class="linenos">21</span><span class="n">mesh</span> <span class="o">=</span> <span class="n">meshFactory</span><span class="p">(</span><span class="s1">&#39;square&#39;</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">ay</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">bx</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">by</span><span class="o">=</span><span class="mf">1.</span><span class="p">)</span>
+<span class="linenos">22</span><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+<span class="linenos">23</span>    <span class="n">mesh</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">refine</span><span class="p">()</span>
+<span class="linenos">24</span>
+<span class="linenos">25</span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Mesh:&#39;</span><span class="p">,</span> <span class="n">mesh</span><span class="p">)</span>
+<span class="linenos">26</span><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Mesh&#39;</span><span class="p">)</span>
+<span class="linenos">27</span><span class="n">mesh</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+<span class="linenos">28</span>
+</pre></div>
+</div>
+<p>The output of the above code snippet is given below.
+In particular, we see what other meshes we could have constructed using the <code class="docutils literal notranslate"><span class="pre">meshFactory</span></code>, apart from ‘square’, and what parameters we can pass to the factory,
+We also see that we created a 2d mesh with 289 vertices and 512 cells.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Available:
+&#39;simpleInterval&#39; with aliases [&#39;interval&#39;], signature: &#39;(a=0.0, b=1.0, numCells=1)&#39;
+&#39;unitInterval&#39;, signature: &#39;(a=0.0, b=1.0, numCells=1)&#39;
+&#39;intervalWithInteraction&#39;, signature: &#39;(a, b, horizon, h=None, strictInteraction=True)&#39;
+&#39;disconnectedInterval&#39;, signature: &#39;(sep=0.1)&#39;
+&#39;simpleSquare&#39;, signature: &#39;()&#39;
+&#39;crossSquare&#39; with aliases [&#39;squareCross&#39;], signature: &#39;()&#39;
+&#39;unitSquare&#39; with aliases [&#39;square&#39;], signature: &#39;(N, M=None, ax=0, ay=0, bx=1, by=1, crossed=False)&#39;
+&#39;gradedSquare&#39;, signature: &#39;(factor=0.6)&#39;
+&#39;gradedBox&#39; with aliases [&#39;gradedCube&#39;], signature: &#39;(factor=0.6)&#39;
+&#39;squareWithInteraction&#39;, signature: &#39;(ax, ay, bx, by, horizon, h=None, uniform=False, strictInteraction=True, innerRadius=-1, preserveLinesHorizontal=[], preserveLinesVertical=[], **kwargs)&#39;
+&#39;simpleLshape&#39; with aliases [&#39;Lshape&#39;, &#39;L-shape&#39;], signature: &#39;()&#39;
+&#39;circle&#39; with aliases [&#39;disc&#39;, &#39;unitDisc&#39;, &#39;ball2d&#39;, &#39;2dball&#39;], signature: &#39;(n, radius=1.0, returnFacets=False, **kwargs)&#39;
+&#39;graded_circle&#39; with aliases [&#39;gradedCircle&#39;], signature: &#39;(M, mu=2.0, radius=1.0, returnFacets=False, **kwargs)&#39;
+&#39;discWithInteraction&#39;, signature: &#39;(radius, horizon, h=0.25)&#39;
+&#39;cutoutCircle&#39; with aliases [&#39;cutoutDisc&#39;], signature: &#39;(n, radius=1.0, cutoutAngle=1.5707963267948966, returnFacets=False, minAngle=30, **kwargs)&#39;
+&#39;simpleBox&#39; with aliases [&#39;box&#39;, &#39;unitBox&#39;, &#39;cube&#39;, &#39;unitCube&#39;], signature: &#39;()&#39;
+&#39;simpleFicheraCube&#39; with aliases [&#39;fichera&#39;, &#39;ficheraCube&#39;], signature: &#39;()&#39;
+
+
+
+Mesh: mesh2d with 289 vertices and 512 cells
+</pre></div>
+</div>
+<p>(<a class="reference external" href=".//example1_stepMesh.py">Source code</a>, <a class="reference external" href=".//example1_stepMesh.png">png</a>, <a class="reference external" href=".//example1_stepMesh.hires.png">hires.png</a>, <a class="reference external" href=".//example1_stepMesh.pdf">pdf</a>)</p>
+<figure class="align-default">
+<img alt="_images/example1_stepMesh.png" src="_images/example1_stepMesh.png" />
+</figure>
+<p>Many PyNucleus objects have a <code class="docutils literal notranslate"><span class="pre">plot</span></code> method, similar to the mesh that we just created.</p>
+</section>
+<section id="dofmaps">
+<h2>DoFMaps<a class="headerlink" href="#dofmaps" title="Permalink to this headline">¶</a></h2>
+<p>In the next step, we create a finite element space on the mesh.
+By default, we assume a Dirichlet condition on the entire boundary of the domain.
+We build a piecewise linear finite element space.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="linenos">31</span><span class="kn">from</span> <span class="nn">PyNucleus</span> <span class="kn">import</span> <span class="n">dofmapFactory</span>
+<span class="linenos">32</span>
+<span class="linenos">33</span><span class="c1"># show available options</span>
+<span class="linenos">34</span><span class="n">dofmapFactory</span><span class="o">.</span><span class="n">print</span><span class="p">()</span>
+<span class="linenos">35</span>
+<span class="linenos">36</span><span class="c1"># We use piecewise linears</span>
+<span class="linenos">37</span><span class="n">dm</span> <span class="o">=</span> <span class="n">dofmapFactory</span><span class="p">(</span><span class="s1">&#39;P1&#39;</span><span class="p">,</span> <span class="n">mesh</span><span class="p">)</span>
+<span class="linenos">38</span>
+<span class="linenos">39</span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;DoFMap:&#39;</span><span class="p">,</span> <span class="n">dm</span><span class="p">)</span>
+<span class="linenos">40</span>
+<span class="linenos">41</span><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;DoFMap&#39;</span><span class="p">)</span>
+<span class="linenos">42</span><span class="n">dm</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+<span class="linenos">43</span>
+</pre></div>
+</div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Available:
+&#39;P0d&#39; with aliases [&#39;P0&#39;], signature: &#39;P0_DoFMap(meshBase mesh, tag=None, INDEX_t skipCellsAfter=-1)&#39;
+&#39;P1c&#39; with aliases [&#39;P1&#39;], signature: &#39;P1_DoFMap(meshBase mesh, tag=None, INDEX_t skipCellsAfter=-1)&#39;
+&#39;P2c&#39; with aliases [&#39;P2&#39;], signature: &#39;P2_DoFMap(meshBase mesh, tag=None, INDEX_t skipCellsAfter=-1)&#39;
+&#39;P3c&#39; with aliases [&#39;P3&#39;], signature: &#39;P3_DoFMap(meshBase mesh, tag=None, INDEX_t skipCellsAfter=-1)&#39;
+
+
+
+DoFMap: P1 DoFMap with 225 DoFs and 64 boundary DoFs.
+</pre></div>
+</div>
+<p>(<a class="reference external" href=".//example1_stepDoFMap.py">Source code</a>, <a class="reference external" href=".//example1_stepDoFMap.png">png</a>, <a class="reference external" href=".//example1_stepDoFMap.hires.png">hires.png</a>, <a class="reference external" href=".//example1_stepDoFMap.pdf">pdf</a>)</p>
+<figure class="align-default">
+<img alt="_images/example1_stepDoFMap.png" src="_images/example1_stepDoFMap.png" />
+</figure>
+</section>
+<section id="functions-and-vectors">
+<h2>Functions and vectors<a class="headerlink" href="#functions-and-vectors" title="Permalink to this headline">¶</a></h2>
+<p>Functions can either be defined in Python, or in Cython.
+The advantage of the latter is that their code is compiled, which speeds up evaluation significantly.
+A couple of compiled functions are already available via the <code class="docutils literal notranslate"><span class="pre">functionFactory</span></code>.
+A generic Python function can be used via the <code class="docutils literal notranslate"><span class="pre">Lambda</span></code> function class.</p>
+<p>We will be solving the problem</p>
+<div class="math notranslate nohighlight">
+\[\begin{split}-\Delta u &amp;= f &amp; \text{ in } \Omega, \\
+u &amp;= 0 &amp; \text{ on } \partial \Omega,\end{split}\]</div>
+<p>for two different forcing functions <span class="math notranslate nohighlight">\(f\)</span>.</p>
+<p>We assemble the right-hand side</p>
+<div class="math notranslate nohighlight">
+\[\int_\Omega f v\]</div>
+<p>of the linear system by calling the <code class="docutils literal notranslate"><span class="pre">assembleRHS</span></code> method of the DoFMap object, and interpolate the exact solutions into the finite element space.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="linenos">46</span><span class="kn">from</span> <span class="nn">PyNucleus</span> <span class="kn">import</span> <span class="n">functionFactory</span>
+<span class="linenos">47</span>
+<span class="linenos">48</span><span class="c1"># show available options</span>
+<span class="linenos">49</span><span class="n">functionFactory</span><span class="o">.</span><span class="n">print</span><span class="p">()</span>
+<span class="linenos">50</span>
+<span class="linenos">51</span><span class="c1"># functions defined via Python lambdas</span>
+<span class="linenos">52</span><span class="n">rhs_1</span> <span class="o">=</span> <span class="n">functionFactory</span><span class="p">(</span><span class="s1">&#39;Lambda&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="mi">2</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+<span class="linenos">53</span><span class="n">exact_solution_1</span> <span class="o">=</span> <span class="n">functionFactory</span><span class="p">(</span><span class="s1">&#39;Lambda&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+<span class="linenos">54</span>
+<span class="linenos">55</span><span class="c1"># Functions defined via Cython implementations -&gt; faster evaluation</span>
+<span class="linenos">56</span><span class="n">rhs_2</span> <span class="o">=</span> <span class="n">functionFactory</span><span class="p">(</span><span class="s1">&#39;rhsFunSin2D&#39;</span><span class="p">)</span>
+<span class="linenos">57</span><span class="n">exact_solution_2</span> <span class="o">=</span> <span class="n">functionFactory</span><span class="p">(</span><span class="s1">&#39;solSin2D&#39;</span><span class="p">)</span>
+<span class="linenos">58</span>
+<span class="linenos">59</span><span class="c1"># assemble right-hand side vectors and interpolate the exact solutions</span>
+<span class="linenos">60</span><span class="n">b1</span> <span class="o">=</span> <span class="n">dm</span><span class="o">.</span><span class="n">assembleRHS</span><span class="p">(</span><span class="n">rhs_1</span><span class="p">)</span>
+<span class="linenos">61</span><span class="n">u_interp_1</span> <span class="o">=</span> <span class="n">dm</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">exact_solution_1</span><span class="p">)</span>
+<span class="linenos">62</span>
+<span class="linenos">63</span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Linear system RHS:&#39;</span><span class="p">,</span> <span class="n">b1</span><span class="p">)</span>
+<span class="linenos">64</span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Interpolated solution:&#39;</span><span class="p">,</span> <span class="n">u_interp_1</span><span class="p">)</span>
+<span class="linenos">65</span>
+<span class="linenos">66</span><span class="n">b2</span> <span class="o">=</span> <span class="n">dm</span><span class="o">.</span><span class="n">assembleRHS</span><span class="p">(</span><span class="n">rhs_2</span><span class="p">)</span>
+<span class="linenos">67</span><span class="n">u_interp_2</span> <span class="o">=</span> <span class="n">dm</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">exact_solution_2</span><span class="p">)</span>
+<span class="linenos">68</span>
+<span class="linenos">69</span><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Interpolated solution&#39;</span><span class="p">)</span>
+<span class="linenos">70</span><span class="n">u_interp_1</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
+<span class="linenos">71</span>
+</pre></div>
+</div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Available:
+&#39;rhsFunSin1D&#39;, signature: &#39;None&#39;
+&#39;rhsFunSin2D&#39;, signature: &#39;_rhsFunSin2D(INDEX_t k=1, INDEX_t l=1)&#39;
+&#39;rhsFunSin3D&#39;, signature: &#39;None&#39;
+&#39;solSin1D&#39; with aliases [&#39;sin1d&#39;], signature: &#39;_solSin1D(INDEX_t k=1)&#39;
+&#39;solCos1D&#39; with aliases [&#39;cos1d&#39;], signature: &#39;_cos1D(INDEX_t k=1)&#39;
+&#39;solSin2D&#39; with aliases [&#39;sin2d&#39;], signature: &#39;_solSin2D(INDEX_t k=1, INDEX_t l=1)&#39;
+&#39;solCos2D&#39; with aliases [&#39;cos2d&#39;], signature: &#39;None&#39;
+&#39;solSin3D&#39; with aliases [&#39;sin3d&#39;], signature: &#39;_solSin3D(INDEX_t k=1, INDEX_t l=1, INDEX_t m=1)&#39;
+&#39;solFractional&#39;, signature: &#39;solFractional(REAL_t s, INDEX_t dim, REAL_t radius=1.0)&#39;
+&#39;solFractional1D&#39;, signature: &#39;solFractional1D(REAL_t s, INDEX_t n)&#39;
+&#39;solFractional2D&#39;, signature: &#39;solFractional2D(REAL_t s, INDEX_t l, INDEX_t n, REAL_t angular_shift=0.)&#39;
+&#39;rhsFractional1D&#39;, signature: &#39;rhsFractional1D(REAL_t s, INDEX_t n)&#39;
+&#39;rhsFractional2D&#39;, signature: &#39;rhsFractional2D(REAL_t s, INDEX_t l, INDEX_t n, REAL_t angular_shift=0.)&#39;
+&#39;constant&#39;, signature: &#39;constant(REAL_t value)&#39;
+&#39;Lambda&#39;, signature: &#39;Lambda(fun)&#39;
+&#39;squareIndicator&#39;, signature: &#39;squareIndicator(REAL_t[::1] a, REAL_t[::1] b)&#39;
+&#39;radialIndicator&#39;, signature: &#39;radialIndicator(REAL_t radius, REAL_t[::1] center=None)&#39;
+&#39;rhsBoundaryLayer2D&#39;, signature: &#39;_rhsBoundaryLayer2D(REAL_t radius=0.25, REAL_t c=100.0)&#39;
+&#39;solBoundaryLayer2D&#39;, signature: &#39;_solBoundaryLayer2D(REAL_t radius=0.25, REAL_t c=100.0)&#39;
+&#39;solCornerSingularity2D&#39;, signature: &#39;_solCornerSingularity2D()&#39;
+&#39;lookup&#39;, signature: &#39;lookupFunction(meshBase mesh, DoFMap dm, REAL_t[::1] u, cellFinder2 cF=None)&#39;
+
+
+
+Linear system RHS: REALfe_vector&lt;P1 DoFMap with 225 DoFs and 64 boundary DoFs.&gt;
+Interpolated solution: REALfe_vector&lt;P1 DoFMap with 225 DoFs and 64 boundary DoFs.&gt;
+</pre></div>
+</div>
+<p>(<a class="reference external" href=".//example1_stepFunctions.py">Source code</a>, <a class="reference external" href=".//example1_stepFunctions.png">png</a>, <a class="reference external" href=".//example1_stepFunctions.hires.png">hires.png</a>, <a class="reference external" href=".//example1_stepFunctions.pdf">pdf</a>)</p>
+<figure class="align-default">
+<img alt="_images/example1_stepFunctions.png" src="_images/example1_stepFunctions.png" />
+</figure>
+</section>
+<section id="matrices">
+<h2>Matrices<a class="headerlink" href="#matrices" title="Permalink to this headline">¶</a></h2>
+<p>We assemble two matrices, the mass matrix</p>
+<div class="math notranslate nohighlight">
+\[\int_\Omega u v\]</div>
+<p>and the stiffness matrix associated with the Laplacian</p>
+<div class="math notranslate nohighlight">
+\[\int_\Omega \nabla u \cdot \nabla v\]</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="linenos">74</span><span class="n">mass</span> <span class="o">=</span> <span class="n">dm</span><span class="o">.</span><span class="n">assembleMass</span><span class="p">()</span>
+<span class="linenos">75</span><span class="n">laplacian</span> <span class="o">=</span> <span class="n">dm</span><span class="o">.</span><span class="n">assembleStiffness</span><span class="p">()</span>
+<span class="linenos">76</span>
+<span class="linenos">77</span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Linear system matrix:&#39;</span><span class="p">,</span> <span class="n">laplacian</span><span class="p">)</span>
+<span class="linenos">78</span>
+</pre></div>
+</div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Linear system matrix: &lt;225x225 CSR_LinearOperator with 1457 stored elements&gt;
+</pre></div>
+</div>
+</section>
+<section id="solvers">
+<h2>Solvers<a class="headerlink" href="#solvers" title="Permalink to this headline">¶</a></h2>
+<p>Now that we have assembled our linear system, we want to solve it.
+We choose to solve one system using an LU solver, and the other one using a CG solver.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 81</span><span class="kn">from</span> <span class="nn">PyNucleus</span> <span class="kn">import</span> <span class="n">solverFactory</span>
+<span class="linenos"> 82</span>
+<span class="linenos"> 83</span><span class="c1"># show available options</span>
+<span class="linenos"> 84</span><span class="n">solverFactory</span><span class="o">.</span><span class="n">print</span><span class="p">()</span>
+<span class="linenos"> 85</span>
+<span class="linenos"> 86</span><span class="n">solver_direct</span> <span class="o">=</span> <span class="n">solverFactory</span><span class="p">(</span><span class="s1">&#39;lu&#39;</span><span class="p">,</span> <span class="n">A</span><span class="o">=</span><span class="n">laplacian</span><span class="p">)</span>
+<span class="linenos"> 87</span><span class="n">solver_direct</span><span class="o">.</span><span class="n">setup</span><span class="p">()</span>
+<span class="linenos"> 88</span>
+<span class="linenos"> 89</span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Direct solver:&#39;</span><span class="p">,</span> <span class="n">solver_direct</span><span class="p">)</span>
+<span class="linenos"> 90</span>
+<span class="linenos"> 91</span><span class="n">solver_krylov</span> <span class="o">=</span> <span class="n">solverFactory</span><span class="p">(</span><span class="s1">&#39;cg&#39;</span><span class="p">,</span> <span class="n">A</span><span class="o">=</span><span class="n">laplacian</span><span class="p">)</span>
+<span class="linenos"> 92</span><span class="n">solver_krylov</span><span class="o">.</span><span class="n">setup</span><span class="p">()</span>
+<span class="linenos"> 93</span><span class="n">solver_krylov</span><span class="o">.</span><span class="n">maxIter</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="linenos"> 94</span><span class="n">solver_krylov</span><span class="o">.</span><span class="n">tolerance</span> <span class="o">=</span> <span class="mf">1e-8</span>
+<span class="linenos"> 95</span>
+<span class="linenos"> 96</span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Krylov solver:&#39;</span><span class="p">,</span> <span class="n">solver_krylov</span><span class="p">)</span>
+<span class="linenos"> 97</span>
+<span class="linenos"> 98</span><span class="n">u1</span> <span class="o">=</span> <span class="n">dm</span><span class="o">.</span><span class="n">zeros</span><span class="p">()</span>
+<span class="linenos"> 99</span><span class="n">solver_direct</span><span class="p">(</span><span class="n">b1</span><span class="p">,</span> <span class="n">u1</span><span class="p">)</span>
+<span class="linenos">100</span>
+<span class="linenos">101</span><span class="n">u2</span> <span class="o">=</span> <span class="n">dm</span><span class="o">.</span><span class="n">zeros</span><span class="p">()</span>
+<span class="linenos">102</span><span class="n">numIter</span> <span class="o">=</span> <span class="n">solver_krylov</span><span class="p">(</span><span class="n">b2</span><span class="p">,</span> <span class="n">u2</span><span class="p">)</span>
+<span class="linenos">103</span>
+<span class="linenos">104</span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Number of iterations:&#39;</span><span class="p">,</span> <span class="n">numIter</span><span class="p">)</span>
+<span class="linenos">105</span>
+<span class="linenos">106</span><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Error&#39;</span><span class="p">)</span>
+<span class="linenos">107</span><span class="p">(</span><span class="n">u_interp_1</span><span class="o">-</span><span class="n">u1</span><span class="p">)</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">flat</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="linenos">108</span>
+</pre></div>
+</div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Single level solvers:
+Available:
+&#39;None&#39;, signature: &#39;noop_solver(LinearOperator A, INDEX_t num_rows=-1)&#39;
+&#39;lu&#39;, signature: &#39;lu_solver(LinearOperator A, INDEX_t num_rows=-1)&#39;
+&#39;chol&#39; with aliases [&#39;cholesky&#39;, &#39;cholmod&#39;], signature: &#39;chol_solver(LinearOperator A, INDEX_t num_rows=-1)&#39;
+&#39;cg&#39;, signature: &#39;cg_solver(LinearOperator A=None, INDEX_t num_rows=-1)&#39;
+&#39;gmres&#39;, signature: &#39;gmres_solver(LinearOperator A=None, INDEX_t num_rows=-1)&#39;
+&#39;bicgstab&#39;, signature: &#39;bicgstab_solver(LinearOperator A=None, INDEX_t num_rows=-1)&#39;
+&#39;ichol&#39;, signature: &#39;ichol_solver(LinearOperator A=None, INDEX_t num_rows=-1)&#39;
+&#39;ilu&#39;, signature: &#39;ilu_solver(LinearOperator A=None, INDEX_t num_rows=-1)&#39;
+&#39;jacobi&#39; with aliases [&#39;diagonal&#39;], signature: &#39;jacobi_solver(LinearOperator A=None, INDEX_t num_rows=-1)&#39;
+&#39;complex_lu&#39;, signature: &#39;complex_lu_solver(ComplexLinearOperator A, INDEX_t num_rows=-1)&#39;
+&#39;complex_gmres&#39;, signature: &#39;complex_gmres_solver(ComplexLinearOperator A=None, INDEX_t num_rows=-1)&#39;
+Multi level solvers:
+Available:
+&#39;mg&#39;, signature: &#39;multigrid(myHierarchyManager, smoother=(&#39;jacobi&#39;, {&#39;omega&#39;: 2.0 / 3.0}), BOOL_t logging=False, **kwargs)&#39;
+&#39;complex_mg&#39;, signature: &#39;Complexmultigrid(myHierarchyManager, smoother=(&#39;jacobi&#39;, {&#39;omega&#39;: 2.0 / 3.0}), BOOL_t logging=False, **kwargs)&#39;
+
+
+
+Direct solver: LU
+
+
+Krylov solver: CG(tolerance=1e-08,relTol=0,maxIter=100,2-norm=0)
+
+
+Number of iterations: 20
+</pre></div>
+</div>
+<p>(<a class="reference external" href=".//example1_stepSolvers.py">Source code</a>, <a class="reference external" href=".//example1_stepSolvers.png">png</a>, <a class="reference external" href=".//example1_stepSolvers.hires.png">hires.png</a>, <a class="reference external" href=".//example1_stepSolvers.pdf">pdf</a>)</p>
+<figure class="align-default">
+<img alt="_images/example1_stepSolvers.png" src="_images/example1_stepSolvers.png" />
+</figure>
+</section>
+<section id="norms-and-inner-products">
+<h2>Norms and inner products<a class="headerlink" href="#norms-and-inner-products" title="Permalink to this headline">¶</a></h2>
+<p>Finally, we want to check that we actually solved the system by computing residual errors.
+We also compute errors in <span class="math notranslate nohighlight">\(H^1_0\)</span> and <span class="math notranslate nohighlight">\(L^2\)</span> norms.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="linenos">111</span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Residual norm 1st solve: &#39;</span><span class="p">,</span> <span class="p">(</span><span class="n">b1</span><span class="o">-</span><span class="n">laplacian</span><span class="o">*</span><span class="n">u1</span><span class="p">)</span><span class="o">.</span><span class="n">norm</span><span class="p">())</span>
+<span class="linenos">112</span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Residual norm 2nd solve: &#39;</span><span class="p">,</span> <span class="p">(</span><span class="n">b2</span><span class="o">-</span><span class="n">laplacian</span><span class="o">*</span><span class="n">u2</span><span class="p">)</span><span class="o">.</span><span class="n">norm</span><span class="p">())</span>
+<span class="linenos">113</span>
+<span class="linenos">114</span><span class="c1"># Compute errors</span>
+<span class="linenos">115</span><span class="n">H10_error_1</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">b1</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">u_interp_1</span><span class="o">-</span><span class="n">u1</span><span class="p">))</span>
+<span class="linenos">116</span><span class="n">L2_error_1</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">((</span><span class="n">u_interp_1</span><span class="o">-</span><span class="n">u1</span><span class="p">)</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">mass</span><span class="o">*</span><span class="p">(</span><span class="n">u_interp_1</span><span class="o">-</span><span class="n">u1</span><span class="p">)))</span>
+<span class="linenos">117</span><span class="n">H10_error_2</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">b2</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">u_interp_2</span><span class="o">-</span><span class="n">u2</span><span class="p">))</span>
+<span class="linenos">118</span><span class="n">L2_error_2</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">((</span><span class="n">u_interp_2</span><span class="o">-</span><span class="n">u2</span><span class="p">)</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">mass</span><span class="o">*</span><span class="p">(</span><span class="n">u_interp_2</span><span class="o">-</span><span class="n">u2</span><span class="p">)))</span>
+<span class="linenos">119</span>
+<span class="linenos">120</span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;1st problem - H10:&#39;</span><span class="p">,</span> <span class="n">H10_error_1</span><span class="p">,</span> <span class="s1">&#39;L2:&#39;</span><span class="p">,</span> <span class="n">L2_error_1</span><span class="p">)</span>
+<span class="linenos">121</span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;2nd problem - H10:&#39;</span><span class="p">,</span> <span class="n">H10_error_2</span><span class="p">,</span> <span class="s1">&#39;L2:&#39;</span><span class="p">,</span> <span class="n">L2_error_2</span><span class="p">)</span>
+<span class="linenos">122</span>
+</pre></div>
+</div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Residual norm 1st solve:  3.1227072320037345e-16
+Residual norm 2nd solve:  5.3146160357509636e-09
+
+
+1st problem - H10: 0.008458048434239385 L2: 0.00010638726221991537
+2nd problem - H10: 0.125510275696724 L2: 0.0016209200215763343
+</pre></div>
+</div>
+<p>This concludes our first example.
+Next, we turn to nonlocal equations.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Example 1 - A simple PDE problem</a><ul>
+<li><a class="reference internal" href="#factories">Factories</a></li>
+<li><a class="reference internal" href="#meshes">Meshes</a></li>
+<li><a class="reference internal" href="#dofmaps">DoFMaps</a></li>
+<li><a class="reference internal" href="#functions-and-vectors">Functions and vectors</a></li>
+<li><a class="reference internal" href="#matrices">Matrices</a></li>
+<li><a class="reference internal" href="#solvers">Solvers</a></li>
+<li><a class="reference internal" href="#norms-and-inner-products">Norms and inner products</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="installation.html"
+                        title="previous chapter">Prerequisites</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="example2.html"
+                        title="next chapter">Example 2 - Nonlocal problems</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/example1.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="example2.html" title="Example 2 - Nonlocal problems"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="installation.html" title="Prerequisites"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">PyNucleus  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Example 1 - A simple PDE problem</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2021, Christian Glusa.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.2.0.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,168 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>PyNucleus.metisCy package &#8212; PyNucleus  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/bizstyle.css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="PyNucleus.multilevelSolver package" href="PyNucleus_multilevelSolver.html" />
+    <link rel="prev" title="PyNucleus.fem package" href="PyNucleus_fem.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="PyNucleus_multilevelSolver.html" title="PyNucleus.multilevelSolver package"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="PyNucleus_fem.html" title="PyNucleus.fem package"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">PyNucleus  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">PyNucleus.metisCy package</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="module-PyNucleus_metisCy">
+<span id="pynucleus-metiscy-package"></span><h1>PyNucleus.metisCy package<a class="headerlink" href="#module-PyNucleus_metisCy" title="Permalink to this headline">¶</a></h1>
+<p>A Cython interface to METIS and ParMETIS.</p>
+<p><a class="reference external" href="http://glaros.dtc.umn.edu/gkhome/metis/metis/overview">http://glaros.dtc.umn.edu/gkhome/metis/metis/overview</a>
+<a class="reference external" href="http://glaros.dtc.umn.edu/gkhome/metis/parmetis/overview">http://glaros.dtc.umn.edu/gkhome/metis/parmetis/overview</a></p>
+<section id="module-PyNucleus_metisCy.metisCy">
+<span id="pynucleus-metiscy-metiscy-module"></span><h2>PyNucleus.metisCy.metisCy module<a class="headerlink" href="#module-PyNucleus_metisCy.metisCy" title="Permalink to this headline">¶</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNucleus_metisCy.metisCy.NodeND">
+<span class="sig-prename descclassname"><span class="pre">PyNucleus_metisCy.metisCy.</span></span><span class="sig-name descname"><span class="pre">NodeND</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">xadj</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">adjncy</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">vwgt=None</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">options=None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_metisCy.metisCy.NodeND" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNucleus_metisCy.metisCy.PartGraphKway">
+<span class="sig-prename descclassname"><span class="pre">PyNucleus_metisCy.metisCy.</span></span><span class="sig-name descname"><span class="pre">PartGraphKway</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">xadj</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">adjncy</span></em>, <em class="sig-param"><span class="pre">idx_t</span> <span class="pre">nparts</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">vwgt=None</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">vsize=None</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">adjwgt=None</span></em>, <em class="sig-param"><span class="pre">real_t[::1]</span> <span class="pre">tpwgts=None</span></em>, <em class="sig-param"><span class="pre">real_t[::1]</span> <span class="pre">ubvec=None</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">options=None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_metisCy.metisCy.PartGraphKway" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNucleus_metisCy.metisCy.PartGraphRecursive">
+<span class="sig-prename descclassname"><span class="pre">PyNucleus_metisCy.metisCy.</span></span><span class="sig-name descname"><span class="pre">PartGraphRecursive</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">xadj</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">adjncy</span></em>, <em class="sig-param"><span class="pre">idx_t</span> <span class="pre">nparts</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">vwgt=None</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">vsize=None</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">adjwgt=None</span></em>, <em class="sig-param"><span class="pre">real_t[::1]</span> <span class="pre">tpwgts=None</span></em>, <em class="sig-param"><span class="pre">real_t[::1]</span> <span class="pre">ubvec=None</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">options=None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_metisCy.metisCy.PartGraphRecursive" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNucleus_metisCy.metisCy.PartMeshDual">
+<span class="sig-prename descclassname"><span class="pre">PyNucleus_metisCy.metisCy.</span></span><span class="sig-name descname"><span class="pre">PartMeshDual</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">eptr</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">eind</span></em>, <em class="sig-param"><span class="pre">idx_t</span> <span class="pre">ncommon</span></em>, <em class="sig-param"><span class="pre">idx_t</span> <span class="pre">nparts</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">vwgt=None</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">vsize=None</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">adjwgt=None</span></em>, <em class="sig-param"><span class="pre">real_t[::1]</span> <span class="pre">tpwgts=None</span></em>, <em class="sig-param"><span class="pre">real_t[::1]</span> <span class="pre">ubvec=None</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">options=None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_metisCy.metisCy.PartMeshDual" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNucleus_metisCy.metisCy.PartMeshNodal">
+<span class="sig-prename descclassname"><span class="pre">PyNucleus_metisCy.metisCy.</span></span><span class="sig-name descname"><span class="pre">PartMeshNodal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">eptr</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">eind</span></em>, <em class="sig-param"><span class="pre">idx_t</span> <span class="pre">nparts</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">vwgt=None</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">vsize=None</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">adjwgt=None</span></em>, <em class="sig-param"><span class="pre">real_t[::1]</span> <span class="pre">tpwgts=None</span></em>, <em class="sig-param"><span class="pre">real_t[::1]</span> <span class="pre">ubvec=None</span></em>, <em class="sig-param"><span class="pre">idx_t[::1]</span> <span class="pre">options=None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_metisCy.metisCy.PartMeshNodal" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNucleus_metisCy.metisCy.SetDefaultOptions">
+<span class="sig-prename descclassname"><span class="pre">PyNucleus_metisCy.metisCy.</span></span><span class="sig-name descname"><span class="pre">SetDefaultOptions</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_metisCy.metisCy.SetDefaultOptions" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNucleus_metisCy.metisCy.process_return">
+<span class="sig-prename descclassname"><span class="pre">PyNucleus_metisCy.metisCy.</span></span><span class="sig-name descname"><span class="pre">process_return</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">returnVal</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_metisCy.metisCy.process_return" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</section>
+<section id="pynucleus-metiscy-parmetiscy-module">
+<h2>PyNucleus.metisCy.parmetisCy module<a class="headerlink" href="#pynucleus-metiscy-parmetiscy-module" title="Permalink to this headline">¶</a></h2>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">PyNucleus.metisCy package</a><ul>
+<li><a class="reference internal" href="#module-PyNucleus_metisCy.metisCy">PyNucleus.metisCy.metisCy module</a></li>
+<li><a class="reference internal" href="#pynucleus-metiscy-parmetiscy-module">PyNucleus.metisCy.parmetisCy module</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="PyNucleus_fem.html"
+                        title="previous chapter">PyNucleus.fem package</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="PyNucleus_multilevelSolver.html"
+                        title="next chapter">PyNucleus.multilevelSolver package</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/PyNucleus_metisCy.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="PyNucleus_multilevelSolver.html" title="PyNucleus.multilevelSolver package"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="PyNucleus_fem.html" title="PyNucleus.fem package"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">PyNucleus  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">PyNucleus.metisCy package</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2021, Christian Glusa.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.2.0.
+    </div>
+  </body>
+</html>

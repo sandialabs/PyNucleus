@@ -1,0 +1,311 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PyNucleus_base.plot_utils &#8212; PyNucleus  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/bizstyle.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">PyNucleus  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../PyNucleus_base.html" accesskey="U">PyNucleus_base</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">PyNucleus_base.plot_utils</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for PyNucleus_base.plot_utils</h1><div class="highlight"><pre>
+<span></span><span class="c1">###################################################################################</span>
+<span class="c1"># Copyright 2021 National Technology &amp; Engineering Solutions of Sandia,           #</span>
+<span class="c1"># LLC (NTESS). Under the terms of Contract DE-NA0003525 with NTESS, the           #</span>
+<span class="c1"># U.S. Government retains certain rights in this software.                        #</span>
+<span class="c1"># If you want to use this code, please refer to the README.rst and LICENSE files. #</span>
+<span class="c1">###################################################################################</span>
+
+
+<div class="viewcode-block" id="latexOptions"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.plot_utils.latexOptions">[docs]</a><span class="k">def</span> <span class="nf">latexOptions</span><span class="p">(</span><span class="n">fig_width</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fig_height</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ratio</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">otherMPL</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+    <span class="kn">from</span> <span class="nn">cycler</span> <span class="kn">import</span> <span class="n">cycler</span>
+    <span class="k">if</span> <span class="n">fig_width</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># fig_width = 6.33</span>
+        <span class="n">fig_width</span> <span class="o">=</span> <span class="mf">4.9</span>
+    <span class="k">if</span> <span class="n">fig_height</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">ratio</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">golden_mean</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="o">-</span><span class="mf">1.0</span><span class="p">)</span><span class="o">/</span><span class="mf">2.0</span>    <span class="c1"># Aesthetic ratio</span>
+            <span class="n">fig_height</span> <span class="o">=</span> <span class="n">fig_width</span><span class="o">*</span><span class="n">golden_mean</span>    <span class="c1"># height in inches</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">fig_height</span> <span class="o">=</span> <span class="n">fig_width</span><span class="o">*</span><span class="n">ratio</span>
+    <span class="n">MPLconf</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;text.usetex&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="s1">&#39;axes.titlesize&#39;</span><span class="p">:</span> <span class="n">fontsize</span><span class="p">,</span>
+        <span class="s1">&#39;axes.labelsize&#39;</span><span class="p">:</span> <span class="n">fontsize</span><span class="p">,</span>
+        <span class="s1">&#39;legend.fontsize&#39;</span><span class="p">:</span> <span class="n">fontsize</span><span class="p">,</span>
+        <span class="s1">&#39;xtick.labelsize&#39;</span><span class="p">:</span> <span class="n">fontsize</span><span class="p">,</span>
+        <span class="s1">&#39;ytick.labelsize&#39;</span><span class="p">:</span> <span class="n">fontsize</span><span class="p">,</span>
+        <span class="s1">&#39;lines.linewidth&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="s1">&#39;lines.markersize&#39;</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span>
+        <span class="s1">&#39;text.latex.preamble&#39;</span><span class="p">:</span> <span class="sa">r</span><span class="s1">&#39;\usepackage{amsmath,amsfonts,amssymb,mathrsfs}&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;font.family&#39;</span><span class="p">:</span> <span class="s1">&#39;serif&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;mathtext.fontset&#39;</span><span class="p">:</span> <span class="s1">&#39;cm&#39;</span><span class="p">,</span>
+        <span class="c1"># &#39;font.family&#39;: &#39;STIXGeneral&#39;,</span>
+        <span class="c1"># &#39;mathtext.rm&#39;: &#39;Bitstream Vera Sans&#39;,</span>
+        <span class="c1"># &#39;mathtext.it&#39;: &#39;Bitstream Vera Sans:italic&#39;,</span>
+        <span class="c1"># &#39;mathtext.bf&#39;: &#39;Bitstream Vera Sans:bold&#39;,</span>
+        <span class="c1"># &#39;font.serif&#39;: &#39;cm&#39;,</span>
+        <span class="s1">&#39;font.size&#39;</span><span class="p">:</span> <span class="n">fontsize</span><span class="p">,</span>
+        <span class="s1">&#39;figure.figsize&#39;</span><span class="p">:</span> <span class="p">[</span><span class="n">fig_width</span><span class="p">,</span> <span class="n">fig_height</span><span class="p">],</span>
+        <span class="s1">&#39;axes.prop_cycle&#39;</span><span class="p">:</span> <span class="n">cycler</span><span class="p">(</span><span class="s1">&#39;color&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;#006BA4&#39;</span><span class="p">,</span> <span class="s1">&#39;#FF800E&#39;</span><span class="p">,</span> <span class="s1">&#39;#ABABAB&#39;</span><span class="p">,</span> <span class="s1">&#39;#595959&#39;</span><span class="p">,</span> <span class="s1">&#39;#5F9ED1&#39;</span><span class="p">,</span> <span class="s1">&#39;#C85200&#39;</span><span class="p">,</span> <span class="s1">&#39;#898989&#39;</span><span class="p">,</span> <span class="s1">&#39;#A2C8EC&#39;</span><span class="p">,</span> <span class="s1">&#39;#FFBC79&#39;</span><span class="p">,</span> <span class="s1">&#39;#CFCFCF&#39;</span><span class="p">])</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">otherMPL</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">MPLconf</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">otherMPL</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">MPLconf</span></div>
+
+
+<div class="viewcode-block" id="latexContext"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.plot_utils.latexContext">[docs]</a><span class="k">def</span> <span class="nf">latexContext</span><span class="p">(</span><span class="n">fig_width</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fig_height</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ratio</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                 <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">otherMPL</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">rc_context</span>
+    <span class="n">MPLconf</span> <span class="o">=</span> <span class="n">latexOptions</span><span class="p">(</span><span class="n">fig_width</span><span class="p">,</span> <span class="n">fig_height</span><span class="p">,</span> <span class="n">ratio</span><span class="p">,</span> <span class="n">fontsize</span><span class="p">,</span> <span class="n">otherMPL</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">rc_context</span><span class="p">(</span><span class="n">MPLconf</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="beamerContext"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.plot_utils.beamerContext">[docs]</a><span class="k">def</span> <span class="nf">beamerContext</span><span class="p">(</span><span class="n">fig_width</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fig_height</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ratio</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                  <span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">otherMPL</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">MPLconf</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;lines.markersize&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+               <span class="s1">&#39;savefig.dpi&#39;</span><span class="p">:</span> <span class="mi">100</span><span class="o">*</span><span class="mi">4</span><span class="p">,</span>
+               <span class="s1">&#39;font.family&#39;</span><span class="p">:</span> <span class="s1">&#39;sans-serif&#39;</span><span class="p">,</span>
+               <span class="s1">&#39;font.serif&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;DejaVu Serif&#39;</span><span class="p">,</span>
+                              <span class="s1">&#39;Bitstream Vera Serif&#39;</span><span class="p">,</span>
+                              <span class="s1">&#39;Computer Modern Roman&#39;</span><span class="p">,</span>
+                              <span class="s1">&#39;New Century Schoolbook&#39;</span><span class="p">,</span>
+                              <span class="s1">&#39;Century Schoolbook L&#39;</span><span class="p">,</span>
+                              <span class="s1">&#39;Utopia&#39;</span><span class="p">,</span>
+                              <span class="s1">&#39;ITC Bookman&#39;</span><span class="p">,</span>
+                              <span class="s1">&#39;Bookman&#39;</span><span class="p">,</span>
+                              <span class="s1">&#39;Nimbus Roman No9 L&#39;</span><span class="p">,</span>
+                              <span class="s1">&#39;Times New Roman&#39;</span><span class="p">,</span>
+                              <span class="s1">&#39;Times&#39;</span><span class="p">,</span>
+                              <span class="s1">&#39;Palatino&#39;</span><span class="p">,</span>
+                              <span class="s1">&#39;Charter&#39;</span><span class="p">,</span>
+                              <span class="s1">&#39;serif&#39;</span><span class="p">],</span>
+               <span class="s1">&#39;patch.linewidth&#39;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">}</span>
+    <span class="k">if</span> <span class="n">otherMPL</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">MPLconf</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">otherMPL</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">latexContext</span><span class="p">(</span><span class="n">fig_width</span><span class="p">,</span> <span class="n">fig_height</span><span class="p">,</span> <span class="n">ratio</span><span class="p">,</span> <span class="n">fontsize</span><span class="p">,</span> <span class="n">MPLconf</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="posterContext"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.plot_utils.posterContext">[docs]</a><span class="k">def</span> <span class="nf">posterContext</span><span class="p">(</span><span class="n">fig_width</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fig_height</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ratio</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                  <span class="n">fontsize</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">otherMPL</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">MPLconf</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;lines.markersize&#39;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
+               <span class="s1">&#39;savefig.dpi&#39;</span><span class="p">:</span> <span class="mi">100</span><span class="o">*</span><span class="mi">4</span><span class="p">,</span>
+               <span class="s1">&#39;font.family&#39;</span><span class="p">:</span> <span class="s1">&#39;serif&#39;</span><span class="p">,</span>
+               <span class="s1">&#39;font.serif&#39;</span><span class="p">:</span> <span class="s1">&#39;cm&#39;</span><span class="p">,</span>
+               <span class="s1">&#39;patch.linewidth&#39;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">}</span>
+    <span class="k">if</span> <span class="n">otherMPL</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">MPLconf</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">otherMPL</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">latexContext</span><span class="p">(</span><span class="n">fig_width</span><span class="p">,</span> <span class="n">fig_height</span><span class="p">,</span> <span class="n">ratio</span><span class="p">,</span> <span class="n">fontsize</span><span class="p">,</span> <span class="n">MPLconf</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="plot_with_latex"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.plot_utils.plot_with_latex">[docs]</a><span class="k">def</span> <span class="nf">plot_with_latex</span><span class="p">(</span><span class="n">fun</span><span class="p">,</span> <span class="n">fig_width</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fig_height</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ratio</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">otherMPL</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">inspect</span> <span class="kn">import</span> <span class="n">getargspec</span>
+
+    <span class="n">argspec</span> <span class="o">=</span> <span class="n">getargspec</span><span class="p">(</span><span class="n">fun</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">new_fun</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">kwargs_new</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)):</span>
+            <span class="n">kwargs_new</span><span class="p">[</span><span class="n">argspec</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="p">]]</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">argspec</span><span class="p">[</span><span class="mi">0</span><span class="p">][:]:</span>
+                <span class="n">kwargs_new</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="k">with</span> <span class="n">latexContext</span><span class="p">(</span><span class="n">fig_width</span><span class="p">,</span> <span class="n">fig_height</span><span class="p">,</span> <span class="n">ratio</span><span class="p">,</span> <span class="n">fontsize</span><span class="p">,</span> <span class="n">otherMPL</span><span class="p">):</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">fun</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs_new</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">r</span>
+    <span class="k">return</span> <span class="n">new_fun</span></div>
+
+
+<div class="viewcode-block" id="plot_with_beamer"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.plot_utils.plot_with_beamer">[docs]</a><span class="k">def</span> <span class="nf">plot_with_beamer</span><span class="p">(</span><span class="n">fun</span><span class="p">,</span> <span class="n">fig_width</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fig_height</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ratio</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                     <span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">otherMPL</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">inspect</span> <span class="kn">import</span> <span class="n">getargspec</span>
+
+    <span class="n">argspec</span> <span class="o">=</span> <span class="n">getargspec</span><span class="p">(</span><span class="n">fun</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">new_fun</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">kwargs_new</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)):</span>
+            <span class="n">kwargs_new</span><span class="p">[</span><span class="n">argspec</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="p">]]</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">argspec</span><span class="p">[</span><span class="mi">0</span><span class="p">][:]:</span>
+                <span class="n">kwargs_new</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="k">with</span> <span class="n">beamerContext</span><span class="p">(</span><span class="n">fig_width</span><span class="p">,</span> <span class="n">fig_height</span><span class="p">,</span> <span class="n">ratio</span><span class="p">,</span> <span class="n">fontsize</span><span class="p">,</span> <span class="n">otherMPL</span><span class="p">):</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">fun</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs_new</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">r</span>
+    <span class="k">return</span> <span class="n">new_fun</span></div>
+
+
+<div class="viewcode-block" id="plot_for_poster"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.plot_utils.plot_for_poster">[docs]</a><span class="k">def</span> <span class="nf">plot_for_poster</span><span class="p">(</span><span class="n">fun</span><span class="p">,</span> <span class="n">fig_width</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">fig_height</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ratio</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">fontsize</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">otherMPL</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">inspect</span> <span class="kn">import</span> <span class="n">getargspec</span>
+
+    <span class="n">argspec</span> <span class="o">=</span> <span class="n">getargspec</span><span class="p">(</span><span class="n">fun</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">new_fun</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">kwargs_new</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)):</span>
+            <span class="n">kwargs_new</span><span class="p">[</span><span class="n">argspec</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="p">]]</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">argspec</span><span class="p">[</span><span class="mi">0</span><span class="p">][:]:</span>
+                <span class="n">kwargs_new</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="k">with</span> <span class="n">posterContext</span><span class="p">(</span><span class="n">fig_width</span><span class="p">,</span> <span class="n">fig_height</span><span class="p">,</span> <span class="n">ratio</span><span class="p">,</span> <span class="n">fontsize</span><span class="p">,</span> <span class="n">otherMPL</span><span class="p">):</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">fun</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs_new</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">r</span>
+    <span class="k">return</span> <span class="n">new_fun</span></div>
+
+
+<div class="viewcode-block" id="plotTriangle"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.plot_utils.plotTriangle">[docs]</a><span class="k">def</span> <span class="nf">plotTriangle</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">fac</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">gca</span><span class="p">()</span>
+    <span class="n">dx</span> <span class="o">=</span> <span class="mf">0.8</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span><span class="o">-</span><span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">x1</span> <span class="o">=</span><span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="n">dx</span>
+    <span class="n">y2</span> <span class="o">=</span> <span class="n">y</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span><span class="o">*</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">/</span><span class="n">x1</span><span class="p">)</span><span class="o">**</span><span class="n">fac</span>
+
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">([</span><span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">x1</span><span class="p">,</span> <span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]],</span>
+            <span class="p">[</span><span class="n">y</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">],</span> <span class="n">y2</span><span class="p">,</span> <span class="n">y</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]])</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="mf">0.5</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mf">0.5</span><span class="o">*</span><span class="n">x1</span><span class="p">,</span> <span class="n">y</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">],</span> <span class="nb">str</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">horizontalalignment</span><span class="o">=</span><span class="s1">&#39;right&#39;</span><span class="p">,</span> <span class="n">verticalalignment</span><span class="o">=</span><span class="s1">&#39;bottom&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">y</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span><span class="o">+</span><span class="mf">0.5</span><span class="o">*</span><span class="n">y2</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">fac</span><span class="p">),</span> <span class="n">horizontalalignment</span><span class="o">=</span><span class="s1">&#39;right&#39;</span><span class="p">,</span> <span class="n">verticalalignment</span><span class="o">=</span><span class="s1">&#39;top&#39;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="tabulate"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.plot_utils.tabulate">[docs]</a><span class="k">def</span> <span class="nf">tabulate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">floatfmt</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">groups</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+    <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">roc</span>
+    <span class="n">endl</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span>
+    <span class="n">ltx_endl</span> <span class="o">=</span> <span class="s1">&#39; </span><span class="se">\\\\</span><span class="s1">&#39;</span><span class="o">+</span><span class="n">endl</span>
+    <span class="n">hline</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="se">\\</span><span class="s1">hline&#39;</span><span class="o">+</span><span class="n">endl</span>
+
+    <span class="k">def</span> <span class="nf">myFmt</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">fmt</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">a</span>
+        <span class="k">elif</span> <span class="n">a</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s1">&#39;&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">fmt</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+    <span class="n">d</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">expected</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;theoretical&#39;</span><span class="p">]</span>
+    <span class="n">grpheaders</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;&#39;</span><span class="p">]</span>
+    <span class="n">columnfmt</span> <span class="o">=</span> <span class="s1">&#39;r&#39;</span>
+    <span class="k">if</span> <span class="n">groups</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">vals</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+            <span class="n">columnfmt</span> <span class="o">+=</span> <span class="s1">&#39;|&#39;</span>
+            <span class="n">grpheaders</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\\</span><span class="s1">multicolumn{&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span><span class="n">vals</span><span class="p">))</span><span class="o">+</span><span class="s1">&#39;}</span><span class="si">{c}</span><span class="s1">{&#39;</span><span class="o">+</span><span class="n">key</span><span class="o">+</span><span class="s1">&#39;}&#39;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">result</span><span class="p">,</span> <span class="n">expectedOrder</span> <span class="ow">in</span> <span class="n">vals</span><span class="p">:</span>
+                <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="kc">None</span><span class="p">]]),</span>
+                                    <span class="n">roc</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">result</span><span class="p">)))</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+                <span class="n">d</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">result</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="n">r</span><span class="p">)))</span>
+                <span class="n">expected</span> <span class="o">+=</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">expectedOrder</span><span class="p">]</span>
+                <span class="n">columnfmt</span> <span class="o">+=</span> <span class="s1">&#39;rr&#39;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">columnfmt</span> <span class="o">+=</span> <span class="s1">&#39;|&#39;</span>
+        <span class="k">for</span> <span class="n">result</span><span class="p">,</span> <span class="n">expectedOrder</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="kc">None</span><span class="p">]]),</span>
+                                <span class="n">roc</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">result</span><span class="p">)))</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+            <span class="n">d</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">result</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="n">r</span><span class="p">)))</span>
+            <span class="n">expected</span> <span class="o">+=</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">expectedOrder</span><span class="p">]</span>
+            <span class="n">columnfmt</span> <span class="o">+=</span> <span class="s1">&#39;rr&#39;</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">x</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="o">*</span><span class="n">d</span><span class="p">))</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="n">s</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+    <span class="n">s</span> <span class="o">+=</span> <span class="s1">&#39;</span><span class="se">\\</span><span class="s1">begin</span><span class="si">{tabular}</span><span class="s1">{&#39;</span><span class="o">+</span><span class="n">columnfmt</span><span class="o">+</span><span class="s1">&#39;}&#39;</span> <span class="o">+</span> <span class="n">endl</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">grpheaders</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="s1">&#39; &amp; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">grpheaders</span><span class="p">)</span> <span class="o">+</span> <span class="n">ltx_endl</span>
+    <span class="n">s</span> <span class="o">+=</span> <span class="s1">&#39; &amp; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;headers&#39;</span><span class="p">])</span> <span class="o">+</span> <span class="n">ltx_endl</span>
+    <span class="n">s</span> <span class="o">+=</span> <span class="n">hline</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="s1">&#39; &amp; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">floatfmt</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">])</span> <span class="k">if</span> <span class="n">d</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>  <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])])</span> <span class="o">+</span> <span class="n">ltx_endl</span>
+    <span class="n">s</span> <span class="o">+=</span> <span class="n">hline</span>
+    <span class="n">s</span> <span class="o">+=</span> <span class="s1">&#39; &amp; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">myFmt</span><span class="p">(</span><span class="n">expected</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">floatfmt</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">expected</span><span class="p">))])</span> <span class="o">+</span> <span class="n">ltx_endl</span>
+    <span class="n">s</span> <span class="o">+=</span> <span class="s1">&#39;</span><span class="se">\\</span><span class="s1">end</span><span class="si">{tabular}</span><span class="s1">&#39;</span><span class="o">+</span><span class="n">endl</span>
+    <span class="k">return</span> <span class="n">s</span></div>
+
+
+<div class="viewcode-block" id="latexFormatRate"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.plot_utils.latexFormatRate">[docs]</a><span class="k">def</span> <span class="nf">latexFormatRate</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">digits</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+    <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">r</span><span class="o">-</span><span class="mf">1.0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-9</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;&#39;</span>
+    <span class="k">elif</span> <span class="nb">abs</span><span class="p">(</span><span class="n">r</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">around</span><span class="p">(</span><span class="n">r</span><span class="p">))</span><span class="o">&lt;</span><span class="mf">1e-9</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;^{{</span><span class="si">{}</span><span class="s1">}}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">around</span><span class="p">(</span><span class="n">r</span><span class="p">)))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="s1">&#39;^{{{:.&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">digits</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;}}}&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">r</span><span class="p">)</span></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">PyNucleus  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../PyNucleus_base.html" >PyNucleus_base</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">PyNucleus_base.plot_utils</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2021, Christian Glusa.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.2.0.
+    </div>
+  </body>
+</html>

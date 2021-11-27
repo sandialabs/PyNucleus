@@ -1,0 +1,264 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PyNucleus_fem &#8212; PyNucleus  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/bizstyle.css" />
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">PyNucleus  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">PyNucleus_fem</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for PyNucleus_fem</h1><div class="highlight"><pre>
+<span></span><span class="c1">###################################################################################</span>
+<span class="c1"># Copyright 2021 National Technology &amp; Engineering Solutions of Sandia,           #</span>
+<span class="c1"># LLC (NTESS). Under the terms of Contract DE-NA0003525 with NTESS, the           #</span>
+<span class="c1"># U.S. Government retains certain rights in this software.                        #</span>
+<span class="c1"># If you want to use this code, please refer to the README.rst and LICENSE files. #</span>
+<span class="c1">###################################################################################</span>
+
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">mesh</span> <span class="kn">import</span> <span class="nn">mesh1d</span><span class="o">,</span> <span class="nn">mesh2d</span><span class="o">,</span> <span class="nn">mesh3d</span><span class="o">,</span> <span class="nn">meshNd</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">mesh</span> <span class="kn">import</span> <span class="p">(</span><span class="n">simpleInterval</span><span class="p">,</span> <span class="n">simpleSquare</span><span class="p">,</span> <span class="n">simpleLshape</span><span class="p">,</span> <span class="n">simpleBox</span><span class="p">,</span>
+                    <span class="n">circle</span><span class="p">,</span> <span class="n">graded_circle</span><span class="p">,</span> <span class="n">cutoutCircle</span><span class="p">,</span> <span class="n">twinCircle</span><span class="p">,</span> <span class="n">dumbbell</span><span class="p">,</span> <span class="n">wrench</span><span class="p">,</span>
+                    <span class="n">Hshape</span><span class="p">,</span> <span class="n">ball</span><span class="p">,</span> <span class="n">rectangle</span><span class="p">,</span> <span class="n">crossSquare</span><span class="p">,</span>
+                    <span class="n">gradedSquare</span><span class="p">,</span> <span class="n">gradedBox</span><span class="p">,</span>
+                    <span class="n">disconnectedInterval</span><span class="p">,</span> <span class="n">disconnectedDomain</span><span class="p">,</span>
+                    <span class="n">double_graded_interval</span><span class="p">,</span>
+                    <span class="n">simpleFicheraCube</span><span class="p">,</span> <span class="n">uniformSquare</span><span class="p">,</span>
+                    <span class="n">standardSimplex2D</span><span class="p">,</span> <span class="n">standardSimplex3D</span><span class="p">,</span>
+                    <span class="n">intervalWithInteraction</span><span class="p">,</span>
+                    <span class="n">double_graded_interval_with_interaction</span><span class="p">,</span>
+                    <span class="n">discWithIslands</span><span class="p">,</span>
+                    <span class="n">squareWithInteractions</span><span class="p">,</span>
+                    <span class="n">discWithInteraction</span><span class="p">,</span>
+                    <span class="n">plotFunctions</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">mesh</span> <span class="kn">import</span> <span class="p">(</span><span class="n">PHYSICAL</span><span class="p">,</span> <span class="n">INTERIOR_NONOVERLAPPING</span><span class="p">,</span> <span class="n">INTERIOR</span><span class="p">,</span> <span class="n">NO_BOUNDARY</span><span class="p">,</span>
+                    <span class="n">DIRICHLET</span><span class="p">,</span> <span class="n">HOMOGENEOUS_DIRICHLET</span><span class="p">,</span>
+                    <span class="n">NEUMANN</span><span class="p">,</span> <span class="n">HOMOGENEOUS_NEUMANN</span><span class="p">,</span>
+                    <span class="n">NORM</span><span class="p">,</span> <span class="n">boundaryConditions</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">mesh</span> <span class="kn">import</span> <span class="nn">meshFactory</span> <span class="k">as</span> <span class="nn">meshFactoryClass</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">meshCy</span> <span class="kn">import</span> <span class="nn">radialMeshTransformation</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">DoFMaps</span> <span class="kn">import</span> <span class="p">(</span><span class="n">P0_DoFMap</span><span class="p">,</span> <span class="n">P1_DoFMap</span><span class="p">,</span> <span class="n">P2_DoFMap</span><span class="p">,</span> <span class="n">P3_DoFMap</span><span class="p">,</span>
+                       
+                       <span class="n">str2DoFMap</span><span class="p">,</span> <span class="n">str2DoFMapOrder</span><span class="p">,</span> <span class="n">getAvailableDoFMaps</span><span class="p">,</span>
+                       <span class="n">lookupFunction</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">femCy</span> <span class="kn">import</span> <span class="p">(</span><span class="n">assembleDrift</span><span class="p">,</span>
+                     <span class="n">assembleMassNonSym</span><span class="p">,</span>
+                     <span class="n">assembleSurfaceMass</span><span class="p">,</span>
+                     
+                     <span class="n">assembleMatrix</span><span class="p">,</span>
+                     <span class="n">assembleRHSfromFEfunction</span><span class="p">,</span>
+                     <span class="n">getSurfaceDoFMap</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">femCy</span> <span class="kn">import</span> <span class="p">(</span><span class="n">scalar_coefficient_stiffness_1d_sym_P1</span><span class="p">,</span>
+                     <span class="n">scalar_coefficient_stiffness_2d_sym_P1</span><span class="p">,</span>
+                     <span class="n">scalar_coefficient_stiffness_3d_sym_P1</span><span class="p">,</span>
+                     <span class="n">stiffness_2d_sym_anisotropic2_P1</span><span class="p">,</span>
+                     <span class="n">mass_0d_in_1d_sym_P1</span><span class="p">,</span>
+                     <span class="n">mass_1d_in_2d_sym_P1</span><span class="p">,</span>
+                     <span class="n">mass_1d_in_2d_sym_P2</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">quadrature</span> <span class="kn">import</span> <span class="nn">simplexXiaoGimbutas</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">distributed_operators</span> <span class="kn">import</span> <span class="p">(</span><span class="n">DistributedLinearOperator</span><span class="p">,</span>
+                                     <span class="n">CSR_DistributedLinearOperator</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">functions</span> <span class="kn">import</span> <span class="p">(</span><span class="n">simpleAnisotropy</span><span class="p">,</span> <span class="n">simpleAnisotropy2</span><span class="p">,</span> <span class="n">inclusions</span><span class="p">,</span> <span class="n">inclusionsHong</span><span class="p">,</span>
+                         <span class="n">motorPermeability</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">functions</span> <span class="kn">import</span> <span class="p">(</span><span class="n">function</span><span class="p">,</span>
+                         <span class="n">vectorFunction</span><span class="p">,</span>
+                         <span class="n">_rhsFunSin1D</span><span class="p">,</span> <span class="n">_solSin1D</span><span class="p">,</span> <span class="n">_rhsFunSin2D</span><span class="p">,</span> <span class="n">_cos1D</span><span class="p">,</span> <span class="n">_cos2D</span><span class="p">,</span> <span class="n">_rhsCos2D</span><span class="p">,</span> <span class="n">_grad_cos2d_n</span><span class="p">,</span>
+                         <span class="n">_rhsFunSin3D</span><span class="p">,</span> <span class="n">_solSin2D</span><span class="p">,</span> <span class="n">_solSin3D</span><span class="p">,</span> <span class="n">Lambda</span><span class="p">,</span> <span class="n">constant</span><span class="p">,</span>
+                         <span class="n">complexLambda</span><span class="p">,</span>
+                         <span class="n">real</span><span class="p">,</span> <span class="n">imag</span><span class="p">,</span>
+                         <span class="n">_rhsFunSin3D_memoized</span><span class="p">,</span>
+                         <span class="n">_rhsFichera</span><span class="p">,</span> <span class="n">_solFichera</span><span class="p">,</span>
+                         <span class="n">solCos1DHeat</span><span class="p">,</span> <span class="n">rhsFunCos1DHeat</span><span class="p">,</span>
+                         <span class="n">rhsFunSource1D</span><span class="p">,</span> <span class="n">rhsFunSource2D</span><span class="p">,</span>
+                         <span class="n">solCos2DHeat</span><span class="p">,</span> <span class="n">rhsFunCos2DHeat</span><span class="p">,</span>
+                         <span class="n">solFractional</span><span class="p">,</span>
+                         <span class="n">rhsFractional1D</span><span class="p">,</span> <span class="n">solFractional1D</span><span class="p">,</span>
+                         <span class="n">rhsFractional2D</span><span class="p">,</span> <span class="n">solFractional2D</span><span class="p">,</span>
+                         <span class="n">solFractional2Dcombination</span><span class="p">,</span>
+                         <span class="n">rhsFractional2Dcombination</span><span class="p">,</span>
+                         <span class="n">rhsHr</span><span class="p">,</span>
+                         <span class="n">rhsHr2Ddisk</span><span class="p">,</span>
+                         <span class="n">indicatorFunctor</span><span class="p">,</span>
+                         <span class="n">squareIndicator</span><span class="p">,</span>
+                         <span class="n">radialIndicator</span><span class="p">,</span>
+                         <span class="n">fractalDiffusivity</span><span class="p">,</span> <span class="n">expDiffusivity</span><span class="p">)</span>
+<span class="n">rhsFunSin1D</span> <span class="o">=</span> <span class="n">_rhsFunSin1D</span><span class="p">()</span>
+<span class="n">rhsFunSin2D</span> <span class="o">=</span> <span class="n">_rhsFunSin2D</span><span class="p">()</span>
+<span class="n">rhsFunSin3D</span> <span class="o">=</span> <span class="n">_rhsFunSin3D</span><span class="p">()</span>
+<span class="n">cos2D</span> <span class="o">=</span> <span class="n">_cos2D</span><span class="p">()</span>
+<span class="n">rhsCos2D</span> <span class="o">=</span> <span class="n">_rhsCos2D</span><span class="p">()</span>
+<span class="n">solSin1D</span> <span class="o">=</span> <span class="n">_solSin1D</span><span class="p">()</span>
+<span class="n">solSin2D</span> <span class="o">=</span> <span class="n">_solSin2D</span><span class="p">()</span>
+<span class="n">solSin3D</span> <span class="o">=</span> <span class="n">_solSin3D</span><span class="p">()</span>
+<span class="n">grad_cos2d_n</span> <span class="o">=</span> <span class="n">_grad_cos2d_n</span><span class="p">()</span>
+<span class="n">rhsFichera</span> <span class="o">=</span> <span class="n">_rhsFichera</span><span class="p">()</span>
+<span class="n">solFichera</span> <span class="o">=</span> <span class="n">_solFichera</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="solFractional2D_nonPeriodic"><a class="viewcode-back" href="../PyNucleus_fem.html#PyNucleus_fem.solFractional2D_nonPeriodic">[docs]</a><span class="k">def</span> <span class="nf">solFractional2D_nonPeriodic</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+    <span class="k">return</span> <span class="n">solFractional2Dcombination</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="p">[{</span><span class="s1">&#39;n&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;l&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;angular_shift&#39;</span><span class="p">:</span> <span class="mf">0.</span><span class="p">},</span>
+                                          <span class="p">{</span><span class="s1">&#39;n&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;l&#39;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s1">&#39;angular_shift&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">/</span><span class="mf">3.</span><span class="p">}])</span></div>
+
+
+<div class="viewcode-block" id="rhsFractional2D_nonPeriodic"><a class="viewcode-back" href="../PyNucleus_fem.html#PyNucleus_fem.rhsFractional2D_nonPeriodic">[docs]</a><span class="k">def</span> <span class="nf">rhsFractional2D_nonPeriodic</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+    <span class="k">return</span> <span class="n">rhsFractional2Dcombination</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="p">[{</span><span class="s1">&#39;n&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;l&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;angular_shift&#39;</span><span class="p">:</span> <span class="mf">0.</span><span class="p">},</span>
+                                          <span class="p">{</span><span class="s1">&#39;n&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;l&#39;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s1">&#39;angular_shift&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">/</span><span class="mf">3.</span><span class="p">}])</span></div>
+
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">functions</span> <span class="kn">import</span> <span class="p">(</span><span class="n">_rhsBoundaryLayer2D</span><span class="p">,</span> <span class="n">_solBoundaryLayer2D</span><span class="p">,</span>
+                         <span class="n">_solCornerSingularity2D</span><span class="p">,</span> <span class="n">rhsMotor</span><span class="p">,</span>
+                         <span class="n">rhsBoundarySingularity2D</span><span class="p">,</span> <span class="n">solBoundarySingularity2D</span><span class="p">)</span>
+
+<span class="n">rhsBoundaryLayer2D</span> <span class="o">=</span> <span class="n">_rhsBoundaryLayer2D</span><span class="p">()</span>
+<span class="n">solBoundaryLayer2D</span> <span class="o">=</span> <span class="n">_solBoundaryLayer2D</span><span class="p">()</span>
+<span class="n">solCornerSingularity2D</span> <span class="o">=</span> <span class="n">_solCornerSingularity2D</span><span class="p">()</span>
+<span class="c1"># rhsMotor = _rhsMotor()</span>
+
+<span class="c1"># Parallel Stuff</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">mesh</span> <span class="kn">import</span> <span class="p">(</span><span class="n">stitchSubdomains</span><span class="p">,</span> <span class="n">accumulate2global</span><span class="p">,</span> <span class="n">getGlobalPartitioning</span><span class="p">,</span>
+                    <span class="n">getSubMeshSolution</span><span class="p">,</span>
+                    <span class="n">getRestrictionProlongationSubmesh</span><span class="p">,</span>
+                    <span class="n">plotManager</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">meshCy</span> <span class="kn">import</span> <span class="nn">getSubmesh</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">meshPartitioning</span> <span class="kn">import</span> <span class="p">(</span><span class="n">regularMeshPartitioner</span><span class="p">,</span> <span class="n">metisDofPartitioner</span><span class="p">,</span>
+                                <span class="n">metisMeshPartitioner</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">boundaryLayerCy</span> <span class="kn">import</span> <span class="nn">boundaryLayer</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">pdeProblems</span> <span class="kn">import</span> <span class="nn">diffusionProblem</span><span class="o">,</span> <span class="nn">helmholtzProblem</span>
+
+
+<span class="n">meshFactory</span> <span class="o">=</span> <span class="n">meshFactoryClass</span><span class="p">()</span>
+<span class="n">meshFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;simpleInterval&#39;</span><span class="p">,</span> <span class="n">simpleInterval</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;interval&#39;</span><span class="p">])</span>
+<span class="n">meshFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;unitInterval&#39;</span><span class="p">,</span> <span class="n">simpleInterval</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;a&#39;</span><span class="p">:</span> <span class="mf">0.</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">:</span> <span class="mf">1.</span><span class="p">})</span>
+<span class="n">meshFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;intervalWithInteraction&#39;</span><span class="p">,</span> <span class="n">intervalWithInteraction</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">meshFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;disconnectedInterval&#39;</span><span class="p">,</span> <span class="n">disconnectedInterval</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">meshFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;simpleSquare&#39;</span><span class="p">,</span> <span class="n">simpleSquare</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">meshFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;crossSquare&#39;</span><span class="p">,</span> <span class="n">crossSquare</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;squareCross&#39;</span><span class="p">])</span>
+<span class="n">meshFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;unitSquare&#39;</span><span class="p">,</span> <span class="n">uniformSquare</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span>
+                     <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;N&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">&#39;ax&#39;</span><span class="p">:</span> <span class="mf">0.</span><span class="p">,</span> <span class="s1">&#39;ay&#39;</span><span class="p">:</span> <span class="mf">0.</span><span class="p">,</span> <span class="s1">&#39;bx&#39;</span><span class="p">:</span> <span class="mf">1.</span><span class="p">,</span> <span class="s1">&#39;by&#39;</span><span class="p">:</span> <span class="mf">1.</span><span class="p">},</span>
+                     <span class="n">aliases</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;square&#39;</span><span class="p">])</span>
+<span class="n">meshFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;gradedSquare&#39;</span><span class="p">,</span> <span class="n">gradedSquare</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">meshFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;gradedBox&#39;</span><span class="p">,</span> <span class="n">gradedBox</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;gradedCube&#39;</span><span class="p">])</span>
+<span class="n">meshFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;squareWithInteraction&#39;</span><span class="p">,</span> <span class="n">squareWithInteractions</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">meshFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;simpleLshape&#39;</span><span class="p">,</span> <span class="n">simpleLshape</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;Lshape&#39;</span><span class="p">,</span> <span class="s1">&#39;L-shape&#39;</span><span class="p">])</span>
+<span class="n">meshFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;circle&#39;</span><span class="p">,</span> <span class="n">circle</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;disc&#39;</span><span class="p">,</span> <span class="s1">&#39;unitDisc&#39;</span><span class="p">,</span> <span class="s1">&#39;ball2d&#39;</span><span class="p">,</span> <span class="s1">&#39;2dball&#39;</span><span class="p">])</span>
+<span class="n">meshFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;graded_circle&#39;</span><span class="p">,</span> <span class="n">graded_circle</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;gradedCircle&#39;</span><span class="p">])</span>
+<span class="n">meshFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;discWithInteraction&#39;</span><span class="p">,</span> <span class="n">discWithInteraction</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">meshFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;cutoutCircle&#39;</span><span class="p">,</span> <span class="n">cutoutCircle</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;cutoutDisc&#39;</span><span class="p">])</span>
+<span class="n">meshFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;simpleBox&#39;</span><span class="p">,</span> <span class="n">simpleBox</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;box&#39;</span><span class="p">,</span> <span class="s1">&#39;unitBox&#39;</span><span class="p">,</span> <span class="s1">&#39;cube&#39;</span><span class="p">,</span> <span class="s1">&#39;unitCube&#39;</span><span class="p">])</span>
+<span class="n">meshFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;simpleFicheraCube&#39;</span><span class="p">,</span> <span class="n">simpleFicheraCube</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;fichera&#39;</span><span class="p">,</span> <span class="s1">&#39;ficheraCube&#39;</span><span class="p">])</span>
+
+
+
+<span class="kn">from</span> <span class="nn">PyNucleus_base.factory</span> <span class="kn">import</span> <span class="n">factory</span>
+
+<span class="n">dofmapFactory</span> <span class="o">=</span> <span class="n">factory</span><span class="p">()</span>
+<span class="n">dofmapFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;P0d&#39;</span><span class="p">,</span> <span class="n">P0_DoFMap</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;P0&#39;</span><span class="p">])</span>
+<span class="n">dofmapFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;P1c&#39;</span><span class="p">,</span> <span class="n">P1_DoFMap</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;P1&#39;</span><span class="p">])</span>
+<span class="n">dofmapFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;P2c&#39;</span><span class="p">,</span> <span class="n">P2_DoFMap</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;P2&#39;</span><span class="p">])</span>
+<span class="n">dofmapFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;P3c&#39;</span><span class="p">,</span> <span class="n">P3_DoFMap</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;P3&#39;</span><span class="p">])</span>
+
+
+<span class="n">functionFactory</span> <span class="o">=</span> <span class="n">factory</span><span class="p">()</span>
+<span class="n">functionFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;rhsFunSin1D&#39;</span><span class="p">,</span> <span class="n">_rhsFunSin1D</span><span class="p">)</span>
+<span class="n">functionFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;rhsFunSin2D&#39;</span><span class="p">,</span> <span class="n">_rhsFunSin2D</span><span class="p">)</span>
+<span class="n">functionFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;rhsFunSin3D&#39;</span><span class="p">,</span> <span class="n">_rhsFunSin3D</span><span class="p">)</span>
+<span class="n">functionFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;solSin1D&#39;</span><span class="p">,</span> <span class="n">_solSin1D</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;sin1d&#39;</span><span class="p">])</span>
+<span class="n">functionFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;solCos1D&#39;</span><span class="p">,</span> <span class="n">_cos1D</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;cos1d&#39;</span><span class="p">])</span>
+<span class="n">functionFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;solSin2D&#39;</span><span class="p">,</span> <span class="n">_solSin2D</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;sin2d&#39;</span><span class="p">])</span>
+<span class="n">functionFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;solCos2D&#39;</span><span class="p">,</span> <span class="n">_cos2D</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;cos2d&#39;</span><span class="p">])</span>
+<span class="n">functionFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;solSin3D&#39;</span><span class="p">,</span> <span class="n">_solSin3D</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;sin3d&#39;</span><span class="p">])</span>
+<span class="n">functionFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;solFractional&#39;</span><span class="p">,</span> <span class="n">solFractional</span><span class="p">)</span>
+<span class="n">functionFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;solFractional1D&#39;</span><span class="p">,</span> <span class="n">solFractional1D</span><span class="p">)</span>
+<span class="n">functionFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;solFractional2D&#39;</span><span class="p">,</span> <span class="n">solFractional2D</span><span class="p">)</span>
+<span class="n">functionFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;rhsFractional1D&#39;</span><span class="p">,</span> <span class="n">rhsFractional1D</span><span class="p">)</span>
+<span class="n">functionFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;rhsFractional2D&#39;</span><span class="p">,</span> <span class="n">rhsFractional2D</span><span class="p">)</span>
+<span class="n">functionFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;constant&#39;</span><span class="p">,</span> <span class="n">constant</span><span class="p">)</span>
+<span class="n">functionFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;Lambda&#39;</span><span class="p">,</span> <span class="n">Lambda</span><span class="p">)</span>
+<span class="n">functionFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;squareIndicator&#39;</span><span class="p">,</span> <span class="n">squareIndicator</span><span class="p">)</span>
+<span class="n">functionFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;radialIndicator&#39;</span><span class="p">,</span> <span class="n">radialIndicator</span><span class="p">)</span>
+<span class="n">functionFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;rhsBoundaryLayer2D&#39;</span><span class="p">,</span> <span class="n">rhsBoundaryLayer2D</span><span class="p">)</span>
+<span class="n">functionFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;solBoundaryLayer2D&#39;</span><span class="p">,</span> <span class="n">solBoundaryLayer2D</span><span class="p">)</span>
+<span class="n">functionFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;solCornerSingularity2D&#39;</span><span class="p">,</span> <span class="n">solCornerSingularity2D</span><span class="p">)</span>
+<span class="n">functionFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s1">&#39;lookup&#39;</span><span class="p">,</span> <span class="n">lookupFunction</span><span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">_version</span>
+<span class="n">__version__</span> <span class="o">=</span> <span class="n">_version</span><span class="o">.</span><span class="n">get_versions</span><span class="p">()[</span><span class="s1">&#39;version&#39;</span><span class="p">]</span>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">PyNucleus  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">PyNucleus_fem</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2021, Christian Glusa.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.2.0.
+    </div>
+  </body>
+</html>

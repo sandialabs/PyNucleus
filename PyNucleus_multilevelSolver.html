@@ -1,0 +1,1568 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>PyNucleus.multilevelSolver package &#8212; PyNucleus  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/bizstyle.css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="PyNucleus.nl package" href="PyNucleus_nl.html" />
+    <link rel="prev" title="PyNucleus.metisCy package" href="PyNucleus_metisCy.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="PyNucleus_nl.html" title="PyNucleus.nl package"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="PyNucleus_metisCy.html" title="PyNucleus.metisCy package"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">PyNucleus  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">PyNucleus.multilevelSolver package</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="module-PyNucleus_multilevelSolver">
+<span id="pynucleus-multilevelsolver-package"></span><h1>PyNucleus.multilevelSolver package<a class="headerlink" href="#module-PyNucleus_multilevelSolver" title="Permalink to this headline">¶</a></h1>
+<section id="module-PyNucleus_multilevelSolver.coarseSolvers">
+<span id="pynucleus-multilevelsolver-coarsesolvers-module"></span><h2>PyNucleus.multilevelSolver.coarseSolvers module<a class="headerlink" href="#module-PyNucleus_multilevelSolver.coarseSolvers" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.coarseSolvers.</span></span><span class="sig-name descname"><span class="pre">ComplexcoarseSolver</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">hierarchyManager</span></em>, <em class="sig-param"><span class="pre">FakePLogger</span> <span class="pre">PLogger</span></em>, <em class="sig-param"><span class="pre">solverName</span></em>, <em class="sig-param"><span class="pre">**kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="PyNucleus_base.html#PyNucleus_base.solvers.complex_iterative_solver" title="PyNucleus_base.solvers.complex_iterative_solver"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_base.solvers.complex_iterative_solver</span></code></a></p>
+<p>This coarse solver gathers the ride-hand side from all nodes, then
+solves the problem on a subcommunicator using a distributed solver
+and scatters the solution.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.Ainv">
+<span class="sig-name descname"><span class="pre">Ainv</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.Ainv" title="Permalink to this definition">¶</a></dt>
+<dd><p>Ainv: PyNucleus_base.solvers.complex_solver</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.asynchronous">
+<span class="sig-name descname"><span class="pre">asynchronous</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.asynchronous" title="Permalink to this definition">¶</a></dt>
+<dd><p>asynchronous: ‘BOOL_t’</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.canWriteRHS">
+<span class="sig-name descname"><span class="pre">canWriteRHS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">BOOL_t</span></span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.canWriteRHS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.getSolution">
+<span class="sig-name descname"><span class="pre">getSolution</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self</span></em>, <em class="sig-param"><span class="pre">double</span> <span class="pre">complex[::1]</span> <span class="pre">x</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">BOOL_t</span></span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.getSolution" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.inCG">
+<span class="sig-name descname"><span class="pre">inCG</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.inCG" title="Permalink to this definition">¶</a></dt>
+<dd><p>inCG: ‘BOOL_t’</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.inSubdomain">
+<span class="sig-name descname"><span class="pre">inSubdomain</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.inSubdomain" title="Permalink to this definition">¶</a></dt>
+<dd><p>inSubdomain: ‘BOOL_t’</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.intraLevelCoarse">
+<span class="sig-name descname"><span class="pre">intraLevelCoarse</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.intraLevelCoarse" title="Permalink to this definition">¶</a></dt>
+<dd><p>intraLevelCoarse: PyNucleus_fem.algebraicOverlaps.algebraicOverlapManager</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.intraLevelFine">
+<span class="sig-name descname"><span class="pre">intraLevelFine</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.intraLevelFine" title="Permalink to this definition">¶</a></dt>
+<dd><p>intraLevelFine: PyNucleus_fem.algebraicOverlaps.algebraicOverlapManager</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.overlapsCoarse">
+<span class="sig-name descname"><span class="pre">overlapsCoarse</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.overlapsCoarse" title="Permalink to this definition">¶</a></dt>
+<dd><p>overlapsCoarse: PyNucleus_fem.algebraicOverlaps.algebraicOverlapManager</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.overlapsFine">
+<span class="sig-name descname"><span class="pre">overlapsFine</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.overlapsFine" title="Permalink to this definition">¶</a></dt>
+<dd><p>overlapsFine: PyNucleus_fem.algebraicOverlaps.algebraicOverlapManager</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.rhs">
+<span class="sig-name descname"><span class="pre">rhs</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.rhs" title="Permalink to this definition">¶</a></dt>
+<dd><p>rhs: ‘double complex[::1]’</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.sendRHS">
+<span class="sig-name descname"><span class="pre">sendRHS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self</span></em>, <em class="sig-param"><span class="pre">double</span> <span class="pre">complex[::1]</span> <span class="pre">b</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">void</span></span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.sendRHS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.setAinv">
+<span class="sig-name descname"><span class="pre">setAinv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.setAinv" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.setup">
+<span class="sig-name descname"><span class="pre">setup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self</span></em>, <em class="sig-param"><span class="pre">ComplexLinearOperator</span> <span class="pre">A=None</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">void</span></span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.setup" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.x">
+<span class="sig-name descname"><span class="pre">x</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.ComplexcoarseSolver.x" title="Permalink to this definition">¶</a></dt>
+<dd><p>x: ‘double complex[::1]’</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.coarseSolver">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.coarseSolvers.</span></span><span class="sig-name descname"><span class="pre">coarseSolver</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">hierarchyManager</span></em>, <em class="sig-param"><span class="pre">FakePLogger</span> <span class="pre">PLogger</span></em>, <em class="sig-param"><span class="pre">solverName</span></em>, <em class="sig-param"><span class="pre">**kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.coarseSolver" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="PyNucleus_base.html#PyNucleus_base.solvers.iterative_solver" title="PyNucleus_base.solvers.iterative_solver"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_base.solvers.iterative_solver</span></code></a></p>
+<p>This coarse solver gathers the ride-hand side from all nodes, then
+solves the problem on a subcommunicator using a distributed solver
+and scatters the solution.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.Ainv">
+<span class="sig-name descname"><span class="pre">Ainv</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.Ainv" title="Permalink to this definition">¶</a></dt>
+<dd><p>Ainv: PyNucleus_base.solvers.solver</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.asynchronous">
+<span class="sig-name descname"><span class="pre">asynchronous</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.asynchronous" title="Permalink to this definition">¶</a></dt>
+<dd><p>asynchronous: ‘BOOL_t’</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.canWriteRHS">
+<span class="sig-name descname"><span class="pre">canWriteRHS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">BOOL_t</span></span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.canWriteRHS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.getSolution">
+<span class="sig-name descname"><span class="pre">getSolution</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self</span></em>, <em class="sig-param"><span class="pre">REAL_t[::1]</span> <span class="pre">x</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">BOOL_t</span></span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.getSolution" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.inCG">
+<span class="sig-name descname"><span class="pre">inCG</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.inCG" title="Permalink to this definition">¶</a></dt>
+<dd><p>inCG: ‘BOOL_t’</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.inSubdomain">
+<span class="sig-name descname"><span class="pre">inSubdomain</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.inSubdomain" title="Permalink to this definition">¶</a></dt>
+<dd><p>inSubdomain: ‘BOOL_t’</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.intraLevelCoarse">
+<span class="sig-name descname"><span class="pre">intraLevelCoarse</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.intraLevelCoarse" title="Permalink to this definition">¶</a></dt>
+<dd><p>intraLevelCoarse: PyNucleus_fem.algebraicOverlaps.algebraicOverlapManager</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.intraLevelFine">
+<span class="sig-name descname"><span class="pre">intraLevelFine</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.intraLevelFine" title="Permalink to this definition">¶</a></dt>
+<dd><p>intraLevelFine: PyNucleus_fem.algebraicOverlaps.algebraicOverlapManager</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.overlapsCoarse">
+<span class="sig-name descname"><span class="pre">overlapsCoarse</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.overlapsCoarse" title="Permalink to this definition">¶</a></dt>
+<dd><p>overlapsCoarse: PyNucleus_fem.algebraicOverlaps.algebraicOverlapManager</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.overlapsFine">
+<span class="sig-name descname"><span class="pre">overlapsFine</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.overlapsFine" title="Permalink to this definition">¶</a></dt>
+<dd><p>overlapsFine: PyNucleus_fem.algebraicOverlaps.algebraicOverlapManager</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.rhs">
+<span class="sig-name descname"><span class="pre">rhs</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.rhs" title="Permalink to this definition">¶</a></dt>
+<dd><p>rhs: ‘REAL_t[::1]’</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.sendRHS">
+<span class="sig-name descname"><span class="pre">sendRHS</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self</span></em>, <em class="sig-param"><span class="pre">REAL_t[::1]</span> <span class="pre">b</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">void</span></span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.sendRHS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.setAinv">
+<span class="sig-name descname"><span class="pre">setAinv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.setAinv" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.setup">
+<span class="sig-name descname"><span class="pre">setup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self</span></em>, <em class="sig-param"><span class="pre">LinearOperator</span> <span class="pre">A=None</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">void</span></span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.setup" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.x">
+<span class="sig-name descname"><span class="pre">x</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.coarseSolvers.coarseSolver.x" title="Permalink to this definition">¶</a></dt>
+<dd><p>x: ‘REAL_t[::1]’</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-PyNucleus_multilevelSolver.connectors">
+<span id="pynucleus-multilevelsolver-connectors-module"></span><h2>PyNucleus.multilevelSolver.connectors module<a class="headerlink" href="#module-PyNucleus_multilevelSolver.connectors" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.connectors.hierarchyConnector">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.connectors.</span></span><span class="sig-name descname"><span class="pre">hierarchyConnector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">global_comm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comm1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comm2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hierarchy1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/connectors.html#hierarchyConnector"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.connectors.hierarchyConnector" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.connectors.hierarchyConnector.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">global_comm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comm1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comm2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hierarchy1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/connectors.html#hierarchyConnector.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.connectors.hierarchyConnector.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.connectors.hierarchyConnector.getNewHierarchy">
+<span class="sig-name descname"><span class="pre">getNewHierarchy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/connectors.html#hierarchyConnector.getNewHierarchy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.connectors.hierarchyConnector.getNewHierarchy" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.connectors.hierarchyConnector.getLevelList">
+<span class="sig-name descname"><span class="pre">getLevelList</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/connectors.html#hierarchyConnector.getLevelList"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.connectors.hierarchyConnector.getLevelList" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.connectors.hierarchyConnector.build">
+<span class="sig-name descname"><span class="pre">build</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/connectors.html#hierarchyConnector.build"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.connectors.hierarchyConnector.build" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.connectors.hierarchyConnector.comm1SubdomainGlobalRank">
+<span class="sig-name descname"><span class="pre">comm1SubdomainGlobalRank</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomainNo</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/connectors.html#hierarchyConnector.comm1SubdomainGlobalRank"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.connectors.hierarchyConnector.comm1SubdomainGlobalRank" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.connectors.hierarchyConnector.comm2SubdomainGlobalRank">
+<span class="sig-name descname"><span class="pre">comm2SubdomainGlobalRank</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomainNo</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/connectors.html#hierarchyConnector.comm2SubdomainGlobalRank"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.connectors.hierarchyConnector.comm2SubdomainGlobalRank" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.connectors.hierarchyConnector.comm1RankSubdomainNo">
+<span class="sig-name descname"><span class="pre">comm1RankSubdomainNo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rank</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/connectors.html#hierarchyConnector.comm1RankSubdomainNo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.connectors.hierarchyConnector.comm1RankSubdomainNo" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.connectors.hierarchyConnector.comm2RankSubdomainNo">
+<span class="sig-name descname"><span class="pre">comm2RankSubdomainNo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rank</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/connectors.html#hierarchyConnector.comm2RankSubdomainNo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.connectors.hierarchyConnector.comm2RankSubdomainNo" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.connectors.inputConnector">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.connectors.</span></span><span class="sig-name descname"><span class="pre">inputConnector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">global_comm</span></em>, <em class="sig-param"><span class="pre">comm1</span></em>, <em class="sig-param"><span class="pre">comm2</span></em>, <em class="sig-param"><span class="pre">hierarchy1</span></em>, <em class="sig-param"><span class="pre">domain</span></em>, <em class="sig-param"><span class="pre">useMultiMesh=False</span></em>, <em class="sig-param"><span class="pre">algebraicLevelType=&lt;class</span> <span class="pre">'PyNucleus_multilevelSolver.levels.algebraicLevel'&gt;</span></em>, <em class="sig-param"><span class="pre">meshParams={}</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/connectors.html#inputConnector"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.connectors.inputConnector" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.connectors.hierarchyConnector" title="PyNucleus_multilevelSolver.connectors.hierarchyConnector"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.connectors.hierarchyConnector</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.connectors.inputConnector.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">global_comm</span></em>, <em class="sig-param"><span class="pre">comm1</span></em>, <em class="sig-param"><span class="pre">comm2</span></em>, <em class="sig-param"><span class="pre">hierarchy1</span></em>, <em class="sig-param"><span class="pre">domain</span></em>, <em class="sig-param"><span class="pre">useMultiMesh=False</span></em>, <em class="sig-param"><span class="pre">algebraicLevelType=&lt;class</span> <span class="pre">'PyNucleus_multilevelSolver.levels.algebraicLevel'&gt;</span></em>, <em class="sig-param"><span class="pre">meshParams={}</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/connectors.html#inputConnector.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.connectors.inputConnector.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.connectors.inputConnector.getNewHierarchy">
+<span class="sig-name descname"><span class="pre">getNewHierarchy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/connectors.html#inputConnector.getNewHierarchy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.connectors.inputConnector.getNewHierarchy" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.connectors.repartitionConnector">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.connectors.</span></span><span class="sig-name descname"><span class="pre">repartitionConnector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">global_comm</span></em>, <em class="sig-param"><span class="pre">comm1</span></em>, <em class="sig-param"><span class="pre">comm2</span></em>, <em class="sig-param"><span class="pre">hierarchy1</span></em>, <em class="sig-param"><span class="pre">partitionerType</span></em>, <em class="sig-param"><span class="pre">partitionerParams</span></em>, <em class="sig-param"><span class="pre">debugOverlaps=False</span></em>, <em class="sig-param"><span class="pre">commType='standard'</span></em>, <em class="sig-param"><span class="pre">algebraicLevelType=&lt;class</span> <span class="pre">'PyNucleus_multilevelSolver.levels.algebraicLevel'&gt;</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/connectors.html#repartitionConnector"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.connectors.repartitionConnector" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.connectors.hierarchyConnector" title="PyNucleus_multilevelSolver.connectors.hierarchyConnector"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.connectors.hierarchyConnector</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.connectors.repartitionConnector.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">global_comm</span></em>, <em class="sig-param"><span class="pre">comm1</span></em>, <em class="sig-param"><span class="pre">comm2</span></em>, <em class="sig-param"><span class="pre">hierarchy1</span></em>, <em class="sig-param"><span class="pre">partitionerType</span></em>, <em class="sig-param"><span class="pre">partitionerParams</span></em>, <em class="sig-param"><span class="pre">debugOverlaps=False</span></em>, <em class="sig-param"><span class="pre">commType='standard'</span></em>, <em class="sig-param"><span class="pre">algebraicLevelType=&lt;class</span> <span class="pre">'PyNucleus_multilevelSolver.levels.algebraicLevel'&gt;</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/connectors.html#repartitionConnector.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.connectors.repartitionConnector.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.connectors.repartitionConnector.getNewHierarchy">
+<span class="sig-name descname"><span class="pre">getNewHierarchy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/connectors.html#repartitionConnector.getNewHierarchy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.connectors.repartitionConnector.getNewHierarchy" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.connectors.repartitionConnector.getLocalOverlap">
+<span class="sig-name descname"><span class="pre">getLocalOverlap</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/connectors.html#repartitionConnector.getLocalOverlap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.connectors.repartitionConnector.getLocalOverlap" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.connectors.repartitionConnector.build">
+<span class="sig-name descname"><span class="pre">build</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/connectors.html#repartitionConnector.build"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.connectors.repartitionConnector.build" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-PyNucleus_multilevelSolver.geometricMG">
+<span id="pynucleus-multilevelsolver-geometricmg-module"></span><h2>PyNucleus.multilevelSolver.geometricMG module<a class="headerlink" href="#module-PyNucleus_multilevelSolver.geometricMG" title="Permalink to this headline">¶</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.geometricMG.paramsForSerialMG">
+<span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.geometricMG.</span></span><span class="sig-name descname"><span class="pre">paramsForSerialMG</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">noRef</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">global_params</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/geometricMG.html#paramsForSerialMG"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.geometricMG.paramsForSerialMG" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.geometricMG.paramsForMG">
+<span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.geometricMG.</span></span><span class="sig-name descname"><span class="pre">paramsForMG</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">noRef</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">onRanks</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">global_params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">element</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">repartitionFactor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_coarse_grid_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/geometricMG.html#paramsForMG"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.geometricMG.paramsForMG" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.geometricMG.writeToHDF">
+<span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.geometricMG.</span></span><span class="sig-name descname"><span class="pre">writeToHDF</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">levels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mesh</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/geometricMG.html#writeToHDF"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.geometricMG.writeToHDF" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.geometricMG.readFromHDF">
+<span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.geometricMG.</span></span><span class="sig-name descname"><span class="pre">readFromHDF</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/geometricMG.html#readFromHDF"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.geometricMG.readFromHDF" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</section>
+<section id="module-PyNucleus_multilevelSolver.hierarchies">
+<span id="pynucleus-multilevelsolver-hierarchies-module"></span><h2>PyNucleus.multilevelSolver.hierarchies module<a class="headerlink" href="#module-PyNucleus_multilevelSolver.hierarchies" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.EmptyHierarchy">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.hierarchies.</span></span><span class="sig-name descname"><span class="pre">EmptyHierarchy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#EmptyHierarchy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.EmptyHierarchy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.EmptyHierarchy.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#EmptyHierarchy.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.EmptyHierarchy.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.EmptyHierarchy.isSetUp">
+<span class="sig-name descname"><span class="pre">isSetUp</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#EmptyHierarchy.isSetUp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.EmptyHierarchy.isSetUp" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.EmptyHierarchy.updateParamsFromDefaults">
+<span class="sig-name descname"><span class="pre">updateParamsFromDefaults</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#EmptyHierarchy.updateParamsFromDefaults"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.EmptyHierarchy.updateParamsFromDefaults" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchy">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.hierarchies.</span></span><span class="sig-name descname"><span class="pre">hierarchy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">meshLevel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchy.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">meshLevel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchy.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchy.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchy.updateParamsFromDefaults">
+<em class="property"><span class="pre">static</span> </em><span class="sig-name descname"><span class="pre">updateParamsFromDefaults</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchy.updateParamsFromDefaults"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchy.updateParamsFromDefaults" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchy.refine">
+<span class="sig-name descname"><span class="pre">refine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">isLastLevel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchy.refine"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchy.refine" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchy.build">
+<span class="sig-name descname"><span class="pre">build</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchy.build"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchy.build" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchy.isSetUp">
+<span class="sig-name descname"><span class="pre">isSetUp</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchy.isSetUp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchy.isSetUp" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchy.getLevelList">
+<span class="sig-name descname"><span class="pre">getLevelList</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">recurse</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchy.getLevelList"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchy.getLevelList" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchy.fromLevelList">
+<em class="property"><span class="pre">static</span> </em><span class="sig-name descname"><span class="pre">fromLevelList</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">levels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchy.fromLevelList"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchy.fromLevelList" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchy.buildCollapsedRestrictionProlongation">
+<span class="sig-name descname"><span class="pre">buildCollapsedRestrictionProlongation</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchy.buildCollapsedRestrictionProlongation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchy.buildCollapsedRestrictionProlongation" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchy.gatherInformation">
+<span class="sig-name descname"><span class="pre">gatherInformation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">root</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchy.gatherInformation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchy.gatherInformation" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchy.getSubHierarchy">
+<span class="sig-name descname"><span class="pre">getSubHierarchy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">numLevels</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchy.getSubHierarchy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchy.getSubHierarchy" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchyManager">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.hierarchies.</span></span><span class="sig-name descname"><span class="pre">hierarchyManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hierarchyDefs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">connectorDefs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">doDeepCopy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchyManager"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchyManager" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchyManager.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hierarchyDefs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">connectorDefs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">doDeepCopy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchyManager.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchyManager.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchyManager.getPrintRank">
+<span class="sig-name descname"><span class="pre">getPrintRank</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchyManager.getPrintRank"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchyManager.getPrintRank" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchyManager.setCommunicators">
+<span class="sig-name descname"><span class="pre">setCommunicators</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchyManager.setCommunicators"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchyManager.setCommunicators" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchyManager.buildHierarchies">
+<span class="sig-name descname"><span class="pre">buildHierarchies</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchyManager.buildHierarchies"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchyManager.buildHierarchies" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchyManager.setup">
+<span class="sig-name descname"><span class="pre">setup</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchyManager.setup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchyManager.setup" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchyManager.display">
+<span class="sig-name descname"><span class="pre">display</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">info</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchyManager.display"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchyManager.display" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchyManager.getLevelList">
+<span class="sig-name descname"><span class="pre">getLevelList</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchyManager.getLevelList"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchyManager.getLevelList" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchyManager.fromLevelList">
+<em class="property"><span class="pre">static</span> </em><span class="sig-name descname"><span class="pre">fromLevelList</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">levels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchyManager.fromLevelList"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchyManager.fromLevelList" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchyManager.getComm">
+<span class="sig-name descname"><span class="pre">getComm</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchyManager.getComm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchyManager.getComm" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchyManager.hierarchyIsSetUp">
+<span class="sig-name descname"><span class="pre">hierarchyIsSetUp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">label</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchyManager.hierarchyIsSetUp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchyManager.hierarchyIsSetUp" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchyManager.getHierarchy">
+<span class="sig-name descname"><span class="pre">getHierarchy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">label</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchyManager.getHierarchy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchyManager.getHierarchy" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchyManager.getSubManager">
+<span class="sig-name descname"><span class="pre">getSubManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchyManager.getSubManager"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchyManager.getSubManager" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchyManager.collectInformation">
+<span class="sig-name descname"><span class="pre">collectInformation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hierarchies</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">root</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-</span> <span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchyManager.collectInformation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchyManager.collectInformation" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.hierarchies.hierarchyManager.getSubHierarchy">
+<span class="sig-name descname"><span class="pre">getSubHierarchy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">numFineLevels</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/hierarchies.html#hierarchyManager.getSubHierarchy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.hierarchies.hierarchyManager.getSubHierarchy" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-PyNucleus_multilevelSolver.levels">
+<span id="pynucleus-multilevelsolver-levels-module"></span><h2>PyNucleus.multilevelSolver.levels module<a class="headerlink" href="#module-PyNucleus_multilevelSolver.levels" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.level">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.levels.</span></span><span class="sig-name descname"><span class="pre">level</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">previousLevel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">startLevelNo</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">isLastLevel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#level"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.level" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.level.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">previousLevel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">startLevelNo</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">isLastLevel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#level.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.level.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.level.getLevelNo">
+<span class="sig-name descname"><span class="pre">getLevelNo</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#level.getLevelNo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.level.getLevelNo" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.level.levelNo">
+<em class="property"><span class="pre">property</span> </em><span class="sig-name descname"><span class="pre">levelNo</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.level.levelNo" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.level.getLevelID">
+<span class="sig-name descname"><span class="pre">getLevelID</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#level.getLevelID"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.level.getLevelID" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.level.levelID">
+<em class="property"><span class="pre">property</span> </em><span class="sig-name descname"><span class="pre">levelID</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.level.levelID" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.meshLevel">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.levels.</span></span><span class="sig-name descname"><span class="pre">meshLevel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mesh</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">previousLevel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meshOverlaps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interiorBL</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meshInformationPolicy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">startLevelNo</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">isLastLevel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#meshLevel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.meshLevel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.levels.level" title="PyNucleus_multilevelSolver.levels.level"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.levels.level</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.meshLevel.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mesh</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">previousLevel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meshOverlaps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interiorBL</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meshInformationPolicy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">startLevelNo</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">isLastLevel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#meshLevel.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.meshLevel.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.meshLevel.setAlgebraicLevelType">
+<span class="sig-name descname"><span class="pre">setAlgebraicLevelType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">algLevelType</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#meshLevel.setAlgebraicLevelType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.meshLevel.setAlgebraicLevelType" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.meshLevel.refine">
+<span class="sig-name descname"><span class="pre">refine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">meshInformationPolicy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#meshLevel.refine"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.meshLevel.refine" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.meshLevel.copy">
+<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#meshLevel.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.meshLevel.copy" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.meshLevel.getIsDistributed">
+<span class="sig-name descname"><span class="pre">getIsDistributed</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#meshLevel.getIsDistributed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.meshLevel.getIsDistributed" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.meshLevel.isDistributed">
+<em class="property"><span class="pre">property</span> </em><span class="sig-name descname"><span class="pre">isDistributed</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.meshLevel.isDistributed" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.meshLevel.getAlgebraicLevel">
+<span class="sig-name descname"><span class="pre">getAlgebraicLevel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">buildType</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#meshLevel.getAlgebraicLevel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.meshLevel.getAlgebraicLevel" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.meshLevel.clean">
+<span class="sig-name descname"><span class="pre">clean</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#meshLevel.clean"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.meshLevel.clean" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.meshLevel.getLevelDict">
+<span class="sig-name descname"><span class="pre">getLevelDict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#meshLevel.getLevelDict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.meshLevel.getLevelDict" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.meshLevel.fromLevelDict">
+<em class="property"><span class="pre">static</span> </em><span class="sig-name descname"><span class="pre">fromLevelDict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lvl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">previousLevel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">startLevelNo</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#meshLevel.fromLevelDict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.meshLevel.fromLevelDict" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.meshLevel.getH">
+<span class="sig-name descname"><span class="pre">getH</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#meshLevel.getH"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.meshLevel.getH" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.meshLevel.h">
+<em class="property"><span class="pre">property</span> </em><span class="sig-name descname"><span class="pre">h</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.meshLevel.h" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.algebraicLevelBase">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.levels.</span></span><span class="sig-name descname"><span class="pre">algebraicLevelBase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">meshLevel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">buildType</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#algebraicLevelBase"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.algebraicLevelBase" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.levels.level" title="PyNucleus_multilevelSolver.levels.level"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.levels.level</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.algebraicLevelBase.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">meshLevel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">buildType</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#algebraicLevelBase.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.algebraicLevelBase.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.algebraicLevelBase.build">
+<span class="sig-name descname"><span class="pre">build</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">buildType</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#algebraicLevelBase.build"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.algebraicLevelBase.build" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.algebraicLevelBase.buildCoarserMatrices">
+<span class="sig-name descname"><span class="pre">buildCoarserMatrices</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#algebraicLevelBase.buildCoarserMatrices"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.algebraicLevelBase.buildCoarserMatrices" title="Permalink to this definition">¶</a></dt>
+<dd><p>Recursively build matrices on coarser levels</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.algebraicLevelBase.clean">
+<span class="sig-name descname"><span class="pre">clean</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#algebraicLevelBase.clean"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.algebraicLevelBase.clean" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.algebraicLevelBase.getKeys">
+<em class="property"><span class="pre">classmethod</span> </em><span class="sig-name descname"><span class="pre">getKeys</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#algebraicLevelBase.getKeys"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.algebraicLevelBase.getKeys" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.algebraicLevelBase.getLevelDict">
+<span class="sig-name descname"><span class="pre">getLevelDict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#algebraicLevelBase.getLevelDict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.algebraicLevelBase.getLevelDict" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.algebraicLevelBase.fromLevelDict">
+<em class="property"><span class="pre">classmethod</span> </em><span class="sig-name descname"><span class="pre">fromLevelDict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">meshLevel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lvl</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#algebraicLevelBase.fromLevelDict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.algebraicLevelBase.fromLevelDict" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.algebraicLevelBase.accumulateOperator">
+<em class="property"><span class="pre">property</span> </em><span class="sig-name descname"><span class="pre">accumulateOperator</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.algebraicLevelBase.accumulateOperator" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.algebraicLevel">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.levels.</span></span><span class="sig-name descname"><span class="pre">algebraicLevel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">meshLevel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">buildType</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#algebraicLevel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.algebraicLevel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.levels.algebraicLevelBase" title="PyNucleus_multilevelSolver.levels.algebraicLevelBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.levels.algebraicLevelBase</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.algebraicLevel.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">meshLevel</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">buildType</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#algebraicLevel.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.algebraicLevel.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.algebraicLevel.build">
+<span class="sig-name descname"><span class="pre">build</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">buildType</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#algebraicLevel.build"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.algebraicLevel.build" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.algebraicLevel.buildCoarserMatrices">
+<span class="sig-name descname"><span class="pre">buildCoarserMatrices</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#algebraicLevel.buildCoarserMatrices"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.algebraicLevel.buildCoarserMatrices" title="Permalink to this definition">¶</a></dt>
+<dd><p>Recursively build matrices on coarser levels</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.algebraicLevel.getKeys">
+<em class="property"><span class="pre">classmethod</span> </em><span class="sig-name descname"><span class="pre">getKeys</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#algebraicLevel.getKeys"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.algebraicLevel.getKeys" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.algebraicLevel.getLevelDict">
+<span class="sig-name descname"><span class="pre">getLevelDict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#algebraicLevel.getLevelDict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.algebraicLevel.getLevelDict" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.levels.algebraicLevel.getGlobalA">
+<span class="sig-name descname"><span class="pre">getGlobalA</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">doDistribute</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keepDistributedResult</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/PyNucleus_multilevelSolver/levels.html#algebraicLevel.getGlobalA"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#PyNucleus_multilevelSolver.levels.algebraicLevel.getGlobalA" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-PyNucleus_multilevelSolver.multigrid">
+<span id="pynucleus-multilevelsolver-multigrid-module"></span><h2>PyNucleus.multilevelSolver.multigrid module<a class="headerlink" href="#module-PyNucleus_multilevelSolver.multigrid" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.multigrid.</span></span><span class="sig-name descname"><span class="pre">ComplexlevelMemory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">INDEX_t</span> <span class="pre">size</span></em>, <em class="sig-param"><span class="pre">BOOL_t</span> <span class="pre">coarsest</span></em>, <em class="sig-param"><span class="pre">BOOL_t</span> <span class="pre">finest</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory.A">
+<span class="sig-name descname"><span class="pre">A</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory.A" title="Permalink to this definition">¶</a></dt>
+<dd><p>A: PyNucleus_base.linear_operators.ComplexLinearOperator</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory.D">
+<span class="sig-name descname"><span class="pre">D</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory.D" title="Permalink to this definition">¶</a></dt>
+<dd><p>D: ‘double complex[::1]’</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory.P">
+<span class="sig-name descname"><span class="pre">P</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory.P" title="Permalink to this definition">¶</a></dt>
+<dd><p>P: PyNucleus_base.linear_operators.ComplexLinearOperator</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory.R">
+<span class="sig-name descname"><span class="pre">R</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory.R" title="Permalink to this definition">¶</a></dt>
+<dd><p>R: PyNucleus_base.linear_operators.ComplexLinearOperator</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory.rhs">
+<span class="sig-name descname"><span class="pre">rhs</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory.rhs" title="Permalink to this definition">¶</a></dt>
+<dd><p>rhs: ‘double complex[::1]’</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory.smoother">
+<span class="sig-name descname"><span class="pre">smoother</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory.smoother" title="Permalink to this definition">¶</a></dt>
+<dd><p>smoother: PyNucleus_multilevelSolver.smoothers.Complexsmoother</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory.smootherType">
+<span class="sig-name descname"><span class="pre">smootherType</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory.smootherType" title="Permalink to this definition">¶</a></dt>
+<dd><p>smootherType: tuple</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory.sol">
+<span class="sig-name descname"><span class="pre">sol</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory.sol" title="Permalink to this definition">¶</a></dt>
+<dd><p>sol: ‘double complex[::1]’</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory.temp">
+<span class="sig-name descname"><span class="pre">temp</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.ComplexlevelMemory.temp" title="Permalink to this definition">¶</a></dt>
+<dd><p>temp: ‘double complex[::1]’</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.Complexmultigrid">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.multigrid.</span></span><span class="sig-name descname"><span class="pre">Complexmultigrid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">myHierarchyManager</span></em>, <em class="sig-param"><span class="pre">smoother=('jacobi'</span></em>, <em class="sig-param"><span class="pre">{'omega':</span> <span class="pre">2.0</span> <span class="pre">/</span> <span class="pre">3.0})</span></em>, <em class="sig-param"><span class="pre">BOOL_t</span> <span class="pre">logging=False</span></em>, <em class="sig-param"><span class="pre">**kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.Complexmultigrid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="PyNucleus_base.html#PyNucleus_base.solvers.complex_iterative_solver" title="PyNucleus_base.solvers.complex_iterative_solver"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_base.solvers.complex_iterative_solver</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.Complexmultigrid.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.Complexmultigrid.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.Complexmultigrid.asPreconditioner">
+<span class="sig-name descname"><span class="pre">asPreconditioner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self</span></em>, <em class="sig-param"><span class="pre">INDEX_t</span> <span class="pre">maxIter=1</span></em>, <em class="sig-param"><span class="pre">CycleType</span> <span class="pre">cycle=V</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.Complexmultigrid.asPreconditioner" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.Complexmultigrid.coarse_solver">
+<span class="sig-name descname"><span class="pre">coarse_solver</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.Complexmultigrid.coarse_solver" title="Permalink to this definition">¶</a></dt>
+<dd><p>coarse_solver: PyNucleus_base.solvers.complex_solver</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.Complexmultigrid.comm">
+<span class="sig-name descname"><span class="pre">comm</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.Complexmultigrid.comm" title="Permalink to this definition">¶</a></dt>
+<dd><p>comm: mpi4py.MPI.Comm</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.Complexmultigrid.cycle">
+<span class="sig-name descname"><span class="pre">cycle</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.Complexmultigrid.cycle" title="Permalink to this definition">¶</a></dt>
+<dd><p>cycle: ‘CycleType’</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.Complexmultigrid.iterationMatrix">
+<span class="sig-name descname"><span class="pre">iterationMatrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.Complexmultigrid.iterationMatrix" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.Complexmultigrid.levels">
+<span class="sig-name descname"><span class="pre">levels</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.Complexmultigrid.levels" title="Permalink to this definition">¶</a></dt>
+<dd><p>levels: list</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.Complexmultigrid.operatorComplexity">
+<span class="sig-name descname"><span class="pre">operatorComplexity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.Complexmultigrid.operatorComplexity" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.Complexmultigrid.overlap">
+<span class="sig-name descname"><span class="pre">overlap</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.Complexmultigrid.overlap" title="Permalink to this definition">¶</a></dt>
+<dd><p>overlap: PyNucleus_fem.algebraicOverlaps.multilevelAlgebraicOverlapManager</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.Complexmultigrid.setup">
+<span class="sig-name descname"><span class="pre">setup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self</span></em>, <em class="sig-param"><span class="pre">ComplexLinearOperator</span> <span class="pre">A=None</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">void</span></span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.Complexmultigrid.setup" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.Complexmultigrid.solveFMG">
+<span class="sig-name descname"><span class="pre">solveFMG</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self</span></em>, <em class="sig-param"><span class="pre">double</span> <span class="pre">complex[::1]</span> <span class="pre">b</span></em>, <em class="sig-param"><span class="pre">double</span> <span class="pre">complex[::1]</span> <span class="pre">x</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.Complexmultigrid.solveFMG" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.ComplexmultigridPreconditioner">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.multigrid.</span></span><span class="sig-name descname"><span class="pre">ComplexmultigridPreconditioner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">Complexmultigrid</span> <span class="pre">ml</span></em>, <em class="sig-param"><span class="pre">CycleType</span> <span class="pre">cycle</span></em>, <em class="sig-param"><span class="pre">INDEX_t</span> <span class="pre">maxIter=1</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.ComplexmultigridPreconditioner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="PyNucleus_base.html#PyNucleus_base.solvers.complex_preconditioner" title="PyNucleus_base.solvers.complex_preconditioner"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_base.solvers.complex_preconditioner</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.ComplexmultigridPreconditioner.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.ComplexmultigridPreconditioner.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.levelMemory">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.multigrid.</span></span><span class="sig-name descname"><span class="pre">levelMemory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">INDEX_t</span> <span class="pre">size</span></em>, <em class="sig-param"><span class="pre">BOOL_t</span> <span class="pre">coarsest</span></em>, <em class="sig-param"><span class="pre">BOOL_t</span> <span class="pre">finest</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.levelMemory" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.levelMemory.A">
+<span class="sig-name descname"><span class="pre">A</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.levelMemory.A" title="Permalink to this definition">¶</a></dt>
+<dd><p>A: PyNucleus_base.linear_operators.LinearOperator</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.levelMemory.D">
+<span class="sig-name descname"><span class="pre">D</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.levelMemory.D" title="Permalink to this definition">¶</a></dt>
+<dd><p>D: ‘REAL_t[::1]’</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.levelMemory.P">
+<span class="sig-name descname"><span class="pre">P</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.levelMemory.P" title="Permalink to this definition">¶</a></dt>
+<dd><p>P: PyNucleus_base.linear_operators.LinearOperator</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.levelMemory.R">
+<span class="sig-name descname"><span class="pre">R</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.levelMemory.R" title="Permalink to this definition">¶</a></dt>
+<dd><p>R: PyNucleus_base.linear_operators.LinearOperator</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.levelMemory.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.levelMemory.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.levelMemory.rhs">
+<span class="sig-name descname"><span class="pre">rhs</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.levelMemory.rhs" title="Permalink to this definition">¶</a></dt>
+<dd><p>rhs: ‘REAL_t[::1]’</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.levelMemory.smoother">
+<span class="sig-name descname"><span class="pre">smoother</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.levelMemory.smoother" title="Permalink to this definition">¶</a></dt>
+<dd><p>smoother: PyNucleus_multilevelSolver.smoothers.smoother</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.levelMemory.smootherType">
+<span class="sig-name descname"><span class="pre">smootherType</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.levelMemory.smootherType" title="Permalink to this definition">¶</a></dt>
+<dd><p>smootherType: tuple</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.levelMemory.sol">
+<span class="sig-name descname"><span class="pre">sol</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.levelMemory.sol" title="Permalink to this definition">¶</a></dt>
+<dd><p>sol: ‘REAL_t[::1]’</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.levelMemory.temp">
+<span class="sig-name descname"><span class="pre">temp</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.levelMemory.temp" title="Permalink to this definition">¶</a></dt>
+<dd><p>temp: ‘REAL_t[::1]’</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.multigrid">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.multigrid.</span></span><span class="sig-name descname"><span class="pre">multigrid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">myHierarchyManager</span></em>, <em class="sig-param"><span class="pre">smoother=('jacobi'</span></em>, <em class="sig-param"><span class="pre">{'omega':</span> <span class="pre">2.0</span> <span class="pre">/</span> <span class="pre">3.0})</span></em>, <em class="sig-param"><span class="pre">BOOL_t</span> <span class="pre">logging=False</span></em>, <em class="sig-param"><span class="pre">**kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.multigrid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="PyNucleus_base.html#PyNucleus_base.solvers.iterative_solver" title="PyNucleus_base.solvers.iterative_solver"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_base.solvers.iterative_solver</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.multigrid.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.multigrid.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.multigrid.asPreconditioner">
+<span class="sig-name descname"><span class="pre">asPreconditioner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self</span></em>, <em class="sig-param"><span class="pre">INDEX_t</span> <span class="pre">maxIter=1</span></em>, <em class="sig-param"><span class="pre">CycleType</span> <span class="pre">cycle=V</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.multigrid.asPreconditioner" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.multigrid.coarse_solver">
+<span class="sig-name descname"><span class="pre">coarse_solver</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.multigrid.coarse_solver" title="Permalink to this definition">¶</a></dt>
+<dd><p>coarse_solver: PyNucleus_base.solvers.solver</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.multigrid.comm">
+<span class="sig-name descname"><span class="pre">comm</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.multigrid.comm" title="Permalink to this definition">¶</a></dt>
+<dd><p>comm: mpi4py.MPI.Comm</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.multigrid.cycle">
+<span class="sig-name descname"><span class="pre">cycle</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.multigrid.cycle" title="Permalink to this definition">¶</a></dt>
+<dd><p>cycle: ‘CycleType’</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.multigrid.iterationMatrix">
+<span class="sig-name descname"><span class="pre">iterationMatrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.multigrid.iterationMatrix" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.multigrid.levels">
+<span class="sig-name descname"><span class="pre">levels</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.multigrid.levels" title="Permalink to this definition">¶</a></dt>
+<dd><p>levels: list</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.multigrid.operatorComplexity">
+<span class="sig-name descname"><span class="pre">operatorComplexity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.multigrid.operatorComplexity" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.multigrid.overlap">
+<span class="sig-name descname"><span class="pre">overlap</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.multigrid.overlap" title="Permalink to this definition">¶</a></dt>
+<dd><p>overlap: PyNucleus_fem.algebraicOverlaps.multilevelAlgebraicOverlapManager</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.multigrid.setup">
+<span class="sig-name descname"><span class="pre">setup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self</span></em>, <em class="sig-param"><span class="pre">LinearOperator</span> <span class="pre">A=None</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">void</span></span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.multigrid.setup" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.multigrid.solveFMG">
+<span class="sig-name descname"><span class="pre">solveFMG</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self</span></em>, <em class="sig-param"><span class="pre">REAL_t[::1]</span> <span class="pre">b</span></em>, <em class="sig-param"><span class="pre">REAL_t[::1]</span> <span class="pre">x</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.multigrid.solveFMG" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.multigridPreconditioner">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.multigrid.</span></span><span class="sig-name descname"><span class="pre">multigridPreconditioner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">multigrid</span> <span class="pre">ml</span></em>, <em class="sig-param"><span class="pre">CycleType</span> <span class="pre">cycle</span></em>, <em class="sig-param"><span class="pre">INDEX_t</span> <span class="pre">maxIter=1</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.multigridPreconditioner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="PyNucleus_base.html#PyNucleus_base.solvers.preconditioner" title="PyNucleus_base.solvers.preconditioner"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_base.solvers.preconditioner</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.multigrid.multigridPreconditioner.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.multigrid.multigridPreconditioner.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-PyNucleus_multilevelSolver.restrictionProlongation">
+<span id="pynucleus-multilevelsolver-restrictionprolongation-module"></span><h2>PyNucleus.multilevelSolver.restrictionProlongation module<a class="headerlink" href="#module-PyNucleus_multilevelSolver.restrictionProlongation" title="Permalink to this headline">¶</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.restrictionProlongation.buildRestrictionProlongation">
+<span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.restrictionProlongation.</span></span><span class="sig-name descname"><span class="pre">buildRestrictionProlongation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">DoFMap</span> <span class="pre">coarse_DoFMap</span></em>, <em class="sig-param"><span class="pre">DoFMap</span> <span class="pre">fine_DoFMap</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.restrictionProlongation.buildRestrictionProlongation" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</section>
+<section id="module-PyNucleus_multilevelSolver.smoothers">
+<span id="pynucleus-multilevelsolver-smoothers-module"></span><h2>PyNucleus.multilevelSolver.smoothers module<a class="headerlink" href="#module-PyNucleus_multilevelSolver.smoothers" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexblockJacobiPreconditioner">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">ComplexblockJacobiPreconditioner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">ComplexLinearOperator</span> <span class="pre">A</span></em>, <em class="sig-param"><span class="pre">sparseGraph</span> <span class="pre">blocks</span></em>, <em class="sig-param"><span class="pre">double</span> <span class="pre">complex</span> <span class="pre">omega</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexblockJacobiPreconditioner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.smoothers.Complexpreconditioner" title="PyNucleus_multilevelSolver.smoothers.Complexpreconditioner"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.smoothers.Complexpreconditioner</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexblockJacobiPreconditioner.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexblockJacobiPreconditioner.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexblockJacobiPreconditioner.omega">
+<span class="sig-name descname"><span class="pre">omega</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexblockJacobiPreconditioner.omega" title="Permalink to this definition">¶</a></dt>
+<dd><p>omega: ‘double complex’</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexblockJacobiPreconditioner.setD">
+<span class="sig-name descname"><span class="pre">setD</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self</span></em>, <em class="sig-param"><span class="pre">ComplexLinearOperator</span> <span class="pre">A</span></em>, <em class="sig-param"><span class="pre">sparseGraph</span> <span class="pre">blocks</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexblockJacobiPreconditioner.setD" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexblockJacobiSmoother">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">ComplexblockJacobiSmoother</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">ComplexLinearOperator</span> <span class="pre">A</span></em>, <em class="sig-param"><span class="pre">dict</span> <span class="pre">params</span></em>, <em class="sig-param"><span class="pre">ndarray</span> <span class="pre">temporaryMemory=None</span></em>, <em class="sig-param"><span class="pre">overlap=None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexblockJacobiSmoother" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.smoothers.ComplexseparableSmoother" title="PyNucleus_multilevelSolver.smoothers.ComplexseparableSmoother"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.smoothers.ComplexseparableSmoother</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexblockJacobiSmoother.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexblockJacobiSmoother.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexgmresSmoother">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">ComplexgmresSmoother</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">ComplexLinearOperator</span> <span class="pre">A</span></em>, <em class="sig-param"><span class="pre">double</span> <span class="pre">complex[::1]</span> <span class="pre">D</span></em>, <em class="sig-param"><span class="pre">dict</span> <span class="pre">params</span></em>, <em class="sig-param"><span class="pre">algebraicOverlapManager</span> <span class="pre">overlap=None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexgmresSmoother" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.smoothers.Complexsmoother" title="PyNucleus_multilevelSolver.smoothers.Complexsmoother"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.smoothers.Complexsmoother</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexgmresSmoother.A">
+<span class="sig-name descname"><span class="pre">A</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexgmresSmoother.A" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexgmresSmoother.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexgmresSmoother.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexgmresSmoother.solver">
+<span class="sig-name descname"><span class="pre">solver</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexgmresSmoother.solver" title="Permalink to this definition">¶</a></dt>
+<dd><p>solver: PyNucleus_base.solvers.complex_solver</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexgmresSmoother.temporaryMemory">
+<span class="sig-name descname"><span class="pre">temporaryMemory</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexgmresSmoother.temporaryMemory" title="Permalink to this definition">¶</a></dt>
+<dd><p>temporaryMemory: ‘double complex[::1]’</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexgmresSmoother.temporaryMemory2">
+<span class="sig-name descname"><span class="pre">temporaryMemory2</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexgmresSmoother.temporaryMemory2" title="Permalink to this definition">¶</a></dt>
+<dd><p>temporaryMemory2: ‘double complex[::1]’</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexjacobiPreconditioner">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">ComplexjacobiPreconditioner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">double</span> <span class="pre">complex[::1]</span> <span class="pre">D</span></em>, <em class="sig-param"><span class="pre">double</span> <span class="pre">complex</span> <span class="pre">omega</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexjacobiPreconditioner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.smoothers.Complexpreconditioner" title="PyNucleus_multilevelSolver.smoothers.Complexpreconditioner"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.smoothers.Complexpreconditioner</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexjacobiPreconditioner.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexjacobiPreconditioner.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexjacobiPreconditioner.omega">
+<span class="sig-name descname"><span class="pre">omega</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexjacobiPreconditioner.omega" title="Permalink to this definition">¶</a></dt>
+<dd><p>omega: ‘double complex’</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexjacobiPreconditioner.setD">
+<span class="sig-name descname"><span class="pre">setD</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self</span></em>, <em class="sig-param"><span class="pre">double</span> <span class="pre">complex[::1]</span> <span class="pre">D</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexjacobiPreconditioner.setD" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexjacobiSmoother">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">ComplexjacobiSmoother</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">ComplexLinearOperator</span> <span class="pre">A</span></em>, <em class="sig-param"><span class="pre">double</span> <span class="pre">complex[::1]</span> <span class="pre">D</span></em>, <em class="sig-param"><span class="pre">dict</span> <span class="pre">params</span></em>, <em class="sig-param"><span class="pre">ndarray</span> <span class="pre">temporaryMemory=None</span></em>, <em class="sig-param"><span class="pre">overlap=None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexjacobiSmoother" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.smoothers.ComplexseparableSmoother" title="PyNucleus_multilevelSolver.smoothers.ComplexseparableSmoother"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.smoothers.ComplexseparableSmoother</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexjacobiSmoother.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexjacobiSmoother.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.Complexpreconditioner">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">Complexpreconditioner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">INDEX_t</span> <span class="pre">numRows</span></em>, <em class="sig-param"><span class="pre">INDEX_t</span> <span class="pre">numColumns</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.Complexpreconditioner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="PyNucleus_base.html#PyNucleus_base.linear_operators.ComplexLinearOperator" title="PyNucleus_base.linear_operators.ComplexLinearOperator"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_base.linear_operators.ComplexLinearOperator</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.Complexpreconditioner.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.Complexpreconditioner.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexseparableSmoother">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">ComplexseparableSmoother</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">ComplexLinearOperator</span> <span class="pre">A</span></em>, <em class="sig-param"><span class="pre">Complexpreconditioner</span> <span class="pre">P</span></em>, <em class="sig-param"><span class="pre">dict</span> <span class="pre">params</span></em>, <em class="sig-param"><span class="pre">ndarray</span> <span class="pre">temporaryMemory=None</span></em>, <em class="sig-param"><span class="pre">algebraicOverlapManager</span> <span class="pre">overlap=None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexseparableSmoother" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.smoothers.Complexsmoother" title="PyNucleus_multilevelSolver.smoothers.Complexsmoother"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.smoothers.Complexsmoother</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexseparableSmoother.A">
+<span class="sig-name descname"><span class="pre">A</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexseparableSmoother.A" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexseparableSmoother.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexseparableSmoother.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexseparableSmoother.prec">
+<span class="sig-name descname"><span class="pre">prec</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexseparableSmoother.prec" title="Permalink to this definition">¶</a></dt>
+<dd><p>prec: PyNucleus_multilevelSolver.smoothers.Complexpreconditioner</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexseparableSmoother.setD">
+<span class="sig-name descname"><span class="pre">setD</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self</span></em>, <em class="sig-param"><span class="pre">double</span> <span class="pre">complex[::1]</span> <span class="pre">D</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexseparableSmoother.setD" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexseparableSmoother.temporaryMemory">
+<span class="sig-name descname"><span class="pre">temporaryMemory</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexseparableSmoother.temporaryMemory" title="Permalink to this definition">¶</a></dt>
+<dd><p>temporaryMemory: ‘double complex[::1]’</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ComplexseparableSmoother.temporaryMemory2">
+<span class="sig-name descname"><span class="pre">temporaryMemory2</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ComplexseparableSmoother.temporaryMemory2" title="Permalink to this definition">¶</a></dt>
+<dd><p>temporaryMemory2: ‘double complex[::1]’</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.Complexsmoother">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">Complexsmoother</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">ComplexLinearOperator</span> <span class="pre">A</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.Complexsmoother" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.Complexsmoother.A">
+<span class="sig-name descname"><span class="pre">A</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.Complexsmoother.A" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.Complexsmoother.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.Complexsmoother.__call__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call self as a function.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.Complexsmoother.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.Complexsmoother.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.Complexsmoother.overlap">
+<span class="sig-name descname"><span class="pre">overlap</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.Complexsmoother.overlap" title="Permalink to this definition">¶</a></dt>
+<dd><p>overlap: PyNucleus_fem.algebraicOverlaps.algebraicOverlapManager</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.blockJacobiPreconditioner">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">blockJacobiPreconditioner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">LinearOperator</span> <span class="pre">A</span></em>, <em class="sig-param"><span class="pre">sparseGraph</span> <span class="pre">blocks</span></em>, <em class="sig-param"><span class="pre">REAL_t</span> <span class="pre">omega</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.blockJacobiPreconditioner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.smoothers.preconditioner" title="PyNucleus_multilevelSolver.smoothers.preconditioner"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.smoothers.preconditioner</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.blockJacobiPreconditioner.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.blockJacobiPreconditioner.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.blockJacobiPreconditioner.omega">
+<span class="sig-name descname"><span class="pre">omega</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.blockJacobiPreconditioner.omega" title="Permalink to this definition">¶</a></dt>
+<dd><p>omega: ‘REAL_t’</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.blockJacobiPreconditioner.setD">
+<span class="sig-name descname"><span class="pre">setD</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self</span></em>, <em class="sig-param"><span class="pre">LinearOperator</span> <span class="pre">A</span></em>, <em class="sig-param"><span class="pre">sparseGraph</span> <span class="pre">blocks</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.blockJacobiPreconditioner.setD" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.blockJacobiSmoother">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">blockJacobiSmoother</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">LinearOperator</span> <span class="pre">A</span></em>, <em class="sig-param"><span class="pre">dict</span> <span class="pre">params</span></em>, <em class="sig-param"><span class="pre">ndarray</span> <span class="pre">temporaryMemory=None</span></em>, <em class="sig-param"><span class="pre">overlap=None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.blockJacobiSmoother" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.smoothers.separableSmoother" title="PyNucleus_multilevelSolver.smoothers.separableSmoother"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.smoothers.separableSmoother</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.blockJacobiSmoother.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.blockJacobiSmoother.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.flexibleSmoother">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">flexibleSmoother</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">LinearOperator</span> <span class="pre">A</span></em>, <em class="sig-param"><span class="pre">dict</span> <span class="pre">params</span></em>, <em class="sig-param"><span class="pre">overlap=None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.flexibleSmoother" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.smoothers.separableSmoother" title="PyNucleus_multilevelSolver.smoothers.separableSmoother"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.smoothers.separableSmoother</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.flexibleSmoother.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.flexibleSmoother.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.gaussSeidelSmoother">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">gaussSeidelSmoother</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">A</span></em>, <em class="sig-param"><span class="pre">REAL_t[::1]</span> <span class="pre">D</span></em>, <em class="sig-param"><span class="pre">dict</span> <span class="pre">params</span></em>, <em class="sig-param"><span class="pre">temporaryMemory=None</span></em>, <em class="sig-param"><span class="pre">temporaryMemory2=None</span></em>, <em class="sig-param"><span class="pre">overlap=None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.gaussSeidelSmoother" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.smoothers.smoother" title="PyNucleus_multilevelSolver.smoothers.smoother"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.smoothers.smoother</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.gaussSeidelSmoother.D">
+<span class="sig-name descname"><span class="pre">D</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.gaussSeidelSmoother.D" title="Permalink to this definition">¶</a></dt>
+<dd><p>D: ‘REAL_t[::1]’</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.gaussSeidelSmoother.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.gaussSeidelSmoother.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.gaussSeidelSmoother.setD">
+<span class="sig-name descname"><span class="pre">setD</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self</span></em>, <em class="sig-param"><span class="pre">REAL_t[::1]</span> <span class="pre">D</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.gaussSeidelSmoother.setD" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.gmresSmoother">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">gmresSmoother</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">LinearOperator</span> <span class="pre">A</span></em>, <em class="sig-param"><span class="pre">REAL_t[::1]</span> <span class="pre">D</span></em>, <em class="sig-param"><span class="pre">dict</span> <span class="pre">params</span></em>, <em class="sig-param"><span class="pre">algebraicOverlapManager</span> <span class="pre">overlap=None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.gmresSmoother" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.smoothers.smoother" title="PyNucleus_multilevelSolver.smoothers.smoother"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.smoothers.smoother</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.gmresSmoother.A">
+<span class="sig-name descname"><span class="pre">A</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.gmresSmoother.A" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.gmresSmoother.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.gmresSmoother.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.gmresSmoother.solver">
+<span class="sig-name descname"><span class="pre">solver</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.gmresSmoother.solver" title="Permalink to this definition">¶</a></dt>
+<dd><p>solver: PyNucleus_base.solvers.solver</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.gmresSmoother.temporaryMemory">
+<span class="sig-name descname"><span class="pre">temporaryMemory</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.gmresSmoother.temporaryMemory" title="Permalink to this definition">¶</a></dt>
+<dd><p>temporaryMemory: ‘REAL_t[::1]’</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.gmresSmoother.temporaryMemory2">
+<span class="sig-name descname"><span class="pre">temporaryMemory2</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.gmresSmoother.temporaryMemory2" title="Permalink to this definition">¶</a></dt>
+<dd><p>temporaryMemory2: ‘REAL_t[::1]’</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.iluPreconditioner">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">iluPreconditioner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">LinearOperator</span> <span class="pre">A</span></em>, <em class="sig-param"><span class="pre">**kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.iluPreconditioner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.smoothers.preconditioner" title="PyNucleus_multilevelSolver.smoothers.preconditioner"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.smoothers.preconditioner</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.iluPreconditioner.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.iluPreconditioner.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.iluSmoother">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">iluSmoother</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">LinearOperator</span> <span class="pre">A</span></em>, <em class="sig-param"><span class="pre">dict</span> <span class="pre">params</span></em>, <em class="sig-param"><span class="pre">ndarray</span> <span class="pre">temporaryMemory=None</span></em>, <em class="sig-param"><span class="pre">overlap=None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.iluSmoother" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.smoothers.separableSmoother" title="PyNucleus_multilevelSolver.smoothers.separableSmoother"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.smoothers.separableSmoother</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.iluSmoother.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.iluSmoother.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.jacobiPreconditioner">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">jacobiPreconditioner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">REAL_t[::1]</span> <span class="pre">D</span></em>, <em class="sig-param"><span class="pre">REAL_t</span> <span class="pre">omega</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.jacobiPreconditioner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.smoothers.preconditioner" title="PyNucleus_multilevelSolver.smoothers.preconditioner"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.smoothers.preconditioner</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.jacobiPreconditioner.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.jacobiPreconditioner.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.jacobiPreconditioner.omega">
+<span class="sig-name descname"><span class="pre">omega</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.jacobiPreconditioner.omega" title="Permalink to this definition">¶</a></dt>
+<dd><p>omega: ‘REAL_t’</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.jacobiPreconditioner.setD">
+<span class="sig-name descname"><span class="pre">setD</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self</span></em>, <em class="sig-param"><span class="pre">REAL_t[::1]</span> <span class="pre">D</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.jacobiPreconditioner.setD" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.jacobiSmoother">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">jacobiSmoother</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">LinearOperator</span> <span class="pre">A</span></em>, <em class="sig-param"><span class="pre">REAL_t[::1]</span> <span class="pre">D</span></em>, <em class="sig-param"><span class="pre">dict</span> <span class="pre">params</span></em>, <em class="sig-param"><span class="pre">ndarray</span> <span class="pre">temporaryMemory=None</span></em>, <em class="sig-param"><span class="pre">overlap=None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.jacobiSmoother" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.smoothers.separableSmoother" title="PyNucleus_multilevelSolver.smoothers.separableSmoother"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.smoothers.separableSmoother</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.jacobiSmoother.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.jacobiSmoother.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.preconditioner">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">preconditioner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">INDEX_t</span> <span class="pre">numRows</span></em>, <em class="sig-param"><span class="pre">INDEX_t</span> <span class="pre">numColumns</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.preconditioner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="PyNucleus_base.html#PyNucleus_base.linear_operators.LinearOperator" title="PyNucleus_base.linear_operators.LinearOperator"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_base.linear_operators.LinearOperator</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.preconditioner.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.preconditioner.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.separableSmoother">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">separableSmoother</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">LinearOperator</span> <span class="pre">A</span></em>, <em class="sig-param"><span class="pre">preconditioner</span> <span class="pre">P</span></em>, <em class="sig-param"><span class="pre">dict</span> <span class="pre">params</span></em>, <em class="sig-param"><span class="pre">ndarray</span> <span class="pre">temporaryMemory=None</span></em>, <em class="sig-param"><span class="pre">algebraicOverlapManager</span> <span class="pre">overlap=None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.separableSmoother" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.smoothers.smoother" title="PyNucleus_multilevelSolver.smoothers.smoother"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.smoothers.smoother</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.separableSmoother.A">
+<span class="sig-name descname"><span class="pre">A</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.separableSmoother.A" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.separableSmoother.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.separableSmoother.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.separableSmoother.prec">
+<span class="sig-name descname"><span class="pre">prec</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.separableSmoother.prec" title="Permalink to this definition">¶</a></dt>
+<dd><p>prec: PyNucleus_multilevelSolver.smoothers.preconditioner</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.separableSmoother.setD">
+<span class="sig-name descname"><span class="pre">setD</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self</span></em>, <em class="sig-param"><span class="pre">REAL_t[::1]</span> <span class="pre">D</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.separableSmoother.setD" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.separableSmoother.temporaryMemory">
+<span class="sig-name descname"><span class="pre">temporaryMemory</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.separableSmoother.temporaryMemory" title="Permalink to this definition">¶</a></dt>
+<dd><p>temporaryMemory: ‘REAL_t[::1]’</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.separableSmoother.temporaryMemory2">
+<span class="sig-name descname"><span class="pre">temporaryMemory2</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.separableSmoother.temporaryMemory2" title="Permalink to this definition">¶</a></dt>
+<dd><p>temporaryMemory2: ‘REAL_t[::1]’</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.smoother">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">smoother</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">LinearOperator</span> <span class="pre">A</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.smoother" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.smoother.A">
+<span class="sig-name descname"><span class="pre">A</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.smoother.A" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.smoother.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.smoother.__call__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call self as a function.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.smoother.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.smoother.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.smoother.overlap">
+<span class="sig-name descname"><span class="pre">overlap</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.smoother.overlap" title="Permalink to this definition">¶</a></dt>
+<dd><p>overlap: PyNucleus_fem.algebraicOverlaps.algebraicOverlapManager</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.sorPreconditioner">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">sorPreconditioner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">LinearOperator</span> <span class="pre">A</span></em>, <em class="sig-param"><span class="pre">REAL_t[::1]</span> <span class="pre">D</span></em>, <em class="sig-param"><span class="pre">REAL_t</span> <span class="pre">omega</span></em>, <em class="sig-param"><span class="pre">BOOL_t</span> <span class="pre">presmoother_forwardSweep</span></em>, <em class="sig-param"><span class="pre">BOOL_t</span> <span class="pre">postsmoother_forwardSweep</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.sorPreconditioner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.smoothers.preconditioner" title="PyNucleus_multilevelSolver.smoothers.preconditioner"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.smoothers.preconditioner</span></code></a></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.sorPreconditioner.A">
+<span class="sig-name descname"><span class="pre">A</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.sorPreconditioner.A" title="Permalink to this definition">¶</a></dt>
+<dd><p>A: PyNucleus_base.linear_operators.LinearOperator</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.sorPreconditioner.D">
+<span class="sig-name descname"><span class="pre">D</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.sorPreconditioner.D" title="Permalink to this definition">¶</a></dt>
+<dd><p>D: ‘REAL_t[::1]’</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.sorPreconditioner.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.sorPreconditioner.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.sorPreconditioner.forwardSweep">
+<span class="sig-name descname"><span class="pre">forwardSweep</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.sorPreconditioner.forwardSweep" title="Permalink to this definition">¶</a></dt>
+<dd><p>forwardSweep: ‘BOOL_t’</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.sorPreconditioner.postsmoother_forwardSweep">
+<span class="sig-name descname"><span class="pre">postsmoother_forwardSweep</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.sorPreconditioner.postsmoother_forwardSweep" title="Permalink to this definition">¶</a></dt>
+<dd><p>postsmoother_forwardSweep: ‘BOOL_t’</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.sorPreconditioner.presmoother_forwardSweep">
+<span class="sig-name descname"><span class="pre">presmoother_forwardSweep</span></span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.sorPreconditioner.presmoother_forwardSweep" title="Permalink to this definition">¶</a></dt>
+<dd><p>presmoother_forwardSweep: ‘BOOL_t’</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.sorSmoother">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">sorSmoother</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">A</span></em>, <em class="sig-param"><span class="pre">D</span></em>, <em class="sig-param"><span class="pre">dict</span> <span class="pre">params</span></em>, <em class="sig-param"><span class="pre">temporaryMemory=None</span></em>, <em class="sig-param"><span class="pre">temporaryMemory2=None</span></em>, <em class="sig-param"><span class="pre">overlap=None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.sorSmoother" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.smoothers.separableSmoother" title="PyNucleus_multilevelSolver.smoothers.separableSmoother"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.smoothers.separableSmoother</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.sorSmoother.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.sorSmoother.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ssorPreconditioner">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">ssorPreconditioner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">LinearOperator</span> <span class="pre">A</span></em>, <em class="sig-param"><span class="pre">REAL_t[::1]</span> <span class="pre">D</span></em>, <em class="sig-param"><span class="pre">REAL_t</span> <span class="pre">omega</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ssorPreconditioner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.smoothers.preconditioner" title="PyNucleus_multilevelSolver.smoothers.preconditioner"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.smoothers.preconditioner</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ssorPreconditioner.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ssorPreconditioner.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ssorSmoother">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">PyNucleus_multilevelSolver.smoothers.</span></span><span class="sig-name descname"><span class="pre">ssorSmoother</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">A</span></em>, <em class="sig-param"><span class="pre">D</span></em>, <em class="sig-param"><span class="pre">dict</span> <span class="pre">params</span></em>, <em class="sig-param"><span class="pre">temporaryMemory=None</span></em>, <em class="sig-param"><span class="pre">overlap=None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ssorSmoother" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#PyNucleus_multilevelSolver.smoothers.separableSmoother" title="PyNucleus_multilevelSolver.smoothers.separableSmoother"><code class="xref py py-class docutils literal notranslate"><span class="pre">PyNucleus_multilevelSolver.smoothers.separableSmoother</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PyNucleus_multilevelSolver.smoothers.ssorSmoother.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PyNucleus_multilevelSolver.smoothers.ssorSmoother.__init__" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">PyNucleus.multilevelSolver package</a><ul>
+<li><a class="reference internal" href="#module-PyNucleus_multilevelSolver.coarseSolvers">PyNucleus.multilevelSolver.coarseSolvers module</a></li>
+<li><a class="reference internal" href="#module-PyNucleus_multilevelSolver.connectors">PyNucleus.multilevelSolver.connectors module</a></li>
+<li><a class="reference internal" href="#module-PyNucleus_multilevelSolver.geometricMG">PyNucleus.multilevelSolver.geometricMG module</a></li>
+<li><a class="reference internal" href="#module-PyNucleus_multilevelSolver.hierarchies">PyNucleus.multilevelSolver.hierarchies module</a></li>
+<li><a class="reference internal" href="#module-PyNucleus_multilevelSolver.levels">PyNucleus.multilevelSolver.levels module</a></li>
+<li><a class="reference internal" href="#module-PyNucleus_multilevelSolver.multigrid">PyNucleus.multilevelSolver.multigrid module</a></li>
+<li><a class="reference internal" href="#module-PyNucleus_multilevelSolver.restrictionProlongation">PyNucleus.multilevelSolver.restrictionProlongation module</a></li>
+<li><a class="reference internal" href="#module-PyNucleus_multilevelSolver.smoothers">PyNucleus.multilevelSolver.smoothers module</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="PyNucleus_metisCy.html"
+                        title="previous chapter">PyNucleus.metisCy package</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="PyNucleus_nl.html"
+                        title="next chapter">PyNucleus.nl package</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/PyNucleus_multilevelSolver.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="PyNucleus_nl.html" title="PyNucleus.nl package"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="PyNucleus_metisCy.html" title="PyNucleus.metisCy package"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">PyNucleus  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">PyNucleus.multilevelSolver package</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2021, Christian Glusa.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.2.0.
+    </div>
+  </body>
+</html>

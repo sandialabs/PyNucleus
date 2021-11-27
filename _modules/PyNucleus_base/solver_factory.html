@@ -1,0 +1,189 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PyNucleus_base.solver_factory &#8212; PyNucleus  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/bizstyle.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">PyNucleus  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../PyNucleus_base.html" accesskey="U">PyNucleus_base</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">PyNucleus_base.solver_factory</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for PyNucleus_base.solver_factory</h1><div class="highlight"><pre>
+<span></span><span class="c1">###################################################################################</span>
+<span class="c1"># Copyright 2021 National Technology &amp; Engineering Solutions of Sandia,           #</span>
+<span class="c1"># LLC (NTESS). Under the terms of Contract DE-NA0003525 with NTESS, the           #</span>
+<span class="c1"># U.S. Government retains certain rights in this software.                        #</span>
+<span class="c1"># If you want to use this code, please refer to the README.rst and LICENSE files. #</span>
+<span class="c1">###################################################################################</span>
+
+
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">linear_operators</span> <span class="kn">import</span> <span class="nn">ComplexLinearOperator</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">factory</span> <span class="kn">import</span> <span class="nn">factory</span>
+
+
+<div class="viewcode-block" id="solverFactory"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.solver_factory.solverFactory">[docs]</a><span class="k">class</span> <span class="nc">solverFactory</span><span class="p">(</span><span class="n">factory</span><span class="p">):</span>
+<div class="viewcode-block" id="solverFactory.__init__"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.solver_factory.solverFactory.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">singleLevelSolverFactory</span> <span class="o">=</span> <span class="n">factory</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">multiLevelSolverFactory</span> <span class="o">=</span> <span class="n">factory</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="solverFactory.isRegistered"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.solver_factory.solverFactory.isRegistered">[docs]</a>    <span class="k">def</span> <span class="nf">isRegistered</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">singleLevelSolverFactory</span><span class="o">.</span><span class="n">isRegistered</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="ow">or</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">multiLevelSolverFactory</span><span class="o">.</span><span class="n">isRegistered</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="ow">or</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">isRegisteredComboSolver</span><span class="p">(</span><span class="n">name</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="solverFactory.isRegisteredComboSolver"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.solver_factory.solverFactory.isRegisteredComboSolver">[docs]</a>    <span class="k">def</span> <span class="nf">isRegisteredComboSolver</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="n">names</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">isRegistered</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="solverFactory.register"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.solver_factory.solverFactory.register">[docs]</a>    <span class="k">def</span> <span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">classType</span><span class="p">,</span> <span class="n">isMultilevelSolver</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="p">[]):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">isMultilevelSolver</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">singleLevelSolverFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">classType</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="n">aliases</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">multiLevelSolverFactory</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">classType</span><span class="p">,</span> <span class="n">aliases</span><span class="o">=</span><span class="n">aliases</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="solverFactory.build"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.solver_factory.solverFactory.build">[docs]</a>    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">setup</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;setup&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">))</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCanonicalName</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">singleLevelSolverFactory</span><span class="o">.</span><span class="n">isRegistered</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+                <span class="n">A</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;hierarchy&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="n">num_rows</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;num_rows&#39;</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">ComplexLinearOperator</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">singleLevelSolverFactory</span><span class="o">.</span><span class="n">isRegistered</span><span class="p">(</span><span class="s1">&#39;complex_&#39;</span><span class="o">+</span><span class="n">name</span><span class="p">):</span>
+                    <span class="n">name</span> <span class="o">=</span> <span class="s1">&#39;complex_&#39;</span><span class="o">+</span><span class="n">name</span>
+                <span class="n">solver</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">singleLevelSolverFactory</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">num_rows</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">multiLevelSolverFactory</span><span class="o">.</span><span class="n">isRegistered</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+                <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="n">hierarchy</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;hierarchy&#39;</span><span class="p">)</span>
+                <span class="n">smoother</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;smoother&#39;</span><span class="p">,</span> <span class="s1">&#39;jacobi&#39;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">hierarchy</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">hierarchy</span><span class="o">.</span><span class="n">builtHierarchies</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">algebraicLevels</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">A</span><span class="p">,</span> <span class="n">ComplexLinearOperator</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">multiLevelSolverFactory</span><span class="o">.</span><span class="n">isRegistered</span><span class="p">(</span><span class="s1">&#39;complex_&#39;</span><span class="o">+</span><span class="n">name</span><span class="p">):</span>
+                    <span class="n">name</span> <span class="o">=</span> <span class="s1">&#39;complex_&#39;</span><span class="o">+</span><span class="n">name</span>
+                <span class="n">solver</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">multiLevelSolverFactory</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">hierarchy</span><span class="p">,</span> <span class="n">smoother</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">solver</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+                    <span class="n">solver</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+                <span class="k">elif</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;tolerance&#39;</span><span class="p">,</span> <span class="s1">&#39;maxIter&#39;</span><span class="p">):</span>
+                    <span class="k">pass</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">msg</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">{}</span><span class="s1"> does not have attr </span><span class="se">\&quot;</span><span class="si">{}</span><span class="se">\&quot;</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">solver</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+                    <span class="c1"># raise NotImplementedError(msg)</span>
+            <span class="k">if</span> <span class="n">setup</span><span class="p">:</span>
+                <span class="n">solver</span><span class="o">.</span><span class="n">setup</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">solver</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">names</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">)</span>
+            <span class="n">solvers</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">:</span>
+                <span class="n">params</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="p">{})</span>
+                <span class="k">if</span> <span class="s1">&#39;A&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+                    <span class="n">params</span><span class="p">[</span><span class="s1">&#39;A&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;A&#39;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="s1">&#39;num_rows&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+                    <span class="n">params</span><span class="p">[</span><span class="s1">&#39;num_rows&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;num_rows&#39;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="s1">&#39;hierarchy&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+                    <span class="n">params</span><span class="p">[</span><span class="s1">&#39;hierarchy&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;hierarchy&#39;</span><span class="p">]</span>
+                <span class="n">solvers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">setup</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">solvers</span><span class="p">)):</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">solvers</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">initialized</span><span class="p">:</span>
+                        <span class="n">solvers</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">setup</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">solvers</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+                <span class="n">solvers</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">setPreconditioner</span><span class="p">(</span><span class="n">solvers</span><span class="p">[</span><span class="n">k</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">asPreconditioner</span><span class="p">())</span>
+            <span class="k">return</span> <span class="n">solvers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">singleLevelSolverFactory</span><span class="o">.</span><span class="n">numRegistered</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s1">&#39;Single level solvers:</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">singleLevelSolverFactory</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">multiLevelSolverFactory</span><span class="o">.</span><span class="n">numRegistered</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s1">&#39;Multi level solvers:</span><span class="se">\n</span><span class="s1">&#39;</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">multiLevelSolverFactory</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">s</span></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">PyNucleus  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../PyNucleus_base.html" >PyNucleus_base</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">PyNucleus_base.solver_factory</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2021, Christian Glusa.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.2.0.
+    </div>
+  </body>
+</html>

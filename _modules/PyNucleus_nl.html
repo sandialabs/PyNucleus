@@ -1,0 +1,692 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PyNucleus_nl &#8212; PyNucleus  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/bizstyle.css" />
+    
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">PyNucleus  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">PyNucleus_nl</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for PyNucleus_nl</h1><div class="highlight"><pre>
+<span></span><span class="c1">###################################################################################</span>
+<span class="c1"># Copyright 2021 National Technology &amp; Engineering Solutions of Sandia,           #</span>
+<span class="c1"># LLC (NTESS). Under the terms of Contract DE-NA0003525 with NTESS, the           #</span>
+<span class="c1"># U.S. Government retains certain rights in this software.                        #</span>
+<span class="c1"># If you want to use this code, please refer to the README.rst and LICENSE files. #</span>
+<span class="c1">###################################################################################</span>
+
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">PyNucleus_base</span> <span class="kn">import</span> <span class="n">REAL</span><span class="p">,</span> <span class="n">INDEX</span>
+<span class="kn">from</span> <span class="nn">PyNucleus_base.linear_operators</span> <span class="kn">import</span> <span class="p">(</span><span class="n">LinearOperator</span><span class="p">,</span>
+                                             <span class="n">diagonalOperator</span><span class="p">,</span>
+                                             <span class="n">multiIntervalInterpolationOperator</span><span class="p">,</span>
+                                             <span class="n">delayedConstructionOperator</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">twoPointFunctions</span> <span class="kn">import</span> <span class="nn">constantTwoPoint</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">fractionalOrders</span> <span class="kn">import</span> <span class="p">(</span><span class="n">constantFractionalLaplacianScaling</span><span class="p">,</span>
+                                <span class="n">variableFractionalLaplacianScaling</span><span class="p">,</span>
+                                <span class="n">constantIntegrableScaling</span><span class="p">,</span>
+                                <span class="n">constFractionalOrder</span><span class="p">,</span>
+                                <span class="n">variableFractionalOrder</span><span class="p">,</span>
+                                <span class="n">variableConstFractionalOrder</span><span class="p">,</span>
+                                <span class="n">leftRightFractionalOrder</span><span class="p">,</span>
+                                <span class="n">smoothedLeftRightFractionalOrder</span><span class="p">,</span>
+                                <span class="n">innerOuterFractionalOrder</span><span class="p">,</span>
+                                <span class="n">islandsFractionalOrder</span><span class="p">,</span>
+                                <span class="n">layersFractionalOrder</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">kernels2</span> <span class="kn">import</span> <span class="p">(</span><span class="n">Kernel</span><span class="p">,</span>
+                        <span class="n">FractionalKernel</span><span class="p">,</span>
+                        <span class="n">getKernelEnum</span><span class="p">,</span>
+                        <span class="n">FRACTIONAL</span><span class="p">,</span> <span class="n">INDICATOR</span><span class="p">,</span> <span class="n">PERIDYNAMIC</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">kernels</span> <span class="kn">import</span> <span class="nn">getKernel</span><span class="o">,</span> <span class="nn">getIntegrableKernel</span><span class="o">,</span> <span class="nn">getFractionalKernel</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">nonlocalLaplacian</span> <span class="kn">import</span> <span class="p">(</span><span class="n">assembleFractionalLaplacian</span><span class="p">,</span>
+                                 <span class="n">assembleNonlocalOperator</span><span class="p">,</span>
+                                 
+                                 <span class="n">assembleFractionalLaplacianDiagonal</span><span class="p">,</span>
+                                 <span class="n">nonlocalBuilder</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">clusterMethodCy</span> <span class="kn">import</span> <span class="nn">H2Matrix</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">fractionalLaplacian1D</span> <span class="kn">import</span> <span class="p">(</span><span class="n">fractionalLaplacian1D_P1</span><span class="p">,</span>
+                                     <span class="n">fractionalLaplacian1D_P1_boundary</span><span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">fractionalLaplacian2D</span> <span class="kn">import</span> <span class="p">(</span><span class="n">fractionalLaplacian2D_P1</span><span class="p">,</span>
+                                     <span class="n">fractionalLaplacian2D_P1_boundary</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">nonlocalLaplacianND</span> <span class="kn">import</span> <span class="p">(</span><span class="n">integrable1D</span><span class="p">,</span>
+                                   <span class="n">integrable2D</span><span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">PyNucleus_fem</span> <span class="kn">import</span> <span class="p">(</span><span class="n">DIRICHLET</span><span class="p">,</span> <span class="n">HOMOGENEOUS_DIRICHLET</span><span class="p">,</span>
+                           <span class="n">NEUMANN</span><span class="p">,</span> <span class="n">HOMOGENEOUS_NEUMANN</span><span class="p">,</span>
+                           <span class="n">NORM</span><span class="p">,</span> <span class="n">boundaryConditions</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">nonlocalProblems</span> <span class="kn">import</span> <span class="p">(</span><span class="n">fractionalLaplacianProblem</span><span class="p">,</span>
+                                <span class="n">nonlocalProblem</span><span class="p">,</span>
+                                <span class="n">fractionalOrderFactory</span><span class="p">,</span>
+                                <span class="n">interactionFactory</span><span class="p">,</span>
+                                <span class="n">kernelFactory</span><span class="p">,</span>
+                                <span class="n">nonlocalMeshFactory</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">PyNucleus_fem</span> <span class="kn">import</span> <span class="p">(</span><span class="n">P0_DoFMap</span><span class="p">,</span> <span class="n">getSubmesh</span><span class="p">,</span>
+                           <span class="n">constant</span><span class="p">,</span> <span class="n">Lambda</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">PyNucleus_fem.DoFMaps</span> <span class="kn">import</span> <span class="p">(</span><span class="n">getSubMapRestrictionProlongation</span><span class="p">,</span>
+                                   <span class="n">getSubMapRestrictionProlongation2</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">PyNucleus_multilevelSolver.levels</span> <span class="kn">import</span> <span class="p">(</span><span class="n">algebraicLevelBase</span><span class="p">,</span>
+                                               <span class="n">SPARSITY_PATTERN</span><span class="p">,</span>
+                                               <span class="n">ASSEMBLY</span><span class="p">,</span>
+                                               <span class="n">NO_BUILD</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">PyNucleus_multilevelSolver</span> <span class="kn">import</span> <span class="n">hierarchyManager</span>
+<span class="kn">from</span> <span class="nn">PyNucleus_multilevelSolver.connectors</span> <span class="kn">import</span> <span class="p">(</span><span class="n">inputConnector</span><span class="p">,</span>
+                                                   <span class="n">repartitionConnector</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span> <span class="nn">h5py</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">PyNucleus_base</span> <span class="kn">import</span> <span class="n">getLoggingTimer</span>
+
+<span class="n">LOGGER</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="fractionalLevel"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.fractionalLevel">[docs]</a><span class="k">class</span> <span class="nc">fractionalLevel</span><span class="p">(</span><span class="n">algebraicLevelBase</span><span class="p">):</span>
+<div class="viewcode-block" id="fractionalLevel.__init__"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.fractionalLevel.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">meshLevel</span><span class="p">,</span> <span class="n">buildType</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">A</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">S</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">M</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">fractionalLevel</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">meshLevel</span><span class="p">,</span> <span class="n">buildType</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="fractionalLevel.build"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.fractionalLevel.build">[docs]</a>    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buildType</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">fractionalLevel</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">buildType</span><span class="p">)</span>
+
+        <span class="c1"># diffusivity = self.params[&#39;diffusivity&#39;]</span>
+        <span class="n">symmetric</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;symmetric&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">reorder</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;reorder&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">buildMass</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;buildMass&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">buildType</span> <span class="o">&amp;</span> <span class="n">SPARSITY_PATTERN</span> <span class="ow">and</span> <span class="n">buildMass</span><span class="p">:</span>
+            <span class="c1"># set up sparsity patterns only</span>
+            <span class="n">DoFMap</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">DoFMap</span>
+            <span class="n">mesh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">meshLevel</span><span class="o">.</span><span class="n">mesh</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fullyAssembled</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">Timer</span><span class="p">(</span><span class="s1">&#39;Prepared sparsity patterns&#39;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">M</span> <span class="o">=</span> <span class="n">DoFMap</span><span class="o">.</span><span class="n">buildSparsityPattern</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">cells</span><span class="p">,</span>
+                                                     <span class="n">symmetric</span><span class="o">=</span><span class="n">symmetric</span><span class="p">,</span>
+                                                     <span class="n">reorder</span><span class="o">=</span><span class="n">reorder</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">buildType</span> <span class="o">&amp;</span> <span class="n">ASSEMBLY</span><span class="p">:</span>
+            <span class="c1"># fully build matrices</span>
+            <span class="n">DoFMap</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">DoFMap</span>
+            <span class="n">mesh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">meshLevel</span><span class="o">.</span><span class="n">mesh</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fullyAssembled</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">Timer</span><span class="p">(</span><span class="s1">&#39;Assembled matrices&#39;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;mesh&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">S</span> <span class="o">=</span> <span class="n">getFracLapl</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">DoFMap</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">A</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">S</span>
+                <span class="c1"># if not s.symmetric:</span>
+                <span class="c1">#     from PyNucleus_base.linear_operators import Dense_LinearOperator</span>
+                <span class="c1">#     self.A = Dense_LinearOperator(np.ascontiguousarray(self.A.toarray().T))</span>
+                <span class="k">if</span> <span class="n">buildMass</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">M</span> <span class="o">=</span> <span class="n">DoFMap</span><span class="o">.</span><span class="n">assembleMass</span><span class="p">(</span><span class="n">sss_format</span><span class="o">=</span><span class="n">symmetric</span><span class="p">,</span>
+                                                 <span class="n">reorder</span><span class="o">=</span><span class="n">reorder</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="fractionalLevel.buildCoarserMatrices"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.fractionalLevel.buildCoarserMatrices">[docs]</a>    <span class="k">def</span> <span class="nf">buildCoarserMatrices</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Recursively build matrices on coarser levels</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">S</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">P</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">previousLevel</span><span class="o">.</span><span class="n">S</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">previousLevel</span><span class="o">.</span><span class="n">fullyAssembled</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">P</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">S</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">P</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">S</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">P</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">previousLevel</span><span class="o">.</span><span class="n">S</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">Timer</span><span class="p">(</span><span class="s1">&#39;Restrict stiffness matrix&#39;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">P</span><span class="o">.</span><span class="n">restrictMatrix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">S</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">previousLevel</span><span class="o">.</span><span class="n">S</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">previousLevel</span><span class="o">.</span><span class="n">A</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">previousLevel</span><span class="o">.</span><span class="n">A</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">previousLevel</span><span class="o">.</span><span class="n">S</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">M</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">P</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">previousLevel</span><span class="o">.</span><span class="n">M</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">previousLevel</span><span class="o">.</span><span class="n">fullyAssembled</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">P</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">M</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">P</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">previousLevel</span><span class="o">.</span><span class="n">M</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">Timer</span><span class="p">(</span><span class="s1">&#39;Restrict mass matrix&#39;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">P</span><span class="o">.</span><span class="n">restrictMatrix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">M</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">previousLevel</span><span class="o">.</span><span class="n">M</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">previousLevel</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">previousLevel</span><span class="o">.</span><span class="n">fullyAssembled</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">previousLevel</span><span class="o">.</span><span class="n">buildCoarserMatrices</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="fractionalLevel.getKeys"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.fractionalLevel.getKeys">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">getKeys</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">algebraicLevelBase</span><span class="o">.</span><span class="n">getKeys</span><span class="p">()</span> <span class="o">+</span> <span class="p">[</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="s1">&#39;S&#39;</span><span class="p">,</span> <span class="s1">&#39;M&#39;</span><span class="p">]</span></div></div>
+
+
+<div class="viewcode-block" id="paramsForFractionalHierarchy"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.paramsForFractionalHierarchy">[docs]</a><span class="k">def</span> <span class="nf">paramsForFractionalHierarchy</span><span class="p">(</span><span class="n">noRef</span><span class="p">,</span> <span class="n">global_params</span><span class="p">):</span>
+
+    <span class="n">noRefCoarse</span> <span class="o">=</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;noRefCoarse&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">noRefCoarse</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">hierarchies</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;seed&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;ranks&#39;</span><span class="p">:</span> <span class="nb">set</span><span class="p">([</span><span class="mi">0</span><span class="p">]),</span>
+             <span class="s1">&#39;connectorStart&#39;</span><span class="p">:</span> <span class="s1">&#39;input&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;connectorEnd&#39;</span><span class="p">:</span> <span class="s1">&#39;breakUp&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;params&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;noRef&#39;</span><span class="p">:</span> <span class="n">noRefCoarse</span><span class="p">,</span>
+                        <span class="s1">&#39;assemble&#39;</span><span class="p">:</span> <span class="s1">&#39;dofmaps only&#39;</span><span class="p">}</span>
+            <span class="p">},</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;fine&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;ranks&#39;</span><span class="p">:</span> <span class="nb">set</span><span class="p">([</span><span class="mi">0</span><span class="p">]),</span>
+             <span class="s1">&#39;connectorStart&#39;</span><span class="p">:</span> <span class="s1">&#39;breakUp&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;connectorEnd&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+             <span class="s1">&#39;params&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;noRef&#39;</span><span class="p">:</span> <span class="n">noRef</span><span class="o">-</span><span class="n">noRefCoarse</span><span class="p">,</span>
+                        <span class="s1">&#39;keepMeshes&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;keepMeshes&#39;</span><span class="p">,</span> <span class="s1">&#39;last&#39;</span><span class="p">),</span>
+                        <span class="s1">&#39;keepAllDoFMaps&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;keepAllDoFMaps&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
+                        <span class="s1">&#39;assemble&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;assemble&#39;</span><span class="p">,</span> <span class="s1">&#39;ALL&#39;</span><span class="p">),</span>
+                        <span class="s1">&#39;solver&#39;</span><span class="p">:</span> <span class="s1">&#39;LU&#39;</span><span class="p">,</span>
+                        <span class="s1">&#39;kernel&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;kernel&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                        <span class="s1">&#39;genKernel&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;genKernel&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
+                        <span class="s1">&#39;target_order&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;target_order&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                        <span class="s1">&#39;rangedOpParams&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;rangedOpParams&#39;</span><span class="p">,</span> <span class="p">{}),</span>
+                        <span class="s1">&#39;cached&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;cached&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
+                        <span class="s1">&#39;boundaryCondition&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;boundaryCondition&#39;</span><span class="p">,</span> <span class="n">HOMOGENEOUS_DIRICHLET</span><span class="p">),</span>
+                        <span class="s1">&#39;logging&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logging&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+             <span class="p">}</span>
+            <span class="p">}]</span>
+        <span class="n">connectors</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">connectors</span><span class="p">[</span><span class="s1">&#39;input&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="n">inputConnector</span><span class="p">,</span>
+                               <span class="s1">&#39;params&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;domain&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="p">[</span><span class="s1">&#39;domain&#39;</span><span class="p">],</span>
+                                          <span class="s1">&#39;meshParams&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;meshParams&#39;</span><span class="p">,</span> <span class="p">{}),</span>
+                                          <span class="s1">&#39;algebraicLevelType&#39;</span><span class="p">:</span> <span class="n">fractionalLevel</span><span class="p">}}</span>
+        <span class="n">connectors</span><span class="p">[</span><span class="s1">&#39;breakUp&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="n">repartitionConnector</span><span class="p">,</span>
+                                 <span class="s1">&#39;params&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;partitionerType&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;coarsePartitioner&#39;</span><span class="p">,</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;partitioner&#39;</span><span class="p">,</span> <span class="s1">&#39;regular&#39;</span><span class="p">)),</span>
+                                            <span class="s1">&#39;partitionerParams&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;coarsePartitionerParams&#39;</span><span class="p">,</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;partitionerParams&#39;</span><span class="p">,</span> <span class="p">{})),</span>
+                                            <span class="s1">&#39;debugOverlaps&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;debugOverlaps&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
+                                            <span class="s1">&#39;algebraicLevelType&#39;</span><span class="p">:</span> <span class="n">fractionalLevel</span>
+                                 <span class="p">}}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">hierarchies</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="s1">&#39;fine&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;ranks&#39;</span><span class="p">:</span> <span class="nb">set</span><span class="p">([</span><span class="mi">0</span><span class="p">]),</span>
+             <span class="s1">&#39;connectorStart&#39;</span><span class="p">:</span> <span class="s1">&#39;input&#39;</span><span class="p">,</span>
+             <span class="s1">&#39;connectorEnd&#39;</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+             <span class="s1">&#39;params&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;noRef&#39;</span><span class="p">:</span> <span class="n">noRef</span><span class="p">,</span>
+                        <span class="s1">&#39;keepMeshes&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;keepMeshes&#39;</span><span class="p">,</span> <span class="s1">&#39;last&#39;</span><span class="p">),</span>
+                        <span class="s1">&#39;keepAllDoFMaps&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;keepAllDoFMaps&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
+                        <span class="s1">&#39;assemble&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;assemble&#39;</span><span class="p">,</span> <span class="s1">&#39;ALL&#39;</span><span class="p">),</span>
+                        <span class="s1">&#39;solver&#39;</span><span class="p">:</span> <span class="s1">&#39;LU&#39;</span><span class="p">,</span>
+                        <span class="s1">&#39;kernel&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;kernel&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                        <span class="s1">&#39;genKernel&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;genKernel&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
+                        <span class="s1">&#39;target_order&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;target_order&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                        <span class="s1">&#39;rangedOpParams&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;rangedOpParams&#39;</span><span class="p">,</span> <span class="p">{}),</span>
+                        <span class="s1">&#39;cached&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;cached&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
+                        <span class="s1">&#39;boundaryCondition&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;boundaryCondition&#39;</span><span class="p">,</span> <span class="n">HOMOGENEOUS_DIRICHLET</span><span class="p">),</span>
+                        <span class="s1">&#39;logging&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logging&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+             <span class="p">}</span>
+            <span class="p">}]</span>
+        <span class="n">connectors</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">connectors</span><span class="p">[</span><span class="s1">&#39;input&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="n">inputConnector</span><span class="p">,</span>
+                               <span class="s1">&#39;params&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;domain&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="p">[</span><span class="s1">&#39;domain&#39;</span><span class="p">],</span>
+                                          <span class="s1">&#39;meshParams&#39;</span><span class="p">:</span> <span class="n">global_params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;meshParams&#39;</span><span class="p">,</span> <span class="p">{}),</span>
+                                          <span class="s1">&#39;algebraicLevelType&#39;</span><span class="p">:</span> <span class="n">fractionalLevel</span><span class="p">}}</span>
+
+    <span class="k">return</span> <span class="n">hierarchies</span><span class="p">,</span> <span class="n">connectors</span></div>
+
+
+<div class="viewcode-block" id="fractionalHierarchy"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.fractionalHierarchy">[docs]</a><span class="k">def</span> <span class="nf">fractionalHierarchy</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">NoRef</span><span class="p">,</span> <span class="n">tag</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="mf">3.</span><span class="p">,</span>
+                        <span class="n">buildMass</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">dense</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                        <span class="n">driftCoeff</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                        <span class="n">keepMeshes</span><span class="o">=</span><span class="s1">&#39;finest&#39;</span><span class="p">,</span>
+                        <span class="n">keepAllDoFMaps</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                        <span class="n">target_order</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dataDir</span><span class="o">=</span><span class="s1">&#39;DATA&#39;</span><span class="p">,</span>
+                        <span class="n">boundaryCondition</span><span class="o">=</span><span class="n">HOMOGENEOUS_DIRICHLET</span><span class="p">,</span>
+                        <span class="n">comm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                        <span class="n">forceRebuild</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                        <span class="n">horizon</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span>
+                        <span class="n">errorBound</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+
+    <span class="n">global_params</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;domain&#39;</span><span class="p">:</span> <span class="n">mesh</span><span class="p">,</span>
+                     <span class="s1">&#39;kernel&#39;</span><span class="p">:</span> <span class="n">getFractionalKernel</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">horizon</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">),</span>
+                     <span class="s1">&#39;horizon&#39;</span><span class="p">:</span> <span class="n">horizon</span><span class="p">,</span>
+                     <span class="s1">&#39;tag&#39;</span><span class="p">:</span> <span class="n">tag</span><span class="p">,</span>
+                     <span class="s1">&#39;boundaryCondition&#39;</span><span class="p">:</span> <span class="n">boundaryCondition</span><span class="p">,</span>
+                     <span class="s1">&#39;eta&#39;</span><span class="p">:</span> <span class="n">eta</span><span class="p">,</span>
+                     <span class="s1">&#39;buildMass&#39;</span><span class="p">:</span> <span class="n">buildMass</span><span class="p">,</span>
+                     <span class="s1">&#39;dense&#39;</span><span class="p">:</span> <span class="n">dense</span><span class="p">,</span>
+                     <span class="s1">&#39;driftCoeff&#39;</span><span class="p">:</span> <span class="n">driftCoeff</span><span class="p">,</span>
+                     <span class="s1">&#39;keepMeshes&#39;</span><span class="p">:</span> <span class="n">keepMeshes</span><span class="p">,</span>
+                     <span class="s1">&#39;keepAllDoFMaps&#39;</span><span class="p">:</span> <span class="n">keepAllDoFMaps</span><span class="p">,</span>
+                     <span class="s1">&#39;interpolationErrorBound&#39;</span><span class="p">:</span> <span class="n">errorBound</span><span class="p">,</span>
+                     <span class="s1">&#39;forceRebuild&#39;</span><span class="p">:</span> <span class="n">forceRebuild</span><span class="p">}</span>
+    <span class="n">hierarchies</span><span class="p">,</span> <span class="n">connectors</span> <span class="o">=</span> <span class="n">paramsForFractionalHierarchy</span><span class="p">(</span><span class="n">NoRef</span><span class="p">,</span> <span class="n">global_params</span><span class="p">)</span>
+    <span class="n">hM</span> <span class="o">=</span> <span class="n">hierarchyManager</span><span class="p">(</span><span class="n">hierarchies</span><span class="p">,</span> <span class="n">connectors</span><span class="p">,</span> <span class="n">global_params</span><span class="p">,</span> <span class="n">comm</span><span class="o">=</span><span class="n">comm</span><span class="p">)</span>
+    <span class="n">hM</span><span class="o">.</span><span class="n">setup</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">hM</span></div>
+
+
+
+<div class="viewcode-block" id="processBC"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.processBC">[docs]</a><span class="k">def</span> <span class="nf">processBC</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="n">boundaryCondition</span><span class="p">,</span> <span class="n">kernel</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">tag</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">boundaryCondition</span> <span class="o">==</span> <span class="n">HOMOGENEOUS_DIRICHLET</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">kernel</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">kernel</span><span class="o">.</span><span class="n">s</span><span class="o">.</span><span class="n">max</span> <span class="o">&lt;</span> <span class="mf">0.5</span><span class="p">:</span>
+                    <span class="n">tag</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">tag</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="n">zeroExterior</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">tag</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="n">zeroExterior</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="k">elif</span> <span class="n">boundaryCondition</span> <span class="o">==</span> <span class="n">HOMOGENEOUS_NEUMANN</span><span class="p">:</span>
+            <span class="n">tag</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+            <span class="n">zeroExterior</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">elif</span> <span class="n">boundaryCondition</span> <span class="o">==</span> <span class="n">NORM</span><span class="p">:</span>
+            <span class="n">tag</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">zeroExterior</span> <span class="o">=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">s</span><span class="o">.</span><span class="n">max</span> <span class="o">&gt;=</span> <span class="mf">0.5</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">, </span><span class="si">{}</span><span class="s1">, </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="n">boundaryCondition</span><span class="p">,</span> <span class="n">kernel</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">boundaryCondition</span> <span class="o">==</span> <span class="n">HOMOGENEOUS_DIRICHLET</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">kernel</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">zeroExterior</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">boundaryCondition</span> <span class="o">==</span> <span class="n">HOMOGENEOUS_NEUMANN</span><span class="p">:</span>
+            <span class="n">zeroExterior</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">elif</span> <span class="n">boundaryCondition</span> <span class="o">==</span> <span class="n">NORM</span><span class="p">:</span>
+            <span class="n">zeroExterior</span> <span class="o">=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">s</span><span class="o">.</span><span class="n">max</span> <span class="o">&gt;=</span> <span class="mf">0.5</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">, </span><span class="si">{}</span><span class="s1">, </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="n">boundaryCondition</span><span class="p">,</span> <span class="n">kernel</span><span class="p">))</span>
+
+    <span class="c1"># variableOrder = isinstance(s, variableFractionalOrder)</span>
+    <span class="c1"># if tag is None:</span>
+    <span class="c1">#     if boundaryCondition == &#39;Dirichlet&#39;:</span>
+    <span class="c1">#         if isinstance(s, admissibleSet):</span>
+    <span class="c1">#             tag = 0</span>
+    <span class="c1">#             zeroExterior = True</span>
+    <span class="c1">#         elif (variableOrder and (s.max &lt; 0.5)) or (not variableOrder and (s.value &lt; 0.5)):</span>
+    <span class="c1">#             tag = -1</span>
+    <span class="c1">#             zeroExterior = True</span>
+    <span class="c1">#         else:</span>
+    <span class="c1">#             tag = 0</span>
+    <span class="c1">#             zeroExterior = True</span>
+    <span class="c1">#     elif boundaryCondition == &#39;Neumann&#39;:</span>
+    <span class="c1">#         tag = -1</span>
+    <span class="c1">#         zeroExterior = False</span>
+    <span class="c1">#     elif boundaryCondition == &#39;norm&#39;:</span>
+    <span class="c1">#         tag = 0</span>
+    <span class="c1">#         zeroExterior = s &gt;= 0.5</span>
+    <span class="c1">#     else:</span>
+    <span class="c1">#         raise NotImplementedError()</span>
+    <span class="c1"># else:</span>
+    <span class="c1">#     if boundaryCondition == &#39;Dirichlet&#39;:</span>
+    <span class="c1">#         zeroExterior = True</span>
+    <span class="c1">#     elif boundaryCondition == &#39;Neumann&#39;:</span>
+    <span class="c1">#         zeroExterior = False</span>
+    <span class="c1">#     elif boundaryCondition == &#39;norm&#39;:</span>
+    <span class="c1">#         zeroExterior = s &gt;= 0.5</span>
+    <span class="c1">#     else:</span>
+    <span class="c1">#         raise NotImplementedError()</span>
+    <span class="c1"># if not ((horizon == np.inf) or</span>
+    <span class="c1">#         (isinstance(horizon, constant) and horizon.value == np.inf) or</span>
+    <span class="c1">#         (isinstance(horizon, admissibleSet) and horizon.getLowerBounds()[0] == np.inf)):</span>
+    <span class="c1">#     if isinstance(horizon, admissibleSet):</span>
+    <span class="c1">#         tag = 0</span>
+    <span class="c1">#         zeroExterior = True</span>
+    <span class="c1">#     else:</span>
+    <span class="c1">#         tag = -1</span>
+    <span class="c1">#         zeroExterior = False</span>
+    <span class="k">return</span> <span class="n">tag</span><span class="p">,</span> <span class="n">zeroExterior</span></div>
+
+
+<div class="viewcode-block" id="getFracLapl"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.getFracLapl">[docs]</a><span class="k">def</span> <span class="nf">getFracLapl</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">DoFMap</span><span class="p">,</span> <span class="n">kernel</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">rangedOpParams</span><span class="o">=</span><span class="p">{},</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+
+    <span class="k">assert</span> <span class="n">kernel</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="s1">&#39;s&#39;</span> <span class="ow">in</span> <span class="n">rangedOpParams</span><span class="p">,</span> <span class="p">(</span><span class="n">kernel</span><span class="p">,</span> <span class="n">rangedOpParams</span><span class="p">)</span>
+
+    <span class="n">boundaryCondition</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;boundaryCondition&#39;</span><span class="p">,</span> <span class="s1">&#39;Dirichlet&#39;</span><span class="p">)</span>
+    <span class="n">tag</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;tag&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">zeroExterior</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;zeroExterior&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">dense</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;dense&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="n">diagonal</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;diagonal&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="n">cached</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;cached&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="n">trySparsification</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;trySparsification&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="n">logging</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;logging&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="n">timer</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;timer&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="n">target_order</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;target_order&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">eta</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;eta&#39;</span><span class="p">,</span> <span class="mf">3.</span><span class="p">)</span>
+    <span class="n">returnNearField</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;returnNearField&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+    <span class="n">comm</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;assemblyComm&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="n">dataDir</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;dataDir&#39;</span><span class="p">,</span> <span class="s1">&#39;DATA&#39;</span><span class="p">)</span>
+    <span class="n">doSave</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;doSave&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="n">overrideFileName</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;overrideFileName&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">forceRebuild</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;forceRebuild&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">timer</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">timer</span> <span class="o">=</span> <span class="n">getLoggingTimer</span><span class="p">(</span><span class="n">LOGGER</span><span class="p">,</span> <span class="n">comm</span><span class="o">=</span><span class="n">comm</span><span class="p">,</span> <span class="n">rootOutput</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;timer&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">timer</span>
+
+    <span class="k">if</span> <span class="n">kernel</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">horizon</span> <span class="o">=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">horizon</span>
+        <span class="n">scaling</span> <span class="o">=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">scaling</span>
+        <span class="n">normalized</span> <span class="o">=</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scaling</span><span class="p">,</span> <span class="n">constantTwoPoint</span><span class="p">)</span>
+
+    <span class="n">dataDir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">dataDir</span><span class="p">)</span>
+    <span class="n">dataDir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">tag</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">zeroExterior</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">tag</span><span class="p">,</span> <span class="n">zeroExterior</span> <span class="o">=</span> <span class="n">processBC</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="n">boundaryCondition</span><span class="p">,</span> <span class="n">kernel</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">overrideFileName</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="n">overrideFileName</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">base</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">vertices_as_array</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">diagonal</span><span class="p">:</span>
+            <span class="n">sparseDense</span> <span class="o">=</span> <span class="s1">&#39;diagonal&#39;</span>
+        <span class="k">elif</span> <span class="n">dense</span><span class="p">:</span>
+            <span class="n">sparseDense</span> <span class="o">=</span> <span class="s1">&#39;dense&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">sparseDense</span> <span class="o">=</span> <span class="s1">&#39;sparse&#39;</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="n">dataDir</span><span class="o">/</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">-</span><span class="si">{}</span><span class="s1">-</span><span class="si">{}</span><span class="s1">-</span><span class="si">{:.5}</span><span class="s1">-</span><span class="si">{}</span><span class="s1">-</span><span class="si">{}</span><span class="s1">-</span><span class="si">{}</span><span class="s1">-</span><span class="si">{}</span><span class="s1">-</span><span class="si">{}</span><span class="s1">-</span><span class="si">{}</span><span class="s1">-</span><span class="si">{:.5}</span><span class="s1">-</span><span class="si">{:.5}</span><span class="s1">-</span><span class="si">{}</span><span class="s1">.hdf5&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">sparseDense</span><span class="p">,</span> <span class="n">base</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">diam</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">num_vertices</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">num_cells</span><span class="p">,</span> <span class="n">kernel</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span> <span class="n">target_order</span><span class="p">,</span> <span class="n">eta</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">h</span><span class="p">,</span> <span class="n">mesh</span><span class="o">.</span><span class="n">hmin</span><span class="p">,</span> <span class="n">boundaryCondition</span><span class="p">)</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">Pnear</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="p">((</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">kernel</span><span class="p">,</span> <span class="n">FractionalKernel</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">kernel</span><span class="o">.</span><span class="n">s</span><span class="o">.</span><span class="n">min</span> <span class="o">==</span> <span class="n">kernel</span><span class="o">.</span><span class="n">s</span><span class="o">.</span><span class="n">max</span> <span class="o">==</span> <span class="mf">1.</span><span class="p">))</span> <span class="ow">or</span>
+        <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">horizon</span><span class="p">,</span> <span class="n">constant</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">horizon</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="mf">0.</span><span class="p">))):</span>
+        <span class="k">with</span> <span class="n">timer</span><span class="p">(</span><span class="s1">&#39;Sparse matrix&#39;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">kernel</span><span class="o">.</span><span class="n">phi</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">kappa</span> <span class="o">=</span> <span class="n">Lambda</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">kernel</span><span class="o">.</span><span class="n">phi</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">kappa</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">A</span> <span class="o">=</span> <span class="n">DoFMap</span><span class="o">.</span><span class="n">assembleStiffness</span><span class="p">(</span><span class="n">diffusivity</span><span class="o">=</span><span class="n">kappa</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kernel</span><span class="p">,</span> <span class="n">FractionalKernel</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">kernel</span><span class="o">.</span><span class="n">s</span><span class="o">.</span><span class="n">min</span> <span class="o">==</span> <span class="n">kernel</span><span class="o">.</span><span class="n">s</span><span class="o">.</span><span class="n">max</span> <span class="o">==</span> <span class="mf">0.</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">timer</span><span class="p">(</span><span class="s1">&#39;Sparse matrix&#39;</span><span class="p">):</span>
+            <span class="n">A</span> <span class="o">=</span> <span class="n">DoFMap</span><span class="o">.</span><span class="n">assembleMass</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="ow">not</span> <span class="n">forceRebuild</span> <span class="ow">and</span> <span class="n">filename</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">comm</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">f</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">filename</span><span class="p">),</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;h2&#39;</span><span class="p">:</span>
+                <span class="n">A</span> <span class="o">=</span> <span class="n">H2Matrix</span><span class="o">.</span><span class="n">HDF5read</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">A</span> <span class="o">=</span> <span class="n">LinearOperator</span><span class="o">.</span><span class="n">HDF5read</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">A</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;target_order&#39;</span><span class="p">:</span> <span class="n">target_order</span><span class="p">,</span>
+                  <span class="s1">&#39;eta&#39;</span><span class="p">:</span> <span class="n">eta</span><span class="p">,</span>
+                  <span class="s1">&#39;forceUnsymmetric&#39;</span><span class="p">:</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;forceUnsymmetric&#39;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)}</span>
+        <span class="k">if</span> <span class="s1">&#39;genKernel&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">params</span><span class="p">[</span><span class="s1">&#39;genKernel&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;genKernel&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">kernel</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">kernel</span> <span class="o">=</span> <span class="n">getFractionalKernel</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">constant</span><span class="p">(</span><span class="n">horizon</span><span class="o">.</span><span class="n">ranges</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span> <span class="n">scaling</span><span class="o">=</span><span class="n">scaling</span><span class="p">,</span> <span class="n">normalized</span><span class="o">=</span><span class="n">normalized</span><span class="p">)</span>
+        <span class="n">builder</span> <span class="o">=</span> <span class="n">nonlocalBuilder</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">DoFMap</span><span class="p">,</span> <span class="n">kernel</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">zeroExterior</span><span class="o">=</span><span class="n">zeroExterior</span><span class="p">,</span> <span class="n">comm</span><span class="o">=</span><span class="n">comm</span><span class="p">,</span> <span class="n">logging</span><span class="o">=</span><span class="n">logging</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">diagonal</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">timer</span><span class="p">(</span><span class="s1">&#39;Assemble diagonal matrix </span><span class="si">{}</span><span class="s1">, zeroExterior=</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">kernel</span><span class="p">,</span> <span class="n">zeroExterior</span><span class="p">)):</span>
+                <span class="n">A</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">getDiagonal</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">dense</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">timer</span><span class="p">(</span><span class="s1">&#39;Assemble dense matrix </span><span class="si">{}</span><span class="s1">, zeroExterior=</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">kernel</span><span class="p">,</span> <span class="n">zeroExterior</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="n">cached</span><span class="p">:</span>
+                    <span class="n">A</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">getDenseCached</span><span class="p">()</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">A</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">getDense</span><span class="p">(</span><span class="n">trySparsification</span><span class="o">=</span><span class="n">trySparsification</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">timer</span><span class="p">(</span><span class="s1">&#39;Assemble sparse matrix </span><span class="si">{}</span><span class="s1">, zeroExterior=</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">kernel</span><span class="p">,</span> <span class="n">zeroExterior</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">horizon</span><span class="p">,</span> <span class="n">constant</span><span class="p">):</span>
+                    <span class="n">A</span><span class="p">,</span> <span class="n">Pnear</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">getH2</span><span class="p">(</span><span class="n">returnNearField</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">A</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">getH2FiniteHorizon</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">doSave</span> <span class="ow">and</span> <span class="p">(</span><span class="n">comm</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="p">(</span><span class="n">comm</span> <span class="ow">and</span> <span class="n">comm</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="s1">&#39;HDF5write&#39;</span><span class="p">):</span>
+                <span class="k">with</span> <span class="n">timer</span><span class="p">(</span><span class="s1">&#39;Saving&#39;</span><span class="p">):</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">f</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">filename</span><span class="p">),</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span>
+                        <span class="n">A</span><span class="o">.</span><span class="n">HDF5write</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+                        <span class="n">f</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+                        <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+                    <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="n">LOGGER</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Unable to save to </span><span class="si">{}</span><span class="s1">, reason: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">filename</span><span class="p">),</span> <span class="n">e</span><span class="p">))</span>
+            <span class="c1"># else:</span>
+            <span class="c1">#     LOGGER.warn(&#39;Cannot save {}&#39;.format(str(A)))</span>
+
+    <span class="k">if</span> <span class="n">returnNearField</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">A</span><span class="p">,</span> <span class="n">Pnear</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">A</span></div>
+
+
+<div class="viewcode-block" id="delayedFractionalLaplacianOp"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.delayedFractionalLaplacianOp">[docs]</a><span class="k">class</span> <span class="nc">delayedFractionalLaplacianOp</span><span class="p">(</span><span class="n">delayedConstructionOperator</span><span class="p">):</span>
+<div class="viewcode-block" id="delayedFractionalLaplacianOp.__init__"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.delayedFractionalLaplacianOp.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mesh</span><span class="p">,</span> <span class="n">dm</span><span class="p">,</span> <span class="n">kernel</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">dm</span><span class="o">.</span><span class="n">num_dofs</span><span class="p">,</span>
+                         <span class="n">dm</span><span class="o">.</span><span class="n">num_dofs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mesh</span> <span class="o">=</span> <span class="n">mesh</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dm</span> <span class="o">=</span> <span class="n">dm</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kernel</span> <span class="o">=</span> <span class="n">kernel</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">args</span> <span class="o">=</span> <span class="n">args</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span> <span class="o">=</span> <span class="n">kwargs</span></div>
+
+<div class="viewcode-block" id="delayedFractionalLaplacianOp.construct"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.delayedFractionalLaplacianOp.construct">[docs]</a>    <span class="k">def</span> <span class="nf">construct</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">copy</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">d</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">getFracLapl</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mesh</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dm</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">kernel</span><span class="p">,</span>
+                        <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">d</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">A</span></div></div>
+
+
+
+
+<span class="n">NONE</span> <span class="o">=</span> <span class="o">-</span><span class="mi">10</span>
+<span class="n">DIRICHLET_EXTERIOR</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">DIRICHLET_INTERIOR</span> <span class="o">=</span> <span class="mi">1</span>
+
+
+<div class="viewcode-block" id="DirichletCondition"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.DirichletCondition">[docs]</a><span class="k">class</span> <span class="nc">DirichletCondition</span><span class="p">:</span>
+<div class="viewcode-block" id="DirichletCondition.__init__"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.DirichletCondition.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fullMesh</span><span class="p">,</span> <span class="n">fullDoFMap</span><span class="p">,</span> <span class="n">fullOp</span><span class="p">,</span> <span class="n">domainIndicator</span><span class="p">,</span> <span class="n">fluxIndicator</span><span class="p">):</span>
+        <span class="c1"># The mesh is partitioned into</span>
+        <span class="c1">#  * &#39;domain&#39;    (domainIndicator &gt; 0)</span>
+        <span class="c1">#  * &#39;Neumann&#39;   (fluxIndicator &gt; 0)</span>
+        <span class="c1">#  * &#39;Dirichlet&#39; (domainIndicator == 0 and fluxIndicator == 0)</span>
+        <span class="c1"># For computations, we keep domain and Neumann together as &#39;natural&#39;.</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">fullMesh</span> <span class="o">=</span> <span class="n">fullMesh</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fullDoFMap</span> <span class="o">=</span> <span class="n">fullDoFMap</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">domainIndicator</span> <span class="o">=</span> <span class="n">domainIndicator</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fluxIndicator</span> <span class="o">=</span> <span class="n">fluxIndicator</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fullOp</span> <span class="o">=</span> <span class="n">fullOp</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setup</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="DirichletCondition.setup"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.DirichletCondition.setup">[docs]</a>    <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># from PyNucleus_fem import constant</span>
+
+        <span class="c1"># dmIndicator = P0_DoFMap(self.fullMesh)</span>
+        <span class="n">dirichletIndicator</span> <span class="o">=</span> <span class="n">constant</span><span class="p">(</span><span class="mf">1.</span><span class="p">)</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">domainIndicator</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">fluxIndicator</span>
+        <span class="c1"># dirichletIndicatorVec = dmIndicator.interpolate(dirichletIndicator).toarray()</span>
+        <span class="c1"># naturalCells = np.flatnonzero(dirichletIndicatorVec &lt; 1e-9).astype(INDEX)</span>
+
+        <span class="kn">from</span> <span class="nn">PyNucleus_fem.splitting</span> <span class="kn">import</span> <span class="n">meshSplitter</span><span class="p">,</span> <span class="n">dofmapSplitter</span>
+        <span class="kn">from</span> <span class="nn">PyNucleus_fem.DoFMaps</span> <span class="kn">import</span> <span class="n">getSubMapRestrictionProlongation</span>
+
+        <span class="n">split</span> <span class="o">=</span> <span class="n">dofmapSplitter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fullDoFMap</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;Dirichlet&#39;</span><span class="p">:</span> <span class="n">dirichletIndicator</span><span class="p">})</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dirichletDoFMap</span> <span class="o">=</span> <span class="n">split</span><span class="o">.</span><span class="n">getSubMap</span><span class="p">(</span><span class="s1">&#39;Dirichlet&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dirichletR</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichletP</span> <span class="o">=</span> <span class="n">split</span><span class="o">.</span><span class="n">getRestrictionProlongation</span><span class="p">(</span><span class="s1">&#39;Dirichlet&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">naturalDoFMap</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichletDoFMap</span><span class="o">.</span><span class="n">getComplementDoFMap</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">naturalR</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">naturalP</span> <span class="o">=</span> <span class="n">getSubMapRestrictionProlongation</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fullDoFMap</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">naturalDoFMap</span><span class="p">)</span>
+
+        <span class="c1"># self.naturalMesh = getSubmesh(self.fullMesh, naturalCells)</span>
+        <span class="c1"># self.naturalMesh.replaceBoundaryVertexTags(lambda x: DIRICHLET_EXTERIOR if dirichletIndicator(x) &gt;= 1e-9 else DIRICHLET_INTERIOR,</span>
+        <span class="c1">#                                            set([DIRICHLET_EXTERIOR]))</span>
+        <span class="c1"># self.naturalMesh.replaceBoundaryEdgeTags(lambda x, y: DIRICHLET_EXTERIOR if dirichletIndicator(0.5*(np.array(x)+np.array(y))) &gt;= 1e-9 else DIRICHLET_INTERIOR,</span>
+        <span class="c1">#                                          set([DIRICHLET_EXTERIOR]))</span>
+
+        <span class="c1"># self.naturalDoFMap = type(self.fullDoFMap)(self.fullMesh, self.domainIndicator+self.fluxIndicator)</span>
+        <span class="c1"># self.naturalR, self.naturalP = getSubMapRestrictionProlongation(self.fullDoFMap, self.naturalDoFMap)</span>
+
+        <span class="c1"># self.dirichletDoFMap = type(self.fullDoFMap)(self.fullMesh, dirichletIndicator)</span>
+        <span class="c1"># self.dirichletR, self.dirichletP = getSubMapRestrictionProlongation(self.fullDoFMap, self.dirichletDoFMap)</span>
+
+
+        <span class="c1"># import matplotlib.pyplot as plt</span>
+        <span class="c1"># plt.figure()</span>
+        <span class="c1"># self.dirichletDoFMap.plot()</span>
+        <span class="c1"># # self.dirichletMesh.plot(info=True)</span>
+        <span class="c1"># plt.figure()</span>
+        <span class="c1"># self.naturalDoFMap.plot()</span>
+        <span class="c1"># # self.naturalMesh.plot(info=True)</span>
+        <span class="c1"># plt.show()</span>
+
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">fullDoFMap</span><span class="o">.</span><span class="n">num_dofs</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">naturalDoFMap</span><span class="o">.</span><span class="n">num_dofs</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">dirichletDoFMap</span><span class="o">.</span><span class="n">num_dofs</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fullDoFMap</span><span class="o">.</span><span class="n">num_dofs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">naturalDoFMap</span><span class="o">.</span><span class="n">num_dofs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichletDoFMap</span><span class="o">.</span><span class="n">num_dofs</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">naturalA</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">naturalR</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fullOp</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">naturalP</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">domainDoFMap</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fullDoFMap</span><span class="p">)(</span><span class="bp">self</span><span class="o">.</span><span class="n">fullMesh</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">domainIndicator</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">domainR</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">domainP</span> <span class="o">=</span> <span class="n">getSubMapRestrictionProlongation</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fullDoFMap</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">domainDoFMap</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="DirichletCondition.setDirichletData"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.DirichletCondition.setDirichletData">[docs]</a>    <span class="k">def</span> <span class="nf">setDirichletData</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dirichletData</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichletDoFMap</span><span class="o">.</span><span class="n">num_dofs</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dirichletVector</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichletDoFMap</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">dirichletData</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="DirichletCondition.applyRHScorrection"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.DirichletCondition.applyRHScorrection">[docs]</a>    <span class="k">def</span> <span class="nf">applyRHScorrection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">b</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">naturalDoFMap</span><span class="o">.</span><span class="n">num_dofs</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichletDoFMap</span><span class="o">.</span><span class="n">num_dofs</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">b</span> <span class="o">-=</span> <span class="bp">self</span><span class="o">.</span><span class="n">naturalR</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fullOp</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dirichletP</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">dirichletVector</span><span class="p">))</span></div>
+            <span class="c1"># b -= self.naturalR*(self.domainP*(self.domainR*(self.fullOp*(self.dirichletP*self.dirichletVector))))</span>
+
+<div class="viewcode-block" id="DirichletCondition.augmentDirichlet"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.DirichletCondition.augmentDirichlet">[docs]</a>    <span class="k">def</span> <span class="nf">augmentDirichlet</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">naturalP</span><span class="o">*</span><span class="n">u</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichletP</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">dirichletVector</span></div>
+
+<div class="viewcode-block" id="DirichletCondition.plot"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.DirichletCondition.plot">[docs]</a>    <span class="k">def</span> <span class="nf">plot</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fullMesh</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dirichletP</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">dirichletDoFMap</span><span class="o">.</span><span class="n">ones</span><span class="p">()</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">naturalP</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">naturalDoFMap</span><span class="o">.</span><span class="n">ones</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fullMesh</span><span class="o">.</span><span class="n">plotFunction</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="multilevelDirichletCondition"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.multilevelDirichletCondition">[docs]</a><span class="k">class</span> <span class="nc">multilevelDirichletCondition</span><span class="p">(</span><span class="n">DirichletCondition</span><span class="p">):</span>
+<div class="viewcode-block" id="multilevelDirichletCondition.__init__"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.multilevelDirichletCondition.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">levels</span><span class="p">,</span> <span class="n">domainIndicator</span><span class="p">,</span> <span class="n">fluxIndicator</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">multilevelDirichletCondition</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">levels</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;mesh&#39;</span><span class="p">],</span>
+                                                           <span class="n">levels</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;DoFMap&#39;</span><span class="p">],</span>
+                                                           <span class="n">levels</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;A&#39;</span><span class="p">],</span>
+                                                           <span class="n">domainIndicator</span><span class="p">,</span>
+                                                           <span class="n">fluxIndicator</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">levels</span> <span class="o">=</span> <span class="n">levels</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setupHierarchy</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="multilevelDirichletCondition.setupCoarseOps"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.multilevelDirichletCondition.setupCoarseOps">[docs]</a>    <span class="k">def</span> <span class="nf">setupCoarseOps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mesh</span><span class="p">,</span> <span class="n">dm</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">PyNucleus_fem</span> <span class="kn">import</span> <span class="n">constant</span>
+
+        <span class="n">dmIndicator</span> <span class="o">=</span> <span class="n">P0_DoFMap</span><span class="p">(</span><span class="n">mesh</span><span class="p">)</span>
+        <span class="n">dirichletIndicator</span> <span class="o">=</span> <span class="n">constant</span><span class="p">(</span><span class="mf">1.</span><span class="p">)</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">domainIndicator</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">fluxIndicator</span>
+        <span class="n">dirichletIndicatorVec</span> <span class="o">=</span> <span class="n">dmIndicator</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">dirichletIndicator</span><span class="p">)</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
+        <span class="n">naturalCells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">dirichletIndicatorVec</span> <span class="o">&lt;</span> <span class="mf">1e-9</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">INDEX</span><span class="p">)</span>
+
+        <span class="n">naturalMesh</span> <span class="o">=</span> <span class="n">getSubmesh</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">naturalCells</span><span class="p">)</span>
+        <span class="n">naturalMesh</span><span class="o">.</span><span class="n">replaceBoundaryVertexTags</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">DIRICHLET_EXTERIOR</span> <span class="k">if</span> <span class="n">dirichletIndicator</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mf">1e-9</span> <span class="k">else</span> <span class="n">DIRICHLET_INTERIOR</span><span class="p">,</span>
+                                              <span class="nb">set</span><span class="p">([</span><span class="n">DIRICHLET_EXTERIOR</span><span class="p">]))</span>
+        <span class="n">naturalMesh</span><span class="o">.</span><span class="n">replaceBoundaryEdgeTags</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">DIRICHLET_EXTERIOR</span> <span class="k">if</span> <span class="n">dirichletIndicator</span><span class="p">(</span><span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">y</span><span class="p">)))</span> <span class="o">&gt;=</span> <span class="mf">1e-9</span> <span class="k">else</span> <span class="n">DIRICHLET_INTERIOR</span><span class="p">,</span>
+                                            <span class="nb">set</span><span class="p">([</span><span class="n">DIRICHLET_EXTERIOR</span><span class="p">]))</span>
+
+        <span class="n">naturalDoFMap</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">dm</span><span class="p">)(</span><span class="n">mesh</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">domainIndicator</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">fluxIndicator</span><span class="p">)</span>
+        <span class="n">naturalR</span><span class="p">,</span> <span class="n">naturalP</span> <span class="o">=</span> <span class="n">getSubMapRestrictionProlongation</span><span class="p">(</span><span class="n">dm</span><span class="p">,</span> <span class="n">naturalDoFMap</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">naturalMesh</span><span class="p">,</span> <span class="n">naturalDoFMap</span><span class="p">,</span> <span class="n">naturalR</span><span class="p">,</span> <span class="n">naturalP</span></div>
+
+<div class="viewcode-block" id="multilevelDirichletCondition.setupHierarchy"><a class="viewcode-back" href="../PyNucleus_nl.html#PyNucleus_nl.multilevelDirichletCondition.setupHierarchy">[docs]</a>    <span class="k">def</span> <span class="nf">setupHierarchy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">levelsNew</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">prevNaturalR</span><span class="p">,</span> <span class="n">prevNaturalP</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">lvl</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">levels</span><span class="p">)):</span>
+            <span class="n">levelsNew</span><span class="o">.</span><span class="n">append</span><span class="p">({})</span>
+            <span class="n">naturalMesh</span><span class="p">,</span> <span class="n">naturalDoFMap</span><span class="p">,</span> <span class="n">naturalR</span><span class="p">,</span> <span class="n">naturalP</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">setupCoarseOps</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">levels</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="s1">&#39;mesh&#39;</span><span class="p">],</span>
+                                                                                 <span class="bp">self</span><span class="o">.</span><span class="n">levels</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="s1">&#39;DoFMap&#39;</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">levels</span><span class="p">[</span><span class="n">lvl</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s1">&#39;A&#39;</span><span class="p">:</span>
+                    <span class="n">levelsNew</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">naturalR</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">levels</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="n">key</span><span class="p">]</span><span class="o">*</span><span class="n">naturalP</span><span class="p">)</span>
+                    <span class="n">levelsNew</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">diagonal</span> <span class="o">=</span> <span class="n">naturalR</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">levels</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">diagonal</span>
+                <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s1">&#39;S&#39;</span><span class="p">:</span>
+                    <span class="n">levelsNew</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">naturalR</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">levels</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="n">key</span><span class="p">]</span><span class="o">*</span><span class="n">naturalP</span><span class="p">)</span>
+                    <span class="n">levelsNew</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">diagonal</span> <span class="o">=</span> <span class="n">naturalR</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">levels</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">diagonal</span>
+                <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s1">&#39;M&#39;</span><span class="p">:</span>
+                    <span class="n">levelsNew</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">naturalR</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">levels</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="n">key</span><span class="p">]</span><span class="o">*</span><span class="n">naturalP</span><span class="p">)</span>
+                    <span class="n">levelsNew</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">diagonal</span> <span class="o">=</span> <span class="n">naturalR</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">levels</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">diagonal</span>
+                <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s1">&#39;R&#39;</span><span class="p">:</span>
+                    <span class="n">levelsNew</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">prevNaturalR</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">levels</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="n">key</span><span class="p">]</span><span class="o">*</span><span class="n">naturalP</span><span class="p">))</span><span class="o">.</span><span class="n">to_csr_linear_operator</span><span class="p">()</span>
+                <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s1">&#39;P&#39;</span><span class="p">:</span>
+                    <span class="n">levelsNew</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">naturalR</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">levels</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="n">key</span><span class="p">]</span><span class="o">*</span><span class="n">prevNaturalP</span><span class="p">))</span><span class="o">.</span><span class="n">to_csr_linear_operator</span><span class="p">()</span>
+                <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s1">&#39;DoFMap&#39;</span><span class="p">:</span>
+                    <span class="n">levelsNew</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">naturalDoFMap</span>
+                <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s1">&#39;mesh&#39;</span><span class="p">:</span>
+                    <span class="n">levelsNew</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">naturalMesh</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">levelsNew</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">levels</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="n">key</span><span class="p">]</span>
+            <span class="n">levelsNew</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="s1">&#39;naturalR&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">naturalR</span>
+            <span class="n">levelsNew</span><span class="p">[</span><span class="n">lvl</span><span class="p">][</span><span class="s1">&#39;naturalP&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">naturalP</span>
+            <span class="n">prevNaturalR</span><span class="p">,</span> <span class="n">prevNaturalP</span> <span class="o">=</span> <span class="n">naturalR</span><span class="p">,</span> <span class="n">naturalP</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">naturalLevels</span> <span class="o">=</span> <span class="n">levelsNew</span></div></div>
+
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">PyNucleus  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">PyNucleus_nl</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2021, Christian Glusa.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.2.0.
+    </div>
+  </body>
+</html>

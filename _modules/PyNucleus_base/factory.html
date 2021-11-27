@@ -1,0 +1,172 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PyNucleus_base.factory &#8212; PyNucleus  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/bizstyle.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">PyNucleus  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../PyNucleus_base.html" accesskey="U">PyNucleus_base</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">PyNucleus_base.factory</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for PyNucleus_base.factory</h1><div class="highlight"><pre>
+<span></span><span class="c1">###################################################################################</span>
+<span class="c1"># Copyright 2021 National Technology &amp; Engineering Solutions of Sandia,           #</span>
+<span class="c1"># LLC (NTESS). Under the terms of Contract DE-NA0003525 with NTESS, the           #</span>
+<span class="c1"># U.S. Government retains certain rights in this software.                        #</span>
+<span class="c1"># If you want to use this code, please refer to the README.rst and LICENSE files. #</span>
+<span class="c1">###################################################################################</span>
+
+
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
+
+
+<div class="viewcode-block" id="factory"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.factory.factory">[docs]</a><span class="k">class</span> <span class="nc">factory</span><span class="p">:</span>
+<div class="viewcode-block" id="factory.__init__"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.factory.factory.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">classes</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span> <span class="o">=</span> <span class="p">{}</span></div>
+
+<div class="viewcode-block" id="factory.getCanonicalName"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.factory.factory.getCanonicalName">[docs]</a>    <span class="k">def</span> <span class="nf">getCanonicalName</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">name</span></div>
+
+<div class="viewcode-block" id="factory.register"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.factory.factory.register">[docs]</a>    <span class="k">def</span> <span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">classType</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">{},</span> <span class="n">aliases</span><span class="o">=</span><span class="p">[]):</span>
+        <span class="n">canonical_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCanonicalName</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="p">[</span><span class="n">canonical_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">classType</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">alias</span> <span class="ow">in</span> <span class="n">aliases</span><span class="p">:</span>
+            <span class="n">canonical_alias</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCanonicalName</span><span class="p">(</span><span class="n">alias</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="p">[</span><span class="n">canonical_alias</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">alias</span><span class="p">,</span> <span class="n">canonical_name</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="factory.isRegistered"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.factory.factory.isRegistered">[docs]</a>    <span class="k">def</span> <span class="nf">isRegistered</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCanonicalName</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">classes</span> <span class="ow">or</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span></div>
+
+<div class="viewcode-block" id="factory.__call__"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.factory.factory.__call__">[docs]</a>    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="factory.build"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.factory.factory.build">[docs]</a>    <span class="k">def</span> <span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">canonical_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCanonicalName</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">canonical_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="p">:</span>
+            <span class="n">canonical_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="p">[</span><span class="n">canonical_name</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">canonical_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\&#39;</span><span class="si">{}</span><span class="se">\&#39;</span><span class="s1"> not in factory. </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)))</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">classType</span><span class="p">,</span> <span class="n">params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="p">[</span><span class="n">canonical_name</span><span class="p">]</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">obj</span> <span class="o">=</span> <span class="n">classType</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">p</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">obj</span></div>
+
+<div class="viewcode-block" id="factory.numRegistered"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.factory.factory.numRegistered">[docs]</a>    <span class="k">def</span> <span class="nf">numRegistered</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">countAliases</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">countAliases</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="k">for</span> <span class="n">canonical_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="p">:</span>
+            <span class="n">a</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="p">[</span><span class="n">canonical_alias</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">canonical_alias</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="p">[</span><span class="n">canonical_alias</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">canonical_name</span><span class="p">]</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s1">&#39;</span><span class="si">{}</span><span class="s1"> </span><span class="si">{}</span><span class="s1"> </span><span class="si">{}</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">canonical_name</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="p">[</span><span class="n">canonical_name</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s1">&#39;Available:</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="k">for</span> <span class="n">canonical_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="p">[</span><span class="n">canonical_name</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">classes</span><span class="p">[</span><span class="n">canonical_name</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">a</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="p">[</span><span class="n">canonical_alias</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">canonical_alias</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">aliases</span><span class="p">[</span><span class="n">canonical_alias</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">canonical_name</span><span class="p">]</span>
+            <span class="n">sig</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="vm">__doc__</span>
+            <span class="k">if</span> <span class="n">sig</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="kn">from</span> <span class="nn">inspect</span> <span class="kn">import</span> <span class="n">signature</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">sig</span> <span class="o">=</span> <span class="n">signature</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                    <span class="k">pass</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sig</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">sig</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">):</span>
+                <span class="n">sig</span> <span class="o">=</span> <span class="n">sig</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s1">&#39;</span><span class="se">\&#39;</span><span class="si">{}</span><span class="se">\&#39;</span><span class="s1"> with aliases </span><span class="si">{}</span><span class="s1">, signature: </span><span class="se">\&#39;</span><span class="si">{}</span><span class="se">\&#39;\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">sig</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">+=</span> <span class="s1">&#39;</span><span class="se">\&#39;</span><span class="si">{}</span><span class="se">\&#39;</span><span class="s1">, signature: </span><span class="se">\&#39;</span><span class="si">{}</span><span class="se">\&#39;\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">sig</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+<div class="viewcode-block" id="factory.print"><a class="viewcode-back" href="../../PyNucleus_base.html#PyNucleus_base.factory.factory.print">[docs]</a>    <span class="k">def</span> <span class="nf">print</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span></div></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">PyNucleus  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../PyNucleus_base.html" >PyNucleus_base</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">PyNucleus_base.factory</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2021, Christian Glusa.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.2.0.
+    </div>
+  </body>
+</html>

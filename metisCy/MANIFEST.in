@@ -1,3 +1,0 @@
-
-include versioneer.py
-include PyNucleus_metisCy/_version.py

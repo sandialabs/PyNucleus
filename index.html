@@ -1,0 +1,224 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Welcome to PyNucleus’ documentation! &#8212; PyNucleus  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/bizstyle.css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Prerequisites" href="installation.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="installation.html" title="Prerequisites"
+             accesskey="N">next</a> |</li>
+        <li class="nav-item nav-item-0"><a href="#">PyNucleus  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Welcome to PyNucleus’ documentation!</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="welcome-to-pynucleus-documentation">
+<h1>Welcome to PyNucleus’ documentation!<a class="headerlink" href="#welcome-to-pynucleus-documentation" title="Permalink to this headline">¶</a></h1>
+<p>PyNucleus is a finite element code that specifically targets nonlocal operators of the form</p>
+<div class="math notranslate nohighlight">
+\[\int_{\mathbb{R}^d} [u(x)-u(y)] \gamma(x, y) dy\]</div>
+<p>for nonlocal kernels <span class="math notranslate nohighlight">\(\gamma\)</span> with finite or infinite horizon and of integrable or fractional type.
+Specific examples of such operators include the integral and regional fractional Laplacians, their truncated and tempered variants, and operators arising from peridynamics.</p>
+<p>The package aims to provide efficient discretization and assembly routines with <span class="math notranslate nohighlight">\(O(N \log N)\)</span> quasi-optimal complexity.
+The resulting sets of equations can be solved using optimal linear solvers.
+The code is fully NumPy/SciPy compatible, allowing easy integration into application codes.</p>
+<section id="features">
+<h2>Features<a class="headerlink" href="#features" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>Simplical meshes in 1D, 2D, 3D</p></li>
+<li><p>Finite Elements:</p>
+<ul>
+<li><p>continuous P1, P2, P3 spaces,</p></li>
+<li><p>discontinuous P0 space</p></li>
+</ul>
+</li>
+<li><p>Assembly of local operators</p></li>
+<li><p>Nonlocal kernels:</p>
+<ul>
+<li><p>Finite and infinite horizon</p></li>
+<li><p>Singularities: fractional, peridynamic, constant kernel</p></li>
+<li><p>spatially variable kernels: variable fractional order and variable coefficients</p></li>
+</ul>
+</li>
+<li><p>Nonlocal assembly (1D and 2D) into dense, sparse and hierarchical matrices</p></li>
+<li><p>Solvers/preconditioners:</p>
+<ul>
+<li><p>LU,</p></li>
+<li><p>Cholesky,</p></li>
+<li><p>incomplete LU &amp; Cholesky,</p></li>
+<li><p>Jacobi,</p></li>
+<li><p>CG,</p></li>
+<li><p>BiCGStab,</p></li>
+<li><p>GMRES,</p></li>
+<li><p>geometric multigrid</p></li>
+</ul>
+</li>
+<li><p>Distributed computing using MPI</p></li>
+<li><p>Computationally expensive parts of the code are compiled via Cython.</p></li>
+<li><p>Partitioning using METIS / ParMETIS</p></li>
+</ul>
+</section>
+<section id="getting-started">
+<h2>Getting started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Prerequisites</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html#installation">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html#docker-container">Docker container</a></li>
+</ul>
+</div>
+</section>
+<section id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="example1.html">Example 1 - A simple PDE problem</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="example1.html#factories">Factories</a></li>
+<li class="toctree-l2"><a class="reference internal" href="example1.html#meshes">Meshes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="example1.html#dofmaps">DoFMaps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="example1.html#functions-and-vectors">Functions and vectors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="example1.html#matrices">Matrices</a></li>
+<li class="toctree-l2"><a class="reference internal" href="example1.html#solvers">Solvers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="example1.html#norms-and-inner-products">Norms and inner products</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="example2.html">Example 2 - Nonlocal problems</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="example2.html#a-fractional-kernel">A fractional kernel</a></li>
+<li class="toctree-l2"><a class="reference internal" href="example2.html#nonlocal-assembly">Nonlocal assembly</a></li>
+<li class="toctree-l2"><a class="reference internal" href="example2.html#a-finite-horizon-case">A finite horizon case</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="funding">
+<h2>Funding<a class="headerlink" href="#funding" title="Permalink to this headline">¶</a></h2>
+<p>PyNucleus’ development is funded through the MATNIP project (PI: Marta D’Elia) of the LDRD program at Sandia National Laboratories.</p>
+<a class="reference internal image-reference" href="_images/matnip.png"><img alt="_images/matnip.png" src="_images/matnip.png" style="height: 100px;" /></a>
+<p><em>The MATNIP project develops for the first time a rigorous nonlocal interface theory based on physical principles that is consistent with the classical theory of partial differential equations when the nonlocality vanishes and is mathematically well-posed.
+This will improve the predictive capability of nonlocal models and increase their usability at Sandia and, more in general, in the computational-science and engineering community.
+Furthermore, this theory will provide the groundwork for the development of nonlocal solvers, reducing the burden of prohibitively expensive computations.</em></p>
+</section>
+<section id="api">
+<h2>API<a class="headerlink" href="#api" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="PyNucleus_base.html">PyNucleus.base package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PyNucleus_fem.html">PyNucleus.fem package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PyNucleus_metisCy.html">PyNucleus.metisCy package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PyNucleus_multilevelSolver.html">PyNucleus.multilevelSolver package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="PyNucleus_nl.html">PyNucleus.nl package</a></li>
+</ul>
+</div>
+</section>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="#">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Welcome to PyNucleus’ documentation!</a><ul>
+<li><a class="reference internal" href="#features">Features</a></li>
+<li><a class="reference internal" href="#getting-started">Getting started</a></li>
+<li><a class="reference internal" href="#examples">Examples</a></li>
+<li><a class="reference internal" href="#funding">Funding</a></li>
+<li><a class="reference internal" href="#api">API</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
+</ul>
+
+  <h4>Next topic</h4>
+  <p class="topless"><a href="installation.html"
+                        title="next chapter">Prerequisites</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/index.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="installation.html" title="Prerequisites"
+             >next</a> |</li>
+        <li class="nav-item nav-item-0"><a href="#">PyNucleus  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Welcome to PyNucleus’ documentation!</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2021, Christian Glusa.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.2.0.
+    </div>
+  </body>
+</html>

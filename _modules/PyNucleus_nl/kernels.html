@@ -1,0 +1,253 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PyNucleus_nl.kernels &#8212; PyNucleus  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/bizstyle.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">PyNucleus  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../PyNucleus_nl.html" accesskey="U">PyNucleus_nl</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">PyNucleus_nl.kernels</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for PyNucleus_nl.kernels</h1><div class="highlight"><pre>
+<span></span><span class="c1">###################################################################################</span>
+<span class="c1"># Copyright 2021 National Technology &amp; Engineering Solutions of Sandia,           #</span>
+<span class="c1"># LLC (NTESS). Under the terms of Contract DE-NA0003525 with NTESS, the           #</span>
+<span class="c1"># U.S. Government retains certain rights in this software.                        #</span>
+<span class="c1"># If you want to use this code, please refer to the README.rst and LICENSE files. #</span>
+<span class="c1">###################################################################################</span>
+
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">PyNucleus_base.myTypes</span> <span class="kn">import</span> <span class="n">INDEX</span><span class="p">,</span> <span class="n">REAL</span>
+<span class="kn">from</span> <span class="nn">PyNucleus_fem.functions</span> <span class="kn">import</span> <span class="n">function</span><span class="p">,</span> <span class="n">constant</span>
+<span class="kn">from</span> <span class="nn">PyNucleus_fem.mesh</span> <span class="kn">import</span> <span class="n">meshNd</span>
+<span class="kn">from</span> <span class="nn">PyNucleus_fem.DoFMaps</span> <span class="kn">import</span> <span class="n">DoFMap</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">twoPointFunctions</span> <span class="kn">import</span> <span class="nn">constantTwoPoint</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">interactionDomains</span> <span class="kn">import</span> <span class="p">(</span><span class="n">interactionDomain</span><span class="p">,</span>
+                                  <span class="n">fullSpace</span><span class="p">,</span>
+                                  <span class="n">ball1</span><span class="p">,</span>
+                                  <span class="n">ball2</span><span class="p">,</span>
+                                  <span class="n">ballInf</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">fractionalOrders</span> <span class="kn">import</span> <span class="p">(</span><span class="n">fractionalOrderBase</span><span class="p">,</span>
+                                <span class="n">constFractionalOrder</span><span class="p">,</span>
+                                <span class="n">constantFractionalLaplacianScaling</span><span class="p">,</span>
+                                <span class="n">variableFractionalLaplacianScaling</span><span class="p">,</span>
+                                <span class="n">constantIntegrableScaling</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="n">kernels2</span> <span class="kn">import</span> <span class="p">(</span><span class="n">Kernel</span><span class="p">,</span>
+                        <span class="n">FractionalKernel</span><span class="p">,</span>
+                        <span class="n">FRACTIONAL</span><span class="p">,</span> <span class="n">INDICATOR</span><span class="p">,</span> <span class="n">PERIDYNAMIC</span><span class="p">,</span>
+                        <span class="n">getKernelEnum</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_getDim</span><span class="p">(</span><span class="n">dim</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">meshNd</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">dim</span><span class="o">.</span><span class="n">dim</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="p">(</span><span class="n">INDEX</span><span class="p">,</span> <span class="nb">int</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="n">dim</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;Dim: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">dim</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_getKernelType</span><span class="p">(</span><span class="n">kernel</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kernel</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">kType</span> <span class="o">=</span> <span class="n">getKernelEnum</span><span class="p">(</span><span class="n">kernel</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kernel</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="n">kType</span> <span class="o">=</span> <span class="n">kernel</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;Kernel type: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">kernel</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">kType</span>
+
+
+<span class="k">def</span> <span class="nf">_getFractionalOrder</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">fractionalOrderBase</span><span class="p">):</span>
+        <span class="n">sFun</span> <span class="o">=</span> <span class="n">s</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="p">(</span><span class="n">REAL</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+        <span class="n">sFun</span> <span class="o">=</span> <span class="n">constFractionalOrder</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;Fractional order: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">sFun</span>
+
+
+<span class="k">def</span> <span class="nf">_getHorizon</span><span class="p">(</span><span class="n">horizon</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">horizon</span><span class="p">,</span> <span class="n">function</span><span class="p">):</span>
+        <span class="n">horizonFun</span> <span class="o">=</span> <span class="n">horizon</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">horizon</span><span class="p">,</span> <span class="p">(</span><span class="n">REAL</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">)):</span>
+        <span class="n">horizonFun</span> <span class="o">=</span> <span class="n">constant</span><span class="p">(</span><span class="n">horizon</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">horizon</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">horizonFun</span> <span class="o">=</span> <span class="n">constant</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;Horizon: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">horizon</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">horizonFun</span>
+
+
+<span class="k">def</span> <span class="nf">_getInteraction</span><span class="p">(</span><span class="n">interaction</span><span class="p">,</span> <span class="n">horizon</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">interaction</span><span class="p">,</span> <span class="n">interactionDomain</span><span class="p">):</span>
+        <span class="k">pass</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">horizon</span><span class="p">,</span> <span class="n">constant</span><span class="p">)</span> <span class="ow">and</span> <span class="n">horizon</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">:</span>
+        <span class="n">interaction</span> <span class="o">=</span> <span class="n">fullSpace</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="n">interaction</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">interaction</span> <span class="o">=</span> <span class="n">ball2</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">interaction</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">interaction</span> <span class="o">==</span> <span class="s1">&#39;fullSpace&#39;</span><span class="p">:</span>
+            <span class="n">interaction</span> <span class="o">=</span> <span class="n">fullSpace</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">interaction</span> <span class="o">==</span> <span class="s1">&#39;ball1&#39;</span><span class="p">:</span>
+            <span class="n">interaction</span> <span class="o">=</span> <span class="n">ball1</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">interaction</span> <span class="o">==</span> <span class="s1">&#39;ball2&#39;</span><span class="p">:</span>
+            <span class="n">interaction</span> <span class="o">=</span> <span class="n">ball2</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">interaction</span> <span class="o">==</span> <span class="s1">&#39;ballInf&#39;</span><span class="p">:</span>
+            <span class="n">interaction</span> <span class="o">=</span> <span class="n">ballInf</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;Interaction: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">interaction</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s1">&#39;Interaction: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">interaction</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">interaction</span>
+
+
+<div class="viewcode-block" id="getFractionalKernel"><a class="viewcode-back" href="../../PyNucleus_nl.html#PyNucleus_nl.kernels.getFractionalKernel">[docs]</a><span class="k">def</span> <span class="nf">getFractionalKernel</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span>
+                        <span class="n">s</span><span class="p">,</span>
+                        <span class="n">horizon</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                        <span class="n">interaction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                        <span class="n">scaling</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                        <span class="n">normalized</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">piecewise</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">phi</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">dim_</span> <span class="o">=</span> <span class="n">_getDim</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+    <span class="n">sFun</span> <span class="o">=</span> <span class="n">_getFractionalOrder</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="n">horizonFun</span> <span class="o">=</span> <span class="n">_getHorizon</span><span class="p">(</span><span class="n">horizon</span><span class="p">)</span>
+    <span class="n">interaction</span> <span class="o">=</span> <span class="n">_getInteraction</span><span class="p">(</span><span class="n">interaction</span><span class="p">,</span> <span class="n">horizonFun</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">scaling</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">normalized</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sFun</span><span class="p">,</span> <span class="n">constFractionalOrder</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">horizonFun</span><span class="p">,</span> <span class="n">constant</span><span class="p">):</span>
+                <span class="n">scaling</span> <span class="o">=</span> <span class="n">constantFractionalLaplacianScaling</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">sFun</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">horizonFun</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">symmetric</span> <span class="o">=</span> <span class="n">sFun</span><span class="o">.</span><span class="n">symmetric</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">horizonFun</span><span class="p">,</span> <span class="n">constant</span><span class="p">)</span>
+                <span class="n">scaling</span> <span class="o">=</span> <span class="n">variableFractionalLaplacianScaling</span><span class="p">(</span><span class="n">symmetric</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">scaling</span> <span class="o">=</span> <span class="n">constantTwoPoint</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+    <span class="n">kernel</span> <span class="o">=</span> <span class="n">FractionalKernel</span><span class="p">(</span><span class="n">dim_</span><span class="p">,</span> <span class="n">sFun</span><span class="p">,</span> <span class="n">horizonFun</span><span class="p">,</span> <span class="n">interaction</span><span class="p">,</span> <span class="n">scaling</span><span class="p">,</span> <span class="n">phi</span><span class="p">,</span> <span class="n">piecewise</span><span class="o">=</span><span class="n">piecewise</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">kernel</span></div>
+
+
+<div class="viewcode-block" id="getIntegrableKernel"><a class="viewcode-back" href="../../PyNucleus_nl.html#PyNucleus_nl.kernels.getIntegrableKernel">[docs]</a><span class="k">def</span> <span class="nf">getIntegrableKernel</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span>
+                        <span class="n">kernel</span><span class="p">,</span>
+                        <span class="n">horizon</span><span class="p">,</span>
+                        <span class="n">scaling</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                        <span class="n">interaction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                        <span class="n">normalized</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">piecewise</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">phi</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">dim_</span> <span class="o">=</span> <span class="n">_getDim</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+    <span class="n">kType</span> <span class="o">=</span> <span class="n">_getKernelType</span><span class="p">(</span><span class="n">kernel</span><span class="p">)</span>
+    <span class="n">horizonFun</span> <span class="o">=</span> <span class="n">_getHorizon</span><span class="p">(</span><span class="n">horizon</span><span class="p">)</span>
+    <span class="n">interaction</span> <span class="o">=</span> <span class="n">_getInteraction</span><span class="p">(</span><span class="n">interaction</span><span class="p">,</span> <span class="n">horizonFun</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">scaling</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">normalized</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">horizonFun</span><span class="p">,</span> <span class="n">constant</span><span class="p">):</span>
+                <span class="n">scaling</span> <span class="o">=</span> <span class="n">constantIntegrableScaling</span><span class="p">(</span><span class="n">kType</span><span class="p">,</span> <span class="n">interaction</span><span class="p">,</span> <span class="n">dim_</span><span class="p">,</span> <span class="n">horizonFun</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">scaling</span> <span class="o">=</span> <span class="n">constantTwoPoint</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Kernel</span><span class="p">(</span><span class="n">dim_</span><span class="p">,</span> <span class="n">kType</span><span class="o">=</span><span class="n">kType</span><span class="p">,</span> <span class="n">horizon</span><span class="o">=</span><span class="n">horizonFun</span><span class="p">,</span> <span class="n">interaction</span><span class="o">=</span><span class="n">interaction</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="n">scaling</span><span class="p">,</span> <span class="n">phi</span><span class="o">=</span><span class="n">phi</span><span class="p">,</span> <span class="n">piecewise</span><span class="o">=</span><span class="n">piecewise</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="getKernel"><a class="viewcode-back" href="../../PyNucleus_nl.html#PyNucleus_nl.kernels.getKernel">[docs]</a><span class="k">def</span> <span class="nf">getKernel</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span>
+              <span class="n">s</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+              <span class="n">horizon</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+              <span class="n">scaling</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+              <span class="n">interaction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+              <span class="n">normalized</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+              <span class="n">piecewise</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+              <span class="n">phi</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+              <span class="n">kernel</span><span class="o">=</span><span class="n">FRACTIONAL</span><span class="p">):</span>
+    <span class="n">kType</span> <span class="o">=</span> <span class="n">_getKernelType</span><span class="p">(</span><span class="n">kernel</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">kType</span> <span class="o">==</span> <span class="n">FRACTIONAL</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">getFractionalKernel</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">horizon</span><span class="p">,</span> <span class="n">interaction</span><span class="p">,</span> <span class="n">scaling</span><span class="p">,</span> <span class="n">normalized</span><span class="p">,</span> <span class="n">piecewise</span><span class="p">,</span> <span class="n">phi</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">getIntegrableKernel</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span>
+                                   <span class="n">kernel</span><span class="o">=</span><span class="n">kType</span><span class="p">,</span>
+                                   <span class="n">horizon</span><span class="o">=</span><span class="n">horizon</span><span class="p">,</span>
+                                   <span class="n">scaling</span><span class="o">=</span><span class="n">scaling</span><span class="p">,</span>
+                                   <span class="n">interaction</span><span class="o">=</span><span class="n">interaction</span><span class="p">,</span>
+                                   <span class="n">normalized</span><span class="o">=</span><span class="n">normalized</span><span class="p">,</span>
+                                   <span class="n">piecewise</span><span class="o">=</span><span class="n">piecewise</span><span class="p">,</span> <span class="n">phi</span><span class="o">=</span><span class="n">phi</span><span class="p">)</span></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">PyNucleus  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+          <li class="nav-item nav-item-2"><a href="../PyNucleus_nl.html" >PyNucleus_nl</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">PyNucleus_nl.kernels</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2021, Christian Glusa.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.2.0.
+    </div>
+  </body>
+</html>
