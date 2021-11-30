@@ -12,7 +12,6 @@ except ImportError as e:
     raise ImportError('\'PyNucleus_base\' needs to be installed first.') from e
 
 p = package('PyNucleus_nl')
-
 p.loadConfig(extra_config={'annotate': False})
 
 
