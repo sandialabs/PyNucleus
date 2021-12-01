@@ -223,74 +223,7 @@ if d.doFMGPGMRES:
 
 d.comm.Barrier()
 
-if d.doPCoarsen:
-    from PyNucleus_base.linear_operators import CSR_LinearOperator
-    from PyNucleus_base.myTypes import INDEX, REAL
 
-    A = []
-    P = []
-    nullspace = []
-    coords = []
-    if d.element == 'P2':
-        lvls = [-2, -1]
-    elif d.element == 'P3':
-        lvls = [-3, -2, -1]
-    for lvl in lvls:
-        numGlobalDoFs0 = overlaps.countDoFs(level=lvl)
-        idx0 = overlaps.getGlobalIndices(lvl)
-        dm0 = hM[FINE].algebraicLevels[lvl].DoFMap
-        assert idx0.shape[0] == dm0.num_dofs
-        P0 = CSR_LinearOperator(idx0,
-                                np.arange(dm0.num_dofs+1, dtype=INDEX),
-                                np.ones((idx0.shape[0]), dtype=REAL))
-        P0.num_columns = numGlobalDoFs0
-        P.append(P0.to_csr())
-
-        coords.append(d.comm.reduce(P[-1].T @ (overlaps.getDistributeAsDiagonalOperator(lvl).to_csr()@hM[FINE].algebraicLevels[lvl].DoFMap.getDoFCoordinates())))
-        nullspace.append(d.comm.reduce(P[-1].T @ (overlaps.getDistributeAsDiagonalOperator(lvl).to_csr()@hM[FINE].algebraicLevels[lvl].DoFMap.ones())))
-
-        A.append(d.comm.reduce((P[-1].T @ hM[FINE].algebraicLevels[lvl].A.to_csr() @ P[-1]).tocsr()))
-
-    b_global = d.comm.reduce(P[-1].T @ rhs.toarray())
-    u_global = d.comm.reduce(P[-1].T @ (overlaps.getDistributeOperator()*x))
-
-    P_ops = []
-    for k in range(len(lvls)-1):
-        lvlC = lvls[k]
-        lvlF = lvls[k+1]
-        P_ops.append(d.comm.reduce((P[lvlF].T @ overlaps.getDistributeAsDiagonalOperator(lvlF).to_csr() @ hM[FINE].algebraicLevels[lvlF].P.to_csr() @ P[lvlC]).tocsr()))
-
-    if d.comm.rank == 0:
-        from scipy.io import mmwrite
-        from PyNucleus import solverFactory
-
-        for element, a in zip(pSchedule, A):
-            mmwrite('A_'+element, a, symmetry='general')
-        for k in range(len(pSchedule)-1):
-            elementC = pSchedule[k]
-            elementF = pSchedule[k+1]
-            mmwrite('P_'+elementF+'_'+elementC, P_ops[k], symmetry='general')
-        mmwrite('b_'+d.element, b_global[:, np.newaxis], symmetry='general')
-        mmwrite('x_'+d.element, u_global[:, np.newaxis], symmetry='general')
-        for element, coord in zip(pSchedule, coords):
-            mmwrite('coords_'+element, coord)
-        for element, ns in zip(pSchedule, nullspace):
-            mmwrite('nullspace_'+element, ns[:, np.newaxis])
-        # print(np.linalg.norm(b_global-A_global@u_global))
-        # print(np.linalg.norm(b_global))
-        # print(repr(A_global))
-
-        # A_global = CSR_LinearOperator.from_csr(A_global)
-        # A2_global = CSR_LinearOperator.from_csr(A2_global)
-        # P_global = CSR_LinearOperator.from_csr(P_global)
-        # mg = solverFactory('mg', hierarchy=[{'A': A2_global}, {'A': A_global, 'P': P_global, 'R': P_global.transpose()}], setup=True, smoother=('jacobi', {'presmoothingSteps': 2,
-        #                                                                                                                                                    'postsmoothingSteps': 2}))
-        # print(mg)
-        # cg = solverFactory('cg', A=A_global, setup=True, maxIter=d.maxiter, tolerance=tol)
-        # cg.setPreconditioner(mg.asPreconditioner(), False)
-        # cg.setInitialGuess()
-        # cg(b_global, u_global)
-        # print(cg.residuals, len(cg.residuals))
 
 if p.L2ex:
     if p.boundaryCond:
