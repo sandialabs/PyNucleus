@@ -36,8 +36,12 @@ cdef class integrable1D(nonlocalLaplacian1D):
             self.target_order = target_order
         quad_order_diagonal = None
         if quad_order_diagonal is None:
-            # measured log(2 rho_2) = 0.43
-            quad_order_diagonal = max(np.ceil(((self.target_order+2.)*log(self.num_dofs*self.H0) + (-2.-self.kernel.max_singularity)*abs(log(self.hmin/self.H0)))/0.8), 2)
+            alpha = self.kernel.singularityValue
+            if alpha == 0.:
+                quad_order_diagonal = max(ceil(self.target_order), 2)
+            else:
+                # measured log(2 rho_2) = 0.43
+                quad_order_diagonal = max(np.ceil(((self.target_order+2.)*log(self.num_dofs*self.H0) + (-2.-self.kernel.max_singularity)*abs(log(self.hmin/self.H0)))/0.8), 2)
         self.quad_order_diagonal = quad_order_diagonal
 
         self.x = uninitialized((0, self.dim))
@@ -63,13 +67,16 @@ cdef class integrable1D(nonlocalLaplacian1D):
             panelType panel, panel2
             REAL_t logdh1 = log(d/h1), logdh2 = log(d/h2)
             REAL_t alpha = self.kernel.getSingularityValue()
-        panel = <panelType>max(ceil(((self.target_order+2.)*log(self.num_dofs*self.H0) + (-alpha-2.)*abs(log(h2/self.H0)) + (alpha+1.)*logdh2) /
-                                    (max(logdh1, 0) + 0.8)),
-                               2)
-        panel2 = <panelType>max(ceil(((self.target_order+2.)*log(self.num_dofs*self.H0) + (-alpha-2.)*abs(log(h1/self.H0)) + (alpha+1)*logdh1) /
-                                     (max(logdh2, 0) + 0.8)),
-                                2)
-        panel = max(panel, panel2)
+        if alpha == 0.:
+            panel = <panelType>max(ceil(self.target_order), 2)
+        else:
+            panel = <panelType>max(ceil(((self.target_order+2.)*log(self.num_dofs*self.H0) + (-alpha-2.)*abs(log(h2/self.H0)) + (alpha+1.)*logdh2) /
+                                        (max(logdh1, 0) + 0.8)),
+                                   2)
+            panel2 = <panelType>max(ceil(((self.target_order+2.)*log(self.num_dofs*self.H0) + (-alpha-2.)*abs(log(h1/self.H0)) + (alpha+1)*logdh1) /
+                                         (max(logdh2, 0) + 0.8)),
+                                    2)
+            panel = max(panel, panel2)
         try:
             self.distantQuadRules[panel]
         except KeyError:
@@ -483,10 +490,14 @@ cdef class integrable2D(nonlocalLaplacian2D):
 
         if quad_order_diagonal is None:
             alpha = self.kernel.singularityValue
-            # measured log(2 rho_2) = 0.43
-            quad_order_diagonal = max(np.ceil((self.target_order-0.5*alpha)/(0.43)*abs(np.log(self.hmin/self.H0))), 4)
-            # measured log(2 rho_2) = 0.7
-            quad_order_diagonalV = max(np.ceil((self.target_order-0.5*alpha)/(0.7)*abs(np.log(self.hmin/self.H0))), 4)
+            if alpha == 0.:
+                quad_order_diagonal = max(ceil(self.target_order), 2)
+                quad_order_diagonalV = max(ceil(self.target_order), 2)
+            else:
+                # measured log(2 rho_2) = 0.43
+                quad_order_diagonal = max(np.ceil((self.target_order-0.5*alpha)/(0.43)*abs(np.log(self.hmin/self.H0))), 4)
+                # measured log(2 rho_2) = 0.7
+                quad_order_diagonalV = max(np.ceil((self.target_order-0.5*alpha)/(0.7)*abs(np.log(self.hmin/self.H0))), 4)
         else:
             quad_order_diagonalV = quad_order_diagonal
         self.quad_order_diagonal = quad_order_diagonal
@@ -523,13 +534,16 @@ cdef class integrable2D(nonlocalLaplacian2D):
             REAL_t logh1H0 = abs(log(h1/self.H0)), logh2H0 = abs(log(h2/self.H0))
             REAL_t loghminH0 = max(logh1H0, logh2H0)
             REAL_t alpha = self.kernel.getSingularityValue()
-        panel = <panelType>max(ceil((c + 0.5*alpha*logh2H0 + loghminH0 - (1.-0.5*alpha)*logdh2) /
-                                    (max(logdh1, 0) + 0.4)),
-                               2)
-        panel2 = <panelType>max(ceil((c + 0.5*alpha*logh1H0 + loghminH0 - (1.-0.5*alpha)*logdh1) /
-                                     (max(logdh2, 0) + 0.4)),
-                                2)
-        panel = max(panel, panel2)
+        if alpha == 0.:
+            panel = <panelType>max(ceil(self.target_order), 2)
+        else:
+            panel = <panelType>max(ceil((c + 0.5*alpha*logh2H0 + loghminH0 - (1.-0.5*alpha)*logdh2) /
+                                        (max(logdh1, 0) + 0.4)),
+                                   2)
+            panel2 = <panelType>max(ceil((c + 0.5*alpha*logh1H0 + loghminH0 - (1.-0.5*alpha)*logdh1) /
+                                         (max(logdh2, 0) + 0.4)),
+                                    2)
+            panel = max(panel, panel2)
         if self.distantQuadRulesPtr[panel] == NULL:
             self.addQuadRule(panel)
         return panel
