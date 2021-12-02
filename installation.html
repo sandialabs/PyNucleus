@@ -10,6 +10,7 @@
     <title>Prerequisites &#8212; PyNucleus  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/bizstyle.css" />
+    <link rel="stylesheet" type="text/css" href="_static/plot_directive.css" />
     
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
@@ -59,7 +60,7 @@
 <li><p>METIS,</p></li>
 <li><p>ParMETIS,</p></li>
 <li><p>SuiteSparse,</p></li>
-<li><p>make (optional, only for editable installs).</p></li>
+<li><p>make.</p></li>
 </ul>
 <p>On Debian, Ubuntu etc, the required dependecies can be installed with</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>sudo apt-get install python3 mpi-default-bin mpi-default-dev libmetis-dev libparmetis-dev libsuitesparse-dev
@@ -69,10 +70,6 @@
 <section id="installation">
 <h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
 <p>PyNucleus is installed via</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python3 -m pip install .
-</pre></div>
-</div>
-<p>or via</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>make
 </pre></div>
 </div>
@@ -98,15 +95,15 @@
 <section id="docker-container">
 <h1>Docker container<a class="headerlink" href="#docker-container" title="Permalink to this headline">¶</a></h1>
 <p>A Docker container that contains all the required dependecies can be built as well:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>./build-docker.sh
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>make docker
 </pre></div>
 </div>
 <p>Once the build is done, it can be launched as</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>./run-docker-linux.sh
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>make docker-linux
 </pre></div>
 </div>
 <p>or</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>./run-docker-mac.sh
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>make docker-mac
 </pre></div>
 </div>
 </section>
@@ -173,7 +170,7 @@
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2021, Christian Glusa.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.2.0.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.1.
     </div>
   </body>
 </html>

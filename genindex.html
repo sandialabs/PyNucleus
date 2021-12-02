@@ -9,6 +9,7 @@
     <title>Index &#8212; PyNucleus  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/bizstyle.css" />
+    <link rel="stylesheet" type="text/css" href="_static/plot_directive.css" />
     
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
@@ -3682,6 +3683,8 @@
 </li>
       <li><a href="PyNucleus_fem.html#PyNucleus_fem.mesh.mesh2d">mesh2d (class in PyNucleus_fem.mesh)</a>
 </li>
+      <li><a href="PyNucleus_metisCy.html#PyNucleus_metisCy.parmetisCy.Mesh2Dual">Mesh2Dual() (in module PyNucleus_metisCy.parmetisCy)</a>
+</li>
       <li><a href="PyNucleus_fem.html#PyNucleus_fem.mesh.mesh3d">mesh3d (class in PyNucleus_fem.mesh)</a>
 </li>
       <li><a href="PyNucleus_fem.html#PyNucleus_fem.meshCy.meshBase">meshBase (class in PyNucleus_fem.meshCy)</a>
@@ -3795,6 +3798,8 @@
         <li><a href="PyNucleus_metisCy.html#module-PyNucleus_metisCy">PyNucleus_metisCy</a>
 </li>
         <li><a href="PyNucleus_metisCy.html#module-PyNucleus_metisCy.metisCy">PyNucleus_metisCy.metisCy</a>
+</li>
+        <li><a href="PyNucleus_metisCy.html#module-PyNucleus_metisCy.parmetisCy">PyNucleus_metisCy.parmetisCy</a>
 </li>
         <li><a href="PyNucleus_multilevelSolver.html#module-PyNucleus_multilevelSolver">PyNucleus_multilevelSolver</a>
 </li>
@@ -4325,6 +4330,8 @@
 </li>
       <li><a href="PyNucleus_metisCy.html#PyNucleus_metisCy.metisCy.PartMeshDual">PartMeshDual() (in module PyNucleus_metisCy.metisCy)</a>
 </li>
+      <li><a href="PyNucleus_metisCy.html#PyNucleus_metisCy.parmetisCy.PartMeshKway">PartMeshKway() (in module PyNucleus_metisCy.parmetisCy)</a>
+</li>
       <li><a href="PyNucleus_metisCy.html#PyNucleus_metisCy.metisCy.PartMeshNodal">PartMeshNodal() (in module PyNucleus_metisCy.metisCy)</a>
 </li>
       <li><a href="PyNucleus_base.html#PyNucleus_base.linalg.ILU_solver.perm_c">perm_c (PyNucleus_base.linalg.ILU_solver attribute)</a>
@@ -4546,7 +4553,11 @@
 </li>
       </ul></li>
       <li><a href="PyNucleus_metisCy.html#PyNucleus_metisCy.metisCy.process_return">process_return() (in module PyNucleus_metisCy.metisCy)</a>
+
+      <ul>
+        <li><a href="PyNucleus_metisCy.html#PyNucleus_metisCy.parmetisCy.process_return">(in module PyNucleus_metisCy.parmetisCy)</a>
 </li>
+      </ul></li>
       <li><a href="PyNucleus_nl.html#PyNucleus_nl.processBC">processBC() (in module PyNucleus_nl)</a>
 </li>
       <li><a href="PyNucleus_base.html#PyNucleus_base.utilsFem.processDictForYaml">processDictForYaml() (in module PyNucleus_base.utilsFem)</a>
@@ -4862,6 +4873,13 @@
 
       <ul>
         <li><a href="PyNucleus_metisCy.html#module-PyNucleus_metisCy.metisCy">module</a>
+</li>
+      </ul></li>
+      <li>
+    PyNucleus_metisCy.parmetisCy
+
+      <ul>
+        <li><a href="PyNucleus_metisCy.html#module-PyNucleus_metisCy.parmetisCy">module</a>
 </li>
       </ul></li>
       <li>
@@ -5194,6 +5212,8 @@
 </li>
       <li><a href="PyNucleus_fem.html#PyNucleus_fem.meshCy.refineCy3DedgeVals">refineCy3DedgeVals() (in module PyNucleus_fem.meshCy)</a>
 </li>
+      <li><a href="PyNucleus_metisCy.html#PyNucleus_metisCy.parmetisCy.RefineKway">RefineKway() (in module PyNucleus_metisCy.parmetisCy)</a>
+</li>
       <li><a href="PyNucleus_base.html#PyNucleus_base.factory.factory.register">register() (PyNucleus_base.factory.factory method)</a>
 
       <ul>
@@ -5238,10 +5258,10 @@
 </li>
       <li><a href="PyNucleus_fem.html#PyNucleus_fem.repartitioner.Repartitioner">Repartitioner (class in PyNucleus_fem.repartitioner)</a>
 </li>
-      <li><a href="PyNucleus_fem.html#PyNucleus_fem.mesh.meshNd.replaceBoundaryEdgeTags">replaceBoundaryEdgeTags() (PyNucleus_fem.mesh.meshNd method)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="PyNucleus_fem.html#PyNucleus_fem.mesh.meshNd.replaceBoundaryEdgeTags">replaceBoundaryEdgeTags() (PyNucleus_fem.mesh.meshNd method)</a>
+</li>
       <li><a href="PyNucleus_fem.html#PyNucleus_fem.mesh.meshNd.replaceBoundaryVertexTags">replaceBoundaryVertexTags() (PyNucleus_fem.mesh.meshNd method)</a>
 </li>
       <li><a href="PyNucleus_base.html#PyNucleus_base.performanceLogger.PLogger.report">report() (PyNucleus_base.performanceLogger.PLogger method)</a>
@@ -6664,7 +6684,7 @@
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2021, Christian Glusa.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.2.0.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.1.
     </div>
   </body>
 </html>

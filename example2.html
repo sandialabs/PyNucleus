@@ -10,6 +10,7 @@
     <title>Example 2 - Nonlocal problems &#8212; PyNucleus  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/bizstyle.css" />
+    <link rel="stylesheet" type="text/css" href="_static/plot_directive.css" />
     
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
@@ -101,7 +102,7 @@ kernel(fractional, 0.75, R^2, constantFractionalLaplacianScaling(0.75,inf -&gt; 
 </div>
 <p>(<a class="reference external" href=".//example2_stepKernelFracInf.py">Source code</a>, <a class="reference external" href=".//example2_stepKernelFracInf.png">png</a>, <a class="reference external" href=".//example2_stepKernelFracInf.hires.png">hires.png</a>, <a class="reference external" href=".//example2_stepKernelFracInf.pdf">pdf</a>)</p>
 <figure class="align-default">
-<img alt="_images/example2_stepKernelFracInf.png" src="_images/example2_stepKernelFracInf.png" />
+<img alt="_images/example2_stepKernelFracInf.png" class="plot-directive" src="_images/example2_stepKernelFracInf.png" />
 </figure>
 <p>By default, kernels are normalized. This can be disabled by passing <cite>normalized=False</cite>.</p>
 </section>
@@ -132,7 +133,7 @@ For this particular example, the factory will not generate any interaction domai
 </div>
 <p>(<a class="reference external" href=".//example2_stepMeshFracInf.py">Source code</a>, <a class="reference external" href=".//example2_stepMeshFracInf.png">png</a>, <a class="reference external" href=".//example2_stepMeshFracInf.hires.png">hires.png</a>, <a class="reference external" href=".//example2_stepMeshFracInf.pdf">pdf</a>)</p>
 <figure class="align-default">
-<img alt="_images/example2_stepMeshFracInf.png" src="_images/example2_stepMeshFracInf.png" />
+<img alt="_images/example2_stepMeshFracInf.png" class="plot-directive" src="_images/example2_stepMeshFracInf.png" />
 </figure>
 <p>Next, we obtain a piecewise linear, continuous DoFMap on the mesh, assemble the RHS and interpolate the known analytic solution.
 We assemble the nonlocal operator by passing the kernel to the <cite>assembleNonlocal</cite> method of the DoFMap object.
@@ -165,10 +166,10 @@ We time the assembly of the operator as a dense matrix, and as a hierarchical ma
 <span class="linenos">64</span>
 </pre></div>
 </div>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Dense assembly took 4.963354825973511s
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Dense assembly took 3.2154674530029297s
 
 
-Hierarchical assembly took 4.501574516296387s
+Hierarchical assembly took 2.9827709197998047s
 &lt;663x663 Dense_LinearOperator&gt;
 &lt;663x663 H2Matrix 0.226995 fill from near field, 0.135815 fill from tree, 0.204746 fill from clusters, 144 far-field clusters&gt;
 </pre></div>
@@ -191,12 +192,12 @@ For larger number of unknowns, we expect the hierarchical assembly scale like <s
 <span class="linenos">78</span>
 </pre></div>
 </div>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Hs error: 0.05503841439833495
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Hs error: 0.055038414398334956
 </pre></div>
 </div>
 <p>(<a class="reference external" href=".//example2_stepSolveFracInf.py">Source code</a>, <a class="reference external" href=".//example2_stepSolveFracInf.png">png</a>, <a class="reference external" href=".//example2_stepSolveFracInf.hires.png">hires.png</a>, <a class="reference external" href=".//example2_stepSolveFracInf.pdf">pdf</a>)</p>
 <figure class="align-default">
-<img alt="_images/example2_stepSolveFracInf.png" src="_images/example2_stepSolveFracInf.png" />
+<img alt="_images/example2_stepSolveFracInf.png" class="plot-directive" src="_images/example2_stepSolveFracInf.png" />
 </figure>
 </section>
 <section id="a-finite-horizon-case">
@@ -266,25 +267,25 @@ mesh2d with 441 vertices and 800 cells
 </div>
 <p>(<a class="reference external" href=".//example2_stepFiniteHorizon.py">Source code</a>)</p>
 <figure class="align-default" id="id1">
-<img alt="_images/example2_stepFiniteHorizon_00.png" src="_images/example2_stepFiniteHorizon_00.png" />
+<img alt="_images/example2_stepFiniteHorizon_00.png" class="plot-directive" src="_images/example2_stepFiniteHorizon_00.png" />
 <figcaption>
 <p><span class="caption-text">(<a class="reference external" href=".//example2_stepFiniteHorizon_00.png">png</a>, <a class="reference external" href=".//example2_stepFiniteHorizon_00.hires.png">hires.png</a>, <a class="reference external" href=".//example2_stepFiniteHorizon_00.pdf">pdf</a>)</span><a class="headerlink" href="#id1" title="Permalink to this image">¶</a></p>
 </figcaption>
 </figure>
 <figure class="align-default" id="id2">
-<img alt="_images/example2_stepFiniteHorizon_01.png" src="_images/example2_stepFiniteHorizon_01.png" />
+<img alt="_images/example2_stepFiniteHorizon_01.png" class="plot-directive" src="_images/example2_stepFiniteHorizon_01.png" />
 <figcaption>
 <p><span class="caption-text">(<a class="reference external" href=".//example2_stepFiniteHorizon_01.png">png</a>, <a class="reference external" href=".//example2_stepFiniteHorizon_01.hires.png">hires.png</a>, <a class="reference external" href=".//example2_stepFiniteHorizon_01.pdf">pdf</a>)</span><a class="headerlink" href="#id2" title="Permalink to this image">¶</a></p>
 </figcaption>
 </figure>
 <figure class="align-default" id="id3">
-<img alt="_images/example2_stepFiniteHorizon_02.png" src="_images/example2_stepFiniteHorizon_02.png" />
+<img alt="_images/example2_stepFiniteHorizon_02.png" class="plot-directive" src="_images/example2_stepFiniteHorizon_02.png" />
 <figcaption>
 <p><span class="caption-text">(<a class="reference external" href=".//example2_stepFiniteHorizon_02.png">png</a>, <a class="reference external" href=".//example2_stepFiniteHorizon_02.hires.png">hires.png</a>, <a class="reference external" href=".//example2_stepFiniteHorizon_02.pdf">pdf</a>)</span><a class="headerlink" href="#id3" title="Permalink to this image">¶</a></p>
 </figcaption>
 </figure>
 <figure class="align-default" id="id4">
-<img alt="_images/example2_stepFiniteHorizon_03.png" src="_images/example2_stepFiniteHorizon_03.png" />
+<img alt="_images/example2_stepFiniteHorizon_03.png" class="plot-directive" src="_images/example2_stepFiniteHorizon_03.png" />
 <figcaption>
 <p><span class="caption-text">(<a class="reference external" href=".//example2_stepFiniteHorizon_03.png">png</a>, <a class="reference external" href=".//example2_stepFiniteHorizon_03.hires.png">hires.png</a>, <a class="reference external" href=".//example2_stepFiniteHorizon_03.pdf">pdf</a>)</span><a class="headerlink" href="#id4" title="Permalink to this image">¶</a></p>
 </figcaption>
@@ -357,7 +358,7 @@ mesh2d with 441 vertices and 800 cells
     </div>
     <div class="footer" role="contentinfo">
         &#169; Copyright 2021, Christian Glusa.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.2.0.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.1.
     </div>
   </body>
 </html>
