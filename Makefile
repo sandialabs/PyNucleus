@@ -119,13 +119,40 @@ tests:
 	$(PYTHON) -m pytest -rA --html=$(TEST_RESULTS) --self-contained-html tests/ tests/test.py
 
 docker:
-	./build-docker.sh
+	mkdir docker-build
+	rsync -a --exclude=__pycache__ --exclude=docker-build . docker-build
+	cd docker-build && docker build -t dockerized-pynucleus .
+	# rm -rf docker-build
 
 docker-linux:
-	./run-docker-linux.sh
+	# enable access to xserver (so that we can see some plots)
+	xhost +
+	# run the container
+	docker run -it  \
+	-v $(XAUTHORITY):/.Xauthority -e XAUTHORITY=/.Xauthority \
+	-v "/tmp/.X11-unix:/tmp/.X11-unix:rw" -e DISPLAY=$(DISPLAY) \
+	-e HTTP_PROXY=$(HTTP_PROXY) \
+	-e HTTPS_PROXY=$(HTTPS_PROXY) \
+	-e http_proxy=$(http_proxy) \
+	-e https_proxy=$(https_proxy) \
+	-v $(PWD):/home/pynucleus \
+	-w "/home/pynucleus/" \
+	dockerized-pynucleus
+	# disable access to xserver
+	xhost -
+
 
 docker-mac:
-	./run-docker-mac.sh
+	docker run -it  \
+	-v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=unix$(DISPLAY) \
+	-e HTTP_PROXY=$(HTTP_PROXY) \
+	-e HTTPS_PROXY=$(HTTPS_PROXY) \
+	-e http_proxy=$(http_proxy) \
+	-e https_proxy=$(https_proxy) \
+	-v $PWD:/home/pynucleus \
+	-w "/home/pynucleus/" \
+	dockerized-pynucleus
+
 
 
 prereq:

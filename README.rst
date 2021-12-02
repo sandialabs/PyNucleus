@@ -81,7 +81,7 @@ In order to install PyNucleus, you will need
 * METIS,
 * ParMETIS,
 * SuiteSparse,
-* make (optional, only for editable installs).
+* make.
 
 On Debian, Ubuntu etc, the required dependecies can be installed with
 
@@ -93,12 +93,6 @@ Installation
 ============
 
 PyNucleus is installed via
-
-.. code-block:: shell
-
-   python3 -m pip install .
-
-or via
 
 .. code-block:: shell
 
@@ -132,19 +126,19 @@ A Docker container that contains all the required dependecies can be built as we
 
 .. code-block:: shell
 
-   ./build-docker.sh
+   make docker
 
 Once the build is done, it can be launched as
 
 .. code-block:: shell
 
-   ./run-docker-linux.sh
+   make docker-linux
 
 or
 
 .. code-block:: shell
 
-   ./run-docker-mac.sh
+   make docker-mac
 
 
 Funding

@@ -2033,5 +2033,3 @@ cdef class exactSphericalIntegral2D(function):
 
                 I += self.radius**2 * (ax*(sin(theta1)-sin(theta0)) - ay*(cos(theta1)-cos(theta0))) + (b*self.radius + self.radius*ax*x[0] + self.radius*ay*x[1])*(theta1-theta0)
         return I
-
-

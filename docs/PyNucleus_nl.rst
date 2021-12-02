@@ -40,8 +40,6 @@ PyNucleus.nl.fractionalOrders module
 .. automodule:: PyNucleus_nl.fractionalOrders
 
 
-
-
 PyNucleus.nl.integral\_problems module
 ---------------------------------------
 

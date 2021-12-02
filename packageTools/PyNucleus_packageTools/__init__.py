@@ -261,7 +261,7 @@ class package:
             kwargs['packages'] = find_namespace_packages(include=[self.namespace+'.*'])
         else:
             kwargs['packages'] = [self.full_name]
-        kwargs['package_data'] = {self.name: ['*.pxd', '*_decl_*.pxi', '*config.pxi', '*.h']}
+        kwargs['package_data'] = {self.name: ['*.pxd', '*_decl*.pxi', '*config.pxi', '*.h']}
         kwargs['zip_safe'] = False
         if 'author' not in kwargs:
             kwargs['author'] = 'Christian Glusa'

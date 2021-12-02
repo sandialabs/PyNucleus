@@ -61,7 +61,6 @@ Getting started
    :maxdepth: 1
 
    installation
-   references
 
 
 Examples
