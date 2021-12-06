@@ -702,7 +702,12 @@ cdef class DoFMap:
             if collection:
                 return np.zeros((numVecs, self.num_dofs), dtype=dtype)
             else:
-                return np.zeros((self.num_dofs, numVecs), dtype=dtype)
+                if dtype == REAL:
+                    return multi_fe_vector(np.zeros((numVecs, self.num_dofs), dtype=REAL), self)
+                elif dtype == COMPLEX:
+                    return complex_multi_fe_vector(np.zeros((numVecs, self.num_dofs), dtype=COMPLEX), self)
+                else:
+                    return np.zeros((numVecs, self.num_dofs), dtype=dtype)
 
     def ones(self, INDEX_t numVecs=1, BOOL_t collection=False, dtype=REAL):
         if numVecs == 1:
@@ -716,7 +721,12 @@ cdef class DoFMap:
             if collection:
                 return np.ones((numVecs, self.num_dofs), dtype=dtype)
             else:
-                return np.ones((self.num_dofs, numVecs), dtype=dtype)
+                if dtype == REAL:
+                    return multi_fe_vector(np.ones((numVecs, self.num_dofs), dtype=REAL), self)
+                elif dtype == COMPLEX:
+                    return complex_multi_fe_vector(np.ones((numVecs, self.num_dofs), dtype=COMPLEX), self)
+                else:
+                    return np.ones((numVecs, self.num_dofs), dtype=dtype)
 
     def full(self, REAL_t fill_value, INDEX_t numVecs=1, BOOL_t collection=False, dtype=REAL):
         if numVecs == 1:
@@ -730,7 +740,12 @@ cdef class DoFMap:
             if collection:
                 return np.full((numVecs, self.num_dofs), fill_value=fill_value, dtype=dtype)
             else:
-                return np.full((self.num_dofs, numVecs), fill_value=fill_value, dtype=dtype)
+                if dtype == REAL:
+                    return multi_fe_vector(np.full((numVecs, self.num_dofs), fill_value=fill_value, dtype=REAL), self)
+                elif dtype == COMPLEX:
+                    return complex_multi_fe_vector(np.full((numVecs, self.num_dofs), fill_value=fill_value, dtype=COMPLEX), self)
+                else:
+                    return np.full((numVecs, self.num_dofs), fill_value=fill_value, dtype=dtype)
 
     def empty(self, INDEX_t numVecs=1, BOOL_t collection=False, dtype=REAL):
         if numVecs == 1:
@@ -744,7 +759,12 @@ cdef class DoFMap:
             if collection:
                 return uninitialized((numVecs, self.num_dofs), dtype=dtype)
             else:
-                return uninitialized((self.num_dofs, numVecs), dtype=dtype)
+                if dtype == REAL:
+                    return multi_fe_vector(uninitialized((numVecs, self.num_dofs), dtype=REAL), self)
+                elif dtype == COMPLEX:
+                    return complex_multi_fe_vector(uninitialized((numVecs, self.num_dofs), dtype=COMPLEX), self)
+                else:
+                    return uninitialized((numVecs, self.num_dofs), dtype=dtype)
 
     def fromArray(self, data):
         assert data.shape[0] == self.num_dofs
@@ -919,6 +939,9 @@ cdef class DoFMap:
                             data[-dof-1] = boundaryFunction.eval(vertex)
         return np.array(data, copy=False)
 
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
     cpdef void getVertexDoFs(self, INDEX_t[:, ::1] v2d):
         cdef:
             INDEX_t vertices_per_element
@@ -1437,6 +1460,22 @@ cdef class P1_DoFMap(DoFMap):
     def __repr__(self):
         return 'P1 DoFMap with {} DoFs and {} boundary DoFs.'.format(self.num_dofs,
                                                                      self.num_boundary_dofs)
+
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    def getValuesAtVertices(self, REAL_t[::1] u):
+        cdef:
+            INDEX_t cellNo, dofNo, dof, vertex
+            REAL_t[::1] z
+        z = np.zeros((self.mesh.num_vertices), dtype=REAL)
+        for cellNo in range(self.mesh.num_cells):
+            for dofNo in range(self.dofs_per_element):
+                dof = self.cell2dof(cellNo, dofNo)
+                if dof >= 0:
+                    vertex = self.mesh.cells[cellNo, dofNo]
+                    z[vertex] = u[dof]
+        return z
 
 
 cdef class shapeFunctionP2_vertex(shapeFunction):

@@ -8,7 +8,7 @@
 
 from . mesh import mesh1d, mesh2d, mesh3d, meshNd
 from . mesh import (simpleInterval, simpleSquare, simpleLshape, simpleBox,
-                    circle, graded_circle, cutoutCircle, twinCircle, dumbbell, wrench,
+                    circle, graded_circle, cutoutCircle, twinDisc, dumbbell, wrench,
                     Hshape, ball, rectangle, crossSquare,
                     gradedSquare, gradedBox,
                     disconnectedInterval, disconnectedDomain,

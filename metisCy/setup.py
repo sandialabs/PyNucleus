@@ -13,35 +13,22 @@ try:
 except ImportError as e:
     raise ImportError('\'PyNucleus_base\' needs to be installed first.') from e
 
+try:
+    import cython
+except ImportError as e:
+    raise ImportError('PyNucleus requires \'Cython\'. Please install it.') from e
+
 
 p = package('PyNucleus_metisCy')
 
-######################################################################
-# Attempt to detect the types used for indices and reals in Metis
-cmd = "echo '#include <metis.h>' | cpp -H -o /dev/null 2>&1 | head -n1"
-proc = Popen(cmd,
-             stdout=PIPE, stderr=STDOUT,
-             shell=True,
-             universal_newlines=True)
-out, _ = proc.communicate()
-metisHeader = out[2:-1]
+idx, real = cython.inline("""
+cdef extern from "metis.h":
+    int IDXTYPEWIDTH
+    int REALTYPEWIDTH
+return IDXTYPEWIDTH, REALTYPEWIDTH""")
 
-idx = re.compile(r'\s*#define\s*IDXTYPEWIDTH\s*([0-9]+)')
-real = re.compile(r'\s*#define\s*REALTYPEWIDTH\s*([0-9]+)')
-
-idxDefault = 32
-realDefault = 32
-with open(metisHeader, 'r') as f:
-    for line in f:
-        match = idx.match(line)
-        if match:
-            idxDefault = int(match.group(1))
-        match = real.match(line)
-        if match:
-            realDefault = int(match.group(1))
-
-p.addOption('IDXTYPEWIDTH', 'METIS_idx_width', idxDefault)
-p.addOption('REALTYPEWIDTH', 'METIS_real_width', realDefault)
+p.addOption('IDXTYPEWIDTH', 'METIS_idx_width', idx)
+p.addOption('REALTYPEWIDTH', 'METIS_real_width', real)
 p.loadConfig()
 
 p.addExtension("metisCy",

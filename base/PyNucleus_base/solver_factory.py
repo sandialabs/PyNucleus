@@ -43,7 +43,12 @@ class solverFactory(factory):
 
             if self.singleLevelSolverFactory.isRegistered(name):
                 A = kwargs.pop('A', None)
-                kwargs.pop('hierarchy', None)
+                hierarchy = kwargs.pop('hierarchy', None)
+                if A is None and hierarchy is not None:
+                    if isinstance(hierarchy, list):
+                        A = hierarchy[-1]['A']
+                    else:
+                        raise NotImplementedError()
                 num_rows = kwargs.pop('num_rows', -1)
                 if isinstance(A, ComplexLinearOperator) and self.singleLevelSolverFactory.isRegistered('complex_'+name):
                     name = 'complex_'+name
