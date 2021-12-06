@@ -102,7 +102,7 @@ clean_package :
 .PHONY: docs
 docs :
 	cd docs && make
-	sphinx-build -b html docs docs/build
+	$(PYTHON) -m sphinx -b html docs docs/build
 
 clean_docs :
 	cd docs; rm -rf build

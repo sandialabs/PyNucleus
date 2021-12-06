@@ -187,7 +187,9 @@ class segment:
 
 class circularSegment(segment):
     def __init__(self, center, radius, start_angle, stop_angle, num_points_per_unit_len=None, num_points=None):
-        if num_points is None:
+        if num_points_per_unit_len is None and num_points is None:
+            num_points = 9
+        elif num_points is None:
             num_points = int(np.ceil(radius*(stop_angle-start_angle) * num_points_per_unit_len))+1
         if stop_angle-start_angle < 1e-9:
             points = []

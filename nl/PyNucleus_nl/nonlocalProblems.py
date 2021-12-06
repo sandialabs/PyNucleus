@@ -30,6 +30,7 @@ from PyNucleus_fem import (simpleInterval, intervalWithInteraction,
                            DIRICHLET, HOMOGENEOUS_DIRICHLET,
                            NEUMANN, HOMOGENEOUS_NEUMANN,
                            NORM)
+from PyNucleus_fem.mesh import twinDisc
 from scipy.special import gamma as Gamma, binom
 from . twoPointFunctions import (constantTwoPoint,
                                  temperedTwoPoint,
@@ -179,12 +180,25 @@ def radialIndicators(*args, **kwargs):
     return domainIndicator, boundaryIndicator, interactionIndicator
 
 
+def twinDiscIndicators(radius=1., sep=0.1, **kwargs):
+    domainIndicator = (radialIndicator(radius-1e-9, np.array([sep/2+radius, 0.], dtype=REAL)) +
+                       radialIndicator(radius-1e-9, np.array([-sep/2-radius, 0.], dtype=REAL)))
+    interactionIndicator = constant(1.)-(radialIndicator(radius+1e-9, np.array([sep/2+radius, 0.], dtype=REAL)) +
+                                         radialIndicator(radius+1e-9, np.array([-sep/2-radius, 0.], dtype=REAL)))
+    boundaryIndicator = ((radialIndicator(radius+1e-9, np.array([sep/2+radius, 0.], dtype=REAL)) +
+                          radialIndicator(radius+1e-9, np.array([-sep/2-radius, 0.], dtype=REAL))) -
+                         (radialIndicator(radius-1e-9, np.array([sep/2+radius, 0.], dtype=REAL)) +
+                          radialIndicator(radius-1e-9, np.array([-sep/2-radius, 0.], dtype=REAL))))
+    return domainIndicator, boundaryIndicator, interactionIndicator
+
+
 nonlocalMeshFactory = nonlocalMeshFactoryClass()
 nonlocalMeshFactory.register('interval', simpleInterval, intervalWithInteraction, 1, intervalIndicators, {'a': -1, 'b': 1}, {'a': -1, 'b': 1})
 nonlocalMeshFactory.register('gradedInterval', double_graded_interval, double_graded_interval_with_interaction, 1, intervalIndicators, {'a': -1, 'b': 1, 'mu_ll': 2., 'mu_rr': 2.}, {'a': -1, 'b': 1, 'mu_ll': 2., 'mu_rr': 2.})
-nonlocalMeshFactory.register('square', uniformSquare, squareWithInteractions, 2, squareIndicators, {'N': 2, 'M': 2, 'ax': -1, 'ay': -1, 'bx': 1, 'by': 1}, {'ax': -1, 'ay': -1, 'bx': 1, 'by': 1})
+nonlocalMeshFactory.register('square', uniformSquare, squareWithInteractions, 2, squareIndicators, {'N': 2, 'M': 2, 'ax': -1, 'ay': -1, 'bx': 1, 'by': 1}, {'ax': -1, 'ay': -1, 'bx': 1, 'by': 1}, aliases=['rectangle'])
 nonlocalMeshFactory.register('disc', discWithInteraction, discWithInteraction, 2, radialIndicators, {'horizon': 0., 'radius': 1.}, {'radius': 1.})
 nonlocalMeshFactory.register('discWithIslands', discWithIslands, discWithIslands, 2, radialIndicators, {'horizon': 0., 'radius': 1., 'islandOffCenter': 0.35, 'islandDiam': 0.5}, {'radius': 1., 'islandOffCenter': 0.35, 'islandDiam': 0.5})
+nonlocalMeshFactory.register('twinDisc', twinDisc, twinDisc, 2, radialIndicators, {'radius': 1., 'sep': 0.1}, {'radius': 1., 'sep': 0.1})
 
 
 class fractionalLaplacianProblem(problem):
@@ -831,3 +845,137 @@ class nonlocalProblem(problem):
         return '-'.join(['nonlocal'] + [key + '=' + v for key, v in d])
 
 
+
+class brusselatorProblem(problem):
+    """
+    Fractional order Brusselator system:
+
+              \partial_t U = -(-\Delta)^\alpha U + (B-1)*U + Q^2 V + B/Q * U**2 + 2*Q*U*V + U**2 * V
+    \eta**2 * \partial_t V = -(-\Delta)^\beta  U - B*U     - Q^2 V - B/Q * U**2 - 2*Q*U*V - U**2 * V
+
+    with zero flux conditions on U and V.
+
+    s    = \beta/\alpha
+    \eta = sqrt(D_X**s / D_Y)
+    Q    = A \eta
+
+    """
+
+    def setDriverArgs(self, driver):
+        driver.add('domain', acceptedValues=['disc', 'rectangle', 'twinDisc'], help='computational domain')
+        driver.add('bc', acceptedValues=['Neumann', 'Dirichlet'], help='type of boundary condition')
+        driver.add('noRef', 3, help='number of uniform mesh refinements')
+        driver.add('problem', acceptedValues=['spots', 'stripes'], help='pre-defined problems')
+        driver.add('T', 200., help='final time')
+
+    def processImpl(self, params):
+        from PyNucleus.fem.femCy import brusselator
+
+        if params['problem'] == 'spots':
+            self.alpha = self.beta = 0.75
+            x = 0.1
+            eps = 0.1
+            self.eta = 0.2
+
+            if params['domain'] == 'disc':
+                z1, z2 = 0., 0.
+                R = 10.
+            elif params['domain'] == 'twinDisc':
+                z1, z2 = 11., 0.
+                R = 10.
+
+            def initial_U(x):
+                r2 = (x[0]-z1)**2 + (x[1]-z2)**2
+                if r2 < R**2:
+                    return (R**2-r2)**2/R**4 * self.eta
+                else:
+                    return 0.
+
+            def initial_V(x):
+                r2 = (x[0]-z1)**2 + (x[1]-z2)**2
+                if r2 < R**2:
+                    return (R**2-r2)**2/R**4 / self.eta
+                else:
+                    return 0.
+
+        elif params['problem'] == 'stripes':
+            self.alpha = self.beta = 0.75
+            x = 1.5
+            eps = 1.0
+            self.eta = 0.2
+
+            if params['domain'] == 'twinDisc':
+                def initial_U(x):
+                    if x[0] > 0.:
+                        return np.random.rand() * self.eta
+                    else:
+                        return 0.
+
+                def initial_V(x):
+                    if x[0] > 0.:
+                        return np.random.rand() / self.eta
+                    else:
+                        return 0.
+            else:
+                def initial_U(x):
+                    return np.random.rand() * self.eta
+
+                def initial_V(x):
+                    return np.random.rand() / self.eta
+
+        
+
+        self.initial_U = functionFactory('Lambda', initial_U)
+        self.initial_V = functionFactory('Lambda', initial_V)
+
+        s = self.alpha/self.beta
+        self.Bcr = (1+x)**2/(1+(1-s)*x)
+        self.kcr = x**(1/self.alpha)
+        self.B = self.Bcr + 0.01
+        self.Q = np.sqrt(s*x**(1+1/s)/(1+(1-s)*x))
+        self.A = self.Q/self.eta
+        self.Dx = 1.
+        self.Dy = 1/self.eta**2
+
+        self.dim = nonlocalMeshFactory.getDim(params['domain'])
+        self.kernelU = kernelFactory('fractional', s=self.alpha, dim=self.dim, horizon=np.inf)
+        self.kernelV = kernelFactory('fractional', s=self.beta, dim=self.dim, horizon=np.inf)
+        self.nonlinearity = brusselator(self.B, self.Q)
+
+        if params['bc'] == 'Neumann':
+            self.boundaryCondition = HOMOGENEOUS_NEUMANN
+        elif params['bc'] == 'Dirichlet':
+            self.boundaryCondition = HOMOGENEOUS_DIRICHLET
+
+        if params['domain'] == 'disc':
+            self.mesh, nI = nonlocalMeshFactory('disc',
+                                                h=10.,
+                                                radius=50.,
+                                                kernel=self.kernelU,
+                                                boundaryCondition=self.boundaryCondition)
+        elif params['domain'] == 'square':
+            self.mesh = nonlocalMeshFactory('rectangle',
+                                            ax=-50., ay=-50.,
+                                            bx=50., by=50.,
+                                            N=5, M=5,
+                                            kernel=self.kernelU,
+                                            boundaryCondition=self.boundaryCondition)
+
+        elif params['domain'] == 'twinDisc':
+            self.mesh, nI = nonlocalMeshFactory('twinDisc',
+                                                h=10.,
+                                                radius=50.,
+                                                sep=2.,
+                                                kernel=self.kernelU,
+                                                boundaryCondition=self.boundaryCondition)
+        self.zeroExterior = nI['zeroExterior']
+
+    def getIdentifier(self, params):
+        keys = ['domain', 'problem', 'alpha', 'beta', 'noRef', 'bc']
+        d = []
+        for k in keys:
+            try:
+                d.append((k, str(self.__getattr__(k))))
+            except KeyError:
+                d.append((k, str(params[k])))
+        return '-'.join(['brusselator'] + [key + '=' + v for key, v in d])

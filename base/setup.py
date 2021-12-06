@@ -8,6 +8,7 @@
 
 from shutil import copy
 from pathlib import Path
+from distutils.errors import CompileError
 
 try:
     import cython
@@ -42,6 +43,17 @@ p.addOption('USE_PYAMG', 'use_pyamg', False, ['pyamg'])
 p.addOption('MKL_LIBRARY', 'mklLibrary', 'mkl_rt')
 p.addOption('USE_MKL_TRISOLVE', 'useMKL_trisolve', False)
 p.addOption('FILL_UNINITIALIZED', 'fillUninitialized', True)
+
+try:
+    cython.inline("""
+    cdef extern from "malloc.h" nogil:
+        int malloc_trim(size_t pad)
+    """)
+    have_malloc_h = True
+except CompileError as e:
+    print('malloc.h not found, error was \"{}\". Depending on the system, this might be normal.'.format(e))
+    have_malloc_h = False
+p.addOption('HAVE_MALLOC_H', 'have_malloc_h', have_malloc_h)
 p.loadConfig(extra_config={'annotate': True})
 
 # set up variable types

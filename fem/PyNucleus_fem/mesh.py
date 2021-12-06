@@ -1018,14 +1018,10 @@ def cutoutCircle(n, radius=1., cutoutAngle=np.pi/2.,
         return mesh
 
 
-def twinCircle(n, radius=1., sep=0.1, **kwargs):
-    mesh = circle(n, radius, **kwargs)
-    vertices = np.vstack((mesh.vertices, mesh.vertices))
-    cells = np.vstack((mesh.cells, mesh.cells))
-    vertices[:mesh.num_vertices, 0] += radius+sep/2
-    vertices[mesh.num_vertices:, 0] -= radius+sep/2
-    cells[mesh.num_cells:, :] += mesh.num_vertices
-    return mesh2d(vertices, cells)
+def twinDisc(n, radius=1., sep=0.1, **kwargs):
+    from . meshConstruction import circle
+    return (circle((sep/2+radius, 0), radius, num_points=n+1) +
+            circle((-sep/2-radius, 0), radius, num_points=n+1)).mesh()
 
 
 def dumbbell(n=8, radius=1., barAngle=np.pi/4, barLength=3,
@@ -2099,29 +2095,23 @@ class mesh2d(meshNd):
 
     def plotPrepocess(self, x, DoFMap=None, tag=0):
         from . DoFMaps import P1_DoFMap, P0_DoFMap
-        if DoFMap and isinstance(DoFMap, P0_DoFMap):
-            if DoFMap.num_dofs < self.num_cells:
-                from . DoFMaps import getSubMapRestrictionProlongation
-                dm = P0_DoFMap(self, -10)
-                _, P = getSubMapRestrictionProlongation(dm, DoFMap)
-                y = P*x
-                return self.plotPrepocess(y)
-            else:
-                return self.plotPrepocess(x)
-        elif DoFMap and not isinstance(DoFMap, P1_DoFMap):
-            return self.plotPrepocess(DoFMap.linearPart(self, x)[0])
-        elif DoFMap and isinstance(DoFMap, P1_DoFMap):
-            if DoFMap.num_dofs < self.num_vertices:
-                y, dm = DoFMap.augmentWithZero(x)
-            else:
-                y = x
-                dm = DoFMap
-            v2d = uninitialized((self.num_vertices, dm.dofs_per_vertex), dtype=INDEX)
-            dm.getVertexDoFs(v2d)
-            z = uninitialized((self.num_vertices), dtype=REAL)
-            for v in range(self.num_vertices):
-                z[v] = y[v2d[v, 0]]
-            return self.plotPrepocess(z)
+        if DoFMap is not None:
+            if isinstance(DoFMap, P0_DoFMap):
+                if DoFMap.num_dofs < self.num_cells:
+                    from . DoFMaps import getSubMapRestrictionProlongation
+                    dm = P0_DoFMap(self, -10)
+                    _, P = getSubMapRestrictionProlongation(dm, DoFMap)
+                    y = P*x
+                    return self.plotPrepocess(y)
+                else:
+                    return self.plotPrepocess(x)
+            elif not isinstance(DoFMap, P1_DoFMap):
+                return self.plotPrepocess(DoFMap.linearPart(self, x)[0])
+            elif isinstance(DoFMap, P1_DoFMap):
+                v = self.vertices_as_array
+                X, Y = v[:, 0], v[:, 1]
+                sol = DoFMap.getValuesAtVertices(x)
+                return X, Y, sol
         else:
             v = self.vertices_as_array
             X, Y = v[:, 0], v[:, 1]
@@ -2161,6 +2151,9 @@ class mesh2d(meshNd):
                         cp.remove()
                     update[1] = plt.tricontour(X, Y, self.cells, sol, colors=['k'])
                 else:
+                    if sol.shape[0] != update.get_array().shape[0]:
+                        sol = sol[self.cells_as_array].mean(axis=1)
+                    assert sol.shape[0] == update.get_array().shape[0]
                     update.set_array(sol)
         else:
             from . DoFMaps import P0_DoFMap

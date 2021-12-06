@@ -35,7 +35,8 @@ from . DoFMaps cimport (P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap,
                         
                         DoFMap,
                         vectorShapeFunction,
-                        fe_vector, complex_fe_vector)
+                        fe_vector, complex_fe_vector,
+                        multi_fe_vector)
 from . quadrature cimport simplexQuadratureRule, Gauss1D, Gauss2D, Gauss3D, simplexXiaoGimbutas
 from . functions cimport function, complexFunction, vectorFunction
 from . simplexMapper cimport simplexMapper
@@ -1959,7 +1960,7 @@ cdef class CahnHilliard2(multi_function):
 @cython.boundscheck(False)
 @cython.initializedcheck(False)
 @cython.cdivision(True)
-def assembleNonlinearity(meshBase mesh, multi_function fun, DoFMap DoFMap, list U):
+def assembleNonlinearity(meshBase mesh, multi_function fun, DoFMap DoFMap, multi_fe_vector U):
     cdef:
         INDEX_t dim = mesh.dim
         INDEX_t dimManifold = mesh.manifold_dim
@@ -1978,7 +1979,6 @@ def assembleNonlinearity(meshBase mesh, multi_function fun, DoFMap DoFMap, list 
         volume_t volume
         REAL_t[:, ::1] fvals, fvals2
         REAL_t[:, ::1] u
-        REAL_t[::1] UU
 
     if dimManifold == 1:
         qr = Gauss1D(order=3)
@@ -2002,7 +2002,7 @@ def assembleNonlinearity(meshBase mesh, multi_function fun, DoFMap DoFMap, list 
     else:
         raise NotImplementedError()
 
-    assert len(U) == fun.numInputs
+    assert U.numVectors == fun.numInputs, (U.numVectors, fun.numInputs)
 
     # evaluate local shape functions on quadrature nodes
     PHI = uninitialized((DoFMap.dofs_per_element, qr.num_nodes), dtype=REAL)
@@ -2014,13 +2014,9 @@ def assembleNonlinearity(meshBase mesh, multi_function fun, DoFMap DoFMap, list 
 
     num_quad_nodes = qr.num_nodes
 
-    u = uninitialized((DoFMap.num_dofs, len(U)), dtype=REAL)
-    for j in range(len(U)):
-        UU = U[j]
-        for i in range(DoFMap.num_dofs):
-            u[i, j] = UU[i]
+    u = U.data
 
-    dataList = [np.zeros((DoFMap.num_dofs), dtype=REAL) for _ in range(fun.numOutputs)]
+    dataList = DoFMap.zeros(fun.numOutputs)
     # data = data_mem
     fvals = uninitialized((num_quad_nodes, fun.numInputs), dtype=REAL)
     fvals2 = uninitialized((num_quad_nodes, fun.numOutputs), dtype=REAL)
@@ -2042,7 +2038,7 @@ def assembleNonlinearity(meshBase mesh, multi_function fun, DoFMap DoFMap, list 
                 for k in range(num_quad_nodes):
                     for j in range(fun.numInputs):
                         # u = U[j]
-                        fvals[k, j] += u[I, j]*PHI[m, k]
+                        fvals[k, j] += u[j, I]*PHI[m, k]
         for k in range(num_quad_nodes):
             fun.eval(fvals[k, :], fvals2[k, :])
 

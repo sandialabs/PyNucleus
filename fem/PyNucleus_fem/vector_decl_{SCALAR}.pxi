@@ -15,3 +15,13 @@ cdef class {SCALAR_label_lc_}fe_vector:
 
     cpdef REAL_t norm(self, BOOL_t acc=*, BOOL_t asynchronous=*)
     cpdef {SCALAR}_t inner(self, other, BOOL_t accSelf=*, BOOL_t accOther=*, BOOL_t asynchronous=*)
+
+
+cdef class {SCALAR_label_lc_}multi_fe_vector:
+    cdef:
+        {SCALAR}_t[:, ::1] data
+        bytes format
+        public DoFMap dm
+
+    # cpdef REAL_t norm(self, BOOL_t acc=*, BOOL_t asynchronous=*)
+    # cpdef {SCALAR}_t inner(self, other, BOOL_t accSelf=*, BOOL_t accOther=*, BOOL_t asynchronous=*)

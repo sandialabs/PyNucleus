@@ -236,7 +236,7 @@ class algebraicLevelBase(level):
             if 'tag' in self.params:
                 self.DoFMap = DoFMap_type(self.meshLevel.mesh, self.params['tag'])
             elif 'boundaryCondition' in self.params:
-                if self.params['boundaryCondition'] == (HOMOGENEOUS_NEUMANN, DIRICHLET, NEUMANN):
+                if self.params['boundaryCondition'] in (HOMOGENEOUS_NEUMANN, DIRICHLET, NEUMANN):
                     self.DoFMap = DoFMap_type(self.meshLevel.mesh, NO_BOUNDARY)
                 elif self.params['boundaryCondition'] == HOMOGENEOUS_DIRICHLET:
                     self.DoFMap = DoFMap_type(self.meshLevel.mesh, PHYSICAL)
