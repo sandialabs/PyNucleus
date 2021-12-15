@@ -9,7 +9,6 @@
 cimport numpy as np
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, BOOL_t
 from PyNucleus_fem.functions cimport function
-from . kernelsCy cimport kernelCy
 
 
 cdef class twoPointFunction:

@@ -552,18 +552,21 @@ cdef class constantFractionalLaplacianScaling(constantTwoPoint):
         self.dim = dim
         self.s = s
         self.horizon = horizon
-        if dim == 1:
-            if horizon < inf:
-                value = (2.-2*s) * pow(horizon, 2*s-2.) * 0.5
-            else:
-                value = 2.0**(2.0*s) * s * gamma(s+0.5)/sqrt(pi)/gamma(1.0-s) * 0.5
-        elif dim == 2:
-            if horizon < inf:
-                value = (2.-2*s)*pow(horizon, 2*s-2.) * 2./pi * 0.5
-            else:
-                value = 2.0**(2.0*s) * s * gamma(s+1.0)/pi/gamma(1.-s) * 0.5
+        if (self.horizon <= 0.) or (self.s <= 0.) or (self.s >= 1.):
+            value = np.nan
         else:
-            raise NotImplementedError()
+            if dim == 1:
+                if horizon < inf:
+                    value = (2.-2*s) * pow(horizon, 2*s-2.) * 0.5
+                else:
+                    value = 2.0**(2.0*s) * s * gamma(s+0.5)/sqrt(pi)/gamma(1.0-s) * 0.5
+            elif dim == 2:
+                if horizon < inf:
+                    value = (2.-2*s)*pow(horizon, 2*s-2.) * 2./pi * 0.5
+                else:
+                    value = 2.0**(2.0*s) * s * gamma(s+1.0)/pi/gamma(1.-s) * 0.5
+            else:
+                raise NotImplementedError()
         super(constantFractionalLaplacianScaling, self).__init__(value)
 
     def __getstate__(self):
@@ -582,30 +585,33 @@ cdef class constantIntegrableScaling(constantTwoPoint):
         self.dim = dim
         self.interaction = interaction
         self.horizon = horizon
-        if kType == INDICATOR:
-            if dim == 1:
-                value = 3./horizon**3 / 2.
-            elif dim == 2:
-                if isinstance(self.interaction, ball2):
-                    value = 8./pi/horizon**4 / 2.
-                elif isinstance(self.interaction, ballInf):
-                    value = 3./4./horizon**4 / 2.
-                else:
-                    raise NotImplementedError()
-            else:
-                raise NotImplementedError()
-        elif kType == PERIDYNAMIC:
-            if dim == 1:
-                value = 2./horizon**2 / 2.
-            elif dim == 2:
-                if isinstance(self.interaction, ball2):
-                    value = 6./pi/horizon**3 / 2.
-                else:
-                    raise NotImplementedError()
-            else:
-                raise NotImplementedError()
+        if self.horizon <= 0.:
+            value = np.nan
         else:
-            raise NotImplementedError()
+            if kType == INDICATOR:
+                if dim == 1:
+                    value = 3./horizon**3 / 2.
+                elif dim == 2:
+                    if isinstance(self.interaction, ball2):
+                        value = 8./pi/horizon**4 / 2.
+                    elif isinstance(self.interaction, ballInf):
+                        value = 3./4./horizon**4 / 2.
+                    else:
+                        raise NotImplementedError()
+                else:
+                    raise NotImplementedError()
+            elif kType == PERIDYNAMIC:
+                if dim == 1:
+                    value = 2./horizon**2 / 2.
+                elif dim == 2:
+                    if isinstance(self.interaction, ball2):
+                        value = 6./pi/horizon**3 / 2.
+                    else:
+                        raise NotImplementedError()
+                else:
+                    raise NotImplementedError()
+            else:
+                raise NotImplementedError()
         super(constantIntegrableScaling, self).__init__(value)
 
     def __getstate__(self):

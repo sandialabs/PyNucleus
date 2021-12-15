@@ -22,10 +22,10 @@ from . fractionalOrders import (fractionalOrderBase,
                                 constantFractionalLaplacianScaling,
                                 variableFractionalLaplacianScaling,
                                 constantIntegrableScaling)
-from . kernels2 import (Kernel,
-                        FractionalKernel,
-                        FRACTIONAL, INDICATOR, PERIDYNAMIC,
-                        getKernelEnum)
+from . kernelsCy import (Kernel,
+                         FractionalKernel,
+                         FRACTIONAL, INDICATOR, PERIDYNAMIC,
+                         getKernelEnum)
 
 
 def _getDim(dim):

@@ -30,7 +30,7 @@ from . nonlocalLaplacianBase cimport (double_local_matrix_t,
                                         specialQuadRule)
 from . interactionDomains cimport CUT
 from . fractionalOrders cimport fractionalOrderBase
-from . kernels2 cimport Kernel
+from . kernelsCy cimport Kernel
 
 include "config.pxi"
 

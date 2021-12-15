@@ -6,7 +6,7 @@
 ###################################################################################
 
 
-from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, ENCODE_t
+from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, ENCODE_t, BOOL_t
 from PyNucleus_fem.DoFMaps cimport DoFMap, P1_DoFMap
 from PyNucleus_fem.quadrature cimport simplexQuadratureRule, simplexXiaoGimbutas
 from . nonlocalLaplacianBase cimport (double_local_matrix_t,
@@ -18,21 +18,14 @@ from . nonlocalLaplacianBase cimport (double_local_matrix_t,
 from . fractionalOrders cimport (fractionalOrderBase,
                                  constFractionalOrder,
                                  variableFractionalOrder)
-from . kernels2 cimport (Kernel,
-                         FractionalKernel)
+from . kernelsCy cimport (Kernel,
+                          FractionalKernel)
 from . nonlocalLaplacianBase cimport nonlocalLaplacian1D
 from . nonlocalLaplacianBase cimport nonlocalLaplacian2D
-from . kernelsCy cimport kernelCy
-
-cdef extern from "kernels.hpp":
-    cdef cppclass kernel_t:
-        kernel_t()
-        REAL_t eval(REAL_t *x, REAL_t *y) nogil
 
 
 cdef class fractionalLaplacian1D_P1_automaticQuadrature(nonlocalLaplacian1D):
     cdef:
-        kernelCy kernel_c
         REAL_t abstol, reltol
         void *user_ptr
         object integrandId
@@ -42,7 +35,6 @@ cdef class fractionalLaplacian1D_P1_automaticQuadrature(nonlocalLaplacian1D):
 
 cdef class fractionalLaplacian1D_P1_nonsymAutomaticQuadrature(nonlocalLaplacian1D):
     cdef:
-        kernelCy kernel_c
         REAL_t abstol, reltol
         void *user_ptr
         object integrandId
@@ -55,7 +47,6 @@ cdef class fractionalLaplacian1D_P1_nonsymAutomaticQuadrature(nonlocalLaplacian1
 
 cdef class fractionalLaplacian2D_P1_automaticQuadrature(nonlocalLaplacian2D):
     cdef:
-        kernelCy kernel_c
         REAL_t abstol, reltol
         void *user_ptr
         object integrandId

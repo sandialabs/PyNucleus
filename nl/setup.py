@@ -27,15 +27,10 @@ p.addExtension("twoPointFunctions",
                sources=[p.folder+"twoPointFunctions.pyx"])
 p.addExtension("interactionDomains",
                sources=[p.folder+"interactionDomains.pyx"])
-p.addExtension("kernels2",
-               sources=[p.folder+"kernels2.pyx"])
+p.addExtension("kernelsCy",
+               sources=[p.folder+"kernelsCy.pyx"])
 p.addExtension("fractionalOrders",
                sources=[p.folder+"fractionalOrders.pyx"])
-p.addExtension("kernelsCy",
-               sources=[p.folder+"kernelsCy.pyx",
-                        p.folder+"kernels.cpp"],
-               depends=[p.folder+"kernels.hpp"],
-               language="c++")
 p.addExtension("clusterMethodCy",
                sources=[p.folder+"clusterMethodCy.pyx"])
 

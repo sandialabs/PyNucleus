@@ -48,8 +48,8 @@ from . fractionalOrders import (constFractionalOrder,
                                 islandsFractionalOrder,
                                 layersFractionalOrder,
                                 variableFractionalLaplacianScaling)
-from . kernels2 import (getKernelEnum,
-                        FRACTIONAL, INDICATOR, PERIDYNAMIC)
+from . kernelsCy import (getKernelEnum,
+                         FRACTIONAL, INDICATOR, PERIDYNAMIC)
 from . kernels import (getFractionalKernel,
                        getIntegrableKernel,
                        getKernel)

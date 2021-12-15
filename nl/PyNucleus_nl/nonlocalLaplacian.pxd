@@ -37,8 +37,8 @@ from PyNucleus_base.performanceLogger cimport PLogger, FakePLogger, LoggingPLogg
 from PyNucleus_base.linear_operators cimport LinearOperator
 from PyNucleus_fem.meshCy cimport meshBase
 from PyNucleus_fem.DoFMaps cimport DoFMap
-from . kernels2 cimport (Kernel,
-                         FractionalKernel)
+from . kernelsCy cimport (Kernel,
+                          FractionalKernel)
 
 
 include "config.pxi"
