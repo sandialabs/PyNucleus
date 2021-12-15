@@ -27,6 +27,13 @@ PyNucleus is installed via
 
    make
 
+The compilation of PyNucleus can be configured by modifying the file `config.yaml` in the root folder.
+This allows for example to set paths for libraries that are installed in non-standard directories.
+The defaults are as follows:
+
+.. literalinclude:: ../config.yaml
+   :language: yaml
+
 If you want to easily modify the source code without re-installing the package every time, and editable install is available as
 
 .. code-block:: shell

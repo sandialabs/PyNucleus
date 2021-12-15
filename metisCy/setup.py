@@ -21,11 +21,13 @@ except ImportError as e:
 
 p = package('PyNucleus_metisCy')
 
+p.parseConfig()
 idx, real = cython.inline("""
 cdef extern from "metis.h":
     int IDXTYPEWIDTH
     int REALTYPEWIDTH
-return IDXTYPEWIDTH, REALTYPEWIDTH""")
+return IDXTYPEWIDTH, REALTYPEWIDTH""",
+                          cython_include_dirs=p.config['includeDirs'])
 
 p.addOption('IDXTYPEWIDTH', 'METIS_idx_width', idx)
 p.addOption('REALTYPEWIDTH', 'METIS_real_width', real)

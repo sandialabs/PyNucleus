@@ -1,0 +1,44 @@
+
+# MPI wrapper that should be used for C ('detect' -> attempt to auto detect an option)
+compiler_c: detect
+
+# MPI wrapper that should be used for C++ ('detect' -> attempt to auto detect an option)
+compiler_c++: detect
+
+# Set arch for sizes of data types ('detect' -> attempt to auto detect)
+arch: detect
+
+# Type of MPI implementation. ('openmpi' or 'generic'. 'generic' should work for other MPI implementations.)
+mpi: openmpi
+
+# flags that are passed to the compiler
+compileArgs:
+- -O3
+- -pipe
+- -Wno-cpp
+
+# Additional includes for compilation
+includeDirs: []
+
+# flags that are passed to the linker
+linkArgs:
+- -O3
+- -pipe
+
+# Directives set for Cythonization
+cythonDirectives:
+  binding: true
+  embedsignature: true
+  language_level: '2'
+
+# Enables profiling of Cython code
+setupProfiling: false
+
+# Create annotated htmls for Cython code
+annotate: false
+
+# parallelism used for the build
+threads: 1
+
+# Use CCache if available
+use_ccache: true
