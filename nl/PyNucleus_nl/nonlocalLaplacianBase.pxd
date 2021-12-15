@@ -26,8 +26,8 @@ from . interactionDomains cimport REMOTE
 from . fractionalOrders cimport (fractionalOrderBase,
                                  constFractionalOrder,
                                  variableFractionalOrder)
-from . kernels2 cimport (Kernel,
-                         FractionalKernel)
+from . kernelsCy cimport (Kernel,
+                          FractionalKernel)
 from . clusterMethodCy cimport tree_node
 ctypedef INDEX_t panelType
 

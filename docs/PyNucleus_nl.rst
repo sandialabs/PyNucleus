@@ -58,20 +58,8 @@ PyNucleus.nl.kernels module
 .. automodule:: PyNucleus_nl.kernels
 
 
-PyNucleus.nl.kernels2 module
------------------------------
-
-.. automodule:: PyNucleus_nl.kernels2
-
-
-PyNucleus.nl.kernels2 module
------------------------------
-
-.. automodule:: PyNucleus_nl.kernels2
-
-
 PyNucleus.nl.kernelsCy module
-------------------------------
+-----------------------------
 
 .. automodule:: PyNucleus_nl.kernelsCy
 

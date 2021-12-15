@@ -24,10 +24,10 @@ from . fractionalOrders import (constantFractionalLaplacianScaling,
                                 innerOuterFractionalOrder,
                                 islandsFractionalOrder,
                                 layersFractionalOrder)
-from . kernels2 import (Kernel,
-                        FractionalKernel,
-                        getKernelEnum,
-                        FRACTIONAL, INDICATOR, PERIDYNAMIC)
+from . kernelsCy import (Kernel,
+                         FractionalKernel,
+                         getKernelEnum,
+                         FRACTIONAL, INDICATOR, PERIDYNAMIC)
 from . kernels import getKernel, getIntegrableKernel, getFractionalKernel
 from . nonlocalLaplacian import (assembleFractionalLaplacian,
                                  assembleNonlocalOperator,

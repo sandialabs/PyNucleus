@@ -19,8 +19,8 @@ from . nonlocalLaplacianBase cimport (double_local_matrix_t,
                                         specialQuadRule)
 from . interactionDomains cimport CUT
 from . fractionalOrders cimport fractionalOrderBase
-from . kernels2 cimport (Kernel,
-                         FractionalKernel)
+from . kernelsCy cimport (Kernel,
+                          FractionalKernel)
 
 
 cdef class fractionalLaplacian1DZeroExterior(nonlocalLaplacian1D):

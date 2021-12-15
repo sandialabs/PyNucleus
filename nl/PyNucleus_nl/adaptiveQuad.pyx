@@ -27,9 +27,10 @@ from cpython.pycapsule cimport PyCapsule_New
 from scipy import LowLevelCallable
 from libc.stdlib cimport malloc
 include "panelTypes.pxi"
+include "kernel_params.pxi"
 
 cdef enum:
-    OFFSET = sizeof(void*)
+    INTEGRAND_OFFSET = sizeof(void*)
 
 cdef enum:
     NUM_INTEGRAND_PARAMS = 9
@@ -37,39 +38,21 @@ cdef enum:
 
 cdef enum packType:
     fDOF1
-    fDOF2 = OFFSET
-    fNR1 = 2*OFFSET
-    fNC1 = 3*OFFSET
-    fNR2 = 4*OFFSET
-    fNC2 = 5*OFFSET
-    fSIMPLEX1 = 6*OFFSET
-    fSIMPLEX2 = 7*OFFSET
-    fKERNEL = 8*OFFSET
+    fDOF2 = INTEGRAND_OFFSET
+    fNR1 = 2*INTEGRAND_OFFSET
+    fNC1 = 3*INTEGRAND_OFFSET
+    fNR2 = 4*INTEGRAND_OFFSET
+    fNC2 = 5*INTEGRAND_OFFSET
+    fSIMPLEX1 = 6*INTEGRAND_OFFSET
+    fSIMPLEX2 = 7*INTEGRAND_OFFSET
+    fKERNEL = 8*INTEGRAND_OFFSET
 
 
-cdef inline INDEX_t getINDEX(void *c_params, size_t pos):
-    return (<INDEX_t*>(c_params+pos))[0]
+cdef inline Kernel getKernel(void *c_params, size_t pos):
+    return <Kernel>((<void**>(c_params+pos))[0])
 
-cdef inline void setINDEX(void *c_params, size_t pos, INDEX_t val):
-    (<INDEX_t*>(c_params+pos))[0] = val
-
-cdef inline REAL_t getREAL(void *c_params, size_t pos):
-    return (<REAL_t*>(c_params+pos))[0]
-
-cdef inline void setREAL(void *c_params, size_t pos, REAL_t val):
-    (<REAL_t*>(c_params+pos))[0] = val
-
-cdef inline REAL_t* getREALArray(void *c_params, size_t pos):
-    return (<REAL_t**>(c_params+pos))[0]
-
-cdef inline void setREALArray(void *c_params, size_t pos, REAL_t[:, ::1] val):
-    (<REAL_t**>(c_params+pos))[0] = &val[0, 0]
-
-cdef inline kernel_t* getKernel(void *c_params, size_t pos):
-    return (<kernel_t**>(c_params+pos))[0]
-
-# cdef inline void setKernel_t(void *c_params, size_t pos, kernel_t *val):
-#     (<kernel_t**>(c_params+pos))[0] = val
+cdef inline Kernel setKernel(void *c_params, size_t pos, Kernel kernel):
+    (<void**>(c_params+pos))[0] = <void*>kernel
 
 
 @cython.initializedcheck(False)
@@ -87,10 +70,10 @@ cdef REAL_t symIntegrandId1D(int n, REAL_t *xx, void *c_params):
         REAL_t y
         INDEX_t i = getINDEX(c_params, fDOF1)
         INDEX_t j = getINDEX(c_params, fDOF2)
-        REAL_t *simplex1 = getREALArray(c_params, fSIMPLEX2)
-        # REAL_t* simplex2 = getREALArray(c_params, fSIMPLEX2)
+        REAL_t *simplex1 = getREALArray2D(c_params, fSIMPLEX2)
+        # REAL_t* simplex2 = getREALArray2D(c_params, fSIMPLEX2)
         REAL_t psi1, psi2
-        kernel_t *kernel = getKernel(c_params, fKERNEL)
+        Kernel kernel = getKernel(c_params, fKERNEL)
 
     if i == 0:
         psi1 = l0x-l0y
@@ -105,7 +88,7 @@ cdef REAL_t symIntegrandId1D(int n, REAL_t *xx, void *c_params):
     x = l0x*simplex1[0]+l1x*simplex1[1]
     y = l0y*simplex1[0]+l1y*simplex1[1]
 
-    return psi1 * psi2 * kernel.eval(&x, &y)
+    return psi1 * psi2 * kernel.evalPtr(n, &x, &y)
 
 
 @cython.initializedcheck(False)
@@ -125,10 +108,10 @@ cdef REAL_t symIntegrandVertex1D(int n, REAL_t *xx, void *c_params):
         # INDEX_t nc1 = getINDEX(c_params, fNC1)
         # INDEX_t nr2 = getINDEX(c_params, fNR2)
         # INDEX_t nc2 = getINDEX(c_params, fNC2)
-        REAL_t* simplex1 = getREALArray(c_params, fSIMPLEX1)
-        REAL_t* simplex2 = getREALArray(c_params, fSIMPLEX2)
+        REAL_t* simplex1 = getREALArray2D(c_params, fSIMPLEX1)
+        REAL_t* simplex2 = getREALArray2D(c_params, fSIMPLEX2)
         REAL_t psi1, psi2
-        kernel_t *kernel = getKernel(c_params, fKERNEL)
+        Kernel kernel = getKernel(c_params, fKERNEL)
 
     if i == 0:
         psi1 = l0x
@@ -147,7 +130,7 @@ cdef REAL_t symIntegrandVertex1D(int n, REAL_t *xx, void *c_params):
     x = l0x*simplex1[0]+l1x*simplex1[1]
     y = l0y*simplex2[0]+l1y*simplex2[1]
 
-    return psi1 * psi2 * kernel.eval(&x, &y)
+    return psi1 * psi2 * kernel.evalPtr(n, &x, &y)
 
 
 @cython.initializedcheck(False)
@@ -167,10 +150,10 @@ cdef REAL_t symIntegrandDistant1D(int n, REAL_t *xx, void *c_params):
         # INDEX_t nc1 = getINDEX(c_params, fNC1)
         # INDEX_t nr2 = getINDEX(c_params, fNR2)
         # INDEX_t nc2 = getINDEX(c_params, fNC2)
-        REAL_t* simplex1 = getREALArray(c_params, fSIMPLEX1)
-        REAL_t* simplex2 = getREALArray(c_params, fSIMPLEX2)
+        REAL_t* simplex1 = getREALArray2D(c_params, fSIMPLEX1)
+        REAL_t* simplex2 = getREALArray2D(c_params, fSIMPLEX2)
         REAL_t psi1, psi2
-        kernel_t *kernel = getKernel(c_params, fKERNEL)
+        Kernel kernel = getKernel(c_params, fKERNEL)
 
     if i == 0:
         psi1 = l0x
@@ -193,7 +176,7 @@ cdef REAL_t symIntegrandDistant1D(int n, REAL_t *xx, void *c_params):
     x = l0x*simplex1[0]+l1x*simplex1[1]
     y = l0y*simplex2[0]+l1y*simplex2[1]
 
-    return psi1 * psi2 * kernel.eval(&x, &y)
+    return psi1 * psi2 * kernel.evalPtr(n, &x, &y)
 
 
 cdef class fractionalLaplacian1D_P1_automaticQuadrature(nonlocalLaplacian1D):
@@ -218,7 +201,7 @@ cdef class fractionalLaplacian1D_P1_automaticQuadrature(nonlocalLaplacian1D):
                 target_order = 5
         self.target_order = target_order
 
-        self.user_ptr = malloc(NUM_INTEGRAND_PARAMS*OFFSET)
+        self.user_ptr = malloc(NUM_INTEGRAND_PARAMS*INTEGRAND_OFFSET)
         setINDEX(self.user_ptr, fNR1, 2)
         setINDEX(self.user_ptr, fNC1, 1)
         setINDEX(self.user_ptr, fNR2, 2)
@@ -233,7 +216,7 @@ cdef class fractionalLaplacian1D_P1_automaticQuadrature(nonlocalLaplacian1D):
         self.integrandDistant = LowLevelCallable(func_capsule_distant, c_params, func_type)
         self.abstol = abstol
         self.reltol = reltol
-        self.kernel.c_kernel.setKernel(self.user_ptr, fKERNEL)
+        setKernel(self.user_ptr, fKERNEL, self.kernel)
 
     @cython.initializedcheck(False)
     @cython.boundscheck(False)
@@ -263,8 +246,8 @@ cdef class fractionalLaplacian1D_P1_automaticQuadrature(nonlocalLaplacian1D):
             REAL_t[:, ::1] simplex2 = self.simplex2
             REAL_t horizon = self.kernel.getHorizonValue()
 
-        setREALArray(self.user_ptr, fSIMPLEX1, simplex1)
-        setREALArray(self.user_ptr, fSIMPLEX2, simplex2)
+        setREALArray2D(self.user_ptr, fSIMPLEX1, simplex1)
+        setREALArray2D(self.user_ptr, fSIMPLEX2, simplex2)
 
         contrib[:] = 0.
 
@@ -353,11 +336,11 @@ cdef REAL_t nonsymIntegrandId(int n, REAL_t *xx, void *c_params):
         # INDEX_t nc1 = getINDEX(c_params, fNC1)
         # INDEX_t nr2 = getINDEX(c_params, fNR2)
         # INDEX_t nc2 = getINDEX(c_params, fNC2)
-        REAL_t* simplex1 = getREALArray(c_params, fSIMPLEX1)
-        # REAL_t* simplex2 = getREALArray(c_params, fSIMPLEX2)
+        REAL_t* simplex1 = getREALArray2D(c_params, fSIMPLEX1)
+        # REAL_t* simplex2 = getREALArray2D(c_params, fSIMPLEX2)
         REAL_t phi1x, phi1y
         REAL_t psi2
-        kernel_t *kernel = getKernel(c_params, fKERNEL)
+        Kernel kernel = getKernel(c_params, fKERNEL)
 
     if i == 0:
         phi1x = l0x
@@ -374,7 +357,7 @@ cdef REAL_t nonsymIntegrandId(int n, REAL_t *xx, void *c_params):
     x = l0x*simplex1[0]+l1x*simplex1[1]
     y = l0y*simplex1[0]+l1y*simplex1[1]
 
-    return (phi1x * kernel.eval(&x, &y) - phi1y * kernel.eval(&y, &x)) * psi2
+    return (phi1x * kernel.evalPtr(n, &x, &y) - phi1y * kernel.evalPtr(n, &y, &x)) * psi2
 
 
 @cython.initializedcheck(False)
@@ -395,11 +378,11 @@ cdef REAL_t nonsymIntegrandVertex1(int n, REAL_t *xx, void *c_params):
         # INDEX_t nc1 = getINDEX(c_params, fNC1)
         # INDEX_t nr2 = getINDEX(c_params, fNR2)
         # INDEX_t nc2 = getINDEX(c_params, fNC2)
-        REAL_t* simplex1 = getREALArray(c_params, fSIMPLEX1)
-        REAL_t* simplex2 = getREALArray(c_params, fSIMPLEX2)
+        REAL_t* simplex1 = getREALArray2D(c_params, fSIMPLEX1)
+        REAL_t* simplex2 = getREALArray2D(c_params, fSIMPLEX2)
         REAL_t phi1x, phi1y
         REAL_t psi2
-        kernel_t *kernel = getKernel(c_params, fKERNEL)
+        Kernel kernel = getKernel(c_params, fKERNEL)
 
     if i == 0:
         phi1x = l0x
@@ -421,7 +404,7 @@ cdef REAL_t nonsymIntegrandVertex1(int n, REAL_t *xx, void *c_params):
     x = l0x*simplex1[0]+l1x*simplex1[1]
     y = l0y*simplex2[0]+l1y*simplex2[1]
 
-    return (phi1x * kernel.eval(&x, &y) - phi1y * kernel.eval(&y, &x)) * psi2
+    return (phi1x * kernel.evalPtr(n, &x, &y) - phi1y * kernel.evalPtr(n, &y, &x)) * psi2
 
 
 @cython.initializedcheck(False)
@@ -443,11 +426,11 @@ cdef REAL_t nonsymIntegrandVertex2(int n, REAL_t *xx, void *c_params):
         # INDEX_t nc1 = getINDEX(c_params, fNC1)
         # INDEX_t nr2 = getINDEX(c_params, fNR2)
         # INDEX_t nc2 = getINDEX(c_params, fNC2)
-        REAL_t* simplex1 = getREALArray(c_params, fSIMPLEX1)
-        REAL_t* simplex2 = getREALArray(c_params, fSIMPLEX2)
+        REAL_t* simplex1 = getREALArray2D(c_params, fSIMPLEX1)
+        REAL_t* simplex2 = getREALArray2D(c_params, fSIMPLEX2)
         REAL_t phi1x, phi1y
         REAL_t psi2
-        kernel_t *kernel = getKernel(c_params, fKERNEL)
+        Kernel kernel = getKernel(c_params, fKERNEL)
 
     if (i == 0) or (i == 3):
         phi1x = l0x
@@ -469,7 +452,7 @@ cdef REAL_t nonsymIntegrandVertex2(int n, REAL_t *xx, void *c_params):
     x = l0x*simplex1[0]+l1x*simplex1[1]
     y = l0y*simplex2[0]+l1y*simplex2[1]
 
-    return (phi1x * kernel.eval(&x, &y) - phi1y * kernel.eval(&y, &x)) * psi2
+    return (phi1x * kernel.evalPtr(n, &x, &y) - phi1y * kernel.evalPtr(n, &y, &x)) * psi2
 
 
 @cython.initializedcheck(False)
@@ -490,11 +473,11 @@ cdef REAL_t nonsymIntegrandDistant(int n, REAL_t *xx, void *c_params):
         # INDEX_t nc1 = getINDEX(c_params, fNC1)
         # INDEX_t nr2 = getINDEX(c_params, fNR2)
         # INDEX_t nc2 = getINDEX(c_params, fNC2)
-        REAL_t* simplex1 = getREALArray(c_params, fSIMPLEX1)
-        REAL_t* simplex2 = getREALArray(c_params, fSIMPLEX2)
+        REAL_t* simplex1 = getREALArray2D(c_params, fSIMPLEX1)
+        REAL_t* simplex2 = getREALArray2D(c_params, fSIMPLEX2)
         REAL_t phi1x, phi1y
         REAL_t psi2
-        kernel_t *kernel = getKernel(c_params, fKERNEL)
+        Kernel kernel = getKernel(c_params, fKERNEL)
 
     if i == 0:
         phi1x = l0x
@@ -521,7 +504,7 @@ cdef REAL_t nonsymIntegrandDistant(int n, REAL_t *xx, void *c_params):
     x = l0x*simplex1[0]+l1x*simplex1[1]
     y = l0y*simplex2[0]+l1y*simplex2[1]
 
-    return (phi1x * kernel.eval(&x, &y) - phi1y * kernel.eval(&y, &x)) * psi2
+    return (phi1x * kernel.evalPtr(n, &x, &y) - phi1y * kernel.evalPtr(n, &y, &x)) * psi2
 
 
 cdef class fractionalLaplacian1D_P1_nonsymAutomaticQuadrature(nonlocalLaplacian1D):
@@ -556,7 +539,7 @@ cdef class fractionalLaplacian1D_P1_nonsymAutomaticQuadrature(nonlocalLaplacian1
             target_order = 2.-smin
         self.target_order = target_order
 
-        self.user_ptr = malloc(NUM_INTEGRAND_PARAMS*OFFSET)
+        self.user_ptr = malloc(NUM_INTEGRAND_PARAMS*INTEGRAND_OFFSET)
         setINDEX(self.user_ptr, fNR1, 2)
         setINDEX(self.user_ptr, fNC1, 1)
         setINDEX(self.user_ptr, fNR2, 2)
@@ -575,7 +558,7 @@ cdef class fractionalLaplacian1D_P1_nonsymAutomaticQuadrature(nonlocalLaplacian1
         self.reltol = reltol
         self.symmetricCells = False
         self.symmetricLocalMatrix = False
-        self.kernel.c_kernel.setKernel(self.user_ptr, fKERNEL)
+        setKernel(self.user_ptr, fKERNEL, self.kernel)
 
         self.x = uninitialized((0, self.dim), dtype=REAL)
         self.y = uninitialized((0, self.dim), dtype=REAL)
@@ -681,11 +664,10 @@ cdef class fractionalLaplacian1D_P1_nonsymAutomaticQuadrature(nonlocalLaplacian1
             REAL_t[:, ::1] simplex2 = self.simplex2
             REAL_t[:, ::1] PSI
             doubleSimplexQuadratureRule qr2
-            kernel_t *kernel
             REAL_t horizon = self.kernel.getHorizonValue()
 
-        setREALArray(self.user_ptr, fSIMPLEX1, simplex1)
-        setREALArray(self.user_ptr, fSIMPLEX2, simplex2)
+        setREALArray2D(self.user_ptr, fSIMPLEX1, simplex1)
+        setREALArray2D(self.user_ptr, fSIMPLEX2, simplex2)
 
         contrib[:] = 0.
 
@@ -762,7 +744,6 @@ cdef class fractionalLaplacian1D_P1_nonsymAutomaticQuadrature(nonlocalLaplacian1
                         contrib[k] = val*vol
                     k += 1
         elif panel >= 1:
-            kernel = getKernel(self.user_ptr, fKERNEL)
             qr2 = self.distantQuadRules[panel]
             PSI = self.distantPSI[panel]
             PHIx = self.distantPHIx[panel]
@@ -772,8 +753,8 @@ cdef class fractionalLaplacian1D_P1_nonsymAutomaticQuadrature(nonlocalLaplacian1
             k = 0
             for i in range(qr2.rule1.num_nodes):
                 for j in range(qr2.rule2.num_nodes):
-                    self.temp[k] = kernel.eval(&self.x[i, 0], &self.y[j, 0])
-                    self.temp3[k] = kernel.eval(&self.y[j, 0], &self.x[i, 0])
+                    self.temp[k] = self.kernel.evalPtr(1, &self.x[i, 0], &self.y[j, 0])
+                    self.temp3[k] = self.kernel.evalPtr(1, &self.y[j, 0], &self.x[i, 0])
                     k += 1
 
             # ( phi1x * kernel(x, y) - phi1y * kernel(y, x) ) * psi2
@@ -809,10 +790,10 @@ cdef REAL_t symIntegrandId2D(int n, REAL_t *xx, void *c_params):
         REAL_t y[2]
         INDEX_t i = getINDEX(c_params, fDOF1)
         INDEX_t j = getINDEX(c_params, fDOF2)
-        REAL_t *simplex1 = getREALArray(c_params, fSIMPLEX2)
-        # REAL_t* simplex2 = getREALArray(c_params, fSIMPLEX2)
+        REAL_t *simplex1 = getREALArray2D(c_params, fSIMPLEX2)
+        # REAL_t* simplex2 = getREALArray2D(c_params, fSIMPLEX2)
         REAL_t psi1, psi2
-        kernel_t *kernel = getKernel(c_params, fKERNEL)
+        Kernel kernel = getKernel(c_params, fKERNEL)
 
     if i == 0:
         psi1 = l0x-l0y
@@ -833,7 +814,7 @@ cdef REAL_t symIntegrandId2D(int n, REAL_t *xx, void *c_params):
     y[0] = l0y*simplex1[0]+l1y*simplex1[2]+l2y*simplex1[4]
     y[1] = l0y*simplex1[1]+l1y*simplex1[3]+l2y*simplex1[5]
 
-    return psi1 * psi2 * kernel.eval(x, y)
+    return psi1 * psi2 * kernel.evalPtr(n, x, y)
 
 
 @cython.initializedcheck(False)
@@ -857,10 +838,10 @@ cdef REAL_t symIntegrandVertex2D(int n, REAL_t *xx, void *c_params):
         # INDEX_t nc1 = getINDEX(c_params, fNC1)
         # INDEX_t nr2 = getINDEX(c_params, fNR2)
         # INDEX_t nc2 = getINDEX(c_params, fNC2)
-        REAL_t* simplex1 = getREALArray(c_params, fSIMPLEX1)
-        REAL_t* simplex2 = getREALArray(c_params, fSIMPLEX2)
+        REAL_t* simplex1 = getREALArray2D(c_params, fSIMPLEX1)
+        REAL_t* simplex2 = getREALArray2D(c_params, fSIMPLEX2)
         REAL_t psi1, psi2
-        kernel_t *kernel = getKernel(c_params, fKERNEL)
+        Kernel kernel = getKernel(c_params, fKERNEL)
 
     if i == 0:
         psi1 = l0x
@@ -881,7 +862,7 @@ cdef REAL_t symIntegrandVertex2D(int n, REAL_t *xx, void *c_params):
     y[0] = l0y*simplex2[0]+l1y*simplex2[2]+l2y*simplex2[4]
     y[1] = l0y*simplex2[1]+l1y*simplex2[3]+l2y*simplex2[5]
 
-    return psi1 * psi2 * kernel.eval(x, y)
+    return psi1 * psi2 * kernel.evalPtr(n, x, y)
 
 
 @cython.initializedcheck(False)
@@ -905,10 +886,10 @@ cdef REAL_t symIntegrandDistant2D(int n, REAL_t *xx, void *c_params):
         # INDEX_t nc1 = getINDEX(c_params, fNC1)
         # INDEX_t nr2 = getINDEX(c_params, fNR2)
         # INDEX_t nc2 = getINDEX(c_params, fNC2)
-        REAL_t* simplex1 = getREALArray(c_params, fSIMPLEX1)
-        REAL_t* simplex2 = getREALArray(c_params, fSIMPLEX2)
+        REAL_t* simplex1 = getREALArray2D(c_params, fSIMPLEX1)
+        REAL_t* simplex2 = getREALArray2D(c_params, fSIMPLEX2)
         REAL_t psi1, psi2
-        kernel_t *kernel = getKernel(c_params, fKERNEL)
+        Kernel kernel = getKernel(c_params, fKERNEL)
 
     if i == 0:
         psi1 = l0x
@@ -941,7 +922,7 @@ cdef REAL_t symIntegrandDistant2D(int n, REAL_t *xx, void *c_params):
     y[0] = l0y*simplex2[0]+l1y*simplex2[2]+l2y*simplex2[4]
     y[1] = l0y*simplex2[1]+l1y*simplex2[3]+l2y*simplex2[5]
 
-    return psi1 * psi2 * kernel.eval(x, y)
+    return psi1 * psi2 * kernel.evalPtr(n, x, y)
 
 
 cdef class fractionalLaplacian2D_P1_automaticQuadrature(nonlocalLaplacian2D):
@@ -955,7 +936,7 @@ cdef class fractionalLaplacian2D_P1_automaticQuadrature(nonlocalLaplacian2D):
                  **kwargs):
         assert isinstance(DoFMap, P1_DoFMap)
         super(fractionalLaplacian2D_P1_automaticQuadrature, self).__init__(kernel, mesh, DoFMap, num_dofs, **kwargs)
-        self.user_ptr = malloc(NUM_INTEGRAND_PARAMS*OFFSET)
+        self.user_ptr = malloc(NUM_INTEGRAND_PARAMS*INTEGRAND_OFFSET)
         setINDEX(self.user_ptr, fNR1, 3)
         setINDEX(self.user_ptr, fNC1, 2)
         setINDEX(self.user_ptr, fNR2, 3)
@@ -970,7 +951,7 @@ cdef class fractionalLaplacian2D_P1_automaticQuadrature(nonlocalLaplacian2D):
         self.integrandDistant = LowLevelCallable(func_capsule_distant, c_params, func_type)
         self.abstol = abstol
         self.reltol = reltol
-        self.kernel.c_kernel.setKernel(self.user_ptr, fKERNEL)
+        setKernel(self.user_ptr, fKERNEL, self.kernel)
 
     @cython.initializedcheck(False)
     @cython.boundscheck(False)
@@ -999,8 +980,8 @@ cdef class fractionalLaplacian2D_P1_automaticQuadrature(nonlocalLaplacian2D):
             REAL_t[:, ::1] simplex1 = self.simplex1
             REAL_t[:, ::1] simplex2 = self.simplex2
 
-        setREALArray(self.user_ptr, fSIMPLEX1, simplex1)
-        setREALArray(self.user_ptr, fSIMPLEX2, simplex2)
+        setREALArray2D(self.user_ptr, fSIMPLEX1, simplex1)
+        setREALArray2D(self.user_ptr, fSIMPLEX2, simplex2)
 
         contrib[:] = 0.
 

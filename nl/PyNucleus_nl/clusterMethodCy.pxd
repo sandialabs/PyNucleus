@@ -18,7 +18,7 @@ from PyNucleus_base.tupleDict cimport indexSet, indexSetIterator, arrayIndexSet,
 from PyNucleus_fem.DoFMaps cimport DoFMap
 from PyNucleus_fem.meshCy cimport meshBase
 from . fractionalOrders cimport fractionalOrderBase
-from . kernels2 cimport FractionalKernel
+from . kernelsCy cimport FractionalKernel
 
 cdef class tree_node:
     cdef:
