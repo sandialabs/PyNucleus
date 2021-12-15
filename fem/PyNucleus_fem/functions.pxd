@@ -32,3 +32,12 @@ cdef class vectorFunction:
         list components
         INDEX_t rows
     cdef void eval(self, REAL_t[::1] x, REAL_t[::1] vals)
+
+
+cdef class matrixFunction:
+    cdef:
+        list components
+        INDEX_t rows
+        INDEX_t columns
+        public BOOL_t symmetric
+    cdef void eval(self, REAL_t[::1] x, REAL_t[:, ::1] vals)

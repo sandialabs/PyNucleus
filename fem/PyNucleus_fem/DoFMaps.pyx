@@ -28,8 +28,8 @@ from . meshCy cimport (sortEdge, sortFace,
 from . meshCy import getSubmesh2
 from . quadrature cimport simplexQuadratureRule, simplexXiaoGimbutas
 from PyNucleus_base.linear_operators cimport (CSR_LinearOperator,
-                                               SSS_LinearOperator,
-                                               sparseGraph)
+                                              SSS_LinearOperator,
+                                              sparseGraph)
 from PyNucleus_base.sparseGraph import cuthill_mckee
 
 cdef INDEX_t MAX_INT = np.iinfo(INDEX).max
@@ -560,7 +560,15 @@ cdef class DoFMap:
                      BOOL_t sss_format=False,
                      BOOL_t reorder=False,
                      INDEX_t[::1] cellIndices=None,
-                     DoFMap dm2=None):
+                     DoFMap dm2=None,
+                     coefficient=None):
+        """Assemble
+
+        .. math::
+
+           \int_D u(x) coefficient(x) v(x) dx
+
+        """
         if dm2 is None:
             from . femCy import assembleMass
             return assembleMass(self,
@@ -570,11 +578,32 @@ cdef class DoFMap:
                                 start_idx, end_idx,
                                 sss_format,
                                 reorder,
-                                cellIndices)
+                                cellIndices,
+                                coefficient=None)
         else:
             assert self.mesh == dm2.mesh
             from . femCy import assembleMassNonSym
             return assembleMassNonSym(self.mesh, self, dm2, A, start_idx, end_idx)
+
+    def assembleDrift(self,
+                      vectorFunction coeff,
+                      LinearOperator A=None,
+                      INDEX_t start_idx=-1,
+                      INDEX_t end_idx=-1,
+                      INDEX_t[::1] cellIndices=None):
+        """Assemble
+
+        .. math::
+
+           \int_D (coeff(x) \cdot \nabla u(x)) v(x) dx
+
+        """
+        from . femCy import assembleDrift
+        return assembleDrift(self,
+                             coeff,
+                             A,
+                             start_idx, end_idx,
+                             cellIndices)
 
     def assembleStiffness(self,
                           vector_t boundary_data=None,
@@ -584,9 +613,16 @@ cdef class DoFMap:
                           INDEX_t end_idx=-1,
                           BOOL_t sss_format=False,
                           BOOL_t reorder=False,
-                          function diffusivity=None,
+                          diffusivity=None,
                           INDEX_t[::1] cellIndices=None,
                           DoFMap dm2=None):
+        """Assemble
+
+        .. math::
+
+           \int_D \nabla u(x) \cdot diffusivity(x) \nabla v(x) dx
+
+        """
         from . femCy import assembleStiffness
         return assembleStiffness(self,
                                  boundary_data,
@@ -602,12 +638,20 @@ cdef class DoFMap:
     def assembleRHS(self,
                     fun,
                     simplexQuadratureRule qr=None):
+        """Assemble
+
+        .. math::
+
+           \int_D fun(x) v(x) dx
+
+        """
         from . femCy import assembleRHS, assembleRHScomplex
         if isinstance(fun, complexFunction):
             return assembleRHScomplex(fun, self, qr)
         else:
             return assembleRHS(fun, self, qr)
 
+    
     def assembleNonlocal(self, kernel, str matrixFormat='DENSE', DoFMap dm2=None, **kwargs):
         """Assemble a nonlocal operator of the form
 
@@ -1956,3 +2000,28 @@ cdef class lookupFunction(function):
                 shapeFun = self.dm.localShapeFunctions[k]
                 val += shapeFun.eval(self.cellFinder.bary)*self.u[dof]
         return val
+
+
+cdef class elementSizeFunction(function):
+    cdef:
+        meshBase mesh
+        public cellFinder2 cellFinder
+        REAL_t[::1] hVector
+
+    def __init__(self, meshBase mesh, cellFinder2 cF=None):
+        self.mesh = mesh
+        self.hVector = mesh.hVector
+        if cF is None:
+            self.cellFinder = cellFinder2(self.mesh)
+        else:
+            self.cellFinder = cF
+
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cdef REAL_t eval(self, REAL_t[::1] x):
+        cdef:
+            INDEX_t cellNo
+        cellNo = self.cellFinder.findCell(x)
+        if cellNo == -1:
+            return -1.
+        return self.hVector[cellNo]

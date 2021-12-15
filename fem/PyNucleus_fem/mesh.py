@@ -242,7 +242,7 @@ def doubleIntervalWithInteractions(a=0., b=1., c=2.,
                                    h=None):
 
     def getNumCells(l, r):
-        eps = 1e-5
+        eps = 1e-8
         return int(np.ceil((r-l-eps)/h))
 
     assert horizon2 >= horizon1

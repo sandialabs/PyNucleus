@@ -15,6 +15,7 @@ cimport cython
 from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX, ENCODE
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, COMPLEX_t, ENCODE_t
 from PyNucleus_base import uninitialized
+from PyNucleus_base.blas cimport norm
 
 from . quadrature cimport sphericalQuadRule, sphericalQuadRule1D, sphericalQuadRule2D
 
@@ -1228,13 +1229,6 @@ cdef extern from "<math.h>" nogil:
 from scipy.special import jn_zeros
 jv = jn
 
-cdef inline REAL_t norm(const REAL_t[::1] a):
-    cdef REAL_t n = 0.
-    cdef INDEX_t i
-    for i in range(a.shape[0]):
-        n += a[i]*a[i]
-    return sqrt(n)
-
 
 cdef class eigfun_disc(function):
     cdef:
@@ -2073,3 +2067,59 @@ cdef class vectorFunction:
 
     def __getitem__(self, i):
         return self.components[i]
+
+    def norm(self):
+        return vectorNorm(self)
+
+
+cdef class vectorNorm(function):
+    cdef:
+        vectorFunction vecFun
+        REAL_t[::1] vals
+
+    def __init__(self, vectorFunction vecFun):
+        self.vecFun = vecFun
+        self.vals = uninitialized((self.vecFun.rows), dtype=REAL)
+
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef REAL_t eval(self, REAL_t[::1] x):
+        self.vecFun.eval(x, self.vals)
+        return norm(self.vals)
+
+
+cdef class matrixFunction:
+    def __init__(self, list components, BOOL_t symmetric):
+        self.rows = len(components)
+        self.columns = len(components[0])
+        self.components = components
+        self.symmetric = symmetric
+
+    def __call__(self, REAL_t[::1] x):
+        vals = uninitialized((self.rows, self.columns), dtype=REAL)
+        self.eval(x, vals)
+        return vals
+
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef void eval(self, REAL_t[::1] x, REAL_t[:, ::1] vals):
+        cdef:
+            INDEX_t i
+            function f
+        if self.symmetric:
+            for i in range(self.rows):
+                for j in range(i, self.columns):
+                    f = self.components[i][j]
+                    vals[j, i] = vals[i, j] = f.eval(x)
+        else:
+            for i in range(self.rows):
+                for j in range(self.columns):
+                    f = self.components[i][j]
+                    vals[i, j] = f.eval(x)
+
+    def __repr__(self):
+        return '{}({})'.format(self.__class__.__name__, ','.join([f.__repr__() for f in self.components]))
+
+    def __getitem__(self, I):
+        i, j = I
+        return self.components[i][j]

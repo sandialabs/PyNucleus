@@ -13,6 +13,7 @@ from PyNucleus.base.ip_norm import ip_serial, norm_serial
 from PyNucleus.fem import (simpleInterval, uniformSquare,
                            squareIndicator, P1_DoFMap,
                            constant, Lambda, NO_BOUNDARY, INTERIOR, PHYSICAL,
+                           functionFactory,
                            getSurfaceDoFMap)
 from PyNucleus.fem.DoFMaps import fe_vector
 from PyNucleus.fem.splitting import meshSplitter, dofmapSplitter
@@ -32,6 +33,10 @@ d.declareFigure('errors')
 
 params = d.process()
 
+L2ex_left = None
+L2ex_right = None
+H10ex_left = None
+H10ex_right = None
 if d.domain == 'doubleInterval':
     a, b, c = 0, 2, 1
     mesh = simpleInterval(a, b)
@@ -57,14 +62,20 @@ if d.domain == 'doubleInterval':
         sol_jump = sol_2-sol_1
         flux_jump = constant(2*d.coeff1)
     elif d.problem == 'sin-solJump-fluxJump':
-        sol_1 = Lambda(lambda x: np.sin(np.pi*x[0]))
-        sol_2 = Lambda(lambda x: 1.+np.sin(np.pi*(x[0]-1)))
+        sin = functionFactory('sin1d')
+        one = functionFactory('constant', 1)
+        sol_1 = sin
+        sol_2 = one+sin
         diri_left = sol_1
         diri_right = sol_2
-        forcing_left = Lambda(lambda x: np.pi**2*np.sin(np.pi*x[0])*d.coeff1)
-        forcing_right = Lambda(lambda x: np.pi**2*np.sin(np.pi*(x[0]-1))*d.coeff2)
+        forcing_left = np.pi**2 * d.coeff1 * sin
+        forcing_right = np.pi**2 * d.coeff2 * sin
         sol_jump = sol_2-sol_1
-        flux_jump = constant(-np.pi*d.coeff1 - np.pi*d.coeff2)
+        flux_jump = functionFactory('constant', -np.pi*d.coeff1 + np.pi*d.coeff2)
+        L2ex_left = 0.5
+        L2ex_right = 1.5-4/np.pi
+        H10ex_left = np.pi**2 * d.coeff1 * 0.5
+        H10ex_right = np.pi**2 * d.coeff2 * (0.5 - 2/np.pi)
     elif d.problem == 'sin-nojump':
         sol_1 = Lambda(lambda x: np.sin(np.pi*x[0])/d.coeff1)
         sol_2 = Lambda(lambda x: np.sin(np.pi*x[0])/d.coeff2)
@@ -154,6 +165,13 @@ dmInterface = getSurfaceDoFMap(mesh, interface, dm1)
 domain2Mesh = split.getSubMesh('mesh2')
 dm2 = split.getSubMap('mesh2', dm)
 R2, P2 = split.getRestrictionProlongation('mesh2', dm, dm2)
+
+meshInfo = d.addOutputGroup('meshInfo')
+meshInfo.add('h_domain1', domain1Mesh.h)
+meshInfo.add('h_domain2', domain2Mesh.h)
+meshInfo.add('num_dofs_domain1', dm1.num_dofs)
+meshInfo.add('num_dofs_domain2', dm2.num_dofs)
+d.logger.info('\n'+str(meshInfo))
 
 # The interface DoFs are discretized by domain 1. Hence, we split dm1
 # into interior+interface and boundary. We will also need an interface
@@ -270,11 +288,19 @@ M2 = dm2.assembleMass()
 u1ex = dm1.interpolate(sol_1)
 u2ex = dm2.interpolate(sol_2)
 
-inner = ip_serial()
-
 results = d.addOutputGroup('results')
-results.add('domain1L2err', np.sqrt(inner(M1*(u1-u1ex), u1-u1ex)), rTol=1e-2)
-results.add('domain2L2err', np.sqrt(inner(M2*(u2-u2ex), u2-u2ex)), rTol=1e-2)
+if L2ex_left is not None:
+    z1 = dm1.assembleRHS(sol_1)
+    results.add('domain1L2err', np.sqrt(abs(u1.inner(M1*u1)-2*z1.inner(u1)+L2ex_left)), rTol=1e-2)
+if L2ex_right is not None:
+    z2 = dm2.assembleRHS(sol_2)
+    results.add('domain2L2err', np.sqrt(abs(u2.inner(M2*u2)-2*z2.inner(u2)+L2ex_right)), rTol=1e-2)
+if H10ex_left is not None:
+    b1 = dm1.assembleRHS(forcing_left)
+    results.add('domain1H1err', np.sqrt(abs(H10ex_left-b1.inner(u1))), rTol=1e-2)
+if H10ex_right is not None:
+    b2 = dm2.assembleRHS(forcing_right)
+    results.add('domain2H1err', np.sqrt(abs(H10ex_right-b2.inner(u2))), rTol=1e-2)
 d.logger.info('\n'+str(results))
 
 data = d.addOutputGroup('data', tested=False)
