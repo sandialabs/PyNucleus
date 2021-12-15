@@ -104,6 +104,7 @@ class package:
                          'arch': 'detect',
                          'compiler_c': 'detect',
                          'compiler_c++': 'detect',
+                         'mpi': 'openmpi',
                          'threads': multiprocessing.cpu_count()}
         self.addOption('USE_OPENMP', 'useOpenMP', False)
         self.addOption(None, 'gitSHA', self.getGitSHA())
@@ -114,7 +115,7 @@ class package:
         self.options.append((optionCy, optionPy, pkgDependencies))
         self.defaults[optionPy] = default
 
-    def loadConfig(self, filename='config.yaml', extra_config={}):
+    def parseConfig(self, filename='../config.yaml', extra_config={}):
         defaults = self.defaults
         if Path(filename).exists():
             import yaml
@@ -125,6 +126,9 @@ class package:
             self.config = defaults
         self.config.update(extra_config)
         self.configLoaded = True
+
+    def loadConfig(self, filename='../config.yaml', extra_config={}):
+        self.parseConfig(filename, extra_config)
         self.setCompiler()
         self.setInclude()
         self.setProfiling()
@@ -133,6 +137,7 @@ class package:
 
     def setCompiler(self):
         assert self.configLoaded
+        assert self.config['mpi'] in ('openmpi', 'generic'), "Currently, only OpenMPI is properly supported. Setting 'mpi'='generic' might work for other implementations."
         # set compiler
         if self.config['compiler_c'] == 'detect':
             if 'MPICC' in os.environ:
@@ -155,9 +160,28 @@ class package:
                     self.config['compiler_c++'] = 'mpicxx'
         os.environ['CXX'] = self.config['compiler_c++']
         from shutil import which
+        from subprocess import Popen, PIPE
         if self.config['use_ccache'] and which('ccache') is not None:
-            os.environ['OMPI_CC'] = 'ccache gcc'
-            os.environ['OMPI_CXX'] = 'ccache g++'
+            if self.config['mpi'] == 'openmpi':
+                out, err = Popen([self.config['compiler_c'], '--showme:command'], stdout=PIPE, stderr=PIPE).communicate()
+                assert len(err) == 0, err
+                underlying_c_compiler = out.decode()[:-1]
+                print(underlying_c_compiler)
+                os.environ['OMPI_CC'] = 'ccache {}'.format(underlying_c_compiler)
+
+                out, err = Popen([self.config['compiler_c++'], '--showme:command'], stdout=PIPE, stderr=PIPE).communicate()
+                assert len(err) == 0, err
+                underlying_cxx_compiler = out.decode()[:-1]
+                os.environ['OMPI_CXX'] = 'ccache {}'.format(underlying_cxx_compiler)
+
+        if self.config['mpi'] == 'openmpi':
+            out, err = Popen([self.config['compiler_c'], '--version'], stdout=PIPE, stderr=PIPE).communicate()
+            assert len(err) == 0, err
+            print('C compiler \'{}\' description:\n{}\n'.format(self.config['compiler_c'], out.decode()[:-1]))
+
+            out, err = Popen([self.config['compiler_c++'], '--version'], stdout=PIPE, stderr=PIPE).communicate()
+            assert len(err) == 0, err
+            print('C++ compiler \'{}\' description:\n{}\n'.format(self.config['compiler_c'], out.decode()[:-1]))
 
     def setInclude(self):
         assert self.configLoaded
