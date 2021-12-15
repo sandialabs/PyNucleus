@@ -169,12 +169,13 @@ def implicit_solve(t, rhs, sol, sol_new, dt):
             return
 
         solverImplicitU.setInitialGuess(sol[0])
-        solverImplicitU(rhs[0], sol_new[0])
+        itsU = solverImplicitU(rhs[0], sol_new[0])
         assert solverImplicitU.residuals[-1] < d.tol, solverImplicitU.residuals
 
         solverImplicitV.setInitialGuess(sol[1])
-        solverImplicitV(rhs[1], sol_new[1])
+        itsV = solverImplicitV(rhs[1], sol_new[1])
         assert solverImplicitV.residuals[-1] < d.tol, solverImplicitV.residuals
+    d.logger.info('Iterations: {}, {}'.format(itsU, itsV))
 
 
 def mass_solve(rhs, sol, sol_new):

@@ -38,7 +38,7 @@ from . DoFMaps cimport (P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap,
                         fe_vector, complex_fe_vector,
                         multi_fe_vector)
 from . quadrature cimport simplexQuadratureRule, Gauss1D, Gauss2D, Gauss3D, simplexXiaoGimbutas
-from . functions cimport function, complexFunction, vectorFunction
+from . functions cimport function, complexFunction, vectorFunction, matrixFunction
 from . simplexMapper cimport simplexMapper
 
 
@@ -131,10 +131,11 @@ cdef inline REAL_t simplexVolume2Din3D(const REAL_t[:, ::1] simplex,
 @cython.boundscheck(False)
 @cython.cdivision(True)
 cdef inline void coeffProducts1D(const REAL_t[:, ::1] simplex,
+                                 REAL_t vol,
                                  vectorFunction coeff,
                                  REAL_t[::1] innerProducts,
                                  REAL_t[:, ::1] temp):
-    # innerProducts needs to bed of size 2
+    # innerProducts needs to be of size 2
     # temp needs to bed of size 2x1
     cdef:
         INDEX_t i
@@ -146,8 +147,8 @@ cdef inline void coeffProducts1D(const REAL_t[:, ::1] simplex,
     coeff.eval(temp[1, :], temp[0, :])
 
     # inner product of barycentric gradients
-    innerProducts[0] = -1.*temp[0, 0]
-    innerProducts[1] = 1.*temp[0, 0]
+    innerProducts[0] = (-1.*temp[0, 0])/vol
+    innerProducts[1] = (1.*temp[0, 0])/vol
 
 
 @cython.initializedcheck(False)
@@ -220,6 +221,7 @@ cdef inline REAL_t mydot_rot2D(const REAL_t[::1] a, const REAL_t[::1] b):
 @cython.boundscheck(False)
 @cython.cdivision(True)
 cdef inline void coeffProducts2D(const REAL_t[:, ::1] simplex,
+                                 REAL_t vol,
                                  vectorFunction coeff,
                                  REAL_t[::1] innerProducts,
                                  REAL_t[:, ::1] temp):
@@ -243,9 +245,9 @@ cdef inline void coeffProducts2D(const REAL_t[:, ::1] simplex,
         temp[1, j] = simplex[0, j]-simplex[2, j]
         temp[2, j] = simplex[1, j]-simplex[0, j]
     # inner product of coeffVec with barycentric gradients
-    innerProducts[0] = mydot_rot2D(temp[3, :], temp[0, :])
-    innerProducts[1] = mydot_rot2D(temp[3, :], temp[1, :])
-    innerProducts[2] = mydot_rot2D(temp[3, :], temp[2, :])
+    innerProducts[0] = 0.5/vol*mydot_rot2D(temp[3, :], temp[0, :])
+    innerProducts[1] = 0.5/vol*mydot_rot2D(temp[3, :], temp[1, :])
+    innerProducts[2] = 0.5/vol*mydot_rot2D(temp[3, :], temp[2, :])
 
 
 @cython.initializedcheck(False)
@@ -331,7 +333,8 @@ cdef class drift_1d_P1(drift_1d):
         cdef:
             REAL_t fac = 0.5
 
-        coeffProducts1D(simplex, self.coeff, self.innerProducts, self.temp)
+        # coeff \cdot \grad\lambda_i should be scaled by 1/vol, but that get's killed by the factor vol of the integration
+        coeffProducts1D(simplex, 1.0, self.coeff, self.innerProducts, self.temp)
 
         contrib[0] = self.innerProducts[0]*fac
         contrib[1] = self.innerProducts[1]*fac
@@ -388,9 +391,10 @@ cdef class drift_2d_P1(drift_2d):
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):
         cdef:
-            REAL_t fac = 1./6.
+            REAL_t fac = 1./3.
 
-        coeffProducts2D(simplex, self.coeff, self.innerProducts, self.temp)
+        # coeff \cdot \grad\lambda_i should be scaled by 1/vol, but that get's killed by the factor vol of the integration
+        coeffProducts2D(simplex, 1.0, self.coeff, self.innerProducts, self.temp)
 
         contrib[0] = self.innerProducts[0]*fac
         contrib[1] = self.innerProducts[1]*fac
@@ -775,6 +779,54 @@ cdef class stiffness_2d_sym_anisotropic2_P1(stiffness_2d_sym):
                 p += 1
 
 
+cdef class stiffness_2d_sym_anisotropic3_P1(stiffness_2d_sym):
+    cdef:
+        matrixFunction K
+        public REAL_t[:, ::1] diffusivity
+        REAL_t[::1] temp2
+
+    def __init__(self, matrixFunction K):
+        self.K = K
+        assert self.K.rows == 2
+        assert self.K.columns == 2
+        assert self.K.symmetric
+        self.diffusivity = uninitialized((2, 2), dtype=REAL)
+        self.temp = uninitialized((3, 2), dtype=REAL)
+        self.temp2 = uninitialized((2), dtype=REAL)
+        self.innerProducts = uninitialized((6), dtype=REAL)
+
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.cdivision(True)
+    @cython.wraparound(False)
+    cdef inline void eval(self,
+                          const REAL_t[:, ::1] simplex,
+                          REAL_t[::1] contrib):
+        # temp needs to be of size 3x2
+        cdef:
+            REAL_t vol = 0.25
+            INDEX_t k, j, p
+
+        # Calculate gradient matrix
+        vol /= simplexVolumeGradientsProducts2D(simplex, self.innerProducts, self.temp)
+
+        # calculate center
+        self.temp2[:] = 0.
+        for j in range(3):
+            for k in range(2):
+                self.temp2[k] += simplex[j, k]
+        for k in range(2):
+            self.temp2[k] /= 3.
+        self.K.eval(self.temp2, self.diffusivity)
+
+        p = 0
+        for j in range(3):
+            matvec(self.diffusivity, self.temp[j, :], self.temp2)
+            for k in range(j, 3):
+                contrib[p] = mydot(self.temp2, self.temp[k, :])*vol
+                p += 1
+
+
 cdef class mass_1d_in_2d_sym_P2(mass_2d):
     @cython.initializedcheck(False)
     @cython.boundscheck(False)
@@ -840,49 +892,63 @@ def assembleMass(DoFMap dm,
                  INDEX_t end_idx=-1,
                  BOOL_t sss_format=False,
                  BOOL_t reorder=False,
-                 INDEX_t[::1] cellIndices=None):
+                 INDEX_t[::1] cellIndices=None,
+                 coefficient=None,
+                 simplexQuadratureRule qr=None):
     cdef:
         INDEX_t dim = dm.mesh.dim
         local_matrix_t local_matrix
-    if isinstance(dm, P0_DoFMap):
-        if dim == 1:
-            local_matrix = mass_1d_sym_P0()
-        elif dim == 2:
-            local_matrix = mass_2d_sym_P0()
-        elif dim == 3:
-            local_matrix = mass_3d_sym_P0()
+    if coefficient is None:
+        if isinstance(dm, P0_DoFMap):
+            if dim == 1:
+                local_matrix = mass_1d_sym_P0()
+            elif dim == 2:
+                local_matrix = mass_2d_sym_P0()
+            elif dim == 3:
+                local_matrix = mass_3d_sym_P0()
+            else:
+                raise NotImplementedError()
+        elif isinstance(dm, P1_DoFMap):
+            if dim == 1:
+                local_matrix = mass_1d_sym_P1()
+            elif dim == 2:
+                local_matrix = mass_2d_sym_P1()
+            elif dim == 3:
+                local_matrix = mass_3d_sym_P1()
+            else:
+                raise NotImplementedError()
+        elif isinstance(dm, P2_DoFMap):
+            if dim == 1:
+                local_matrix = mass_1d_sym_P2()
+            elif dim == 2:
+                local_matrix = mass_2d_sym_P2()
+            elif dim == 3:
+                local_matrix = mass_3d_sym_P2()
+            else:
+                raise NotImplementedError()
+        elif isinstance(dm, P3_DoFMap):
+            if dim == 1:
+                local_matrix = mass_1d_sym_P3()
+            elif dim == 2:
+                local_matrix = mass_2d_sym_P3()
+            elif dim == 3:
+                local_matrix = mass_3d_sym_P3()
+            else:
+                raise NotImplementedError()
+        
         else:
-            raise NotImplementedError()
-    elif isinstance(dm, P1_DoFMap):
+            raise NotImplementedError(dm)
+    elif isinstance(coefficient, function):
+        if qr is None:
+            qr = simplexXiaoGimbutas(2*dm.polynomialOrder+2, dim)
         if dim == 1:
-            local_matrix = mass_1d_sym_P1()
+            local_matrix = mass_1d_sym_scalar_anisotropic(coefficient, qr)
         elif dim == 2:
-            local_matrix = mass_2d_sym_P1()
+            local_matrix = mass_2d_sym_scalar_anisotropic(coefficient, qr)
         elif dim == 3:
-            local_matrix = mass_3d_sym_P1()
+            local_matrix = mass_3d_sym_scalar_anisotropic(coefficient, qr)
         else:
-            raise NotImplementedError()
-    elif isinstance(dm, P2_DoFMap):
-        if dim == 1:
-            local_matrix = mass_1d_sym_P2()
-        elif dim == 2:
-            local_matrix = mass_2d_sym_P2()
-        elif dim == 3:
-            local_matrix = mass_3d_sym_P2()
-        else:
-            raise NotImplementedError()
-    elif isinstance(dm, P3_DoFMap):
-        if dim == 1:
-            local_matrix = mass_1d_sym_P3()
-        elif dim == 2:
-            local_matrix = mass_2d_sym_P3()
-        elif dim == 3:
-            local_matrix = mass_3d_sym_P3()
-        else:
-            raise NotImplementedError()
-    
-    else:
-        raise NotImplementedError(dm)
+            raise NotImplementedError(dim)
     return assembleMatrix(dm.mesh,
                           dm,
                           local_matrix,
@@ -1057,17 +1123,16 @@ def assembleMassNonSym(meshBase mesh,
                                     symLocalMatrix=symLocalMatrix)
 
 
-def assembleDrift(meshBase mesh,
-                  DoFMap DoFMap,
+def assembleDrift(DoFMap dm,
                   vectorFunction coeff,
                   LinearOperator A=None,
                   INDEX_t start_idx=-1,
                   INDEX_t end_idx=-1,
                   INDEX_t[::1] cellIndices=None):
     cdef:
-        INDEX_t dim = mesh.dim
+        INDEX_t dim = dm.mesh.dim
         local_matrix_t local_matrix
-    if isinstance(DoFMap, P1_DoFMap):
+    if isinstance(dm, P1_DoFMap):
         if dim == 1:
             local_matrix = drift_1d_P1(coeff)
         elif dim == 2:
@@ -1076,10 +1141,10 @@ def assembleDrift(meshBase mesh,
             raise NotImplementedError()
     else:
         raise NotImplementedError()
-    return assembleNonSymMatrix_CSR(mesh,
+    return assembleNonSymMatrix_CSR(dm.mesh,
                                     local_matrix,
-                                    DoFMap,
-                                    DoFMap,
+                                    dm,
+                                    dm,
                                     A,
                                     start_idx,
                                     end_idx,
@@ -1094,7 +1159,7 @@ def assembleStiffness(DoFMap dm,
                       INDEX_t end_idx=-1,
                       BOOL_t sss_format=False,
                       BOOL_t reorder=False,
-                      function diffusivity=None,
+                      diffusivity=None,
                       INDEX_t[::1] cellIndices=None,
                       DoFMap dm2=None):
     cdef:
@@ -1130,6 +1195,21 @@ def assembleStiffness(DoFMap dm,
                 raise NotImplementedError()
         else:
             raise NotImplementedError()
+    elif isinstance(diffusivity, matrixFunction):
+        if isinstance(dm, P1_DoFMap):
+            if dim == 1:
+                local_matrix = scalar_coefficient_stiffness_1d_sym_P1(diffusivity[(0, 0)])
+            elif dim == 2:
+                local_matrix = stiffness_2d_sym_anisotropic3_P1(diffusivity)
+            else:
+                raise NotImplementedError()
+        elif isinstance(dm, P2_DoFMap):
+            if dim == 1:
+                local_matrix = scalar_coefficient_stiffness_1d_sym_P2(diffusivity[(0, 0)])
+            else:
+                raise NotImplementedError()
+        else:
+            raise NotImplementedError()
     else:
         if isinstance(dm, P1_DoFMap):
             if dim == 1:
@@ -1144,7 +1224,7 @@ def assembleStiffness(DoFMap dm,
             if dim == 1:
                 local_matrix = scalar_coefficient_stiffness_1d_sym_P2(diffusivity)
             elif dim == 2:
-                local_matrix = scalar_coefficient_stiffness_1d_sym_P2(diffusivity)
+                local_matrix = scalar_coefficient_stiffness_2d_sym_P2(diffusivity)
             elif dim == 3:
                 local_matrix = scalar_coefficient_stiffness_3d_sym_P2(diffusivity)
             else:

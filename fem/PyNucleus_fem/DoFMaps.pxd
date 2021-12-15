@@ -9,7 +9,7 @@
 from PyNucleus_base.myTypes cimport REAL_t, COMPLEX_t, INDEX_t, BOOL_t
 from PyNucleus_base.ip_norm cimport ipBase, normBase, complexipBase, complexNormBase
 from . meshCy cimport meshBase, vertices_t, cells_t
-from . functions cimport function, complexFunction
+from . functions cimport function, complexFunction, vectorFunction
 
 include "vector_decl_REAL.pxi"
 include "vector_decl_COMPLEX.pxi"
