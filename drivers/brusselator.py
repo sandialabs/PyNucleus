@@ -29,8 +29,7 @@ from PyNucleus.fem.femCy import assembleNonlinearity
 from PyNucleus.multilevelSolver import hierarchyManager
 from PyNucleus.nl import paramsForFractionalHierarchy
 from PyNucleus.nl.nonlocalProblems import brusselatorProblem
-from imex import EulerIMEX, ARS3, koto
-from RD_helper import newHierarchy
+from PyNucleus.base.timestepping import EulerIMEX, ARS3, koto
 import h5py
 
 ###############################################################################
@@ -141,6 +140,23 @@ def mass(sol, sol_new):
 
 with d.timer('Setup solvers'):
     if d.solver.find('mg') >= 0:
+        def newHierarchy(levels, facM, facS, levels2=None, key1='M', key2='A'):
+            if levels2 is None:
+                levels2 = levels
+            newLevels = []
+            for i in range(len(levels)):
+                newLevels.append({})
+                if 'R' in levels[i]:
+                    newLevels[i]['R'] = levels[i]['R']
+                if 'P' in levels[i]:
+                    newLevels[i]['P'] = levels[i]['P']
+                newLevels[i]['A'] = TimeStepperLinearOperator(levels[i][key1],
+                                                              levels2[i][key2],
+                                                              facS, facM)
+                if 'mesh' in levels[i]:
+                    newLevels[i]['mesh'] = levels[i]['mesh']
+            return newLevels
+
         levelsU = newHierarchy(levelsU, 1., ts_class.gamma*d.dt)
         levelsV = newHierarchy(levelsV, d.eta**2, ts_class.gamma*d.dt)
         solverImplicitU = solverFactory(d.solver, hierarchy=levelsU, setup=True)
