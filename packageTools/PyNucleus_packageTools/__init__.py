@@ -115,6 +115,16 @@ class package:
         self.options.append((optionCy, optionPy, pkgDependencies))
         self.defaults[optionPy] = default
 
+    def addPackageInclude(self, packageName):
+        assert self.configLoaded
+        try:
+            import importlib
+
+            module = importlib.import_module(packageName)
+            self.config['includeDirs'].append(str(Path(module.__file__).parent))
+        except ImportError as e:
+            raise ImportError('\'{}\' needs to be installed first.'.format(packageName)) from e
+
     def parseConfig(self, filename='../config.yaml', extra_config={}):
         defaults = self.defaults
         if Path(filename).exists():

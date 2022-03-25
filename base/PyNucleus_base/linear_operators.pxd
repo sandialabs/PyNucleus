@@ -6,7 +6,7 @@
 ###################################################################################
 
 
-from . myTypes cimport INDEX_t, REAL_t, COMPLEX_t, BOOL_t
+from . myTypes cimport INDEX_t, REAL_t, COMPLEX_t, BOOL_t, ENCODE_t
 
 include "LinearOperator_decl_REAL.pxi"
 include "LinearOperator_decl_COMPLEX.pxi"

@@ -545,6 +545,7 @@ cdef class mass_quadrature_matrix(local_matrix_t):
     def __init__(self, function diffusivity, DoFMap DoFMap, simplexQuadratureRule qr):
         cdef:
             INDEX_t I, k
+        local_matrix_t.__init__(self, DoFMap.dim)
         self.diffusivity = diffusivity
         self.qr = qr
 
@@ -942,11 +943,11 @@ def assembleMass(DoFMap dm,
         if qr is None:
             qr = simplexXiaoGimbutas(2*dm.polynomialOrder+2, dim)
         if dim == 1:
-            local_matrix = mass_1d_sym_scalar_anisotropic(coefficient, qr)
+            local_matrix = mass_1d_sym_scalar_anisotropic(coefficient, dm, qr)
         elif dim == 2:
-            local_matrix = mass_2d_sym_scalar_anisotropic(coefficient, qr)
+            local_matrix = mass_2d_sym_scalar_anisotropic(coefficient, dm, qr)
         elif dim == 3:
-            local_matrix = mass_3d_sym_scalar_anisotropic(coefficient, qr)
+            local_matrix = mass_3d_sym_scalar_anisotropic(coefficient, dm, qr)
         else:
             raise NotImplementedError(dim)
     return assembleMatrix(dm.mesh,
@@ -1520,15 +1521,15 @@ cdef assembleSymMatrix_SSS(meshBase mesh,
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cdef assembleNonSymMatrix_CSR(meshBase mesh,
-                              local_matrix_t local_matrix,
-                              DoFMap DoFMap1,
-                              DoFMap DoFMap2,
-                              CSR_LinearOperator A=None,
-                              INDEX_t start_idx=-1,
-                              INDEX_t end_idx=-1,
-                              INDEX_t[::1] cellIndices=None,
-                              BOOL_t symLocalMatrix=False):
+def assembleNonSymMatrix_CSR(meshBase mesh,
+                             local_matrix_t local_matrix,
+                             DoFMap DoFMap1,
+                             DoFMap DoFMap2,
+                             CSR_LinearOperator A=None,
+                             INDEX_t start_idx=-1,
+                             INDEX_t end_idx=-1,
+                             INDEX_t[::1] cellIndices=None,
+                             BOOL_t symLocalMatrix=False):
     cdef:
         INDEX_t i, j, I, J, k, s
         REAL_t[:, ::1] simplex = uninitialized((mesh.manifold_dim+1,

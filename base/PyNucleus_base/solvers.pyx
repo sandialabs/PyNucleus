@@ -191,6 +191,7 @@ cdef class lu_solver(solver):
         return 'LU'
 
 
+
 cdef class chol_solver(solver):
     def __init__(self, LinearOperator A, INDEX_t num_rows=-1):
         solver.__init__(self, A, num_rows)
@@ -210,12 +211,13 @@ cdef class chol_solver(solver):
         IF USE_CHOLMOD:
             from sksparse.cholmod import cholesky
 
-            if isinstance(self.A, (SSS_LinearOperator,
-                                   CSR_LinearOperator)):
+            if isinstance(self.A, CSR_LinearOperator):
                 try:
                     self.Ainv = cholesky(self.A.to_csc())
                 except AttributeError:
                     self.Ainv = cholesky(self.A.to_csr().tocsc())
+            elif isinstance(self.A, SSS_LinearOperator):
+                self.Ainv = cholesky(self.A.to_lower_csc())
             elif isinstance(self.A, Dense_LinearOperator):
                 self.Ainv = cholesky(self.A.data)
             else:

@@ -28,7 +28,6 @@ from mpi4py import MPI
 
 COMPRESSION = 'gzip'
 
-
 @cython.initializedcheck(False)
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -208,18 +207,22 @@ cdef class tree_node:
         cdef:
             indexSet dofs
             tree_node c
-        if self.isLeaf:
+        if self.get_is_leaf():
             return self._dofs
         else:
             dofs = arrayIndexSet()
             for c in self.children:
                 dofs = dofs.union(c.get_dofs())
             return dofs
-        # return self.dofs
 
     @property
     def dofs(self):
         return self.get_dofs()
+
+    cdef INDEX_t get_num_dofs(self):
+        if self._num_dofs < 0:
+            self._num_dofs = self.get_dofs().getNumEntries()
+        return self._num_dofs
 
     @property
     def num_dofs(self):
@@ -231,7 +234,7 @@ cdef class tree_node:
         cdef:
             indexSet s
             tree_node c
-        if self.isLeaf:
+        if self.get_is_leaf():
             return self._cells
         else:
             s = arrayIndexSet()
@@ -244,29 +247,40 @@ cdef class tree_node:
         return self.get_cells()
 
     def get_nodes(self):
-        if self.isLeaf:
+        if self.get_is_leaf():
             return 1
         else:
             return 1+sum([c.nodes for c in self.children])
 
     nodes = property(fget=get_nodes)
 
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
     def refine(self,
                REAL_t[:, :, ::1] boxes,
-               REAL_t[:, ::1] centers,
+               REAL_t[:, ::1] coords,
                INDEX_t maxLevels=200,
                INDEX_t maxLevelsMixed=200,
                INDEX_t level=0,
                INDEX_t minSize=1,
-               INDEX_t minMixedSize=1):
+               INDEX_t minMixedSize=1,
+               refinementType refType=GEOMETRIC,
+               BOOL_t splitEveryDim=True):
         cdef:
             indexSet dofs = self.get_dofs()
-            INDEX_t num_initial_dofs = dofs.getNumEntries(), dim, i = -1, j, num_dofs
+            INDEX_t num_initial_dofs = dofs.getNumEntries(), dim, i = -1, j, num_dofs, k
             REAL_t[:, ::1] subbox
             indexSet s
             indexSetIterator it = dofs.getIter()
-            set sPre
+            set sPre, sPre0, sPre1
             INDEX_t nD = 0
+            REAL_t[:, ::1] center
+            REAL_t[::1] splitPoint
+            REAL_t[::1] coords0, coords1
+            list blob
+            REAL_t m0 = 0., m1 = 0.
+            list children = []
         if not self.mixed_node:
             if (level >= maxLevels) or (num_initial_dofs <= minSize):
                 return
@@ -274,68 +288,251 @@ cdef class tree_node:
             if (level >= maxLevelsMixed) or (num_initial_dofs <= minMixedSize):
                 return
         dim = self.box.shape[0]
-        if (not self.mixed_node) or dim == 1:
-            for idx in product(*([[0, 1]]*dim)):
-                subbox = uninitialized((dim, 2), dtype=REAL)
-                for i, j in enumerate(idx):
-                    subbox[i, 0] = self.box[i, 0] + j*(self.box[i, 1]-self.box[i, 0])/2
-                    subbox[i, 1] = self.box[i, 0] + (j+1)*(self.box[i, 1]-self.box[i, 0])/2
-                sPre = set()
-                it.reset()
-                while it.step():
-                    i = it.i
-                    if inBox(subbox, centers[i, :]):
-                        sPre.add(i)
-                s = arrayIndexSet()
-                s.fromSet(sPre)
-                num_dofs = s.getNumEntries()
-                if num_dofs > 0 and num_dofs < num_initial_dofs:
-                    nD += num_dofs
-                    self.children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
-                    self.children[-1].refine(boxes, centers, maxLevels, maxLevelsMixed, level+1, minSize, minMixedSize)
-        else:
-            # split along larger box dimension
-            for j in range(2):
-                subbox = uninitialized((dim, 2), dtype=REAL)
-                if self.box[0, 1]-self.box[0, 0] > self.box[1, 1]-self.box[1, 0]:
-                    subbox[0, 0] = self.box[0, 0] + j*(self.box[0, 1]-self.box[0, 0])/2
-                    subbox[0, 1] = self.box[0, 0] + (j+1)*(self.box[0, 1]-self.box[0, 0])/2
-                    subbox[1, 0] = self.box[1, 0]
-                    subbox[1, 1] = self.box[1, 1]
-                else:
-                    subbox[0, 0] = self.box[0, 0]
-                    subbox[0, 1] = self.box[0, 1]
-                    subbox[1, 0] = self.box[1, 0] + j*(self.box[1, 1]-self.box[1, 0])/2
-                    subbox[1, 1] = self.box[1, 0] + (j+1)*(self.box[1, 1]-self.box[1, 0])/2
-                sPre = set()
-                it.reset()
-                while it.step():
-                    i = it.i
-                    if inBox(subbox, centers[i, :]):
-                        sPre.add(i)
-                s = arrayIndexSet()
-                s.fromSet(sPre)
-                num_dofs = s.getNumEntries()
-                if num_dofs > 0 and num_dofs < num_initial_dofs:
-                    nD += num_dofs
-                    self.children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
-                    self.children[-1].refine(boxes, centers, maxLevels, maxLevelsMixed, level+1, minSize, minMixedSize)
 
-        assert nD == 0 or nD == num_initial_dofs
+        if dim == 1:
+            if refType == GEOMETRIC:
+                # divide box into equal sized subboxes
+                m0 = 0.5*(self.box[0, 0] + self.box[0, 1])
+            elif refType == BARYCENTER:
+                # divide box at bary-center of DoF coords
+                m0 = 0.
+                it.reset()
+                while it.step():
+                    i = it.i
+                    m0 += coords[i, 0]
+                m0 /= num_initial_dofs
+            elif refType == MEDIAN:
+                coords0 = np.zeros((num_initial_dofs), dtype=REAL)
+                it.reset()
+                k = 0
+                while it.step():
+                    i = it.i
+                    coords0[k] = coords[i, 0]
+                    k += 1
+                m0 = np.median(coords0)
+
+            subbox = uninitialized((dim, 2), dtype=REAL)
+            subbox[0, 0] = self.box[0, 0]
+            subbox[0, 1] = m0
+            sPre0 = set()
+            sPre1 = set()
+            it.reset()
+            while it.step():
+                i = it.i
+                if inBox(subbox, coords[i, :]):
+                    sPre0.add(i)
+                else:
+                    sPre1.add(i)
+
+            s = arrayIndexSet()
+            s.fromSet(sPre0)
+            num_dofs = s.getNumEntries()
+            if num_dofs >= minSize and num_dofs < num_initial_dofs:
+                nD += num_dofs
+                children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
+            else:
+                return
+
+            s = arrayIndexSet()
+            s.fromSet(sPre1)
+            num_dofs = s.getNumEntries()
+            if num_dofs >= minSize and num_dofs < num_initial_dofs:
+                nD += num_dofs
+                children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
+            else:
+                return
+        elif dim == 2 and (not self.mixed_node and splitEveryDim):
+            if (refType != MEDIAN) or (dim == 1):
+                if refType == GEOMETRIC:
+                    # divide box into equal sized subboxes
+                    splitPoint = uninitialized((dim), dtype=REAL)
+                    for i in range(dim):
+                        splitPoint[i] = 0.5*(self.box[i, 0] + self.box[i, 1])
+                elif refType == BARYCENTER:
+                    # divide box at bary-center of DoF coords
+                    splitPoint = np.zeros((dim), dtype=REAL)
+                    it.reset()
+                    while it.step():
+                        i = it.i
+                        for j in range(dim):
+                            splitPoint[j] += coords[i, j]
+                    for i in range(dim):
+                        splitPoint[i] /= num_initial_dofs
+                elif refType == MEDIAN:
+                    # divide box at median of DoF coords
+                    center = np.zeros((num_initial_dofs, dim), dtype=REAL)
+                    it.reset()
+                    k = 0
+                    while it.step():
+                        i = it.i
+                        for j in range(dim):
+                            center[k, j] = coords[i, j]
+                        k += 1
+                    splitPoint = np.median(center, axis=0)
+
+                for idx in product(*([[0, 1]]*dim)):
+                    subbox = uninitialized((dim, 2), dtype=REAL)
+                    for i, j in enumerate(idx):
+                        if j == 0:
+                            subbox[i, 0] = self.box[i, 0]
+                            subbox[i, 1] = splitPoint[i]
+                        else:
+                            subbox[i, 0] = splitPoint[i]
+                            subbox[i, 1] = self.box[i, 1]
+                    sPre = set()
+                    it.reset()
+                    while it.step():
+                        i = it.i
+                        if inBox(subbox, coords[i, :]):
+                            sPre.add(i)
+                    s = arrayIndexSet()
+                    s.fromSet(sPre)
+                    num_dofs = s.getNumEntries()
+                    if num_dofs >= minSize and num_dofs < num_initial_dofs:
+                        nD += num_dofs
+                        children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
+                    else:
+                        return
+            else:
+                # divide box at median of DoF coords
+                coords0 = np.zeros((num_initial_dofs), dtype=REAL)
+                it.reset()
+                k = 0
+                while it.step():
+                    i = it.i
+                    coords0[k] = coords[i, 0]
+                    k += 1
+                m0 = np.median(coords0)
+                for p in range(2):
+                    blob = []
+                    it.reset()
+                    if p == 0:
+                        while it.step():
+                            i = it.i
+                            if coords[i, 0] < m0:
+                                blob.append(i)
+                    else:
+                        while it.step():
+                            i = it.i
+                            if coords[i, 0] >= m0:
+                                blob.append(i)
+                    coords1 = np.zeros((len(blob)), dtype=REAL)
+                    k = 0
+                    for i in blob:
+                        coords1[k] = coords[i, 1]
+                        k += 1
+                    m1 = np.median(coords1)
+                    sPre0 = set()
+                    sPre1 = set()
+                    for i in blob:
+                        if coords[i, 1] < m1:
+                            sPre0.add(i)
+                        else:
+                            sPre1.add(i)
+
+                    s = arrayIndexSet()
+                    s.fromSet(sPre0)
+                    num_dofs = s.getNumEntries()
+                    if num_dofs >= minSize and num_dofs < num_initial_dofs:
+                        nD += num_dofs
+                        children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
+                    else:
+                        return
+                    s = arrayIndexSet()
+                    s.fromSet(sPre1)
+                    num_dofs = s.getNumEntries()
+                    if num_dofs >= minSize and num_dofs < num_initial_dofs:
+                        nD += num_dofs
+                        children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
+                    else:
+                        return
+        else:
+            if refType == MEDIAN:
+                if self.box[0, 1]-self.box[0, 0] > self.box[1, 1]-self.box[1, 0]:
+                    coords0 = np.zeros((num_initial_dofs), dtype=REAL)
+                    it.reset()
+                    k = 0
+                    while it.step():
+                        i = it.i
+                        coords0[k] = coords[i, 0]
+                        k += 1
+                    m0 = np.median(coords0)
+                else:
+                    coords1 = np.zeros((num_initial_dofs), dtype=REAL)
+                    it.reset()
+                    k = 0
+                    while it.step():
+                        i = it.i
+                        coords1[k] = coords[i, 1]
+                        k += 1
+                    m1 = np.median(coords1)
+            # split along larger box dimension
+            subbox = uninitialized((dim, 2), dtype=REAL)
+            if self.box[0, 1]-self.box[0, 0] > self.box[1, 1]-self.box[1, 0]:
+                subbox[0, 0] = self.box[0, 0]
+                if refType == GEOMETRIC:
+                    subbox[0, 1] = (self.box[0, 0] + self.box[0, 1])*0.5
+                elif refType == MEDIAN:
+                    subbox[0, 1] = m0
+                subbox[1, 0] = self.box[1, 0]
+                subbox[1, 1] = self.box[1, 1]
+            else:
+                subbox[0, 0] = self.box[0, 0]
+                subbox[0, 1] = self.box[0, 1]
+                subbox[1, 0] = self.box[1, 0]
+                if refType == GEOMETRIC:
+                    subbox[1, 1] = (self.box[1, 0] + self.box[1, 1])*0.5
+                elif refType == MEDIAN:
+                    subbox[1, 1] = m1
+            sPre0 = set()
+            sPre1 = set()
+            it.reset()
+            while it.step():
+                i = it.i
+                if inBox(subbox, coords[i, :]):
+                    sPre0.add(i)
+                else:
+                    sPre1.add(i)
+
+            s = arrayIndexSet()
+            s.fromSet(sPre0)
+            num_dofs = s.getNumEntries()
+            if num_dofs >= minSize and num_dofs < num_initial_dofs:
+                nD += num_dofs
+                children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
+            else:
+                return
+
+            s = arrayIndexSet()
+            s.fromSet(sPre1)
+            num_dofs = s.getNumEntries()
+            if num_dofs >= minSize and num_dofs < num_initial_dofs:
+                nD += num_dofs
+                children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
+            else:
+                return
+        self.children = children
+        for k in range(len(self.children)):
+            self.children[k].refine(boxes, coords, maxLevels, maxLevelsMixed, level+1, minSize, minMixedSize, refType=refType, splitEveryDim=splitEveryDim)
+
+        assert nD == 0 or nD == num_initial_dofs, (nD, num_initial_dofs, np.array(self.box), [np.array(c.box) for c in self.children])
         if nD == num_initial_dofs:
             self._dofs = None
         else:
-            assert self.isLeaf
+            assert self.get_is_leaf()
 
-    def get_is_leaf(self):
+    cdef BOOL_t get_is_leaf(self):
         return len(self.children) == 0
 
-    isLeaf = property(fget=get_is_leaf)
+    def get_is_leaf_py(self):
+        return len(self.children) == 0
+
+    isLeaf = property(fget=get_is_leaf_py)
 
     def leaves(self):
         cdef:
             tree_node i, j
-        if self.isLeaf:
+        if self.get_is_leaf():
             yield self
         else:
             for i in self.children:
@@ -350,15 +547,24 @@ cdef class tree_node:
             for j in i.get_tree_nodes():
                 yield j
 
-    def _getLevels(self):
-        if self.isLeaf:
+    cdef INDEX_t _getLevels(self):
+        cdef:
+            tree_node c
+            INDEX_t l
+        if self.get_is_leaf():
             return 1
         else:
-            return 1+max([c._getLevels() for c in self.children])
+            l = 0
+            for c in self.children:
+                l = max(l, c._getLevels())
+            return 1+l
 
-    numLevels = property(fget=_getLevels)
+    def _getLevels_py(self):
+        return self._getLevels()
 
-    def plot(self, level=0, plotDoFs=False, REAL_t[:, ::1] dofCoords=None):
+    numLevels = property(fget=_getLevels_py)
+
+    def plot(self, level=0, plotDoFs=False, REAL_t[:, ::1] dofCoords=None, BOOL_t recurse=False, BOOL_t printClusterIds=False):
         import matplotlib.pyplot as plt
 
         cdef:
@@ -371,7 +577,23 @@ cdef class tree_node:
 
         if plotDoFs:
             from scipy.spatial import ConvexHull
-            if self.dim == 2:
+            if self.dim == 1:
+                assert dofCoords is not None
+                dofs = self.get_dofs()
+                points = uninitialized((len(dofs), self.dim), dtype=REAL)
+                it = dofs.getIter()
+                k = 0
+                while it.step():
+                    dof = it.i
+                    for j in range(self.dim):
+                        points[k, j] = dofCoords[dof, j]
+                    k += 1
+                y = level*np.ones((len(dofs)), dtype=REAL)
+                plt.plot(points[:, 0], y, color='red' if self.mixed_node else 'blue')
+                if recurse:
+                    for c in self.children:
+                        c.plot(level=level+1, plotDoFs=plotDoFs, dofCoords=dofCoords, recurse=recurse, printClusterIds=printClusterIds)
+            elif self.dim == 2:
                 assert dofCoords is not None
                 dofs = self.get_dofs()
                 points = uninitialized((len(dofs), self.dim), dtype=REAL)
@@ -394,47 +616,106 @@ cdef class tree_node:
                     y[k] = points[idx[k], 1]
                 x[idx.shape[0]] = points[idx[0], 0]
                 y[idx.shape[0]] = points[idx[0], 1]
-                plt.plot(x, y, color='red' if self.mixed_node else 'blue')
+                # plt.plot(x, y, color='red' if self.mixed_node else 'blue')
+
+                import matplotlib.patches as patches
+                if recurse and self.parent is None:
+                    numPlots = self.numLevels
+                    numRows = int(np.sqrt(numPlots))
+                    numCols = numPlots//numRows
+                    numRows = numPlots//numCols
+                    if numRows*numCols<numPlots:
+                        numRows += 1
+                    plt.subplots(numRows, numCols)
+                    for k in range(self.numLevels):
+                        plt.gcf().axes[k].set_xlim([self.box[0, 0], self.box[0, 1]])
+                        plt.gcf().axes[k].set_ylim([self.box[1, 0], self.box[1, 1]])
+                        plt.gcf().axes[k].set_aspect('equal')
+
+                if recurse:
+                    ax = plt.gcf().axes[level]
+                else:
+                    ax = plt.gca()
+
+                ax.plot(x, y, color='red' if self.mixed_node else 'blue')
+                if printClusterIds:
+                    myCenter = np.mean(self.box, axis=1)
+                    ax.text(myCenter[0], myCenter[1], s=str(self.id),
+                            horizontalalignment='center',
+                            verticalalignment='center')
+
+                if recurse and not self.get_is_leaf():
+                    for c in self.children:
+                        c.plot(level+1, plotDoFs, dofCoords, recurse, printClusterIds)
             else:
                 raise NotImplementedError()
         else:
             import matplotlib.patches as patches
             if self.dim == 2:
-                plt.gca().add_patch(patches.Rectangle((self.box[0, 0], self.box[1, 0]),
-                                                      self.box[0, 1]-self.box[0, 0],
-                                                      self.box[1, 1]-self.box[1, 0],
-                                                      fill=False,
-                                                      color='red' if self.mixed_node else 'blue'))
-                if not self.isLeaf:
+                if recurse and self.parent is None:
+                    numPlots = self.numLevels
+                    numRows = int(np.sqrt(numPlots))
+                    numCols = numPlots//numRows
+                    numRows = numPlots//numCols
+                    if numRows*numCols<numPlots:
+                        numRows += 1
+                    plt.subplots(numRows, numCols)
+                    for k in range(self.numLevels):
+                        plt.gcf().axes[k].set_xlim([self.box[0, 0], self.box[0, 1]])
+                        plt.gcf().axes[k].set_ylim([self.box[1, 0], self.box[1, 1]])
+                        plt.gcf().axes[k].set_aspect('equal')
+                if recurse:
+                    ax = plt.gcf().axes[level]
+                else:
+                    ax = plt.gca()
+
+                ax.add_patch(patches.Rectangle((self.box[0, 0], self.box[1, 0]),
+                                                                  self.box[0, 1]-self.box[0, 0],
+                                                                  self.box[1, 1]-self.box[1, 0],
+                                                                  fill=False,
+                                                                  color='red' if self.mixed_node else 'blue'))
+                if recurse and not self.get_is_leaf():
                     myCenter = np.mean(self.box, axis=1)
                     for c in self.children:
-                        cCenter = np.mean(c.box, axis=1)
-                        plt.arrow(myCenter[0], myCenter[1], cCenter[0]-myCenter[0], cCenter[1]-myCenter[1])
-                        plt.text(cCenter[0], cCenter[1], s=str(level+1))
+                        # cCenter = np.mean(c.box, axis=1)
+                        # plt.arrow(myCenter[0], myCenter[1], cCenter[0]-myCenter[0], cCenter[1]-myCenter[1])
+                        # plt.text(cCenter[0], cCenter[1], s=str(level+1))
                         c.plot(level+1)
             else:
                 raise NotImplementedError()
 
-    def prepareTransferOperators(self, INDEX_t m):
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef void prepareTransferOperators(self, INDEX_t m, transferMatrixBuilder tMB=None):
         cdef:
             tree_node c
-        if not self.isLeaf:
+            INDEX_t interactionSize = m**self.dim
+        if tMB is None:
+            tMB = transferMatrixBuilder(m, self.dim)
+        if not self.get_is_leaf():
             for c in self.children:
-                c.prepareTransferOperators(m)
+                c.prepareTransferOperators(m, tMB)
         if self.parent is not None:
-            self.transferOperator = uninitialized((m**self.dim, m**self.dim),
+            self.transferOperator = uninitialized((interactionSize, interactionSize),
                                                   dtype=REAL)
-            transferMatrix(self.parent.box, self.box, m,
-                           self.transferOperator)
-        self.coefficientsUp = uninitialized((m**self.dim), dtype=REAL)
-        self.coefficientsDown = uninitialized((m**self.dim), dtype=REAL)
+            tMB.build(self.parent.box, self.box,
+                      self.transferOperator)
+        self.coefficientsUp = uninitialized((interactionSize), dtype=REAL)
+        self.coefficientsDown = uninitialized((interactionSize), dtype=REAL)
 
-    def upwardPass(self, REAL_t[::1] x, INDEX_t componentNo=0):
+    def prepareTransferOperators_py(self, INDEX_t m):
+        self.prepareTransferOperators(m)
+
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef void upwardPass(self, REAL_t[::1] x, INDEX_t componentNo=0):
         cdef:
             INDEX_t i, dof = -1, k = 0
             tree_node c
             indexSetIterator it
-        if self.isLeaf:
+        if self.get_is_leaf():
             self.coefficientsUp[:] = 0.0
             it = self.get_dofs().getIter()
             while it.step():
@@ -448,21 +729,33 @@ cdef class tree_node:
                 c.upwardPass(x, componentNo)
                 gemv(c.transferOperator, c.coefficientsUp, self.coefficientsUp, 1.)
 
-    def resetCoefficientsDown(self):
+    def upwardPass_py(self, REAL_t[::1] x, INDEX_t componentNo=0):
+        self.upwardPass(x, componentNo)
+
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef void resetCoefficientsDown(self):
         cdef:
             tree_node c
         self.coefficientsDown[:] = 0.0
-        if not self.isLeaf:
+        if not self.get_is_leaf():
             for c in self.children:
                 c.resetCoefficientsDown()
 
-    def downwardPass(self, REAL_t[::1] y, INDEX_t componentNo=0):
+    def resetCoefficientsDown_py(self):
+        self.resetCoefficientsDown()
+
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef void downwardPass(self, REAL_t[::1] y, INDEX_t componentNo=0):
         cdef:
             INDEX_t i, dof = -1, k = 0
             REAL_t val
             tree_node c
             indexSetIterator it
-        if self.isLeaf:
+        if self.get_is_leaf():
             it = self.get_dofs().getIter()
             while it.step():
                 dof = it.i
@@ -476,24 +769,30 @@ cdef class tree_node:
                 gemvT(c.transferOperator, self.coefficientsDown, c.coefficientsDown, 1.)
                 c.downwardPass(y, componentNo)
 
+    def downwardPass_py(self, REAL_t[::1] y, INDEX_t componentNo=0):
+        self.downwardPass(y, componentNo)
+
     @cython.initializedcheck(False)
     @cython.wraparound(False)
     @cython.boundscheck(False)
     @cython.cdivision(True)
-    def enterLeaveValues(self,
-                         meshBase mesh,
-                         DoFMap DoFMap,
-                         INDEX_t order,
-                         REAL_t[:, :, ::1] boxes,
-                         comm=None):
+    def enterLeafValues(self,
+                        meshBase mesh,
+                        DoFMap DoFMap,
+                        INDEX_t order,
+                        REAL_t[:, :, ::1] boxes,
+                        comm=None):
         cdef:
             INDEX_t i, k, I, l, j, p, dim, dof = -1, r, start, end
-            REAL_t[:, ::1] coeff, simplex, local_vals, PHI, xi, x, box
+            REAL_t[:, ::1] coeff, simplex, local_vals, PHI, xi, x
             REAL_t[::1] eta, fvals
             REAL_t vol, beta, omega
             tree_node n
             simplexQuadratureRule qr
             indexSetIterator it = arrayIndexSetIterator()
+            productIterator pit = productIterator(order, mesh.dim)
+            transferMatrixBuilder tMB
+            REAL_t[:, ::1] transferOperator
         dim = mesh.dim
         # Sauter Schwab p. 428
         if isinstance(DoFMap, P1_DoFMap):
@@ -537,21 +836,19 @@ cdef class tree_node:
             for k in range(DoFMap.dofs_per_element):
                 I = DoFMap.cell2dof(i, k)
                 if I >= 0:
-                    # get box for dof
-                    # TODO: avoid slicing
-                    box = boxes[I, :, :]
-                    # get Chebyshev nodes of box
+                    # get Chebyshev nodes of box associated with DoF
                     for j in range(order):
                         for l in range(dim):
-                            xi[j, l] = (box[l, 1]-box[l, 0])*0.5 * (eta[j]+1.0) + box[l, 0]
+                            xi[j, l] = (boxes[I, l, 1]-boxes[I, l, 0])*0.5 * (eta[j]+1.0) + boxes[I, l, 0]
                     # loop over interpolating ploynomial basis
                     r = 0
-                    for idx in product(*([range(order)]*dim)):
-                        # evaluation of the idx-Chebyshev polynomial
+                    pit.reset()
+                    while pit.step():
+                        # evaluation of the pit.idx-Chebyshev polynomial
                         # at the quadrature nodes are saved in fvals
                         fvals[:] = 1.0
                         for q in range(dim):
-                            l = idx[q]
+                            l = pit.idx[q]
                             beta = 1.0
                             for j in range(order):
                                 if j != l:
@@ -584,27 +881,32 @@ cdef class tree_node:
             else:
                 comm.Reduce(coeff, coeff, root=0)
         if comm is None or comm.rank == 0:
+            tMB = transferMatrixBuilder(order, dim)
+            transferOperator = uninitialized((order**dim, order**dim), dtype=REAL)
             # distribute entries of coeff to tree leaves
             for n in self.leaves():
-                n.value = uninitialized((1, len(n.dofs), order**dim), dtype=REAL)
+                n.value = np.zeros((1, len(n.dofs), order**dim), dtype=REAL)
                 it.setIndexSet(n.dofs)
                 k = 0
                 while it.step():
                     dof = it.i
+
+                    tMB.build(n.box, boxes[dof, :, :], transferOperator)
                     for i in range(order**dim):
-                        n.value[0, k, i] = coeff[dof, i]
+                        for j in range(order**dim):
+                            n.value[0, k, i] += transferOperator[i, j]*coeff[dof, j]
                     k += 1
 
     @cython.initializedcheck(False)
     @cython.wraparound(False)
     @cython.boundscheck(False)
     @cython.cdivision(True)
-    def enterLeaveValuesGrad(self,
-                             meshBase mesh,
-                             DoFMap DoFMap,
-                             INDEX_t order,
-                             REAL_t[:, :, ::1] boxes,
-                             comm=None):
+    def enterLeafValuesGrad(self,
+                            meshBase mesh,
+                            DoFMap DoFMap,
+                            INDEX_t order,
+                            REAL_t[:, :, ::1] boxes,
+                            comm=None):
         cdef:
             INDEX_t i, k, I, l, j, p, dim, dof, r, start, end
             REAL_t[:, ::1] simplex, local_vals, PHI, xi, x, box, gradients
@@ -733,37 +1035,56 @@ cdef class tree_node:
             id = max(id, c.get_max_id())
         return id
 
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
     cdef tree_node get_node(self, INDEX_t id):
         cdef:
-            tree_node c
+            tree_node c, c2
             INDEX_t k
         if self.id == id:
             return self
         else:
+            c = self.children[0]
             for k in range(len(self.children)-1):
-                if self.children[k].id <= id < self.children[k+1].id:
-                    c = self.children[k]
+                c2 = self.children[k+1]
+                if c.id <= id < c2.id:
                     return c.get_node(id)
-            if self.children[len(self.children)-1].id <= id:
-                c = self.children[len(self.children)-1]
+                c = c2
+            if c.id <= id:
                 return c.get_node(id)
+
+    def get_node_py(self, INDEX_t id):
+        return self.get_node(id)
 
     cdef BOOL_t trim(self, bitArray keep):
         cdef:
             tree_node c
             BOOL_t delNode, c_delNode
             list newChildren = []
+            BOOL_t delAllChildren = True
         delNode = not keep.inSet(self.id)
         for c in self.children:
             c_delNode = c.trim(keep)
             if not c_delNode:
                 delNode = False
                 newChildren.append(c)
-        if not self.isLeaf and len(newChildren) == 0:
-            self._cells = arrayIndexSet()
-            for c in self.children:
-                self._cells = self._cells.union(c._cells)
+            delAllChildren &= not keep.inSet(c.id)
+        if not self.get_is_leaf() and len(newChildren) == 0:
+            self._cells = self.get_cells()
+            self._dofs = self.get_dofs()
             self.children = []
+            assert self.get_is_leaf()
+            assert self.num_dofs == self.get_dofs().getNumEntries()
+        elif delAllChildren:
+            # None of the children are used, but some of their children are.
+            # Remove the children, adopt their children.
+            newChildren = []
+            for c in self.children:
+                for c2 in c.children:
+                    newChildren.append(c2)
+                    c2.parent = self
+            self.children = newChildren
         return delNode
 
     def HDF5write(self, node):
@@ -782,7 +1103,7 @@ cdef class tree_node:
         myNode.create_dataset('_dofs',
                               data=list(self.dofs.toSet()),
                               compression=COMPRESSION)
-        if self.isLeaf:
+        if self.get_is_leaf():
             myNode.create_dataset('_cells',
                                   data=list(self._cells),
                                   compression=COMPRESSION)
@@ -913,7 +1234,7 @@ cdef class tree_node:
 
         indptrCells = uninitialized((numNodes+1), dtype=INDEX)
         for n in self.get_tree_nodes():
-            if n.isLeaf:
+            if n.get_is_leaf():
                 indptrCells[n.id+1] = len(n.cells)
             else:
                 indptrCells[n.id+1] = 0
@@ -924,7 +1245,7 @@ cdef class tree_node:
         indicesCells = uninitialized((nnz), dtype=INDEX)
         maxCell = -1
         for n in self.get_tree_nodes():
-            if n.isLeaf:
+            if n.get_is_leaf():
                 k = indptrCells[n.id]
                 for c in n.cells:
                     indicesCells[k] = c
@@ -1005,7 +1326,7 @@ cdef class tree_node:
             INDEX_t cellNo = -1
         if minDist2FromBox(self.box, vertex) > 0.:
             return -1
-        if self.isLeaf:
+        if self.get_is_leaf():
             for cellNo in self.cells:
                 if mesh.vertexInCell(vertex, cellNo, simplex, bary):
                     return cellNo
@@ -1032,7 +1353,7 @@ cdef class tree_node:
         dmin, dmax = distsFromBox(self.box, vertex)
         if (dmax <= rmin) or (dmin >= rmax):
             return cells
-        if self.isLeaf:
+        if self.get_is_leaf():
             for cellNo in self._cells:
                 mesh.getSimplex(cellNo, simplex)
                 if distFromSimplex(simplex, vertex, r):
@@ -1055,7 +1376,7 @@ cdef class tree_node:
                 m += str(self.box[i, j])
             m += ']'
         m += ']'
-        return 'node({})'.format(m)
+        return 'node({}, nd={})'.format(m, self.num_dofs)
 
     @cython.initializedcheck(False)
     @cython.wraparound(False)
@@ -1068,7 +1389,7 @@ cdef class tree_node:
             tree_node c
         if self.id in coefficientsUp:
             return
-        elif self.isLeaf:
+        elif self.get_is_leaf():
             coefficientsUp[self.id] = (self.value[0, :, :], np.array(self.dofs.toArray()))
         else:
             transfers = np.zeros((self.num_dofs, self.coefficientsUp.shape[0]), dtype=REAL)
@@ -1085,6 +1406,20 @@ cdef class tree_node:
                             transfers[k, m] += transfer[i, j]*c.transferOperator[m, j]
                     k += 1
             coefficientsUp[self.id] = (transfers, dofs)
+
+    def findNodeForDoF(self, INDEX_t dof):
+        cdef:
+            tree_node c, c2
+        if self.get_is_leaf():
+            if self._dofs.inSet(dof):
+                return self
+            else:
+                return None
+        else:
+            for c in self.children:
+                c2 = c.findNodeForDoF(dof)
+                if c2 is not None:
+                    return c2
 
 
 @cython.initializedcheck(False)
@@ -1127,46 +1462,62 @@ cdef indexSet setDoFsFromChildren(tree_node n):
         return dofs
 
 
-# FIX: move it into tree_node and don't reallocate memory
-cdef inline void transferMatrix(REAL_t[:, ::1] boxP,
-                                REAL_t[:, ::1] boxC,
-                                INDEX_t m,
-                                REAL_t[:, ::1] T):
-    cdef:
-        INDEX_t dim, i, j, l, k, I, J
-        REAL_t[:, ::1] omega, beta, xiC, xiP
-    dim = boxP.shape[0]
-    omega = uninitialized((m, dim), dtype=REAL)
-    beta = uninitialized((m, dim), dtype=REAL)
-    xiC = uninitialized((m, dim), dtype=REAL)
-    xiP = uninitialized((m, dim), dtype=REAL)
+cdef class transferMatrixBuilder:
+    def __init__(self, INDEX_t m, INDEX_t dim):
+        self.m = m
+        self.dim = dim
+        self.omega = uninitialized((m, dim), dtype=REAL)
+        self.beta = uninitialized((m, dim), dtype=REAL)
+        self.xiC = uninitialized((m, dim), dtype=REAL)
+        self.xiP = uninitialized((m, dim), dtype=REAL)
+        self.eta = np.cos((2.0*np.arange(m, 0, -1)-1.0) / (2.0*m) * np.pi)
+        self.pit = productIterator(m, dim)
+        self.pit2 = productIterator(m, dim)
 
-    eta = np.cos((2.0*np.arange(m, 0, -1)-1.0) / (2.0*m) * np.pi)
-    for i in range(m):
-        for j in range(dim):
-            xiC[i, j] = (boxC[j, 1]-boxC[j, 0])/2.*(eta[i]+1.0)+boxC[j, 0]
-            xiP[i, j] = (boxP[j, 1]-boxP[j, 0])/2.*(eta[i]+1.0)+boxP[j, 0]
-    for j in range(m):
-        for l in range(dim):
-            omega[j, l] = xiC[j, l]-xiP[0, l]
-            for k in range(1, m):
-                omega[j, l] *= xiC[j, l]-xiP[k, l]
-            beta[j, l] = 1.0
-            for k in range(m):
-                if k != j:
-                    beta[j, l] *= xiP[j, l]-xiP[k, l]
-    T[:, :] = 1.0
-    I = 0
-    for idxP in product(*([range(m)]*dim)):
-        J = 0
-        for idxC in product(*([range(m)]*dim)):
-            for k in range(dim):
-                i = idxP[k]
-                j = idxC[k]
-                if abs(xiP[i, k]-xiC[j, k]) > 1e-8:
-                    T[I, J] *= omega[j, k]/(xiC[j, k]-xiP[i, k])/beta[i, k]
-            J += 1
-        I += 1
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    @cython.cdivision(True)
+    cdef void build(self,
+                    REAL_t[:, ::1] boxP,
+                    REAL_t[:, ::1] boxC,
+                    REAL_t[:, ::1] T):
+        cdef:
+            INDEX_t dim = self.dim, i, j, l, k, I, J
+            REAL_t[:, ::1] omega = self.omega
+            REAL_t[:, ::1] beta = self.beta
+            REAL_t[:, ::1] xiC = self.xiC
+            REAL_t[:, ::1] xiP = self.xiP
+            REAL_t[::1] eta = self.eta
+            INDEX_t m = self.m
+
+        for i in range(m):
+            for j in range(dim):
+                xiC[i, j] = (boxC[j, 1]-boxC[j, 0])*0.5*(eta[i]+1.0)+boxC[j, 0]
+                xiP[i, j] = (boxP[j, 1]-boxP[j, 0])*0.5*(eta[i]+1.0)+boxP[j, 0]
+        for j in range(m):
+            for l in range(dim):
+                omega[j, l] = xiC[j, l]-xiP[0, l]
+                for k in range(1, m):
+                    omega[j, l] *= xiC[j, l]-xiP[k, l]
+                beta[j, l] = 1.0
+                for k in range(m):
+                    if k != j:
+                        beta[j, l] *= xiP[j, l]-xiP[k, l]
+        T[:, :] = 1.0
+        I = 0
+        self.pit.reset()
+        while self.pit.step():
+            J = 0
+            self.pit2.reset()
+            while self.pit2.step():
+                for k in range(dim):
+                    i = self.pit.idx[k]
+                    j = self.pit2.idx[k]
+                    if abs(xiP[i, k]-xiC[j, k]) > 1e-8:
+                        T[I, J] *= omega[j, k]/(xiC[j, k]-xiP[i, k])/beta[i, k]
+                J += 1
+            I += 1
 
 
 cdef class farFieldClusterPair:
@@ -1554,7 +1905,7 @@ cdef class H2Matrix(LinearOperator):
         del coefficientsUp
         return np.array(dense, copy=False)
 
-    def plot(self, Pnear=[], fill='box', nearFieldColor='red', farFieldColor='blue', kernelApproximationColor='yellow', shiftCoefficientColor='red', printRank=False):
+    def plot(self, Pnear=[], fill='box', nearFieldColor='red', farFieldColor='blue', kernelApproximationColor='yellow', shiftCoefficientColor='red', rankColor=None):
         import matplotlib.pyplot as plt
         if self.tree.dim == 1:
             if fill == 'box':
@@ -1594,8 +1945,9 @@ cdef class H2Matrix(LinearOperator):
                             box2 = [nd-min(c.n2.dofs), nd-min(c.n2.dofs)-k+1]
                             plt.gca().add_patch(patches.Rectangle((box1[0], box2[0]), box1[1]-box1[0], box2[1]-box2[0], fill=True, facecolor=kernelApproximationColor))
 
-                        if printRank:
+                        if rankColor is not None:
                             plt.text(0.5*(min(c.n1.dofs)+max(c.n1.dofs)), nd-0.5*(min(c.n2.dofs)+max(c.n2.dofs)), str(k),
+                                     color=rankColor,
                                      horizontalalignment='center',
                                      verticalalignment='center')
 
@@ -1731,28 +2083,32 @@ cpdef BOOL_t getAdmissibleClusters(FractionalKernel kernel, tree_node n1, tree_n
         farFieldClusterPair cp
         BOOL_t addedFarFieldClusters = False
         INDEX_t lenNearField
-        REAL_t[:, ::1] boxUnion = np.empty((n1.box.shape[0], 2))
+        REAL_t[:, ::1] boxUnion
         REAL_t diamUnion = 0.
+        REAL_t horizonValue
     dist = distBoxes(n1.box, n2.box)
     diam1 = diamBox(n1.box)
     diam2 = diamBox(n2.box)
 
-    seemsAdmissible = eta*dist >= max(diam1, diam2) and not n1.mixed_node and not n2.mixed_node and (farFieldInteractionSize <= n1.num_dofs*n2.num_dofs) and n1.canBeAssembled and n2.canBeAssembled
+    seemsAdmissible = eta*dist >= max(diam1, diam2) and not n1.mixed_node and not n2.mixed_node and (farFieldInteractionSize <= n1.get_num_dofs()*n2.get_num_dofs()) and n1.canBeAssembled and n2.canBeAssembled
+
+    horizon = kernel.horizon
+    assert isinstance(horizon, constant)
+    horizonValue = horizon.value
 
     if kernel.finiteHorizon:
-        horizon = kernel.horizon
-        assert isinstance(horizon, constant)
         maxDist = maxDistBoxes(n1.box, n2.box)
         if not kernel.complement:
-            if  dist > horizon.value:
+            if  dist > horizonValue:
                 # return True, since we don't want fully ignored cluster pairs to be merged into near field ones.
                 return True
         else:
-            if maxDist <= horizon.value:
+            if maxDist <= horizonValue:
                 # same
                 return True
-        if dist <= horizon.value and horizon.value <= maxDist:
+        if dist <= horizonValue and horizonValue <= maxDist:
             seemsAdmissible = False
+        boxUnion = np.empty((n1.box.shape[0], 2))
         merge_boxes(n1.box, n2.box, boxUnion)
         diamUnion = diamBox(boxUnion)
     lenNearField = len(Pnear)
@@ -1763,7 +2119,7 @@ cpdef BOOL_t getAdmissibleClusters(FractionalKernel kernel, tree_node n1, tree_n
         except KeyError:
             Pfar[level] = [cp]
         return True
-    elif (n1.isLeaf and n2.isLeaf) or (level == maxLevels):
+    elif (n1.get_is_leaf() and n2.get_is_leaf()) or (level == maxLevels):
         Pnear.append(nearFieldClusterPair(n1, n2))
         if kernel.finiteHorizon and len(Pnear[len(Pnear)-1].cellsInter) > 0:
             if diamUnion > kernel.horizon.value:
@@ -1773,10 +2129,10 @@ cpdef BOOL_t getAdmissibleClusters(FractionalKernel kernel, tree_node n1, tree_n
                                                                                                                     diam2,
                                                                                                                     diamUnion))
 
-    elif (farFieldInteractionSize >= n1.num_dofs*n2.num_dofs) and (diamUnion < kernel.horizon.value):
+    elif (farFieldInteractionSize > n1.get_num_dofs()*n2.get_num_dofs()) and (diamUnion < horizonValue):
         Pnear.append(nearFieldClusterPair(n1, n2))
         return False
-    elif n1.isLeaf:
+    elif n1.get_is_leaf():
         for t2 in n2.children:
             addedFarFieldClusters |= getAdmissibleClusters(kernel, n1, t2, farFieldInteractionSize, eta,
                                                            Pfar, Pnear,
@@ -1793,7 +2149,7 @@ cpdef BOOL_t getAdmissibleClusters(FractionalKernel kernel, tree_node n1, tree_n
                                                                Pfar, Pnear,
                                                                level+1, maxLevels)
     if not addedFarFieldClusters:
-        if diamUnion < kernel.horizon.value:
+        if diamUnion < horizonValue:
             del Pnear[lenNearField:]
             Pnear.append(nearFieldClusterPair(n1, n2))
     return addedFarFieldClusters
@@ -1819,10 +2175,11 @@ def symmetrizeNearFieldClusters(list Pnear):
                 clusters.remove((id2, id1))
 
 
-def trimTree(tree_node tree, list Pnear, dict Pfar):
+def trimTree(tree_node tree, list Pnear, dict Pfar, comm):
     cdef:
         nearFieldClusterPair cpNear
         farFieldClusterPair cpFar
+        tree_node n
         bitArray used = bitArray(maxElement=tree.get_max_id())
     for cpNear in Pnear:
         used.set(cpNear.n1.id)
@@ -1831,19 +2188,22 @@ def trimTree(tree_node tree, list Pnear, dict Pfar):
         for cpFar in Pfar[lvl]:
             used.set(cpFar.n1.id)
             used.set(cpFar.n2.id)
-    print(used.getNumEntries(), tree.get_max_id(), tree.nodes)
+    # keep the nodes associated with MPI ranks
+    if (comm is not None) and len(tree.children) == comm.size:
+        for n in tree.children:
+            used.set(n.id)
+    # print(used.getNumEntries(), tree.get_max_id(), tree.nodes)
     tree.trim(used)
     tree.set_id()
-    print(used.getNumEntries(), tree.get_max_id(), tree.nodes)
-    used.empty()
-    for cpNear in Pnear:
-        used.set(cpNear.n1.id)
-        used.set(cpNear.n2.id)
-    for lvl in Pfar:
-        for cpFar in Pfar[lvl]:
-            used.set(cpFar.n1.id)
-            used.set(cpFar.n2.id)
-    print(used.getNumEntries(), tree.get_max_id(), tree.nodes)
+    # used.empty()
+    # for cpNear in Pnear:
+    #     used.set(cpNear.n1.id)
+    #     used.set(cpNear.n2.id)
+    # for lvl in Pfar:
+    #     for cpFar in Pfar[lvl]:
+    #         used.set(cpFar.n1.id)
+    #         used.set(cpFar.n2.id)
+    # print(used.getNumEntries(), tree.get_max_id(), tree.nodes)
 
 
 @cython.initializedcheck(False)

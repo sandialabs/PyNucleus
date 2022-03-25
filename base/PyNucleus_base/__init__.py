@@ -47,6 +47,7 @@ if use_pyamg:
     from . solvers import pyamg_solver
     solverFactory.register('pyamg', pyamg_solver)
 
+
 from . solvers import complex_lu_solver, complex_gmres_solver
 solverFactory.register('complex_lu', complex_lu_solver)
 solverFactory.register('complex_gmres', complex_gmres_solver)

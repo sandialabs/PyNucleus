@@ -35,6 +35,7 @@ from scipy.special import gamma as Gamma, binom
 from . twoPointFunctions import (constantTwoPoint,
                                  temperedTwoPoint,
                                  leftRightTwoPoint,
+                                 interfaceTwoPoint,
                                  smoothedLeftRightTwoPoint,)
 from . interactionDomains import (ball1,
                                   ball2,

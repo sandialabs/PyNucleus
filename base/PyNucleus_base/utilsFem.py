@@ -21,7 +21,7 @@ from mpi4py import MPI
 from collections import OrderedDict
 from copy import deepcopy
 from . myTypes import INDEX, REAL
-from . performanceLogger import PLogger, LoggingTimer, Timer
+from . performanceLogger import PLogger, LoggingTimer, Timer, LoggingPLogger
 from . blas import uninitialized, uninitialized_like
 
 _syncDefault = False
@@ -33,7 +33,7 @@ def setSyncDefault(sync):
 
 
 class TimerManager:
-    def __init__(self, logger, comm=None, print_rank=0, prefix='', myPLogger=None, memoryProfiling=False):
+    def __init__(self, logger, comm=None, print_rank=0, prefix='', myPLogger=None, memoryProfiling=False, loggingSubTimers=False):
         self.logger = logger
         self.comm = comm
         self.print_rank = print_rank
@@ -45,7 +45,10 @@ class TimerManager:
         else:
             self.process = None
         if myPLogger is None:
-            self.PLogger = PLogger(self.process)
+            if loggingSubTimers:
+                self.PLogger = LoggingPLogger(self.logger, logging.INFO, self.process)
+            else:
+                self.PLogger = PLogger(self.process)
             self.isSubManager = False
             self.totalTimer = Timer('total', self.PLogger, forceMemRegionOff=True)
             self.totalTimer.__enter__()
@@ -72,7 +75,7 @@ class TimerManager:
 
         def mergeOrdered(a_list, b_list):
             keys = []
-            while (len(a_list)>0) and (len(b_list)>0):
+            while (len(a_list) > 0) and (len(b_list) > 0):
                 if a_list[0] in b_list:
                     if a_list[0] == b_list[0]:
                         keys.append(a_list[0])
@@ -80,6 +83,7 @@ class TimerManager:
                         b_list.pop(0)
                     else:
                         keys.append(b_list[0])
+                        a_list.remove(b_list[0])
                         b_list.pop(0)
                 elif b_list[0] in a_list:
                     keys.append(a_list[0])
@@ -87,6 +91,8 @@ class TimerManager:
                 else:
                     keys.append(a_list[0])
                     a_list.pop(0)
+            keys += a_list
+            keys += b_list
             return keys
 
         if not self.isSubManager:
@@ -102,6 +108,12 @@ class TimerManager:
         else:
             data = [data]
         if self.comm is None or self.comm.rank == rank:
+            if self.comm is None:
+                commSize = 1
+            else:
+                commSize = self.comm.size
+            assert len(data) == commSize
+
             keys = list(data[0].keys())
             for i in range(1, len(data)):
                 keys = mergeOrdered(keys, list(data[i].keys()))
@@ -114,6 +126,7 @@ class TimerManager:
                     except KeyError:
                         pData[key] = [d]
             for key in pData:
+                assert len(pData[key]) == commSize, key
                 oG.add(key, pData[key])
 
     def getSubManager(self, logger):
@@ -813,7 +826,7 @@ class driverArgGroup:
 
 
 class driver:
-    def __init__(self, comm=None, setCommExitHandler=True, masterRank=0):
+    def __init__(self, comm=None, setCommExitHandler=True, masterRank=0, description=None):
         self.comm = comm
         self._identifier = ''
         self.processHook = []
@@ -831,7 +844,8 @@ class driver:
             # self.parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
             from os import environ
             width = environ.get('COLUMNS', 200)
-            self.parser = argparse.ArgumentParser(formatter_class=lambda prog: argparse.ArgumentDefaultsHelpFormatter(prog, max_help_position=50, width=width))
+            self.parser = argparse.ArgumentParser(formatter_class=lambda prog: argparse.ArgumentDefaultsHelpFormatter(prog, max_help_position=50, width=width),
+                                                  description=description)
             self.mainGroup = self.parser.add_argument_group('main')
             io = self.addGroup('input/output')
             io.add('disableHeader', False, help='Disable verbose header')
@@ -881,7 +895,7 @@ class driver:
         else:
             return driverArgGroup(None, None)
 
-    def add(self, name, defaultValue=None, acceptedValues=[], help=' ', argInterpreter=None, group=None):
+    def add(self, name, defaultValue=None, acceptedValues=[], help='No help defined', argInterpreter=None, group=None):
         if self.isMaster:
             if group is None:
                 group = self.mainGroup
@@ -958,7 +972,7 @@ class driver:
             if 'plots' in self.argGroups:
                 io = self.addGroup('input/output')
                 io.add('plotFolder', '', help='folder for saving plots')
-                io.add('plotFormat', acceptedValues=['pdf', 'png', 'jpeg', 'eps', 'ps', 'svg'])
+                io.add('plotFormat', acceptedValues=['pdf', 'png', 'jpeg', 'eps', 'ps', 'svg'], help='File format for saving plots')
             try:
                 args, unknown = self.parser.parse_known_args()
             except SystemExit:
@@ -1148,13 +1162,13 @@ class driver:
             self._display_available = available
         return self._display_available
 
-    def declareFigure(self, name, desciption='', default=True):
+    def declareFigure(self, name, description='No help defined', default=True):
         if self.isMaster:
             addSkipOption = 'plots' not in self.argGroups
             plots = self.addGroup('plots')
             if addSkipOption:
                 plots.add('skipPlots', False, help='Do not plot anything')
-            plots.add('plot_'+name, default, help=desciption)
+            plots.add('plot_'+name, default, help=description)
             self._figures[name] = None
 
     def willPlot(self, name):
@@ -1181,6 +1195,22 @@ class driver:
         else:
             return None
 
+    def savePlot(self, name, filenameSuffix='', **kwargs):
+        if self._figures[name] is not None:
+            if self._identifier != '':
+                filename = self._identifier+'_'+name+filenameSuffix
+                filename = filename.replace('_', '-')
+                filename = filename.replace(' ', '-')
+                filename = filename.replace('=', '')
+            else:
+                filename = name+filenameSuffix
+            self._figures[name].tight_layout()
+            from pathlib import Path
+            Path(self.params['plotFolder']+'/'+filename+'.'+self.params['plotFormat']).parent.mkdir(exist_ok=True, parents=True)
+            self._figures[name].savefig(self.params['plotFolder']+'/'+filename+'.'+self.params['plotFormat'], bbox_inches='tight', **kwargs)
+        else:
+            self.logger.warn('Figure \'{}\' not created'.format(name))
+
     def finishPlots(self, **kwargs):
         newFigures = {}
         for name in self._figures:
@@ -1190,20 +1220,7 @@ class driver:
         if len(self._figures) > 0:
             if self.params['plotFolder'] != '':
                 for name in self._figures:
-                    if self._figures[name] is not None:
-                        if self._identifier != '':
-                            filename = self._identifier+'_'+name
-                            filename = filename.replace('_', '-')
-                            filename = filename.replace(' ', '-')
-                            filename = filename.replace('=', '')
-                        else:
-                            filename = name
-                        self._figures[name].tight_layout()
-                        from pathlib import Path
-                        Path(self.params['plotFolder']+'/'+filename+'.'+self.params['plotFormat']).parent.mkdir(exist_ok=True, parents=True)
-                        self._figures[name].savefig(self.params['plotFolder']+'/'+filename+'.'+self.params['plotFormat'], bbox_inches='tight', **kwargs)
-                    else:
-                        self.logger.warn('Figure \'{}\' not created'.format(name))
+                    self.savePlot(name, **kwargs)
             else:
                 import matplotlib.pyplot as plt
                 plt.show()

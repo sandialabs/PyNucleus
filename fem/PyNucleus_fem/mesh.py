@@ -568,6 +568,127 @@ def doubleSquareWithInteractions(ax=0., ay=0., bx=1., by=1., cx=2., cy=1.,
         return mesh
 
 
+def doubleSquareWithInteractionsCorners(ax=0., ay=0., bx=1., by=1., cx=2., cy=1.,
+                                        horizon1=0.1, horizon2=0.2,
+                                        h=None,
+                                        returnSketch=False,
+                                        **kwargs):
+    from PyNucleus.fem.meshConstruction import (line,
+                                                polygon,
+                                                transformationRestriction)
+    assert horizon2 >= horizon1
+    assert horizon1 >= 0
+    if h is None:
+        if horizon1 > 0:
+            h = horizon1
+        elif horizon2 > 0:
+            h = horizon2
+        else:
+            h = 0.5
+    else:
+        if horizon1 > 0:
+            h = min([h, horizon1, horizon2])
+        elif horizon2 > 0:
+            h = min([h, horizon2])
+
+    bottomLeft = np.array([ax, ay])
+    bottomMid = np.array([bx, ay])
+    bottomRight = np.array([cx, ay])
+    topLeft = np.array([ax, by])
+    topMid = np.array([bx, by])
+    topRight = np.array([cx, by])
+
+    centerLeft = np.array([(ax+bx)/2, (ay+by)/2])
+    centerRight = np.array([(bx+cx)/2, (ay+cy)/2])
+
+    for k in range(10):
+        numPointsPerUnitLength = int(np.ceil(1/(h*0.8**(k/2))))
+
+        if horizon2 > 0:
+            magicAngle = 0.5*np.pi-np.arcsin(horizon1/horizon2)
+            magicLen = horizon2*np.cos(0.5*np.pi-magicAngle)
+
+            # the four/six inner squares
+            inner = polygon([bottomLeft, bottomMid-(horizon2, 0),
+                             topMid-(horizon2, 0), topLeft], num_points_per_unit_len=numPointsPerUnitLength)
+            if horizon1 < horizon2:
+                inner += polygon([bottomMid-(horizon2, 0), bottomMid-(horizon1, 0),
+                                  topMid-(horizon1, 0), topMid-(horizon2, 0)], doClose=False, num_points_per_unit_len=numPointsPerUnitLength)
+                inner += polygon([bottomMid-(horizon1, 0), bottomMid,
+                                  topMid, topMid-(horizon1, 0)], doClose=False, num_points_per_unit_len=numPointsPerUnitLength)
+                inner += polygon([bottomMid, bottomMid+(horizon1, 0),
+                                  topMid+(horizon1, 0), topMid], doClose=False, num_points_per_unit_len=numPointsPerUnitLength)
+                inner += polygon([bottomMid+(horizon1, 0), bottomMid+(horizon2, 0),
+                                  topMid+(horizon2, 0), topMid+(horizon1, 0)], doClose=False, num_points_per_unit_len=numPointsPerUnitLength)
+            else:
+                inner += polygon([bottomMid-(horizon2, 0), bottomMid,
+                                  topMid, topMid-(horizon2, 0)], doClose=False, num_points_per_unit_len=numPointsPerUnitLength)
+                inner += polygon([bottomMid, bottomMid+(horizon2, 0),
+                                  topMid+(horizon2, 0), topMid], doClose=False, num_points_per_unit_len=numPointsPerUnitLength)
+            inner += polygon([bottomMid+(horizon2, 0), bottomRight,
+                              topRight, topMid+(horizon2, 0)], doClose=False, num_points_per_unit_len=numPointsPerUnitLength)
+        else:
+            inner = polygon([bottomLeft, bottomMid, topMid, topLeft], num_points_per_unit_len=numPointsPerUnitLength)
+            inner += polygon([bottomMid, bottomRight, topRight, topMid], doClose=False, num_points_per_unit_len=numPointsPerUnitLength)
+
+            mesh = inner.mesh(h=h*0.8**(k/2), **kwargs)
+            frame = inner
+
+        if horizon2 > 0:
+            # interaction domain for right domain
+
+            outer = polygon([np.array([bx-horizon2, ay]),
+                             np.array([bx-horizon2, ay-horizon1]),
+                             np.array([bx-horizon2, ay-horizon2]),
+                             np.array([cx, ay-horizon2]),
+                             np.array([cx+horizon2, ay-horizon2]),
+                             np.array([cx+horizon2, ay]),
+                             np.array([cx+horizon2, cy]),
+                             np.array([cx+horizon2, cy+horizon2]),
+                             np.array([cx, cy+horizon2]),
+                             np.array([bx-horizon2, by+horizon2]),
+                             np.array([bx-horizon2, by+horizon1]),
+                             np.array([bx-horizon2, by])],
+                            doClose=False)
+            # two right corners
+            c6 = line(bottomRight, bottomRight-(0, horizon2)) + line(bottomRight, bottomRight+(horizon2, 0))
+            c6 = c6 + (c6*(centerRight, 0.5*np.pi))
+            outer += c6
+
+            if horizon1 > 0:
+                # interaction domain for left domain
+                outer += polygon([np.array([bx+horizon1, by+horizon1]),
+                                  np.array([bx-horizon2, by+horizon1]),
+                                  np.array([ax, by+horizon1]),
+                                  np.array([ax-horizon1, by+horizon1]),
+                                  np.array([ax-horizon1, by]),
+                                  np.array([ax-horizon1, ay]),
+                                  np.array([ax-horizon1, ay-horizon1]),
+                                  np.array([ax, ay-horizon1]),
+                                  np.array([bx-horizon2, ay-horizon1]),
+                                  np.array([bx+horizon1, ay-horizon1])])
+
+            # preserve right angles near corners
+            if horizon1 > 0:
+                # two left corners
+                c5 = line(topLeft, topLeft+(0, horizon1))+line(topLeft, topLeft-(horizon1, 0))
+                c5 = c5 + (c5*(centerLeft, 0.5*np.pi))
+                outer += c5
+
+            frame = inner+outer
+            mesh = frame.mesh(h=h*0.8**(k/2), **kwargs)
+
+        if mesh.h <= h:
+            if returnSketch:
+                return mesh, frame
+            else:
+                return mesh
+    if returnSketch:
+        return mesh, frame
+    else:
+        return mesh
+
+
 def discWithInteraction(radius, horizon, h=0.25):
     if horizon > 0:
         outerRadius = radius + horizon

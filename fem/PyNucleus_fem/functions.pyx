@@ -188,6 +188,29 @@ cdef class constant(function):
         return '{}'.format(self.value)
 
 
+cdef class monomial(function):
+    cdef:
+        REAL_t[::1] exponent
+        REAL_t factor
+
+    def __init__(self, REAL_t[::1] exponent, REAL_t factor=1.):
+        self.exponent = exponent
+        self.factor = factor
+
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef inline REAL_t eval(self, REAL_t[::1] x):
+        cdef:
+            INDEX_t i
+            REAL_t s = self.factor
+        for i in range(x.shape[0]):
+            s *= pow(x[i], self.exponent[i])
+        return s
+
+    def __repr__(self):
+        return '{}'.format(self.value)
+
+
 cdef class _rhsFunSin1D(function):
     @cython.wraparound(False)
     @cython.boundscheck(False)
@@ -580,7 +603,7 @@ cdef class solFractional(function):
         self.s = s
         self.dim = dim
         self.radius2 = radius**2
-        self.fac = 2.**(-2.*s)*gamma(dim/2.)/gamma((dim+2.*s)/2.)/gamma(1.+s)
+        self.fac = self.radius2**s * 2.**(-2.*s)*gamma(dim/2.)/gamma((dim+2.*s)/2.)/gamma(1.+s)
 
     @cython.wraparound(False)
     @cython.boundscheck(False)
@@ -2123,3 +2146,54 @@ cdef class matrixFunction:
     def __getitem__(self, I):
         i, j = I
         return self.components[i][j]
+
+
+cdef class periodicityFunctor(function):
+    cdef:
+        function f
+        REAL_t[::1] period
+        REAL_t[::1] y
+
+    def __init__(self, function f, REAL_t[::1] period):
+        self.f = f
+        self.period = period
+        self.y = uninitialized((period.shape[0]), dtype=REAL)
+
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef inline REAL_t eval(self, REAL_t[::1] x):
+        cdef:
+            INDEX_t i
+        for i in range(self.period.shape[0]):
+            self.y[i] = x[i] % self.period[i]
+        return self.f(self.y)
+
+    def __repr__(self):
+        return '({} with period {})'.format(self.f, np.array(self.period))
+
+
+cdef class shiftScaleFunctor(function):
+    cdef:
+        function f
+        REAL_t[::1] scaling
+        REAL_t[::1] shift, temp
+
+    def __init__(self, function f, REAL_t[::1] shift, REAL_t[::1] scaling):
+        self.f = f
+        self.shift = shift
+        self.scaling = scaling
+        self.temp = uninitialized((shift.shape[0]), dtype=REAL)
+
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef inline REAL_t eval(self, REAL_t[::1] x):
+        cdef:
+            INDEX_t i
+        for i in range(self.shift.shape[0]):
+            self.temp[i] = self.scaling[i]*x[i]+self.shift[i]
+        return self.f(self.temp)
+
+    def __repr__(self):
+        return '{}({}*x+{})'.format(self.f, np.array(self.scaling), np.array(self.shift))

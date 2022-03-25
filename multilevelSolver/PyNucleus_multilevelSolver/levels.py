@@ -18,7 +18,9 @@ from PyNucleus_base.linear_operators import CSR_LinearOperator
 from PyNucleus_base.linear_operators import SSS_LinearOperator
 from . restrictionProlongation import buildRestrictionProlongation
 from PyNucleus_base import TimerManager
-from PyNucleus_base.ip_norm import ip_serial, norm_serial, ip_distributed, norm_distributed
+from PyNucleus_base.ip_norm import (ip_serial, norm_serial,
+                                    ip_distributed, norm_distributed,
+                                    wrapRealInnerToComplex, wrapRealNormToComplex)
 from PyNucleus_fem import (assembleDrift,
                  assembleMatrix,
                  mass_0d_in_1d_sym_P1,
@@ -283,6 +285,8 @@ class algebraicLevelBase(level):
                 self.norm = norm_serial()
             if self.DoFMap is not None:
                 self.DoFMap.set_ip_norm(self.inner, self.norm)
+                self.DoFMap.set_complex_ip_norm(wrapRealInnerToComplex(self.inner),
+                                                wrapRealNormToComplex(self.norm))
 
             if (buildType & RESTRICTION_PROLONGATION) and (self.previousLevel is not None):
                 assert (self.previousLevel.DoFMap is not None) and (self.DoFMap is not None)

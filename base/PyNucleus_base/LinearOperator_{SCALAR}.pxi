@@ -103,6 +103,8 @@ cdef class {SCALAR_label}LinearOperator:
                     return ComplexMultiply_Linear_Operator(wrapRealToComplex(self), COMPLEX(x))
             elif isinstance(x, COMPLEX):
                 return ComplexMultiply_Linear_Operator(wrapRealToComplex(self), x)
+            elif isinstance(self, LinearOperator) and hasattr(x, 'dtype') and x.dtype == COMPLEX:
+                return wrapRealToComplex(self)*x
             else:
                 raise NotImplementedError('Cannot multiply {} with {}:\n{}'.format(self, x, e))
 

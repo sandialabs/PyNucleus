@@ -70,7 +70,7 @@ class vertexPartitioner(object):
 
 
 class dofPartitioner(object):
-    def __init__(self, LinearOperator A=None, dm=None):
+    def __init__(self, LinearOperator A=None, dm=None, INDEX_t matrixPower=1):
         if A is not None:
             self.A = A
         elif dm is not None:
@@ -78,6 +78,10 @@ class dofPartitioner(object):
             self.A = dm.buildSparsityPattern(dm.mesh.cells)
         else:
             raise NotImplementedError()
+        if matrixPower != 1:
+            if dm is not None:
+                self.A.data[:] = 1.
+            self.A = CSR_LinearOperator.from_csr(self.A.to_csr()**matrixPower)
 
     def partitionDofs(self, numPartitions):
         raise PartitionerException("Don't call abstract class.")
@@ -337,7 +341,7 @@ IF USE_METIS:
     import PyNucleus_metisCy
 
     class metisDofPartitioner(dofPartitioner):
-        def partitionDofs(self, numPartitions, ufactor=30):
+        def partitionDofs(self, numPartitions, ufactor=30, dofWeights=None):
             if numPartitions == self.A.shape[0]:
                 return np.arange(numPartitions, dtype=INDEX), numPartitions
             elif numPartitions > self.A.shape[0]:
@@ -355,6 +359,7 @@ IF USE_METIS:
             partNos, numCuts = PyNucleus_metisCy.PartGraphKway(A.indptr,
                                                                A.indices,
                                                                numPartitions,
+                                                               vwgt=dofWeights,
                                                                options=options)
             numPartitions = np.unique(partNos).shape[0]
             return np.array(partNos, dtype=INDEX), numPartitions

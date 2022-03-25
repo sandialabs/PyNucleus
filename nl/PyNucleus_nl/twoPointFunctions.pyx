@@ -13,6 +13,26 @@ from libc.math cimport sqrt, exp, atan
 from PyNucleus_base.myTypes import INDEX, REAL, ENCODE, BOOL
 
 
+cdef class fixedTwoPointFunction(function):
+    cdef:
+        twoPointFunction f
+        REAL_t[::1] point
+        BOOL_t fixX
+
+    def __init__(self, twoPointFunction f, REAL_t[::1] point, BOOL_t fixX):
+        self.f = f
+        self.point = point
+        self.fixX = fixX
+
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef REAL_t eval(self, REAL_t[::1] x):
+        if self.fixX:
+            return self.f(self.point, x)
+        else:
+            return self.f(x, self.point)
+
+
 cdef class twoPointFunction:
     def __init__(self, BOOL_t symmetric):
         self.symmetric = symmetric
@@ -33,6 +53,12 @@ cdef class twoPointFunction:
 
     def __setstate__(self, state):
         twoPointFunction.__init__(self, state)
+
+    def fixedX(self, REAL_t[::1] x):
+        return fixedTwoPointFunction(self, x, True)
+
+    def fixedY(self, REAL_t[::1] y):
+        return fixedTwoPointFunction(self, y, False)
 
     def plot(self, mesh, **kwargs):
         cdef:
@@ -261,10 +287,10 @@ cdef class leftRightTwoPoint(twoPointFunction):
         self.interface = interface
 
     def __getstate__(self):
-        return (self.ll, self.rr, self.lr, self.rl)
+        return (self.ll, self.rr, self.lr, self.rl, self.interface)
 
     def __setstate__(self, state):
-        leftRightTwoPoint.__init__(self, state[0], state[1], state[2], state[3])
+        leftRightTwoPoint.__init__(self, state[0], state[1], state[2], state[3], state[4])
 
     def __repr__(self):
         return '{}(ll={},rr={},lr={},rl={},interface={},sym={})'.format(self.__class__.__name__, self.ll, self.rr, self.lr, self.rl, self.interface, self.symmetric)
@@ -294,6 +320,104 @@ cdef class leftRightTwoPoint(twoPointFunction):
                 return self.rl
             else:
                 return self.rr
+
+
+cdef class interfaceTwoPoint(twoPointFunction):
+    def __init__(self, REAL_t horizon1, REAL_t horizon2, BOOL_t left, REAL_t interface=0.):
+        super(interfaceTwoPoint, self).__init__(True)
+        self.horizon1 = horizon1
+        self.horizon2 = horizon2
+        self.left = left
+        self.interface = interface
+
+    def __getstate__(self):
+        return (self.horizon1, self.horizon2, self.left, self.interface)
+
+    def __setstate__(self, state):
+        interfaceTwoPoint.__init__(self, state[0], state[1], state[2], state[3])
+
+    def __repr__(self):
+        return '{}(horizon1={},horizon2={},left={},interface={})'.format(self.__class__.__name__, self.horizon1, self.horizon2, self.left, self.interface)
+
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
+        return self.evalPtr(x.shape[0], &x[0], &y[0])
+
+    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
+        if dim == 1:
+            if self.left:
+                if ((x[0] <= self.interface) and (y[0] <= self.interface)):
+                    return 1.
+                elif ((x[0] > self.interface) and (y[0] > self.interface)):
+                    return 0.
+                elif ((x[0] <= self.interface-self.horizon2) and (y[0] > self.interface)):
+                    return 1.
+                elif ((x[0] > self.interface) and (y[0] <= self.interface-self.horizon2)):
+                    return 1.
+                else:
+                    return 0.5
+            else:
+                if ((x[0] >= self.interface) and (y[0] >= self.interface)):
+                    return 1.
+                elif ((x[0] < self.interface) and (y[0] < self.interface)):
+                    return 0.
+                elif ((x[0] >= self.interface+self.horizon1) and (y[0] < self.interface)):
+                    return 1.
+                elif ((x[0] < self.interface) and (y[0] >= self.interface+self.horizon1)):
+                    return 1.
+                else:
+                    return 0.5
+        elif dim == 2:
+            if self.left:
+                if (x[0] <= self.interface) and ((x[1] > 0.) and (x[1] < 1.)):
+                    if (y[0] <= self.interface) and ((y[1] > 0.) and (y[1] < 1.)):
+                        return 1.
+                    elif (y[0] > self.interface) and ((y[1] > 0.) and (y[1] < 1.)):
+                        if x[0] <= self.interface-self.horizon2:
+                            return 1.
+                        else:
+                            return 0.5
+                    else:
+                        return 1.
+                elif (x[0] > self.interface) and ((x[1] > 0.) and (x[1] < 1.)):
+                    if (y[0] <= self.interface) and ((y[1] > 0.) and (y[1] < 1.)):
+                        return 0.5
+                    elif (y[0] > self.interface) and ((y[1] > 0.) and (y[1] < 1.)):
+                        return 0.
+                    else:
+                        return 0.
+                else:
+                    if (y[0] <= self.interface) and ((y[1] > 0.) and (y[1] < 1.)):
+                        return 1.
+                    else:
+                        return 0.
+            else:
+                if (x[0] >= self.interface) and ((x[1] > 0.) and (x[1] < 1.)):
+                    if (y[0] >= self.interface) and ((y[1] > 0.) and (y[1] < 1.)):
+                        return 1.
+                    elif (y[0] < self.interface) and ((y[1] > 0.) and (y[1] < 1.)):
+                        if x[0] >= self.interface+self.horizon1:
+                            return 1.
+                        else:
+                            return 0.5
+                    else:
+                        return 1.
+                elif (x[0] < self.interface) and ((x[1] > 0.) and (x[1] < 1.)):
+                    if (y[0] >= self.interface) and ((y[1] > 0.) and (y[1] < 1.)):
+                        if y[0] <= self.interface+self.horizon1:
+                            return 0.5
+                        else:
+                            return 1.
+                    elif (y[0] < self.interface) and ((y[1] > 0.) and (y[1] < 1.)):
+                        return 0.
+                    else:
+                        return 0.
+                else:
+                    if (y[0] >= self.interface) and ((y[1] > 0.) and (y[1] < 1.)):
+                        return 1.
+                    else:
+                        return 0.
 
 
 cdef class temperedTwoPoint(twoPointFunction):

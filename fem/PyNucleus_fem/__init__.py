@@ -6,6 +6,7 @@
 ###################################################################################
 
 
+import numpy as np
 from . mesh import mesh1d, mesh2d, mesh3d, meshNd
 from . mesh import (simpleInterval, simpleSquare, simpleLshape, simpleBox,
                     circle, graded_circle, cutoutCircle, twinDisc, dumbbell, wrench,
@@ -54,6 +55,7 @@ from . functions import (function,
                          vectorFunction,
                          _rhsFunSin1D, _solSin1D, _rhsFunSin2D, _cos1D, _cos2D, _rhsCos2D, _grad_cos2d_n,
                          _rhsFunSin3D, _solSin2D, _solSin3D, Lambda, constant,
+                         monomial,
                          complexLambda,
                          real, imag,
                          _rhsFunSin3D_memoized,
@@ -69,6 +71,7 @@ from . functions import (function,
                          rhsHr,
                          rhsHr2Ddisk,
                          indicatorFunctor,
+                         shiftScaleFunctor,
                          squareIndicator,
                          radialIndicator,
                          fractalDiffusivity, expDiffusivity)
@@ -165,6 +168,13 @@ functionFactory.register('solFractional2D', solFractional2D)
 functionFactory.register('rhsFractional1D', rhsFractional1D)
 functionFactory.register('rhsFractional2D', rhsFractional2D)
 functionFactory.register('constant', constant)
+functionFactory.register('monomial', monomial)
+functionFactory.register('x0', monomial, params={'exponent': np.array([1., 0., 0.])})
+functionFactory.register('x1', monomial, params={'exponent': np.array([0., 1., 0.])})
+functionFactory.register('x2', monomial, params={'exponent': np.array([0., 0., 1.])})
+functionFactory.register('x0**2', monomial, params={'exponent': np.array([2., 0., 0.])})
+functionFactory.register('x1**2', monomial, params={'exponent': np.array([0., 2., 0.])})
+functionFactory.register('x2**2', monomial, params={'exponent': np.array([0., 0., 2.])})
 functionFactory.register('Lambda', Lambda)
 functionFactory.register('squareIndicator', squareIndicator)
 functionFactory.register('radialIndicator', radialIndicator)
@@ -172,6 +182,7 @@ functionFactory.register('rhsBoundaryLayer2D', rhsBoundaryLayer2D)
 functionFactory.register('solBoundaryLayer2D', solBoundaryLayer2D)
 functionFactory.register('solCornerSingularity2D', solCornerSingularity2D)
 functionFactory.register('lookup', lookupFunction)
+functionFactory.register('shiftScaleFunctor', shiftScaleFunctor)
 
 from . import _version
 __version__ = _version.get_versions()['version']

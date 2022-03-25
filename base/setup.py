@@ -40,6 +40,7 @@ p.addOption('USE_BLAS', 'useBLAS', True)
 p.addOption('USE_MKL', 'useMKL', False)
 p.addOption('USE_CHOLMOD', 'use_cholmod', True, ['scikit-sparse'])
 p.addOption('USE_PYAMG', 'use_pyamg', False, ['pyamg'])
+
 p.addOption('MKL_LIBRARY', 'mklLibrary', 'mkl_rt')
 p.addOption('USE_MKL_TRISOLVE', 'useMKL_trisolve', False)
 p.addOption('FILL_UNINITIALIZED', 'fillUninitialized', True)
@@ -108,7 +109,8 @@ templates = ['LinearOperator_{SCALAR}.pxi', 'LinearOperator_decl_{SCALAR}.pxi',
              'CSR_LinearOperator_{SCALAR}.pxi', 'CSR_LinearOperator_decl_{SCALAR}.pxi',
              'SSS_LinearOperator_{SCALAR}.pxi', 'SSS_LinearOperator_decl_{SCALAR}.pxi',
              'DiagonalLinearOperator_{SCALAR}.pxi', 'DiagonalLinearOperator_decl_{SCALAR}.pxi',
-             'IJOperator_{SCALAR}.pxi', 'IJOperator_decl_{SCALAR}.pxi']
+             'IJOperator_{SCALAR}.pxi', 'IJOperator_decl_{SCALAR}.pxi',
+             'SchurComplement_{SCALAR}.pxi', 'SchurComplement_decl_{SCALAR}.pxi',]
 replacementGroups = [[('{SCALAR}', 'REAL'),
                       ('{SCALAR_label}', ''),
                       ('{SCALAR_label_lc}', ''),
@@ -157,6 +159,8 @@ p.addExtension("intTuple",
                sources=[p.folder+"intTuple.pyx"])
 p.addExtension("tupleDict",
                sources=[p.folder+"tupleDict.pyx"])
+p.addExtension("SchurComplement",
+               sources=[p.folder+"SchurComplement.pyx"])
 
 
 p.setup(description="Helper functions for PyNucleus.",

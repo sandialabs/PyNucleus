@@ -516,22 +516,46 @@ cdef class DoFMap:
     @cython.boundscheck(False)
     @cython.initializedcheck(False)
     @cython.wraparound(False)
-    def interpolate(self, function function):
+    def interpolate(self, fun):
         cdef:
-            REAL_t[::1] v = self.full(fill_value=np.nan, dtype=REAL)
-            fe_vector vec = fe_vector(v, self)
+            function real_fun
+            REAL_t[::1] real_vec_data
+            fe_vector real_vec
+            complexFunction complex_fun
+            COMPLEX_t[::1] complex_vec_data
+            complex_fe_vector complex_vec
             INDEX_t cellNo, i, dof
             REAL_t[:, ::1] simplex = uninitialized((self.mesh.dim+1,
                                                       self.mesh.dim), dtype=REAL)
             REAL_t[:, ::1] pos = uninitialized((self.dofs_per_element, self.mesh.dim), dtype=REAL)
-        for cellNo in range(self.mesh.num_cells):
-            self.mesh.getSimplex(cellNo, simplex)
-            matmat(self.nodes, simplex, pos)
-            for i in range(self.dofs_per_element):
-                dof = self.cell2dof(cellNo, i)
-                if dof >= 0 and isnan(v[dof]):
-                    v[dof] = function.eval(pos[i, :])
-        return vec
+        if isinstance(fun, function):
+            real_fun = fun
+            real_vec_data = self.full(fill_value=np.nan, dtype=REAL)
+            real_vec = fe_vector(real_vec_data, self)
+        elif isinstance(fun, complexFunction):
+            complex_fun = fun
+            complex_vec_data = self.full(fill_value=np.nan, dtype=COMPLEX)
+            complex_vec = complex_fe_vector(complex_vec_data, self)
+        else:
+            raise NotImplementedError()
+        if isinstance(fun, function):
+            for cellNo in range(self.mesh.num_cells):
+                self.mesh.getSimplex(cellNo, simplex)
+                matmat(self.nodes, simplex, pos)
+                for i in range(self.dofs_per_element):
+                    dof = self.cell2dof(cellNo, i)
+                    if dof >= 0 and isnan(real_vec_data[dof]):
+                        real_vec_data[dof] = real_fun.eval(pos[i, :])
+            return real_vec
+        elif isinstance(fun, complexFunction):
+            for cellNo in range(self.mesh.num_cells):
+                self.mesh.getSimplex(cellNo, simplex)
+                matmat(self.nodes, simplex, pos)
+                for i in range(self.dofs_per_element):
+                    dof = self.cell2dof(cellNo, i)
+                    if dof >= 0 and isnan(complex_vec_data[dof].real):
+                        complex_vec_data[dof] = complex_fun.eval(pos[i, :])
+            return complex_vec
 
     def getDoFCoordinates(self):
         from . functions import coordinate
@@ -579,7 +603,7 @@ cdef class DoFMap:
                                 sss_format,
                                 reorder,
                                 cellIndices,
-                                coefficient=None)
+                                coefficient=coefficient)
         else:
             assert self.mesh == dm2.mesh
             from . femCy import assembleMassNonSym
@@ -652,7 +676,7 @@ cdef class DoFMap:
             return assembleRHS(fun, self, qr)
 
     
-    def assembleNonlocal(self, kernel, str matrixFormat='DENSE', DoFMap dm2=None, **kwargs):
+    def assembleNonlocal(self, kernel, str matrixFormat='DENSE', DoFMap dm2=None, BOOL_t returnNearField=False, **kwargs):
         """Assemble a nonlocal operator of the form
 
         .. math::
@@ -674,7 +698,7 @@ cdef class DoFMap:
             elif matrixFormat.upper() == 'SPARSE':
                 return builder.getDense(trySparsification=True)
             elif matrixFormat.upper() == 'H2':
-                return builder.getH2()
+                return builder.getH2(returnNearField=returnNearField)
             elif matrixFormat.upper() == 'H2CORRECTED':
                 A = builder.getH2FiniteHorizon()
                 A.setKernel(kernel)
@@ -1229,6 +1253,38 @@ cdef class DoFMap:
                 else:
                     raise NotImplementedError()
         return dmCombined
+
+    def applyPeriodicity(self, vectorFunction coordinateMapping, REAL_t eps=1e-8):
+        """
+        coordinateMapping(x) -> coordinate modulo periodicity
+        """
+        cdef:
+            REAL_t[:, ::1] coords = self.getDoFCoordinates()
+            INDEX_t[::1] remap
+            REAL_t[::1] y
+            dict remap2
+            INDEX_t dof, k = 0, k2, cellNo, dofNo
+        from scipy.spatial import KDTree
+
+        assert coordinateMapping.rows == self.mesh.dim
+
+        kd = KDTree(coords)
+        remap = uninitialized((self.num_dofs), dtype=INDEX)
+        y = uninitialized((self.mesh.dim), dtype=REAL)
+        for dof in range(self.num_dofs):
+            coordinateMapping.eval(coords[dof, :], y)
+            remap[dof] = kd.query(y, eps)[1][0]
+        remap2 = {}
+        for k, k2 in enumerate(np.unique(remap)):
+            remap2[k2] = k
+        for i in range(self.num_dofs):
+            remap[i] = remap2[remap[i]]
+        for cellNo in range(self.mesh.num_cells):
+            for dofNo in range(self.dofs_per_element):
+                dof = self.cell2dof_py(cellNo, dofNo)
+                if dof >= 0:
+                    self.dofs[cellNo, dofNo] = remap[dof]
+        self.num_dofs = k+1
 
 
 cdef class globalShapeFunction(function):

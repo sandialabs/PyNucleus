@@ -440,6 +440,33 @@ cdef class {SCALAR_label_lc_}multi_fe_vector:
                 {SCALAR_label_lc_}assignScaled_2d(v2.data, v1.data, alpha)
                 return v2
 
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    def scale(self, {SCALAR}_t[::1] other):
+        cdef:
+            INDEX_t i, j
+            {SCALAR}_t alpha
+        assert other.shape[0] == self.data.shape[0]
+        for i in range(self.data.shape[0]):
+            alpha = other[i]
+            for j in range(self.data.shape[1]):
+                self.data[i, j] *= alpha
+
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    def scaledUpdate(self, {SCALAR}_t[::1] other, {SCALAR}_t[::1] scaling):
+        cdef:
+            INDEX_t i, j
+            {SCALAR}_t alpha
+        assert scaling.shape[0] == self.data.shape[0]
+        assert other.shape[0] == self.data.shape[1]
+        for i in range(self.data.shape[0]):
+            alpha = scaling[i]
+            for j in range(self.data.shape[1]):
+                self.data[i, j] += alpha*other[j]
+
     def toarray(self, copy=False):
         return np.array(self.data, copy=copy)
 

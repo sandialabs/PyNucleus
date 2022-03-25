@@ -56,7 +56,7 @@ cdef class nonlocalBuilder:
         bint zeroExterior
         REAL_t[::1] contrib, contribZeroExterior
         list _d2c
-        MPI.Comm comm
+        public MPI.Comm comm
         public FakePLogger PLogger
         dict params
     cdef inline double_local_matrix_t getLocalMatrix(self, dict params)
