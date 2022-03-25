@@ -184,8 +184,8 @@ cdef class PLogger(FakePLogger):
 
 
 cdef class LoggingPLogger(PLogger):
-    def __init__(self, logger, loggerLevel):
-        PLogger.__init__(self)
+    def __init__(self, logger, loggerLevel, process=None):
+        PLogger.__init__(self, process)
         self.logger = logger
         self.loggerLevel = loggerLevel
 

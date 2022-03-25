@@ -11,6 +11,7 @@ cimport numpy as np
 cimport cython
 from libc.stdlib cimport malloc, realloc, free
 from libc.string cimport memcpy
+from . myTypes import INDEX
 
 
 cdef enum:
@@ -127,3 +128,37 @@ cdef class intTuple:
         s += ','.join([str(self.entries[i]) for i in range(self.size)])
         s += '>'
         return s
+
+
+cdef class productIterator:
+    def __init__(self, INDEX_t m, INDEX_t dim):
+        self.m = m
+        self.dim = dim
+        self.idx = np.zeros((dim), dtype=INDEX)
+
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef void reset(self):
+        cdef:
+            INDEX_t i
+        for i in range(self.dim-1):
+            self.idx[i] = 0
+        self.idx[self.dim-1] = -1
+
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef BOOL_t step(self):
+        cdef:
+            INDEX_t i
+        i = self.dim-1
+        self.idx[i] += 1
+        while self.idx[i] == self.m:
+            self.idx[i] = 0
+            if i>0:
+                i -= 1
+                self.idx[i] += 1
+            else:
+                return False
+        return True

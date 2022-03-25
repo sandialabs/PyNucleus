@@ -21,7 +21,7 @@ from PyNucleus.fem.splitting import meshSplitter, dofmapSplitter
 
 d = driver()
 d.add('domain', acceptedValues=['doubleInterval', 'doubleSquare'])
-d.add('problem', acceptedValues=['polynomial', 'sin', 'sin-solJump-fluxJump', 'sin-nojump'])
+d.add('problem', acceptedValues=['polynomial', 'sin', 'sin-solJump-fluxJump', 'sin-nojump', 'sin1d-solJump-fluxJump'])
 d.add('coeff1', 1.0)
 d.add('coeff2', 1.0)
 d.add('hTarget', 0.05)
@@ -65,17 +65,17 @@ if d.domain == 'doubleInterval':
         sin = functionFactory('sin1d')
         one = functionFactory('constant', 1)
         sol_1 = sin
-        sol_2 = one+sin
+        sol_2 = one-2*sin
         diri_left = sol_1
         diri_right = sol_2
         forcing_left = np.pi**2 * d.coeff1 * sin
-        forcing_right = np.pi**2 * d.coeff2 * sin
+        forcing_right = -2*np.pi**2 * d.coeff2 * sin
         sol_jump = sol_2-sol_1
-        flux_jump = functionFactory('constant', -np.pi*d.coeff1 + np.pi*d.coeff2)
+        flux_jump = functionFactory('constant', -np.pi*d.coeff1 -2*np.pi*d.coeff2)
         L2ex_left = 0.5
-        L2ex_right = 1.5-4/np.pi
+        L2ex_right = 3.+8/np.pi
         H10ex_left = np.pi**2 * d.coeff1 * 0.5
-        H10ex_right = np.pi**2 * d.coeff2 * (0.5 - 2/np.pi)
+        H10ex_right = np.pi**2 * d.coeff2 * (2.0 + 4/np.pi)
     elif d.problem == 'sin-nojump':
         sol_1 = Lambda(lambda x: np.sin(np.pi*x[0])/d.coeff1)
         sol_2 = Lambda(lambda x: np.sin(np.pi*x[0])/d.coeff2)
@@ -134,6 +134,39 @@ elif d.domain == 'doubleSquare':
         forcing_right = Lambda(lambda x: np.pi**2*np.sin(np.pi*(x[0]-1))*d.coeff2)
         sol_jump = sol_2-sol_1
         flux_jump = constant(-np.pi*d.coeff1 - np.pi*d.coeff2)
+    elif d.problem == 'sin1d-solJump-fluxJump':
+        # the local problem has a know exact solution
+        sin = functionFactory('sin1d')
+        one = functionFactory('constant', 1)
+        sol_1 = sin
+        sol_2 = one-2*sin
+        diri_left = sol_1
+        diri_right = sol_2
+        forcing_left = d.coeff1 * np.pi**2 * sin
+        forcing_right = -2*d.coeff2 * np.pi**2 * sin
+        sol_jump = one
+        flux_jump = constant(-np.pi*d.coeff1 - 2*np.pi*d.coeff2)
+        L2ex_left = 0.5
+        L2ex_right = 3.+8/np.pi
+        H10ex_left = np.pi**2 * d.coeff1 * 0.5
+        H10ex_right = np.pi**2 * d.coeff2 * (2.0 + 4/np.pi)
+    elif params['problem'] == 'sin-solJump-fluxJump':
+        # the local problem has a know exact solution
+        sin2d = functionFactory('Lambda', lambda x: np.sin(np.pi*x[0])*np.sin(2*np.pi*x[1]))
+        sin = functionFactory('sin2d')
+        one = functionFactory('constant', 1)
+        sol_1 = 2*one+2*sin2d
+        sol_2 = one-sin
+        diri_left = sol_1
+        diri_right = sol_2
+        forcing_left = d.coeff1 * 2*5*np.pi**2 * sin2d
+        forcing_right = -d.coeff2 * 2*np.pi**2 * sin
+        sol_jump = -one
+        flux_jump = -2*np.pi*d.coeff1 * functionFactory('Lambda', lambda x: np.sin(2*np.pi*x[1])) - np.pi*d.coeff2 * functionFactory('Lambda', lambda x: np.sin(np.pi*x[1]))
+        L2ex_left = 5.
+        L2ex_right = 1.25 + 8./np.pi**2
+        H10ex_left = np.pi**2 * d.coeff1 * 5
+        H10ex_right = np.pi**2 * d.coeff2 * 0.5
     else:
         raise NotImplementedError(d.problem)
 else:

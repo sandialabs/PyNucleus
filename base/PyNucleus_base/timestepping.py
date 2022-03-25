@@ -7,6 +7,8 @@
 
 
 from . solvers import iterative_solver
+from . myTypes import REAL
+from . blas import uninitialized
 import numpy as np
 
 
@@ -107,8 +109,149 @@ class ExplicitEuler(Stepper):
 class ImplicitEuler(CrankNicolson):
     def __init__(self, dm, mass, solverBuilder, forcing, explicit=None, dt=None, solverIsTimeDependent=False):
         super(ImplicitEuler, self).__init__(dm, mass, solverBuilder, forcing, explicit,
+                                            dt=dt,
                                             theta=1.,
                                             solverIsTimeDependent=solverIsTimeDependent)
+
+
+class L1Scheme(Stepper):
+    """
+    L1 scheme for the Caputo fractional time derivative.
+    """
+    def __init__(self, alpha, maxTimeSteps, dm, mass, solverBuilder, forcing, explicit=None, dt=None, solverIsTimeDependent=False):
+        from scipy.special import gamma
+        super(L1Scheme, self).__init__(dm, mass, solverBuilder, forcing, explicit, dt, solverIsTimeDependent)
+        assert not self.solverIsTimeDependent
+        assert self.dt is not None
+        assert 0 < alpha < 1.
+        self.alpha = alpha
+        self.maxTimeSteps = maxTimeSteps
+        self.memory = self.dm.zeros(self.maxTimeSteps+1)
+        self.b = (np.arange(1, self.maxTimeSteps+2)**(1-self.alpha) - np.arange(self.maxTimeSteps+1)**(1-self.alpha)) / gamma(2-self.alpha)
+        self.solver = self.solverBuilder(0., self.dt**self.alpha / self.b[0])
+        self.rhs = self.dm.zeros()
+        self.rhs2 = self.dm.zeros()
+        self.k = 1
+
+    def step(self, t, dt, u):
+        if dt is None:
+            dt = self.dt
+        assert dt is not None
+        assert self.k <= self.maxTimeSteps
+        if not self.solverIsTimeDependent:
+            assert dt == self.dt
+        self.forcing(t+dt, self.rhs)
+        self.rhs *= dt**self.alpha/self.b[0]
+        self.mass(t, u, self.rhs2)
+        if self.k == 1:
+            self.mass(0, u, self.memory[0])
+        coeff = uninitialized((self.k), dtype=REAL)
+        coeff[0] = self.b[self.k-1]/self.b[0]
+        for j in range(1, self.k):
+            coeff[self.k-j] = (self.b[j-1]-self.b[j])/self.b[0]
+        self.rhs2.assign(np.dot(coeff, self.memory.toarray()[:self.k, :]))
+        self.rhs += self.rhs2
+
+        solver = self.solver
+        if isinstance(solver, iterative_solver):
+            solver.setInitialGuess(u)
+        solver(self.rhs, u)
+        self.mass(t+dt, u, self.memory[self.k])
+        self.k += 1
+        return t+dt
+
+
+class fastL1Scheme(Stepper):
+    """
+    Fast L1 scheme for the Caputo fractional time derivative.
+    """
+    def __init__(self, alpha, maxTimeSteps, dm, mass, solverBuilder, forcing, explicit=None, dt=None, solverIsTimeDependent=False, eps=1e-4):
+        from scipy.special import gamma
+        super(fastL1Scheme, self).__init__(dm, mass, solverBuilder, forcing, explicit, dt, solverIsTimeDependent)
+        assert not self.solverIsTimeDependent
+        assert self.dt is not None
+        assert 0 < alpha < 1.
+        self.alpha = alpha
+        self.maxTimeSteps = maxTimeSteps
+        self.eps = eps
+        self.s, self.w = self.getWeights()
+        self.Nexp = self.w.shape[0]-1
+        self.memory = self.dm.zeros(self.Nexp+1)
+        self.solver = self.solverBuilder(0., self.dt**self.alpha * gamma(2-self.alpha))
+        self.rhs = self.dm.zeros()
+        self.rhs2 = self.dm.zeros()
+        self.uold = self.dm.zeros()
+        self.k = 1
+
+    def getWeights(self):
+        from scipy.special import roots_sh_jacobi, roots_sh_legendre
+        from scipy.special import gamma
+        M = int(np.ceil(np.log2(self.maxTimeSteps*self.dt)))
+        N = int(np.ceil(np.log2(1/self.dt) + np.log2(np.log(1/self.eps))))
+        no = int(np.ceil(np.log(1/self.eps))/2)
+        ns = int(np.ceil(np.log(1/self.eps))/2)
+        nl = int(np.ceil(np.log(1/self.dt) + np.log(1/self.eps))/2)
+        s, w = [np.array([0.])], [np.array([1.])]
+        so, wo = roots_sh_jacobi(no, self.alpha+1, self.alpha+1)
+        so *= 2**M
+        wo *= (2**M)**(self.alpha+1)
+        s.append(so)
+        w.append(wo)
+        ss0, ws0 = roots_sh_legendre(ns)
+        for j in range(M, 0):
+            ss = (2**(j+1)-2**j) * ss0 + 2**j
+            ws = ws0 * (2**(j+1)-2**j) * ss**self.alpha
+            s.append(ss)
+            w.append(ws)
+        sl0, wl0 = roots_sh_legendre(nl)
+        for j in range(max(M, 0), N+1):
+            sl = (2**(j+1)-2**j)*sl0 + 2**j
+            wl = wl0 * (2**(j+1)-2**j) * sl**self.alpha
+            s.append(sl)
+            w.append(wl)
+        s = np.concatenate(s)
+        w = self.alpha * (1-self.alpha) * self.dt**self.alpha * np.concatenate(w)/gamma(1+self.alpha)
+        return s, w
+
+    def step(self, t, dt, u):
+        from scipy.special import gamma
+        if dt is None:
+            dt = self.dt
+        assert dt is not None
+        assert self.k <= self.maxTimeSteps
+        if not self.solverIsTimeDependent:
+            assert dt == self.dt
+
+        self.mass(t, u, self.rhs2)
+        if self.k == 1:
+            self.memory[0].assign(self.rhs2)
+        else:
+            expDtS = np.exp(-dt*self.s)
+            self.memory.scale(expDtS)
+            temp = expDtS/(self.s**2*dt)
+            temp[0] = 0.
+            self.memory.scaledUpdate(self.rhs2, temp * (expDtS - 1 + self.s*dt))
+            self.memory.scaledUpdate(self.uold, temp * (1 - expDtS - expDtS*self.s*dt))
+            del expDtS, temp
+        self.uold.assign(self.rhs2)
+
+        self.forcing(t+dt, self.rhs)
+        self.rhs *= dt**self.alpha * gamma(2-self.alpha)
+
+        self.rhs2 *= self.alpha
+        self.rhs += self.rhs2
+
+        self.w[0] = (1-self.alpha) * (dt/(t+dt))**self.alpha
+        self.rhs2.assign(np.dot(self.w, self.memory.toarray()))
+        self.rhs += self.rhs2
+
+        solver = self.solver
+        if isinstance(solver, iterative_solver):
+            solver.setInitialGuess(u)
+        solver(self.rhs, u)
+
+        self.k += 1
+        return t+dt
 
 
 class IMEX:

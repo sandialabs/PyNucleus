@@ -6,12 +6,10 @@
 ###################################################################################
 
 
-from subprocess import Popen, PIPE, STDOUT
-import re
 try:
-    from PyNucleus_base.setupUtils import package
+    from PyNucleus_packageTools import package
 except ImportError as e:
-    raise ImportError('\'PyNucleus_base\' needs to be installed first.') from e
+    raise ImportError('\'PyNucleus_packageTools\' needs to be installed first.') from e
 
 try:
     import cython
@@ -32,6 +30,7 @@ return IDXTYPEWIDTH, REALTYPEWIDTH""",
 p.addOption('IDXTYPEWIDTH', 'METIS_idx_width', idx)
 p.addOption('REALTYPEWIDTH', 'METIS_real_width', real)
 p.loadConfig()
+p.addPackageInclude('PyNucleus_base')
 
 p.addExtension("metisCy",
                sources=[p.folder+"metisCy.pyx"],

@@ -7,9 +7,9 @@
 
 
 try:
-    from PyNucleus_base.setupUtils import package
+    from PyNucleus_packageTools import package
 except ImportError as e:
-    raise ImportError('\'PyNucleus_base\' needs to be installed first.') from e
+    raise ImportError('\'PyNucleus_packageTools\' needs to be installed first.') from e
 from PyNucleus_packageTools import fillTemplate
 from pathlib import Path
 
@@ -17,6 +17,7 @@ p = package('PyNucleus_fem')
 p.addOption('USE_METIS', 'use_metis', True, ['PyNucleus_metisCy'])
 
 p.loadConfig()
+p.addPackageInclude('PyNucleus_base')
 
 print('Generating templates')
 templates = [

@@ -210,6 +210,47 @@ cdef class {SCALAR_label}SSS_LinearOperator({SCALAR_label}LinearOperator):
         return csr_matrix((data_mem, indices_mem, indptr_mem),
                           shape=self.shape)
 
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    def to_lower_csc(self):
+        cdef:
+            np.ndarray[INDEX_t, ndim=1] indptr_mem = np.zeros((self.num_rows+1),
+                                                              dtype=INDEX)
+            INDEX_t[::1] indptr = indptr_mem
+            np.ndarray[INDEX_t, ndim=1] indices_mem
+            INDEX_t[::1] indices
+            np.ndarray[{SCALAR}_t, ndim=1] data_mem
+            {SCALAR}_t[::1] data
+            INDEX_t i, jj, j, nnz
+        for i in range(self.num_rows):
+            indptr[i+1] += 1
+            for jj in range(self.indptr[i], self.indptr[i+1]):
+                j = self.indices[jj]
+                indptr[j+1] += 1
+        for i in range(self.num_rows):
+            indptr[i+1] += indptr[i]
+        nnz = indptr[indptr.shape[0]-1]
+        indices_mem = uninitialized((nnz), dtype=INDEX)
+        indices = indices_mem
+        data_mem = uninitialized((nnz), dtype={SCALAR})
+        data = data_mem
+        for i in range(self.num_rows):
+            indices[indptr[i]] = i
+            data[indptr[i]] = self.diagonal[i]
+            indptr[i] += 1
+            for jj in range(self.indptr[i], self.indptr[i+1]):
+                j = self.indices[jj]
+                indices[indptr[j]] = i
+                data[indptr[j]] = self.data[jj]
+                indptr[j] += 1
+        for i in range(self.num_rows, 0, -1):
+            indptr[i] = indptr[i-1]
+        indptr[0] = 0
+        from scipy.sparse import csc_matrix
+        return csc_matrix((data_mem, indices_mem, indptr_mem),
+                          shape=self.shape)
+
     def to_csr_linear_operator(self):
         B = self.to_csr()
         return {SCALAR_label}CSR_LinearOperator(B.indices, B.indptr, B.data)

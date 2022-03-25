@@ -16,7 +16,7 @@ cdef class {SCALAR_label}IJOperator({SCALAR_label}LinearOperator):
     @cython.wraparound(False)
     cdef void setEntry({SCALAR_label}IJOperator self, INDEX_t I, INDEX_t J, {SCALAR}_t val):
         cdef:
-            intTuple hv = intTuple.create2(I, J)
+            ENCODE_t hv = MAX_VAL*<ENCODE_t>I+<ENCODE_t>J
         self.entries[hv] = val
 
     @cython.initializedcheck(False)
@@ -24,7 +24,7 @@ cdef class {SCALAR_label}IJOperator({SCALAR_label}LinearOperator):
     @cython.wraparound(False)
     cdef void addToEntry({SCALAR_label}IJOperator self, INDEX_t I, INDEX_t J, {SCALAR}_t val):
         cdef:
-            intTuple hv = intTuple.create2(I, J)
+            ENCODE_t hv = MAX_VAL*<ENCODE_t>I+<ENCODE_t>J
             REAL_t oldVal
         oldVal = self.entries.pop(hv, 0.)
         self.entries[hv] = oldVal+val
@@ -34,7 +34,7 @@ cdef class {SCALAR_label}IJOperator({SCALAR_label}LinearOperator):
     @cython.wraparound(False)
     cdef {SCALAR}_t getEntry({SCALAR_label}IJOperator self, INDEX_t I, INDEX_t J):
         cdef:
-            intTuple hv = intTuple.create2(I, J)
+            ENCODE_t hv = MAX_VAL*<ENCODE_t>I+<ENCODE_t>J
         return self.entries.get(hv, 0.)
 
     @cython.initializedcheck(False)
@@ -45,17 +45,14 @@ cdef class {SCALAR_label}IJOperator({SCALAR_label}LinearOperator):
             INDEX_t[::1] I, J
             {SCALAR}_t[::1] data
             INDEX_t numEntries = len(self.entries)
-            intTuple hv
-            INDEX_t[::1] pair
+            ENCODE_t hv
             INDEX_t k = 0
         I = np.empty((numEntries), dtype=INDEX)
         J = np.empty((numEntries), dtype=INDEX)
         data = np.empty((numEntries), dtype={SCALAR})
-        pair = np.empty((2), dtype=INDEX)
         for hv in self.entries:
-            hv.get(&pair[0])
-            I[k] = pair[0]
-            J[k] = pair[1]
+            I[k] = hv // MAX_VAL
+            J[k] = hv % MAX_VAL
             data[k] = self.entries[hv]
             k += 1
         return (np.array(I, copy=False),
@@ -67,19 +64,16 @@ cdef class {SCALAR_label}IJOperator({SCALAR_label}LinearOperator):
             INDEX_t[::1] indptr = np.zeros((self.num_rows+1), dtype=INDEX)
             INDEX_t[::1] indices = uninitialized((len(self.entries)), dtype=INDEX)
             REAL_t[::1] data = uninitialized((len(self.entries)), dtype=REAL)
-            INDEX_t[::1] pair = np.empty((2), dtype=INDEX)
-            intTuple hv
+            ENCODE_t hv
             INDEX_t I
         for hv in self.entries:
-            hv.get(&pair[0])
-            I = pair[0]
+            I = hv // MAX_VAL
             indptr[I+1] += 1
         for I in range(self.num_rows):
             indptr[I+1] += indptr[I]
         for hv in self.entries:
-            hv.get(&pair[0])
-            I = pair[0]
-            indices[indptr[I]] = pair[1]
+            I = hv // MAX_VAL
+            indices[indptr[I]] = hv % MAX_VAL
             data[indptr[I]] = self.entries[hv]
             indptr[I] += 1
         for I in range(self.num_rows-1, 0, -1):

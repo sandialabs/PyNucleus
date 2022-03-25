@@ -48,6 +48,7 @@ cdef class lu_solver(solver):
         object Ainv, lu
 
 
+
 cdef class chol_solver(solver):
     cdef:
         object Ainv

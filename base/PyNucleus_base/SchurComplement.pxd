@@ -6,11 +6,7 @@
 ###################################################################################
 
 
-from PyNucleus_packageTools import package as packageBase
-import os
+from . myTypes cimport INDEX_t, REAL_t, COMPLEX_t, BOOL_t
 
-
-class package(packageBase):
-    def setInclude(self):
-        super(package, self).setInclude()
-        self.config['includeDirs'].append(os.path.dirname(os.path.realpath(__file__)))
+include "SchurComplement_decl_REAL.pxi"
+include "SchurComplement_decl_COMPLEX.pxi"

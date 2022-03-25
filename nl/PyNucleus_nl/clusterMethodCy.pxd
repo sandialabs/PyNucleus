@@ -20,6 +20,30 @@ from PyNucleus_fem.meshCy cimport meshBase
 from . fractionalOrders cimport fractionalOrderBase
 from . kernelsCy cimport FractionalKernel
 
+cdef class transferMatrixBuilder:
+    cdef:
+        INDEX_t m
+        INDEX_t dim
+        REAL_t[:, ::1] omega
+        REAL_t[:, ::1] beta
+        REAL_t[:, ::1] xiC
+        REAL_t[:, ::1] xiP
+        REAL_t[::1] eta
+        productIterator pit
+        productIterator pit2
+
+    cdef void build(self,
+                    REAL_t[:, ::1] boxP,
+                    REAL_t[:, ::1] boxC,
+                    REAL_t[:, ::1] T)
+
+
+cdef enum refinementType:
+    GEOMETRIC
+    BARYCENTER
+    MEDIAN
+
+
 cdef class tree_node:
     cdef:
         public tree_node parent
@@ -37,7 +61,14 @@ cdef class tree_node:
         public BOOL_t mixed_node
         public BOOL_t canBeAssembled
     cdef indexSet get_dofs(self)
+    cdef INDEX_t get_num_dofs(self)
     cdef indexSet get_cells(self)
+    cdef BOOL_t get_is_leaf(self)
+    cdef INDEX_t _getLevels(self)
+    cdef void prepareTransferOperators(self, INDEX_t m, transferMatrixBuilder tMB=*)
+    cdef void upwardPass(self, REAL_t[::1] x, INDEX_t componentNo=*)
+    cdef void resetCoefficientsDown(self)
+    cdef void downwardPass(self, REAL_t[::1] y, INDEX_t componentNo=*)
     cpdef INDEX_t findCell(self, meshBase mesh, REAL_t[::1] vertex, REAL_t[:, ::1] simplex, REAL_t[::1] bary)
     cpdef set findCells(self, meshBase mesh, REAL_t[::1] vertex, REAL_t r, REAL_t[:, ::1] simplex)
     cdef tree_node get_node(self, INDEX_t id)

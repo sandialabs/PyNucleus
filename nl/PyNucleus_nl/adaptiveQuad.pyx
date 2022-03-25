@@ -51,7 +51,7 @@ cdef enum packType:
 cdef inline Kernel getKernel(void *c_params, size_t pos):
     return <Kernel>((<void**>(c_params+pos))[0])
 
-cdef inline Kernel setKernel(void *c_params, size_t pos, Kernel kernel):
+cdef inline void setKernel(void *c_params, size_t pos, Kernel kernel):
     (<void**>(c_params+pos))[0] = <void*>kernel
 
 

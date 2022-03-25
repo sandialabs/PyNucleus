@@ -33,6 +33,12 @@ cdef class leftRightTwoPoint(twoPointFunction):
         public REAL_t ll, lr, rl, rr, interface
 
 
+cdef class interfaceTwoPoint(twoPointFunction):
+    cdef:
+        public REAL_t horizon1, horizon2, interface
+        public BOOL_t left
+
+
 cdef class matrixTwoPoint(twoPointFunction):
     cdef:
         public REAL_t[:, ::1] mat

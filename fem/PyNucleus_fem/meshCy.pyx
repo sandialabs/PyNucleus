@@ -19,6 +19,7 @@ from libc.stdlib cimport qsort
 from PyNucleus_base.myTypes import INDEX, REAL, ENCODE, TAG
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, ENCODE_t, TAG_t
 from PyNucleus_base.blas cimport mydot
+from PyNucleus_base.intTuple cimport productIterator
 import warnings
 
 cdef INDEX_t MAX_INT = np.iinfo(INDEX).max
@@ -684,7 +685,7 @@ cdef class meshBase:
     @cython.initializedcheck(False)
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    cdef BOOL_t vertexInCell(self, REAL_t[::1] vertex, INDEX_t cellNo, REAL_t[:, ::1] simplexMem, REAL_t[::1] baryMem):
+    cdef BOOL_t vertexInCell(self, REAL_t[::1] vertex, INDEX_t cellNo, REAL_t[:, ::1] simplexMem, REAL_t[::1] baryMem, REAL_t tol=0.):
         cdef:
             INDEX_t i
         self.getSimplex(cellNo, simplexMem)
@@ -695,14 +696,14 @@ cdef class meshBase:
         else:
             raise NotImplementedError()
         for i in range(self.dim+1):
-            if baryMem[i] < 0.:
+            if baryMem[i] < -tol:
                 return False
         return True
 
-    def vertexInCell_py(self, REAL_t[::1] vertex, INDEX_t cellNo):
+    def vertexInCell_py(self, REAL_t[::1] vertex, INDEX_t cellNo, REAL_t tol=0.):
         simplex = uninitialized((self.dim+1, self.dim), dtype=REAL)
         bary = uninitialized((self.dim+1), dtype=REAL)
-        return self.vertexInCell(vertex, cellNo, simplex, bary)
+        return self.vertexInCell(vertex, cellNo, simplex, bary, tol)
 
     def getCellConnectivity(self, INDEX_t common_nodes=-1):
         cdef:
@@ -2193,16 +2194,30 @@ cdef class cellFinder2:
         cdef:
             INDEX_t j, cellNo, vertexNo, v
             set candidates, toCheck = set()
+            productIterator pit
+            INDEX_t[::1] keyCenter
         for j in range(self.mesh.dim):
             self.key[j] = <INDEX_t>((vertex[j]-self.x_min[j]) * self.diamInv[j])
         try:
             candidates = self.lookup[self.myKey]
         except KeyError:
-            return -1
+            keyCenter = np.array(self.key, copy=True)
+            pit = productIterator(3, self.mesh.dim)
+            candidates = set()
+            pit.reset()
+            while pit.step():
+                for j in range(self.mesh.dim):
+                    self.key[j] = keyCenter[j] + pit.idx[j]-1
+                try:
+                    candidates |= self.lookup[self.myKey]
+                except KeyError:
+                    pass
 
+        # check if the vertex is in any of the cells
         for cellNo in candidates:
             if self.mesh.vertexInCell(vertex, cellNo, self.simplex, self.bary):
                 return cellNo
+        # add neighboring cells of candidate cells
         for cellNo in candidates:
             for vertexNo in range(self.mesh.dim+1):
                 v = self.mesh.cells[cellNo, vertexNo]
@@ -2210,6 +2225,13 @@ cdef class cellFinder2:
         toCheck -= candidates
         for cellNo in toCheck:
             if self.mesh.vertexInCell(vertex, cellNo, self.simplex, self.bary):
+                return cellNo
+        # allow for some extra room
+        for cellNo in candidates:
+            if self.mesh.vertexInCell(vertex, cellNo, self.simplex, self.bary, 1e-15):
+                return cellNo
+        for cellNo in toCheck:
+            if self.mesh.vertexInCell(vertex, cellNo, self.simplex, self.bary, 1e-15):
                 return cellNo
         return -1
 

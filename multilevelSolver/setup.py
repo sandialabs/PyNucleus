@@ -8,15 +8,17 @@
 
 from pathlib import Path
 try:
-    from PyNucleus_base.setupUtils import package
+    from PyNucleus_packageTools import package
 except ImportError as e:
-    raise ImportError('\'PyNucleus_base\' needs to be installed first.') from e
+    raise ImportError('\'PyNucleus_packageTools\' needs to be installed first.') from e
 from PyNucleus_packageTools import fillTemplate
 
 
 p = package('PyNucleus_multilevelSolver')
 
 p.loadConfig()
+p.addPackageInclude('PyNucleus_base')
+p.addPackageInclude('PyNucleus_fem')
 
 print('Generating templates')
 templates = [

@@ -45,9 +45,10 @@ cdef class meshBase:
                          const INDEX_t cellIdx,
                          REAL_t[:, ::1] simplex)
     cdef BOOL_t vertexInCell(self, REAL_t[::1] vertex,
-                           INDEX_t cellNo,
-                           REAL_t[:, ::1] simplexMem,
-                           REAL_t[::1] baryMem)
+                             INDEX_t cellNo,
+                             REAL_t[:, ::1] simplexMem,
+                             REAL_t[::1] baryMem,
+                             REAL_t tol=*)
 
 
 cdef void decode_edge(ENCODE_t encodeVal, INDEX_t[::1] e)

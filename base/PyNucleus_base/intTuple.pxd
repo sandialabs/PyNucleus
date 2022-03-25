@@ -6,7 +6,7 @@
 ###################################################################################
 
 
-from . myTypes cimport INDEX_t
+from . myTypes cimport INDEX_t, BOOL_t
 
 
 cdef class intTuple:
@@ -27,3 +27,12 @@ cdef class intTuple:
     cdef intTuple create2(INDEX_t a, INDEX_t b)
     @staticmethod
     cdef intTuple create3(INDEX_t a, INDEX_t b, INDEX_t c)
+
+
+cdef class productIterator:
+    cdef:
+        INDEX_t m
+        INDEX_t dim
+        INDEX_t[::1] idx
+    cdef void reset(self)
+    cdef BOOL_t step(self)
