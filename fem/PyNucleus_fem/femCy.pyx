@@ -1917,6 +1917,108 @@ def assembleRHScomplex(complexFunction fun, DoFMap dm,
     return dataVec
 
 
+@cython.boundscheck(False)
+@cython.cdivision(True)
+def assembleRHSgrad(FUNCTION_t fun, DoFMap dm,
+                    vectorFunction coeff,
+                    simplexQuadratureRule qr=None):
+    # assembles (f, \grad v)
+    cdef:
+        meshBase mesh = dm.mesh
+        INDEX_t dim = mesh.dim
+        INDEX_t dimManifold = mesh.manifold_dim
+        INDEX_t num_vertices = dimManifold+1
+        INDEX_t num_quad_nodes
+        REAL_t[:, ::1] PHI
+        REAL_t[:, :, ::1] PHIVector
+        REAL_t[::1] weights
+        INDEX_t i, k, j, l, I
+        fe_vector dataVec
+        vector_t data
+        REAL_t vol
+        REAL_t[:, ::1] span = uninitialized((mesh.manifold_dim, mesh.dim), dtype=REAL)
+        REAL_t[:, ::1] simplex = uninitialized((mesh.manifold_dim+1, mesh.dim),
+                                                 dtype=REAL)
+        volume_t volume
+        vectorShapeFunction phi
+        REAL_t[::1] fvals
+        REAL_t[:, ::1] fvalsVector
+
+    assert isinstance(dm, P1_DoFMap)
+    assert dim == 1 or dim == 2
+
+    if qr is None:
+        if dim == dimManifold:
+            if dimManifold == 1:
+                if isinstance(dm, P0_DoFMap):
+                    qr = Gauss1D(order=3)
+                elif isinstance(dm, P1_DoFMap):
+                    qr = Gauss1D(order=3)
+                elif isinstance(dm, P2_DoFMap):
+                    qr = Gauss1D(order=5)
+                volume = volume1Dnew
+            elif dimManifold == 2:
+                if isinstance(dm, P0_DoFMap):
+                    qr = Gauss2D(order=2)
+                elif isinstance(dm, P1_DoFMap):
+                    qr = Gauss2D(order=2)
+                elif isinstance(dm, P2_DoFMap):
+                    qr = Gauss2D(order=5)
+                volume = volume2Dnew
+            elif dimManifold == 3:
+                if isinstance(dm, P1_DoFMap):
+                    qr = Gauss3D(order=3)
+                elif isinstance(dm, P2_DoFMap):
+                    qr = Gauss3D(order=3)
+                volume = volume3D
+            else:
+                raise NotImplementedError()
+        if qr is None:
+            qr = simplexXiaoGimbutas(2*dm.polynomialOrder+2, dim, dimManifold)
+            volume = qr.volume
+    else:
+        volume = qr.volume
+
+    dataVec = dm.zeros()
+    data = dataVec
+    weights = qr.weights
+    num_quad_nodes = qr.num_nodes
+
+    if FUNCTION_t is function:
+        fvals = uninitialized((num_quad_nodes), dtype=REAL)
+        temp = uninitialized((4, 2), dtype=REAL)
+        innerProducts = uninitialized((3), dtype=REAL)
+
+        for i in range(mesh.num_cells):
+            # Get local vertices
+            mesh.getSimplex(i, simplex)
+
+            # Calculate volume
+            for k in range(num_vertices-1):
+                for j in range(dim):
+                    span[k, j] = simplex[k+1, j]-simplex[0, j]
+            vol = volume(span)
+
+            if dim == 1:
+                coeffProducts1D(simplex, vol, coeff, innerProducts, temp)
+            elif dim == 2:
+                coeffProducts2D(simplex, vol, coeff, innerProducts, temp)
+
+            # Get function values at quadrature nodes
+            qr.evalFun(fun, simplex, fvals)
+
+            # Put everything together
+            for k in range(dm.dofs_per_element):
+                I = dm.cell2dof(i, k)
+                if I < 0:
+                    continue
+                for j in range(num_quad_nodes):
+                    data[I] += vol*weights[j]*fvals[j]*innerProducts[k]
+    else:
+        raise NotImplementedError()
+    return dataVec
+
+
 
 cdef class multi_function:
     cdef:

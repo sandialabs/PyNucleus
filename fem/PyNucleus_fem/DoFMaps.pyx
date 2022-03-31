@@ -675,7 +675,20 @@ cdef class DoFMap:
         else:
             return assembleRHS(fun, self, qr)
 
-    
+    def assembleRHSgrad(self,
+                        fun,
+                        vectorFunction coeff,
+                        simplexQuadratureRule qr=None):
+        """Assemble
+
+        .. math::
+
+           \int_D fun(x) (coeff(x) \cdot \nabla v(x)) dx
+
+        """
+        from . femCy import assembleRHSgrad
+        return assembleRHSgrad(fun, self, coeff, qr)
+
     def assembleNonlocal(self, kernel, str matrixFormat='DENSE', DoFMap dm2=None, BOOL_t returnNearField=False, **kwargs):
         """Assemble a nonlocal operator of the form
 
