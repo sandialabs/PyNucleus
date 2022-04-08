@@ -125,7 +125,9 @@ class package:
         except ImportError as e:
             raise ImportError('\'{}\' needs to be installed first.'.format(packageName)) from e
 
-    def parseConfig(self, filename='../config.yaml', extra_config={}):
+    def parseConfig(self, filename=None, extra_config={}):
+        if filename is None:
+            filename = os.getcwd()+'/../config.yaml'
         defaults = self.defaults
         if Path(filename).exists():
             import yaml
@@ -137,7 +139,9 @@ class package:
         self.config.update(extra_config)
         self.configLoaded = True
 
-    def loadConfig(self, filename='../config.yaml', extra_config={}):
+    def loadConfig(self, filename=None, extra_config={}):
+        if filename is None:
+            filename = os.getcwd()+'/../config.yaml'
         self.parseConfig(filename, extra_config)
         self.setCompiler()
         self.setInclude()
