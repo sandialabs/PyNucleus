@@ -70,3 +70,6 @@ cdef class nearFieldClusterPair:
     cdef:
         public tree_node n1, n2
         public indexSet cellsUnion, cellsInter
+
+
+cdef LinearOperator getSparseNearField(DoFMap DoFMap, list Pnear, bint symmetric=*)
