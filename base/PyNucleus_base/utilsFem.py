@@ -843,7 +843,7 @@ class driver:
         if self.isMaster:
             # self.parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
             from os import environ
-            width = environ.get('COLUMNS', 200)
+            width = int(environ.get('COLUMNS', 200))
             self.parser = argparse.ArgumentParser(formatter_class=lambda prog: argparse.ArgumentDefaultsHelpFormatter(prog, max_help_position=50, width=width),
                                                   description=description)
             self.mainGroup = self.parser.add_argument_group('main')
