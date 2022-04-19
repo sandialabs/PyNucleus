@@ -848,7 +848,7 @@ cdef class DoFMap:
                     return uninitialized((numVecs, self.num_dofs), dtype=dtype)
 
     def fromArray(self, data):
-        assert data.shape[0] == self.num_dofs
+        assert data.shape[0] == self.num_dofs, (data.shape[0], self.num_dofs)
         if data.dtype == COMPLEX:
             return complex_fe_vector(data, self)
         else:
@@ -2039,8 +2039,8 @@ def generateLocalMassMatrix(DoFMap dm, DoFMap dm2=None):
 cdef class lookupFunction(function):
     cdef:
         meshBase mesh
-        DoFMap dm
-        REAL_t[::1] u
+        public DoFMap dm
+        public REAL_t[::1] u
         public cellFinder2 cellFinder
 
     def __init__(self, meshBase mesh, DoFMap dm, REAL_t[::1] u, cellFinder2 cF=None):
