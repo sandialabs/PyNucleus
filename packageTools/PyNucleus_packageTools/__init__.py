@@ -288,10 +288,14 @@ class package:
                                               annotate=self.config['annotate'],
                                               nthreads=self.config['threads'])
         kwargs['name'] = self.name
-        import versioneer
-        kwargs['version'] = versioneer.get_version()
-        # kwargs['cmdclass'] = versioneer.get_cmdclass()
+        try:
+            import versioneer
+            kwargs['version'] = versioneer.get_version()
+            # kwargs['cmdclass'] = versioneer.get_cmdclass()
+        except (ImportError, FileNotFoundError):
+            pass
         # kwargs['version'] = self.getGitDate()
+
         if self.namespace != '':
             kwargs['namespace_packages'] = [self.namespace]
         if self.namespace != '':
