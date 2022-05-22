@@ -56,6 +56,11 @@ cdef class smoothedLeftRightTwoPoint(twoPointFunction):
         public REAL_t vl, vr, r, slope, fac
 
 
+cdef class unsymTwoPoint(twoPointFunction):
+    cdef:
+        public REAL_t l, r
+
+
 cdef class parametrizedTwoPointFunction(twoPointFunction):
     cdef:
         void *params

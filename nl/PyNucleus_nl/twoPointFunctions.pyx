@@ -489,6 +489,36 @@ cdef class smoothedLeftRightTwoPoint(twoPointFunction):
         return 0.5*(self.vl+self.vr)+0.5*(self.vr-self.vl)*atan(x[0]*self.slope) * self.fac
 
 
+cdef class unsymTwoPoint(twoPointFunction):
+    def __init__(self, REAL_t l, REAL_t r):
+        super(unsymTwoPoint, self).__init__(l == r)
+        self.l = l
+        self.r = r
+
+    def __getstate__(self):
+        return (self.l, self.r)
+
+    def __setstate__(self, state):
+        unsymTwoPoint.__init__(self, state[0], state[1])
+
+    def __repr__(self):
+        return '{}(l={},r={})'.format(self.__class__.__name__, self.l, self.r)
+
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
+        if x[0] < y[0]:
+            return self.l
+        else:
+            return self.r
+
+    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
+        if x[0] < y[0]:
+            return self.l
+        else:
+            return self.r
+
+
 cdef class parametrizedTwoPointFunction(twoPointFunction):
     def __init__(self, BOOL_t symmetric):
         super(parametrizedTwoPointFunction, self).__init__(symmetric)

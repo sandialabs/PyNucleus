@@ -1201,7 +1201,7 @@ cdef class nonlocalBuilder:
     @cython.initializedcheck(False)
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    cpdef LinearOperator assembleClusters(self, list Pnear, bint forceUnsymmetric=False, LinearOperator Anear=None, dict jumps={}, BOOL_t forceSymmetric=False, indexSet myDofs=None, str prefix=''):
+    cpdef LinearOperator assembleClusters(self, list Pnear, bint forceUnsymmetric=False, LinearOperator Anear=None, dict jumps={}, indexSet myDofs=None, str prefix=''):
         cdef:
             INDEX_t cellNo1, cellNo2, cellNo3
             REAL_t fac
@@ -1431,7 +1431,7 @@ cdef class nonlocalBuilder:
             with self.PLogger.Timer(prefix+'cluster exterior'):
                 iM = IndexManager(self.dm, Anear_filtered)
 
-                fake_cells = np.empty((1, self.mesh.dim), dtype=INDEX)
+                fake_cells = uninitialized((1, self.mesh.dim), dtype=INDEX)
                 for cluster in Pnear:
 
                     cellsInter = cluster.cellsInter
@@ -1601,32 +1601,7 @@ cdef class nonlocalBuilder:
         if self.comm.rank == 0:
             LOGGER.info('Near field entries per rank: {} ({}) / {} / {} ({}) imbalance: {}'.format(counts.min(), counts.argmin(), counts.mean(), counts.max(), counts.argmax(), counts.max()/counts.min()))
         # drop entries that are not in rows of myRoot.dofs
-        indptr = np.zeros((self.dm.num_dofs+1), dtype=INDEX)
-        while it.step():
-            k = it.i
-            indptr[k+1] = A_indptr[k+1]-A_indptr[k]
-        for k in range(self.dm.num_dofs):
-            indptr[k+1] += indptr[k]
-        indices = np.empty((indptr[self.dm.num_dofs]), dtype=INDEX)
-        data = np.empty((indptr[self.dm.num_dofs]), dtype=REAL)
-        it.reset()
-        while it.step():
-            k = it.i
-            kk = indptr[k]
-            for jj in range(A_indptr[k], A_indptr[k+1]):
-                indices[kk] = A_indices[jj]
-                data[kk] = A_data[jj]
-                kk += 1
-        if isinstance(Anear, SSS_LinearOperator):
-            A_diagonal = Anear.diagonal
-            diagonal = np.zeros((self.dm.num_dofs), dtype=REAL)
-            it.reset()
-            while it.step():
-                k = it.i
-                diagonal[k] = A_diagonal[k]
-            Anear = SSS_LinearOperator(indices, indptr, data, diagonal)
-        else:
-            Anear = CSR_LinearOperator(indices, indptr, data)
+        Anear = self.dropOffRank(Anear, myDofs)
 
         A_indptr = Anear.indptr
 
@@ -1644,8 +1619,8 @@ cdef class nonlocalBuilder:
                 indptr[k+1] += indptr[k]
             nnz = indptr[self.dm.num_dofs]
 
-            indices = np.empty((nnz), dtype=INDEX)
-            data = np.empty((nnz), dtype=REAL)
+            indices = uninitialized((nnz), dtype=INDEX)
+            data = uninitialized((nnz), dtype=REAL)
             if isinstance(Anear, SSS_LinearOperator):
                 diagonal = np.zeros((self.dm.num_dofs), dtype=REAL)
 
@@ -1684,6 +1659,43 @@ cdef class nonlocalBuilder:
         else:
             LOGGER.info('Anear reduced: {}'.format(Anear))
         # Anear = self.comm.bcast(Anear, root=0)
+        return Anear
+
+    def dropOffRank(self, LinearOperator Anear, indexSet myDofs):
+        cdef:
+            INDEX_t k = -1, kk, jj
+            INDEX_t[::1] A_indptr = Anear.indptr, A_indices = Anear.indices
+            REAL_t[::1] A_data = Anear.data, A_diagonal = None
+            INDEX_t[::1] indptr, indices
+            REAL_t[::1] data, diagonal = None
+            indexSetIterator it = myDofs.getIter()
+        # drop entries that are not in rows of myRoot.dofs
+        indptr = np.zeros((self.dm.num_dofs+1), dtype=INDEX)
+        while it.step():
+            k = it.i
+            indptr[k+1] = A_indptr[k+1]-A_indptr[k]
+        for k in range(self.dm.num_dofs):
+            indptr[k+1] += indptr[k]
+        indices = uninitialized((indptr[self.dm.num_dofs]), dtype=INDEX)
+        data = uninitialized((indptr[self.dm.num_dofs]), dtype=REAL)
+        it.reset()
+        while it.step():
+            k = it.i
+            kk = indptr[k]
+            for jj in range(A_indptr[k], A_indptr[k+1]):
+                indices[kk] = A_indices[jj]
+                data[kk] = A_data[jj]
+                kk += 1
+        if isinstance(Anear, SSS_LinearOperator):
+            A_diagonal = Anear.diagonal
+            diagonal = np.zeros((self.dm.num_dofs), dtype=REAL)
+            it.reset()
+            while it.step():
+                k = it.i
+                diagonal[k] = A_diagonal[k]
+            Anear = SSS_LinearOperator(indices, indptr, data, diagonal)
+        else:
+            Anear = CSR_LinearOperator(indices, indptr, data)
         return Anear
 
     def getDiagonal(self):
@@ -1941,7 +1953,8 @@ cdef class nonlocalBuilder:
                               tree_node root, tree_node myRoot,
                               BOOL_t doDistributedAssembly,
                               REAL_t eta,
-                              INDEX_t minFarFieldBlockSize):
+                              INDEX_t minFarFieldBlockSize,
+                              BOOL_t assembleOnRoot=True):
         cdef:
             dict Pfar = {}
             list Pnear = []
@@ -1970,43 +1983,44 @@ cdef class nonlocalBuilder:
                 self.comm.Gather(np.array([nnz], dtype=INDEX), counts)
                 LOGGER.info('Near field entries per rank: {} ({}) / {} / {} ({})'.format(counts.min(), counts.argmin(), counts.mean(), counts.max(), counts.argmax()))
 
-                # collect far field on rank 0
-                farField = []
-                for lvl in Pfar:
-                    for cP in Pfar[lvl]:
-                        # "lvl+1", since the ranks are children of the global root
-                        farField.append((lvl+1, cP.n1.id, cP.n2.id))
-                farField = np.array(farField, dtype=INDEX)
-                self.comm.Gather(np.array([farField.shape[0]], dtype=INDEX), counts)
-                if self.comm.rank == 0:
-                    LOGGER.info('Far field cluster pairs per rank: {} ({}) / {} / {} ({})'.format(counts.min(), counts.argmin(), counts.mean(), counts.max(), counts.argmax()))
-                    N = 0
-                    for rank in range(self.comm.size):
-                        N += counts[rank]
-                    farFieldCollected = uninitialized((N, 3), dtype=INDEX)
-                    counts *= 3
-                else:
-                    farFieldCollected = None
-                self.comm.Gatherv(farField, [farFieldCollected, (counts, None)], root=0)
-                del farField
+                if assembleOnRoot:
+                    # collect far field on rank 0
+                    farField = []
+                    for lvl in Pfar:
+                        for cP in Pfar[lvl]:
+                            # "lvl+1", since the ranks are children of the global root
+                            farField.append((lvl+1, cP.n1.id, cP.n2.id))
+                    farField = np.array(farField, dtype=INDEX)
+                    self.comm.Gather(np.array([farField.shape[0]], dtype=INDEX), counts)
+                    if self.comm.rank == 0:
+                        LOGGER.info('Far field cluster pairs per rank: {} ({}) / {} / {} ({})'.format(counts.min(), counts.argmin(), counts.mean(), counts.max(), counts.argmax()))
+                        N = 0
+                        for rank in range(self.comm.size):
+                            N += counts[rank]
+                        farFieldCollected = uninitialized((N, 3), dtype=INDEX)
+                        counts *= 3
+                    else:
+                        farFieldCollected = None
+                    self.comm.Gatherv(farField, [farFieldCollected, (counts, None)], root=0)
+                    del farField
 
-                if self.comm.rank == 0:
-                    Pfar = {}
-                    added = {}
-                    for k in range(farFieldCollected.shape[0]):
-                        lvl, id1, id2 = farFieldCollected[k, :]
-                        cP = farFieldClusterPair(root.get_node(id1),
-                                                 root.get_node(id2))
-                        try:
-                            if (id1, id2) not in added[lvl]:
-                                Pfar[lvl].append(cP)
-                                added[lvl].add((id1, id2))
-                        except KeyError:
-                            Pfar[lvl] = [cP]
-                            added[lvl] = set([(id1, id2)])
-                    del farFieldCollected
-                else:
-                    Pfar = {}
+                    if self.comm.rank == 0:
+                        Pfar = {}
+                        added = {}
+                        for k in range(farFieldCollected.shape[0]):
+                            lvl, id1, id2 = farFieldCollected[k, :]
+                            cP = farFieldClusterPair(root.get_node(id1),
+                                                     root.get_node(id2))
+                            try:
+                                if (id1, id2) not in added[lvl]:
+                                    Pfar[lvl].append(cP)
+                                    added[lvl].add((id1, id2))
+                            except KeyError:
+                                Pfar[lvl] = [cP]
+                                added[lvl] = set([(id1, id2)])
+                        del farFieldCollected
+                    else:
+                        Pfar = {}
             else:
                 getAdmissibleClusters(self.local_matrix.kernel, root, root,
                                       eta=eta, farFieldInteractionSize=minFarFieldBlockSize,
@@ -2028,7 +2042,7 @@ cdef class nonlocalBuilder:
             dict jumps
             indexSet myDofs
             INDEX_t interpolation_order, maxLevels, minClusterSize, minMixedClusterSize, minFarFieldBlockSize
-            BOOL_t forceUnsymmetric, doDistributedAssembly = False
+            BOOL_t forceUnsymmetric, doDistributedAssembly = False, assembleOnRoot = True
         assert isinstance(self.kernel, FractionalKernel), 'H2 is only implemented for fractional kernels'
 
         target_order = self.local_matrix.target_order
@@ -2048,7 +2062,7 @@ cdef class nonlocalBuilder:
             maxLevels = mL
         mCS = self.params.get('minClusterSize', None)
         if mCS is None:
-            minClusterSize = 1
+            minClusterSize = interpolation_order**mesh.dim//2
         else:
             minClusterSize = mCS
         minMixedClusterSize = minClusterSize
@@ -2064,13 +2078,14 @@ cdef class nonlocalBuilder:
             minFarFieldBlockSize = mFFBS
         forceUnsymmetric = self.params.get('forceUnsymmetric', False)
         doDistributedAssembly = self.comm is not None and self.comm.size > 1 and DoFMap.num_dofs > self.comm.size
+        assembleOnRoot = self.params.get('assembleOnRoot', True)
         LOGGER.info('interpolation_order: {}, maxLevels: {}, minClusterSize: {}, minMixedClusterSize: {}, minFarFieldBlockSize: {}, distributedAssembly: {}, eta: {}'.format(interpolation_order, maxLevels, minClusterSize, minMixedClusterSize, minFarFieldBlockSize, doDistributedAssembly, eta))
 
         # construct the cluster tree
         (root, myRoot, boxes, myDofs, jumps,
          doDistributedAssembly, maxLevels) = self.getTree(doDistributedAssembly, maxLevels, minClusterSize, minMixedClusterSize, eta, minFarFieldBlockSize)
         # get the admissible cluster pairs
-        Pnear, Pfar = self.getAdmissibleClusters(root, myRoot, doDistributedAssembly, eta, minFarFieldBlockSize)
+        Pnear, Pfar = self.getAdmissibleClusters(root, myRoot, doDistributedAssembly, eta, minFarFieldBlockSize, assembleOnRoot=assembleOnRoot)
         lenPfar = len(Pfar)
         if doDistributedAssembly:
             lenPfar = self.comm.bcast(lenPfar)
@@ -2099,19 +2114,22 @@ cdef class nonlocalBuilder:
             with self.PLogger.Timer('near field'):
                 Anear = self.assembleClusters(Pnear, jumps=jumps, myDofs=myDofs, forceUnsymmetric=forceUnsymmetric)
             if doDistributedAssembly:
-                with self.PLogger.Timer('reduceNearOp'):
-                    Anear = self.reduceNearOp(Anear, myDofs)
+                if assembleOnRoot:
+                    with self.PLogger.Timer('reduceNearOp'):
+                        Anear = self.reduceNearOp(Anear, myDofs)
+                else:
+                    Anear = self.dropOffRank(Anear, myDofs)
 
             with self.PLogger.Timer('leaf values'):
                 # get leave values
                 if s.max < 1.:
-                    root.enterLeafValues(mesh, DoFMap, interpolation_order, boxes, self.comm)
+                    root.enterLeafValues(mesh, DoFMap, interpolation_order, boxes, self.comm, assembleOnRoot=assembleOnRoot)
                 elif s.min > 1:
                     root.enterLeafValuesGrad(mesh, DoFMap, interpolation_order, boxes, self.comm)
                 else:
                     raise NotImplementedError()
 
-            if self.comm is None or self.comm.rank == 0:
+            if self.comm is None or (assembleOnRoot and self.comm.rank == 0) or (not assembleOnRoot):
                 with self.PLogger.Timer('far field'):
                     # get kernel interpolations
                     assembleFarFieldInteractions(self.local_matrix.kernel, Pfar, interpolation_order, DoFMap)
@@ -2120,7 +2138,11 @@ cdef class nonlocalBuilder:
                     # get transfer matrices
                     root.prepareTransferOperators(interpolation_order)
 
-                h2 = H2Matrix(root, Pfar, Anear)
+                if self.comm is None or (assembleOnRoot and self.comm.rank == 0):
+                    h2 = H2Matrix(root, Pfar, Anear)
+                else:
+                    local_h2 = H2Matrix(root, Pfar, Anear)
+                    h2 = DistributedH2Matrix(local_h2, self.comm)
             else:
                 h2 = nullOperator(self.dm.num_dofs, self.dm.num_dofs)
 
@@ -2301,9 +2323,9 @@ cdef class horizonCorrected(TimeStepperLinearOperator):
 
             _, jumps = builder.getKernelBlocksAndJumps()
             iM = IndexManager(self.dm, self.mass)
-            fake_cells = np.empty((1, self.mesh.dim), dtype=INDEX)
-            cellPair = np.empty((2), dtype=INDEX)
-            edge = np.empty((2), dtype=INDEX)
+            fake_cells = uninitialized((1, self.mesh.dim), dtype=INDEX)
+            cellPair = uninitialized((2), dtype=INDEX)
+            edge = uninitialized((2), dtype=INDEX)
             evalShift = 1e-9
             contribZeroExterior = uninitialized((self.dm.dofs_per_element*(self.dm.dofs_per_element+1)//2), dtype=REAL)
             builder.local_matrix_surface.setMesh1(self.mesh)
