@@ -100,3 +100,12 @@ cdef class H2Matrix(LinearOperator):
     cdef INDEX_t matvec(self,
                         REAL_t[::1] x,
                         REAL_t[::1] y) except -1
+
+
+cdef class DistributedH2Matrix(LinearOperator):
+    cdef:
+        public LinearOperator localMat
+        comm
+    cdef INDEX_t matvec(self,
+                        REAL_t[::1] x,
+                        REAL_t[::1] y) except -1

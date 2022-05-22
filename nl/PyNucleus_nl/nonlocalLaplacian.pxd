@@ -12,7 +12,7 @@ from PyNucleus_fem.quadrature cimport (simplexQuadratureRule, quadQuadratureRule
                                        doubleSimplexQuadratureRule, GaussJacobi,
                                        simplexDuffyTransformation, simplexXiaoGimbutas)
 from PyNucleus_fem.DoFMaps cimport DoFMap
-from . clusterMethodCy cimport tree_node, farFieldClusterPair, H2Matrix
+from . clusterMethodCy cimport tree_node, farFieldClusterPair, H2Matrix, DistributedH2Matrix
 from . nonlocalLaplacianBase cimport (double_local_matrix_t,
                                         nonlocalLaplacian,
                                         panelType,
@@ -58,12 +58,12 @@ cdef class nonlocalBuilder:
         list _d2c
         public MPI.Comm comm
         public FakePLogger PLogger
-        dict params
+        public dict params
     cdef inline double_local_matrix_t getLocalMatrix(self, dict params)
     cdef inline double_local_matrix_t getLocalMatrixBoundaryZeroExterior(self, dict params, BOOL_t infHorizon)
     cpdef REAL_t getEntry(self, INDEX_t I, INDEX_t J)
     cpdef REAL_t getEntryCluster(self, INDEX_t I, INDEX_t J)
-    cpdef LinearOperator assembleClusters(self, list Pnear, bint forceUnsymmetric=*, LinearOperator Anear=*, dict jumps=*, BOOL_t forceSymmetric=*, indexSet myDofs=*, str prefix=*)
+    cpdef LinearOperator assembleClusters(self, list Pnear, bint forceUnsymmetric=*, LinearOperator Anear=*, dict jumps=*, indexSet myDofs=*, str prefix=*)
 
 
 cdef class nearFieldClusterPair:

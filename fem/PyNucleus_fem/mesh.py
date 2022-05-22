@@ -114,7 +114,7 @@ def pacman(h=0.1, **kwargs):
 
 def uniformSquare(N, M=None, ax=0, ay=0, bx=1, by=1, crossed=False):
     if M is None:
-        M = N
+        M = max(int(np.around((by-ay)/(bx-ax)))*N, 2)
     assert N >= 2
     assert M >= 2
     x, y = np.meshgrid(np.linspace(ax, bx, N),
