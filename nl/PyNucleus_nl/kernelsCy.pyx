@@ -16,8 +16,9 @@ import numpy as np
 cimport numpy as np
 from PyNucleus_base.myTypes import REAL
 from PyNucleus_fem.functions cimport constant
-from . interactionDomains cimport ball1, ball2, ballInf
-from . fractionalOrders cimport (variableFractionalOrder,
+from . interactionDomains cimport ball1, ball2, ballInf, fullSpace
+from . fractionalOrders cimport (constFractionalOrder,
+                                 variableFractionalOrder,
                                  constantFractionalLaplacianScaling,
                                  variableFractionalLaplacianScaling)
 
@@ -562,3 +563,5 @@ cdef class FractionalKernel(Kernel):
 
     def __setstate__(self, state):
         FractionalKernel.__init__(self, state[0], state[1], state[2], state[3], state[4], state[5], state[6])
+
+

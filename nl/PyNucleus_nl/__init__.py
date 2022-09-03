@@ -7,7 +7,7 @@
 
 
 import numpy as np
-from PyNucleus_base import REAL, INDEX
+from PyNucleus_base import INDEX
 from PyNucleus_base.linear_operators import (LinearOperator,
                                              diagonalOperator,
                                              multiIntervalInterpolationOperator,
@@ -239,7 +239,6 @@ def fractionalHierarchy(mesh, s, NoRef, tag=None, eta=3.,
     return hM
 
 
-
 def processBC(tag, boundaryCondition, kernel):
     if tag is None:
         if boundaryCondition == HOMOGENEOUS_DIRICHLET:
@@ -430,6 +429,23 @@ def getFracLapl(mesh, DoFMap, kernel=None, rangedOpParams={}, **kwargs):
     if returnNearField:
         return A, Pnear
     else:
+        return A
+
+
+class delayedNonlocalOp(delayedConstructionOperator):
+    def __init__(self, dm, kernel, *args, **kwargs):
+        super().__init__(dm.num_dofs,
+                         dm.num_dofs)
+        self.dm = dm
+        self.kernel = kernel
+        self.args = args
+        self.kwargs = kwargs
+
+    def construct(self):
+        from copy import copy
+        d = copy(self.kwargs)
+        d.update(self.params)
+        A = self.dm.assembleNonlocal(self.kernel, *self.args, **d)
         return A
 
 

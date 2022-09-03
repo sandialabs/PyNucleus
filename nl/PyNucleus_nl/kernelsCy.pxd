@@ -51,3 +51,5 @@ cdef class FractionalKernel(Kernel):
         public fractionalOrderBase s
         public BOOL_t variableOrder
     cdef REAL_t getsValue(self)
+
+

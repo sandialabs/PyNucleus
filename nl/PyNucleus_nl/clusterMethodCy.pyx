@@ -14,9 +14,15 @@ from scipy.special import gamma
 import numpy as np
 cimport cython
 from PyNucleus_base.linear_operators cimport (LinearOperator,
-                                               sparseGraph,
-                                               Multiply_Linear_Operator)
+                                              CSR_LinearOperator,
+                                              sparseGraph,
+                                              Multiply_Linear_Operator,
+                                              IJOperator,
+                                              sparseGraph)
 from PyNucleus_base.blas cimport gemv, gemvT, mydot, matmat, norm, assign
+from PyNucleus_base.io cimport DistributedMap, Import
+from PyNucleus_base.sparsityPattern cimport sparsityPattern
+from PyNucleus_fem.splitting import dofmapSplitter
 from . nonlocalLaplacianBase cimport variableFractionalOrder
 from . nonlocalLaplacian cimport nearFieldClusterPair
 from PyNucleus_fem.DoFMaps cimport DoFMap, P1_DoFMap, P2_DoFMap
@@ -194,6 +200,13 @@ cdef class tree_node:
         self._dofs = dofs
         self.mixed_node = mixed_node
         self.canBeAssembled = canBeAssembled
+        if parent is None:
+            self.levelNo = 0
+            self.id = 0
+            self.distFromRoot = 0
+        else:
+            self.levelNo = self.parent.levelNo+1
+            self.distFromRoot = self.parent.distFromRoot+1
         if self.dim > 0:
             self.box = uninitialized((self.dim, 2), dtype=REAL)
             self.box[:, 0] = np.inf
@@ -202,6 +215,13 @@ cdef class tree_node:
             while it.step():
                 dof = it.i
                 merge_boxes2(self.box, boxes, dof, self.box)
+
+    def __eq__(self, tree_node other):
+        for j in range(self.dim):
+            if ((abs(self.box[j, 0]-other.box[j, 0]) > 1e-10) or
+                (abs(self.box[j, 1]-other.box[j, 1]) > 1e-10)):
+                return False
+        return True
 
     cdef indexSet get_dofs(self):
         cdef:
@@ -215,9 +235,26 @@ cdef class tree_node:
                 dofs = dofs.union(c.get_dofs())
             return dofs
 
+    cdef indexSet get_local_dofs(self):
+        cdef:
+            indexSet dofs
+            tree_node c
+        if self.get_is_leaf():
+            return self._local_dofs
+        else:
+            print('ouch!')
+            dofs = arrayIndexSet()
+            for c in self.children:
+                dofs = dofs.union(c.get_local_dofs())
+            return dofs
+
     @property
     def dofs(self):
         return self.get_dofs()
+
+    @property
+    def local_dofs(self):
+        return self.get_local_dofs()
 
     cdef INDEX_t get_num_dofs(self):
         if self._num_dofs < 0:
@@ -254,20 +291,22 @@ cdef class tree_node:
 
     nodes = property(fget=get_nodes)
 
+    cdef get_num_root_children(self):
+        if self.parent is None:
+            return len(self.children)
+        else:
+            return self.parent.get_num_root_children()
+
     @cython.initializedcheck(False)
     @cython.wraparound(False)
     @cython.boundscheck(False)
     def refine(self,
                REAL_t[:, :, ::1] boxes,
                REAL_t[:, ::1] coords,
-               INDEX_t maxLevels=200,
-               INDEX_t maxLevelsMixed=200,
-               INDEX_t level=0,
-               INDEX_t minSize=1,
-               INDEX_t minMixedSize=1,
-               refinementType refType=GEOMETRIC,
-               BOOL_t splitEveryDim=True):
+               refinementParams refParams,
+               BOOL_t recursive=True):
         cdef:
+            refinementType refType = refParams.refType
             indexSet dofs = self.get_dofs()
             INDEX_t num_initial_dofs = dofs.getNumEntries(), dim, i = -1, j, num_dofs, k
             REAL_t[:, ::1] subbox
@@ -282,15 +321,19 @@ cdef class tree_node:
             list blob
             REAL_t m0 = 0., m1 = 0.
             list children = []
+            INDEX_t maxNumChildren, lvlNo, numRootChildren, lvlID
         if not self.mixed_node:
-            if (level >= maxLevels) or (num_initial_dofs <= minSize):
+            if (self.levelNo+1 >= refParams.maxLevels) or (num_initial_dofs <= refParams.minSize):
                 return
         else:
-            if (level >= maxLevelsMixed) or (num_initial_dofs <= minMixedSize):
+            if (self.levelNo+1 >= refParams.maxLevelsMixed) or (num_initial_dofs <= refParams.minMixedSize):
                 return
         dim = self.box.shape[0]
 
         if dim == 1:
+            maxNumChildren = 2
+            lvlNo = self.levelNo
+            numRootChildren = self.get_num_root_children()
             if refType == GEOMETRIC:
                 # divide box into equal sized subboxes
                 m0 = 0.5*(self.box[0, 0] + self.box[0, 1])
@@ -328,21 +371,34 @@ cdef class tree_node:
             s = arrayIndexSet()
             s.fromSet(sPre0)
             num_dofs = s.getNumEntries()
-            if num_dofs >= minSize and num_dofs < num_initial_dofs:
+            if num_dofs >= refParams.minSize and num_dofs < num_initial_dofs:
                 nD += num_dofs
                 children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
+                if lvlNo > 0:
+                    lvlID = self.id-(numRootChildren*(maxNumChildren**(lvlNo-1)-1)//(maxNumChildren-1)+1)
+                    children[0].id = numRootChildren*(maxNumChildren**lvlNo-1)//(maxNumChildren-1) + 1 + maxNumChildren*lvlID + 0
+                else:
+                    children[0].id = 1
             else:
                 return
 
             s = arrayIndexSet()
             s.fromSet(sPre1)
             num_dofs = s.getNumEntries()
-            if num_dofs >= minSize and num_dofs < num_initial_dofs:
+            if num_dofs >= refParams.minSize and num_dofs < num_initial_dofs:
                 nD += num_dofs
                 children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
+                if lvlNo > 0:
+                    lvlID = self.id-(numRootChildren*(maxNumChildren**(lvlNo-1)-1)//(maxNumChildren-1)+1)
+                    children[1].id = numRootChildren*(maxNumChildren**lvlNo-1)//(maxNumChildren-1) + 1 + maxNumChildren*lvlID + 1
+                else:
+                    children[1].id = 2
             else:
                 return
-        elif dim == 2 and (not self.mixed_node and splitEveryDim):
+        elif dim == 2 and (not self.mixed_node and refParams.splitEveryDim):
+            maxNumChildren = 2**dim
+            lvlNo = self.levelNo
+            numRootChildren = self.get_num_root_children()
             if refType != MEDIAN:
                 if refType == GEOMETRIC:
                     # divide box into equal sized subboxes
@@ -385,9 +441,14 @@ cdef class tree_node:
                     s = arrayIndexSet()
                     s.fromSet(preSets[k])
                     num_dofs = s.getNumEntries()
-                    if num_dofs >= minSize and num_dofs < num_initial_dofs:
+                    if num_dofs >= refParams.minSize and num_dofs < num_initial_dofs:
                         nD += num_dofs
                         children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
+                        if lvlNo > 0:
+                            lvlID = self.id-(numRootChildren*(maxNumChildren**(lvlNo-1)-1)//(maxNumChildren-1)+1)
+                            children[k].id = numRootChildren*(maxNumChildren**lvlNo-1)//(maxNumChildren-1) + 1 + maxNumChildren*lvlID + k
+                        else:
+                            children[k].id = k+1
                     elif num_dofs == 0:
                         pass
                     else:
@@ -433,9 +494,14 @@ cdef class tree_node:
                     s = arrayIndexSet()
                     s.fromSet(sPre0)
                     num_dofs = s.getNumEntries()
-                    if num_dofs >= minSize and num_dofs < num_initial_dofs:
+                    if num_dofs >= refParams.minSize and num_dofs < num_initial_dofs:
                         nD += num_dofs
                         children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
+                        if lvlNo > 0:
+                            lvlID = self.id-(numRootChildren*(maxNumChildren**(lvlNo-1)-1)//(maxNumChildren-1)+1)
+                            children[p*dim+0].id = numRootChildren*(maxNumChildren**lvlNo-1)//(maxNumChildren-1) + 1 + maxNumChildren*lvlID + p*dim+0
+                        else:
+                            children[p*dim+0].id = p*dim+1
                     elif num_dofs == 0:
                         pass
                     else:
@@ -443,13 +509,21 @@ cdef class tree_node:
                     s = arrayIndexSet()
                     s.fromSet(sPre1)
                     num_dofs = s.getNumEntries()
-                    if num_dofs >= minSize and num_dofs < num_initial_dofs:
+                    if num_dofs >= refParams.minSize and num_dofs < num_initial_dofs:
                         nD += num_dofs
                         children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
+                        if lvlNo > 0:
+                            lvlID = self.id-(numRootChildren*(maxNumChildren**(lvlNo-1)-1)//(maxNumChildren-1)+1)
+                            children[p*dim+1].id = numRootChildren*(maxNumChildren**lvlNo-1)//(maxNumChildren-1) + 1 + maxNumChildren*lvlID + p*dim+1
+                        else:
+                            children[p*dim+1].id = p*dim+2
                     else:
                         return
         else:
             # dim == 2, mixed_node or not splitEveryDim
+            maxNumChildren = 2
+            lvlNo = self.levelNo
+            numRootChildren = self.get_num_root_children()
             if refType == MEDIAN:
                 if self.box[0, 1]-self.box[0, 0] > self.box[1, 1]-self.box[1, 0]:
                     coords0 = np.zeros((num_initial_dofs), dtype=REAL)
@@ -502,18 +576,28 @@ cdef class tree_node:
             s = arrayIndexSet()
             s.fromSet(sPre0)
             num_dofs = s.getNumEntries()
-            if num_dofs >= minSize and num_dofs < num_initial_dofs:
+            if num_dofs >= refParams.minSize and num_dofs < num_initial_dofs:
                 nD += num_dofs
                 children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
+                if lvlNo > 0:
+                    lvlID = self.id-(numRootChildren*(maxNumChildren**(lvlNo-1)-1)//(maxNumChildren-1)+1)
+                    children[0].id = numRootChildren*(maxNumChildren**lvlNo-1)//(maxNumChildren-1) + 1 + maxNumChildren*lvlID + 0
+                else:
+                    children[0].id = 1
             else:
                 return
 
             s = arrayIndexSet()
             s.fromSet(sPre1)
             num_dofs = s.getNumEntries()
-            if num_dofs >= minSize and num_dofs < num_initial_dofs:
+            if num_dofs >= refParams.minSize and num_dofs < num_initial_dofs:
                 nD += num_dofs
                 children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
+                if lvlNo > 0:
+                    lvlID = self.id-(numRootChildren*(maxNumChildren**(lvlNo-1)-1)//(maxNumChildren-1)+1)
+                    children[1].id = numRootChildren*(maxNumChildren**lvlNo-1)//(maxNumChildren-1) + 1 + maxNumChildren*lvlID + 1
+                else:
+                    children[1].id = 2
             else:
                 return
         if len(children) <= 1:
@@ -526,8 +610,24 @@ cdef class tree_node:
         else:
             assert self.get_is_leaf()
 
-        for k in range(len(self.children)):
-            self.children[k].refine(boxes, coords, maxLevels, maxLevelsMixed, level+1, minSize, minMixedSize, refType=refType, splitEveryDim=splitEveryDim)
+        if recursive:
+            for k in range(len(self.children)):
+                self.children[k].refine(boxes, coords, refParams, recursive)
+
+    def idsAreUnique(self, bitArray used=None):
+        cdef:
+            tree_node c
+            BOOL_t unique = True
+        if used is None:
+            used = bitArray(maxElement=self.get_max_id())
+        for c in self.children:
+            unique &= c.idsAreUnique(used)
+        if not used.inSet(self.id):
+            used.set(self.id)
+        else:
+            print('ID {} not unique!'.format(self.id))
+            unique = False
+        return unique
 
     cdef BOOL_t get_is_leaf(self):
         return len(self.children) == 0
@@ -572,7 +672,22 @@ cdef class tree_node:
 
     numLevels = property(fget=_getLevels_py)
 
-    def plot(self, level=0, plotDoFs=False, REAL_t[:, ::1] dofCoords=None, BOOL_t recurse=False, BOOL_t printClusterIds=False):
+    cdef INDEX_t _getParentLevels(self):
+        if self.parent is None:
+            return 0
+        else:
+            return self.parent._getParentLevels() + 1
+
+    def getParent(self, INDEX_t parentLevel=0):
+        if parentLevel >= 0:
+            parentLevel = parentLevel-self._getParentLevels()-1
+            assert parentLevel < 0
+        if parentLevel == -1:
+            return self
+        else:
+            return self.parent.getParent(parentLevel + 1)
+
+    def plot(self, level=0, plotDoFs=False, REAL_t[:, ::1] dofCoords=None, BOOL_t recurse=False, BOOL_t printClusterIds=False, BOOL_t printNumDoFs=False):
         import matplotlib.pyplot as plt
 
         cdef:
@@ -597,7 +712,12 @@ cdef class tree_node:
                         points[k, j] = dofCoords[dof, j]
                     k += 1
                 y = level*np.ones((len(dofs)), dtype=REAL)
-                plt.plot(points[:, 0], y, color='red' if self.mixed_node else 'blue')
+                plt.plot(np.array(points)[:, 0], np.array(y), color='red' if self.mixed_node else 'blue')
+                if printClusterIds:
+                    myCenter = np.mean(self.box, axis=1)
+                    plt.text(myCenter[0], level, s=str(self.id),
+                             horizontalalignment='center',
+                             verticalalignment='center')
                 if recurse:
                     for c in self.children:
                         c.plot(level=level+1, plotDoFs=plotDoFs, dofCoords=dofCoords, recurse=recurse, printClusterIds=printClusterIds)
@@ -645,16 +765,21 @@ cdef class tree_node:
                 else:
                     ax = plt.gca()
 
-                ax.plot(x, y, color='red' if self.mixed_node else 'blue')
+                ax.plot(np.array(x), np.array(y), color='red' if self.mixed_node else 'blue')
                 if printClusterIds:
                     myCenter = np.mean(self.box, axis=1)
                     ax.text(myCenter[0], myCenter[1], s=str(self.id),
                             horizontalalignment='center',
                             verticalalignment='center')
+                if printNumDoFs:
+                    myCenter = np.mean(self.box, axis=1)
+                    ax.text(myCenter[0], myCenter[1], s=str(self.num_dofs),
+                            horizontalalignment='center',
+                            verticalalignment='center')
 
                 if recurse and not self.get_is_leaf():
                     for c in self.children:
-                        c.plot(level+1, plotDoFs, dofCoords, recurse, printClusterIds)
+                        c.plot(level+1, plotDoFs, dofCoords, recurse, printClusterIds, printNumDoFs)
             else:
                 raise NotImplementedError()
         else:
@@ -718,27 +843,43 @@ cdef class tree_node:
     @cython.initializedcheck(False)
     @cython.wraparound(False)
     @cython.boundscheck(False)
-    cdef void upwardPass(self, REAL_t[::1] x, INDEX_t componentNo=0):
+    cdef void upwardPass(self, REAL_t[::1] x, INDEX_t componentNo=0, BOOL_t skip_leaves=False, BOOL_t local=False):
         cdef:
             INDEX_t i, dof = -1, k = 0
             tree_node c
             indexSetIterator it
+            REAL_t temp_x
         if self.get_is_leaf():
-            self.coefficientsUp[:] = 0.0
-            it = self.get_dofs().getIter()
-            while it.step():
-                dof = it.i
-                for i in range(self.coefficientsUp.shape[0]):
-                    self.coefficientsUp[i] += x[dof]*self.value[componentNo, k, i]
-                k += 1
+            if skip_leaves:
+                # for i in range(self.coefficientsUp.shape[0]):
+                #     self.coefficientsUp[i] = x[self.coefficientsUpOffset+i]
+                pass
+            else:
+                self.coefficientsUp[:] = 0.0
+                if not local:
+                    it = self.get_dofs().getIter()
+                    while it.step():
+                        dof = it.i
+                        temp_x = x[dof]
+                        for i in range(self.coefficientsUp.shape[0]):
+                            self.coefficientsUp[i] += temp_x*self.value[componentNo, k, i]
+                        k += 1
+                else:
+                    it = self.get_local_dofs().getIter()
+                    while it.step():
+                        dof = it.i
+                        temp_x = x[dof]
+                        for i in range(self.coefficientsUp.shape[0]):
+                            self.coefficientsUp[i] += temp_x*self.value[componentNo, k, i]
+                        k += 1
         else:
             self.coefficientsUp[:] = 0.0
             for c in self.children:
-                c.upwardPass(x, componentNo)
+                c.upwardPass(x, componentNo, skip_leaves, local)
                 gemv(c.transferOperator, c.coefficientsUp, self.coefficientsUp, 1.)
 
-    def upwardPass_py(self, REAL_t[::1] x, INDEX_t componentNo=0):
-        self.upwardPass(x, componentNo)
+    def upwardPass_py(self, REAL_t[::1] x, INDEX_t componentNo=0, BOOL_t skip_leaves=False):
+        self.upwardPass(x, componentNo, skip_leaves)
 
     @cython.initializedcheck(False)
     @cython.wraparound(False)
@@ -757,25 +898,49 @@ cdef class tree_node:
     @cython.initializedcheck(False)
     @cython.wraparound(False)
     @cython.boundscheck(False)
-    cdef void downwardPass(self, REAL_t[::1] y, INDEX_t componentNo=0):
+    cdef void resetCoefficientsUp(self):
+        cdef:
+            tree_node c
+        self.coefficientsUp[:] = 0.0
+        if not self.get_is_leaf():
+            for c in self.children:
+                c.resetCoefficientsUp()
+
+    def resetCoefficientsUp_py(self):
+        self.resetCoefficientsUp()
+
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef void downwardPass(self, REAL_t[::1] y, INDEX_t componentNo=0, BOOL_t local=False):
         cdef:
             INDEX_t i, dof = -1, k = 0
             REAL_t val
             tree_node c
             indexSetIterator it
         if self.get_is_leaf():
-            it = self.get_dofs().getIter()
-            while it.step():
-                dof = it.i
-                val = 0.0
-                for i in range(self.coefficientsDown.shape[0]):
-                    val += self.value[componentNo, k, i]*self.coefficientsDown[i]
-                y[dof] += val
-                k += 1
+            if not local:
+                it = self.get_dofs().getIter()
+                while it.step():
+                    dof = it.i
+                    val = 0.0
+                    for i in range(self.coefficientsDown.shape[0]):
+                        val += self.value[componentNo, k, i]*self.coefficientsDown[i]
+                    y[dof] += val
+                    k += 1
+            else:
+                it = self.get_local_dofs().getIter()
+                while it.step():
+                    dof = it.i
+                    val = 0.0
+                    for i in range(self.coefficientsDown.shape[0]):
+                        val += self.value[componentNo, k, i]*self.coefficientsDown[i]
+                    y[dof] += val
+                    k += 1
         else:
             for c in self.children:
                 gemvT(c.transferOperator, self.coefficientsDown, c.coefficientsDown, 1.)
-                c.downwardPass(y, componentNo)
+                c.downwardPass(y, componentNo, local)
 
     def downwardPass_py(self, REAL_t[::1] y, INDEX_t componentNo=0):
         self.downwardPass(y, componentNo)
@@ -790,7 +955,8 @@ cdef class tree_node:
                         INDEX_t order,
                         REAL_t[:, :, ::1] boxes,
                         comm=None,
-                        BOOL_t assembleOnRoot=True):
+                        BOOL_t assembleOnRoot=True,
+                        BOOL_t local=False):
         cdef:
             INDEX_t i, k, I, l, j, p, dim, dof = -1, r, start, end
             REAL_t[:, ::1] coeff, simplex, local_vals, PHI, xi, x
@@ -898,7 +1064,10 @@ cdef class tree_node:
             # distribute entries of coeff to tree leaves
             for n in self.leaves():
                 n.value = np.zeros((1, len(n.dofs), order**dim), dtype=REAL)
-                it.setIndexSet(n.dofs)
+                if not local:
+                    it.setIndexSet(n.dofs)
+                else:
+                    it.setIndexSet(n.local_dofs)
                 k = 0
                 while it.step():
                     dof = it.i
@@ -1047,28 +1216,6 @@ cdef class tree_node:
             id = max(id, c.get_max_id())
         return id
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
-    cdef tree_node get_node(self, INDEX_t id):
-        cdef:
-            tree_node c, c2
-            INDEX_t k
-        if self.id == id:
-            return self
-        else:
-            c = self.children[0]
-            for k in range(len(self.children)-1):
-                c2 = self.children[k+1]
-                if c.id <= id < c2.id:
-                    return c.get_node(id)
-                c = c2
-            if c.id <= id:
-                return c.get_node(id)
-
-    def get_node_py(self, INDEX_t id):
-        return self.get_node(id)
-
     cdef BOOL_t trim(self, bitArray keep):
         cdef:
             tree_node c
@@ -1083,7 +1230,7 @@ cdef class tree_node:
                 newChildren.append(c)
             delAllChildren &= not keep.inSet(c.id)
         if not self.get_is_leaf() and len(newChildren) == 0:
-            self._cells = self.get_cells()
+            # self._cells = self.get_cells()
             self._dofs = self.get_dofs()
             self.children = []
             assert self.get_is_leaf()
@@ -1433,6 +1580,26 @@ cdef class tree_node:
                 if c2 is not None:
                     return c2
 
+    def constructBasisMatrix(self, LinearOperator B, REAL_t[::1] coefficientsUp, INDEX_t offset=0):
+        cdef:
+            INDEX_t i, dof = -1, k = 0
+            tree_node c
+            indexSetIterator it
+        if self.get_is_leaf():
+            self.coefficientsUpOffset = offset
+            self.coefficientsUp = coefficientsUp[offset:offset+self.coefficientsUp.shape[0]]
+            it = self.get_dofs().getIter()
+            while it.step():
+                dof = it.i
+                for i in range(self.coefficientsUp.shape[0]):
+                    B.setEntry(offset+i, dof, self.value[0, k, i])
+                k += 1
+            offset += self.coefficientsUp.shape[0]
+        else:
+            for c in self.children:
+                offset = c.constructBasisMatrix(B, coefficientsUp, offset)
+        return offset
+
 
 @cython.initializedcheck(False)
 @cython.wraparound(False)
@@ -1654,11 +1821,26 @@ cdef class H2Matrix(LinearOperator):
     def __init__(self,
                  tree_node tree,
                  dict Pfar,
-                 LinearOperator Anear):
+                 LinearOperator Anear,
+                 FakePLogger PLogger=None):
         self.tree = tree
         self.Pfar = Pfar
         self.Anear = Anear
         LinearOperator.__init__(self, Anear.shape[0], Anear.shape[1])
+        if PLogger is not None:
+            self.PLogger = PLogger
+        else:
+            self.PLogger = FakePLogger()
+        self.skip_leaves_upward = False
+
+    def constructBasis(self):
+        num_leaves = len(list(self.tree.leaves()))
+        md = self.tree.children[0].transferOperator.shape[0]
+        B = IJOperator(num_leaves*md, self.shape[1])
+        self.leafCoefficientsUp = uninitialized((num_leaves*md), dtype=REAL)
+        self.tree.constructBasisMatrix(B, self.leafCoefficientsUp)
+        self.basis = B.to_csr_linear_operator()
+        self.skip_leaves_upward = True
 
     def isSparse(self):
         return False
@@ -1674,18 +1856,24 @@ cdef class H2Matrix(LinearOperator):
             tree_node n1, n2
             farFieldClusterPair clusterPair
         if self.Anear.nnz > 0:
-            self.Anear.matvec(x, y)
+            with self.PLogger.Timer("h2 matvec near"):
+                self.Anear.matvec(x, y)
         else:
             y[:] = 0.
         if len(self.Pfar) > 0:
+            if self.skip_leaves_upward:
+                self.basis.matvec(x, self.leafCoefficientsUp)
             for componentNo in range(next(self.tree.leaves()).value.shape[0]):
-                self.tree.upwardPass(x, componentNo)
-                self.tree.resetCoefficientsDown()
-                for level in self.Pfar:
-                    for clusterPair in self.Pfar[level]:
-                        n1, n2 = clusterPair.n1, clusterPair.n2
-                        clusterPair.apply(n2.coefficientsUp, n1.coefficientsDown)
-                self.tree.downwardPass(y, componentNo)
+                with self.PLogger.Timer("h2 upwardPass"):
+                    self.tree.upwardPass(x, componentNo, skip_leaves=self.skip_leaves_upward)
+                    self.tree.resetCoefficientsDown()
+                with self.PLogger.Timer("h2 far field"):
+                    for level in self.Pfar:
+                        for clusterPair in self.Pfar[level]:
+                            n1, n2 = clusterPair.n1, clusterPair.n2
+                            clusterPair.apply(n2.coefficientsUp, n1.coefficientsDown)
+                with self.PLogger.Timer("h2 downwardPass"):
+                    self.tree.downwardPass(y, componentNo)
         return 0
 
     @cython.initializedcheck(False)
@@ -1700,8 +1888,10 @@ cdef class H2Matrix(LinearOperator):
             farFieldClusterPair clusterPair
         self.Anear.matvec_no_overwrite(x, y)
         if len(self.Pfar) > 0:
+            if self.skip_leaves_upward:
+                self.basis.matvec(x, self.leafCoefficientsUp)
             for componentNo in range(next(self.tree.leaves()).value.shape[0]):
-                self.tree.upwardPass(x, componentNo)
+                self.tree.upwardPass(x, componentNo, skip_leaves=self.skip_leaves_upward)
                 self.tree.resetCoefficientsDown()
                 for level in self.Pfar:
                     for clusterPair in self.Pfar[level]:
@@ -1710,24 +1900,66 @@ cdef class H2Matrix(LinearOperator):
                 self.tree.downwardPass(y, componentNo)
         return 0
 
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cdef INDEX_t matvec_submat(self,
+                               REAL_t[::1] x,
+                               REAL_t[::1] y,
+                               list right_list,
+                               tree_node left) except -1:
+        cdef:
+            INDEX_t level, componentNo
+            tree_node n1, n2, right
+            farFieldClusterPair clusterPair
+        if self.Anear.nnz > 0:
+            with self.PLogger.Timer("h2 matvec near"):
+                self.Anear.matvec(x, y)
+        else:
+            y[:] = 0.
+        if len(self.Pfar) > 0:
+            if self.skip_leaves_upward:
+                self.basis.matvec(x, self.leafCoefficientsUp)
+            for componentNo in range(next(self.tree.leaves()).value.shape[0]):
+                with self.PLogger.Timer("h2 upwardPass"):
+                    for right in right_list:
+                        right.upwardPass(x, componentNo, skip_leaves=self.skip_leaves_upward)
+                    left.resetCoefficientsDown()
+                with self.PLogger.Timer("h2 far field"):
+                    for level in self.Pfar:
+                        for clusterPair in self.Pfar[level]:
+                            n1, n2 = clusterPair.n1, clusterPair.n2
+                            clusterPair.apply(n2.coefficientsUp, n1.coefficientsDown)
+                with self.PLogger.Timer("h2 downwardPass"):
+                    left.downwardPass(y, componentNo)
+        return 0
+
+
     property diagonal:
         def __get__(self):
             return self.Anear.diagonal
 
     property tree_size:
         def __get__(self):
-            try:
-                md = self.tree.children[0].transferOperator.shape[0]
-            except (IndexError, AttributeError):
-                # No children, ie only the root node
-                # or no far field clusters
-                md = 0
-            nodes = self.tree.nodes
-            dofs = self.shape[0]
-            # size of transferMatrix * number of nodes in tree + number of dofs * leaf values
-            return md**2*nodes + dofs*md
+            cdef:
+                INDEX_t transfers_size = 0
+                INDEX_t leaf_size = 0
+                tree_node n
+            # transfer operators
+            for n in self.tree.get_tree_nodes():
+                try:
+                    transfers_size += n.transferOperator.shape[0]*n.transferOperator.shape[1]
+                except AttributeError:
+                    pass
+            # leaf values
+            for n in self.tree.leaves():
+                try:
+                    leaf_size += n.value.shape[0]*n.value.shape[1]*n.value.shape[2]
+                except AttributeError:
+                    pass
+            return transfers_size + leaf_size
 
-    property num_far_field_clusters:
+    property num_far_field_cluster_pairs:
         def __get__(self):
             clusters = 0
             for lvl in self.Pfar:
@@ -1736,14 +1968,14 @@ cdef class H2Matrix(LinearOperator):
 
     property cluster_size:
         def __get__(self):
-            try:
-                md = self.tree.children[0].transferOperator.shape[0]
-            except (IndexError, AttributeError):
-                # No children, ie only the root node
-                # or no far field clusters
-                md = 0
-            # number far field cluster pairs * size of kernel interpolant matrices
-            return md**2*self.num_far_field_clusters
+            cdef:
+                INDEX_t lvl
+                farFieldClusterPair cP
+                kernelInterpolantSize = 0
+            for lvl in self.Pfar:
+                for cP in self.Pfar[lvl]:
+                    kernelInterpolantSize += cP.kernelInterpolant.shape[0]*cP.kernelInterpolant.shape[1]
+            return kernelInterpolantSize
 
     property nearField_size:
         def __get__(self):
@@ -1755,13 +1987,14 @@ cdef class H2Matrix(LinearOperator):
                 return self.Anear.nnz
 
     def __repr__(self):
-        return '<%dx%d %s %f fill from near field, %f fill from tree, %f fill from clusters, %d far-field clusters>' % (self.num_rows,
-                                                                                                                        self.num_columns,
-                                                                                                                        self.__class__.__name__,
-                                                                                                                        self.nearField_size/self.num_rows/self.num_columns,
-                                                                                                                        self.tree_size/self.num_rows/self.num_columns,
-                                                                                                                        self.cluster_size/self.num_rows/self.num_columns,
-                                                                                                                        self.num_far_field_clusters)
+        return '<%dx%d %s %f fill from near field, %f fill from tree, %f fill from clusters, %d tree nodes, %d far-field cluster pairs>' % (self.num_rows,
+                                                                                                                                            self.num_columns,
+                                                                                                                                            self.__class__.__name__,
+                                                                                                                                            self.nearField_size/self.num_rows/self.num_columns,
+                                                                                                                                            self.tree_size/self.num_rows/self.num_columns,
+                                                                                                                                            self.cluster_size/self.num_rows/self.num_columns,
+                                                                                                                                            self.tree.nodes,
+                                                                                                                                            self.num_far_field_cluster_pairs)
 
     def getMemorySize(self):
         return self.Anear.getMemorySize() + self.cluster_size*sizeof(REAL_t) + self.tree_size*sizeof(REAL_t)
@@ -1974,6 +2207,10 @@ cdef class H2Matrix(LinearOperator):
                  raise NotImplementedError(fill)
         elif self.tree.dim == 2:
             Z = np.zeros((self.num_rows, self.num_columns), dtype=INDEX)
+            for c in Pnear:
+                for dof1 in c.n1.dofs:
+                    for dof2 in c.n2.dofs:
+                        Z[dof1, dof2] = 2
             for lvl in self.Pfar:
                 for c in self.Pfar[lvl]:
                     for dof1 in c.n1.dofs:
@@ -1982,11 +2219,14 @@ cdef class H2Matrix(LinearOperator):
             plt.pcolormesh(Z)
 
 
-cdef class DistributedH2Matrix(LinearOperator):
+cdef class DistributedH2Matrix_globalData(LinearOperator):
+    """
+    Distributed H2 matrix, operating on global vectors
+    """
     def __init__(self, LinearOperator localMat, comm):
         self.localMat = localMat
         self.comm = comm
-        super(DistributedH2Matrix, self).__init__(localMat.num_rows, localMat.num_columns)
+        super(DistributedH2Matrix_globalData, self).__init__(localMat.num_rows, localMat.num_columns)
 
     @cython.initializedcheck(False)
     @cython.boundscheck(False)
@@ -1999,6 +2239,572 @@ cdef class DistributedH2Matrix(LinearOperator):
         self.comm.Allreduce(MPI.IN_PLACE, y)
         return 0
 
+    def __repr__(self):
+        return '<Rank %d/%d, %s>' % (self.comm.rank, self.comm.size, self.localMat)
+
+
+cdef class DistributedH2Matrix_localData(LinearOperator):
+    """
+    Distributed H2 matrix, operating on local vectors
+    """
+    def __init__(self, H2Matrix localMat, list Pnear, MPI.Comm comm, DoFMap dm, DoFMap local_dm, CSR_LinearOperator lclR, CSR_LinearOperator lclP):
+        cdef:
+            tree_node n
+        super(DistributedH2Matrix_localData, self).__init__(local_dm.num_dofs, local_dm.num_dofs)
+        assert isinstance(localMat.Anear, CSR_LinearOperator)
+        self.localMat = localMat
+        self.Pnear = Pnear
+        self.comm = comm
+        self.dm = dm
+
+        self.node_lookup = {}
+        for n in self.localMat.tree.get_tree_nodes():
+            self.node_lookup[n.id] = n
+
+        self.lclRoot = self.localMat.tree.children[self.comm.rank]
+        self.lcl_node_lookup = {}
+        for n in self.lclRoot.get_tree_nodes():
+            self.lcl_node_lookup[n.id] = n
+
+        self.lcl_dm = local_dm
+        self.lclR = lclR
+        self.lclP = lclP
+
+        self.setupFar()
+        self.setupNear()
+
+    def __repr__(self):
+        return '<Rank %d/%d, %s, %d local size>' % (self.comm.rank, self.comm.size, self.localMat, self.lcl_dm.num_dofs)
+
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cdef void setupNear(self):
+        cdef:
+            nearFieldClusterPair cP
+            list remoteReceives_list
+            INDEX_t commSize = self.comm.size, remoteRank
+            INDEX_t local_dof, global_dof, k
+            dict global_to_local
+            INDEX_t[::1] indptr, indices
+            REAL_t[::1] data
+            INDEX_t[::1] new_indptr, new_indices
+            REAL_t[::1] new_data
+            INDEX_t jj, jjj, J
+        remoteReceives_list = [set() for p in range(commSize)]
+        for cP in self.Pnear:
+            if cP.n1.id in self.lcl_node_lookup and cP.n2.id not in self.lcl_node_lookup:
+                remoteRank = cP.n2.getParent(1).id-1
+                remoteReceives_list[remoteRank] |= cP.n2.dofs.toSet()
+            elif cP.n1.id not in self.lcl_node_lookup and cP.n2.id in self.lcl_node_lookup:
+                remoteRank = cP.n1.getParent(1).id-1
+                remoteReceives_list[remoteRank] |= cP.n1.dofs.toSet()
+
+        counterReceives = np.array([len(remoteReceives_list[p]) for p in range(commSize)], dtype=INDEX)
+        remoteReceives = np.concatenate([np.sort(list(remoteReceives_list[p])) for p in range(commSize)]).astype(INDEX)
+        counterSends = np.zeros((commSize), dtype=INDEX)
+        self.comm.Alltoall(counterReceives, counterSends)
+        remoteSends = np.zeros(counterSends.sum(), dtype=INDEX)
+
+        offsetsReceives = np.concatenate(([0], np.cumsum(counterReceives)[:commSize-1])).astype(INDEX)
+        offsetsSends = np.concatenate(([0], np.cumsum(counterSends)[:commSize-1])).astype(INDEX)
+        self.comm.Alltoallv([remoteReceives, (counterReceives, offsetsReceives)],
+                            [remoteSends, (counterSends, offsetsSends)])
+
+        self.near_offsetReceives = offsetsReceives
+        self.near_offsetSends = offsetsSends
+        self.near_remoteReceives = remoteReceives
+        self.near_remoteSends = remoteSends
+        self.near_counterReceives = counterReceives
+        self.near_counterSends = counterSends
+        self.near_dataReceives = uninitialized((np.sum(counterReceives)), dtype=REAL)
+        self.near_dataSends = uninitialized((np.sum(counterSends)), dtype=REAL)
+
+        global_to_local = {}
+        for local_dof in range(self.lcl_dm.num_dofs):
+            global_dof = self.lclR.indices[local_dof]
+            global_to_local[global_dof] = local_dof
+        for k in range(self.near_remoteSends.shape[0]):
+            global_dof = self.near_remoteSends[k]
+            local_dof = global_to_local[global_dof]
+            self.near_remoteSends[k] = local_dof
+
+        self.rowIdx = self.lclR.indices[:self.lcl_dm.num_dofs]
+        self.colIdx = np.concatenate((self.rowIdx,
+                                      self.near_remoteReceives))
+        self.near_remoteReceives = np.arange(self.lcl_dm.num_dofs,
+                                             self.lcl_dm.num_dofs+self.near_remoteReceives.shape[0],
+                                             dtype=INDEX)
+
+        for local_dof in range(self.lcl_dm.num_dofs,
+                               self.lcl_dm.num_dofs+self.near_remoteReceives.shape[0]):
+            global_dof = self.colIdx[local_dof]
+            global_to_local[global_dof] = local_dof
+
+        indptr = self.localMat.Anear.indptr
+        indices = self.localMat.Anear.indices
+        data = self.localMat.Anear.data
+        new_indptr = uninitialized((self.rowIdx.shape[0]+1), dtype=INDEX)
+        new_indices = uninitialized((self.localMat.Anear.nnz), dtype=INDEX)
+        new_data = uninitialized((self.localMat.Anear.nnz), dtype=REAL)
+        new_indptr[0] = 0
+        for local_dof in range(self.rowIdx.shape[0]):
+            global_dof = self.rowIdx[local_dof]
+            new_indptr[local_dof+1] = new_indptr[local_dof] + indptr[global_dof+1]-indptr[global_dof]
+            jjj = new_indptr[local_dof]
+            for jj in range(indptr[global_dof], indptr[global_dof+1]):
+                J = indices[jj]
+                new_indices[jjj] = global_to_local[J]
+                new_data[jjj] = data[jj]
+                jjj += 1
+        self.localMat.Anear.indptr = new_indptr
+        self.localMat.Anear.indices = new_indices
+        self.localMat.Anear.data = new_data
+        self.localMat.Anear.num_rows = self.rowIdx.shape[0]
+        self.localMat.Anear.num_columns = self.colIdx.shape[0]
+
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cdef void communicateNear(self, REAL_t[::1] src, REAL_t[::1] target):
+        cdef:
+            INDEX_t i
+        # pack
+        for i in range(self.near_remoteSends.shape[0]):
+            self.near_dataSends[i] = src[self.near_remoteSends[i]]
+        # comm
+        self.comm.Alltoallv([self.near_dataSends, (self.near_counterSends, self.near_offsetSends)],
+                            [self.near_dataReceives, (self.near_counterReceives, self.near_offsetReceives)])
+        # unpack
+        for i in range(self.near_remoteReceives.shape[0]):
+            target[self.near_remoteReceives[i]] = self.near_dataReceives[i]
+
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cdef void setupFar(self):
+        cdef:
+            INDEX_t lvl, remoteRank, k, off1, off2, p, id, j
+            INDEX_t commSize = self.comm.size
+            farFieldClusterPair cP
+            tree_node n
+            list remoteReceives_list
+            INDEX_t[::1] sublist
+            INDEX_t[::1] counterReceives, remoteReceives, offsetsReceives
+            INDEX_t[::1] counterSends, remoteSends, offsetsSends
+            INDEX_t[::1] dataCounterReceives, dataOffsetReceives
+            INDEX_t[::1] dataCounterSends, dataOffsetSends
+        remoteReceives_list = [set() for p in range(commSize)]
+        for lvl in self.localMat.Pfar:
+            for cP in self.localMat.Pfar[lvl]:
+                n = cP.n2.getParent(1)
+                if self.lclRoot != n:
+                    remoteRank = n.id-1
+                    remoteReceives_list[remoteRank].add(cP.n2.id)
+        counterReceives = uninitialized((commSize), dtype=INDEX)
+        k = 0
+        for p in range(commSize):
+            counterReceives[p] = len(remoteReceives_list[p])
+            k += counterReceives[p]
+        remoteReceives = uninitialized((k), dtype=INDEX)
+        k = 0
+        for p in range(commSize):
+            sublist = np.sort(list(remoteReceives_list[p])).astype(INDEX)
+            for j in range(counterReceives[p]):
+                remoteReceives[k+j] = sublist[j]
+            k += counterReceives[p]
+        assert np.min(remoteReceives) > 0, remoteReceives
+
+        counterSends = np.zeros((commSize), dtype=INDEX)
+        self.comm.Alltoall(counterReceives, counterSends)
+        remoteSends = np.zeros(np.sum(counterSends), dtype=INDEX)
+
+        offsetsReceives = np.concatenate(([0], np.cumsum(counterReceives)[:commSize-1])).astype(INDEX)
+        offsetsSends = np.concatenate(([0], np.cumsum(counterSends)[:commSize-1])).astype(INDEX)
+        self.comm.Alltoallv([remoteReceives, (counterReceives, offsetsReceives)],
+                            [remoteSends, (counterSends, offsetsSends)])
+        assert np.min(remoteSends) > 0, remoteSends
+
+        dataCounterReceives = np.zeros((commSize), dtype=INDEX)
+        k = 0
+        for p in range(commSize):
+            off1 = offsetsReceives[p]
+            if p == commSize-1:
+                off2 = remoteReceives.shape[0]
+            else:
+                off2 = offsetsReceives[p+1]
+            for j in range(off1, off2):
+                id = remoteReceives[j]
+                n = self.node_lookup[id]
+                dataCounterReceives[k] += n.coefficientsUp.shape[0]
+            k += 1
+
+        dataOffsetReceives = np.zeros((commSize), dtype=INDEX)
+        k = 1
+        for p in range(commSize-1):
+            off1 = offsetsReceives[p]
+            off2 = offsetsReceives[p+1]
+            dataOffsetReceives[k] = dataOffsetReceives[k-1]
+            for j in range(off1, off2):
+                id = remoteReceives[j]
+                n = self.node_lookup[id]
+                dataOffsetReceives[k] += n.coefficientsUp.shape[0]
+            k += 1
+
+        dataCounterSends = np.zeros((commSize), dtype=INDEX)
+        k = 0
+        for p in range(commSize):
+            off1 = offsetsSends[p]
+            if p == commSize-1:
+                off2 = remoteSends.shape[0]
+            else:
+                off2 = offsetsSends[p+1]
+            for j in range(off1, off2):
+                id = remoteSends[j]
+                n = self.node_lookup[id]
+                dataCounterSends[k] += n.coefficientsUp.shape[0]
+            k += 1
+
+        dataOffsetSends = np.zeros((commSize), dtype=INDEX)
+        k = 1
+        for p in range(commSize-1):
+            off1 = offsetsSends[p]
+            off2 = offsetsSends[p+1]
+            dataOffsetSends[k] = dataOffsetSends[k-1]
+            for j in range(off1, off2):
+                id = remoteSends[j]
+                n = self.node_lookup[id]
+                dataOffsetSends[k] += n.coefficientsUp.shape[0]
+            k += 1
+
+        self.far_offsetsReceives = offsetsReceives
+        self.far_offsetsSends = offsetsSends
+        self.far_counterReceives = counterReceives
+        self.far_counterSends = counterSends
+        self.far_remoteReceives = remoteReceives
+        self.far_remoteSends = remoteSends
+        self.far_dataCounterReceives = dataCounterReceives
+        self.far_dataCounterSends = dataCounterSends
+        self.far_dataOffsetReceives = dataOffsetReceives
+        self.far_dataOffsetSends = dataOffsetSends
+        self.far_dataReceives = np.zeros((np.sum(dataCounterReceives)), dtype=REAL)
+        self.far_dataSends = np.zeros((np.sum(dataCounterSends)), dtype=REAL)
+
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cdef void communicateFar(self):
+        cdef:
+            INDEX_t commSize = self.comm.size
+            INDEX_t p, off1, off2, k, lclSize, j, i, id
+            tree_node n
+        # pack
+        for p in range(commSize):
+            off1 = self.far_offsetsSends[p]
+            if p == commSize-1:
+                off2 = self.far_remoteSends.shape[0]
+            else:
+                off2 = self.far_offsetsSends[p+1]
+            k = self.far_dataOffsetSends[p]
+            for i in range(off1, off2):
+                id = self.far_remoteSends[i]
+                n = self.lcl_node_lookup[id]
+                lclSize = n.coefficientsUp.shape[0]
+                for j in range(lclSize):
+                    self.far_dataSends[k+j] = n.coefficientsUp[j]
+                k += lclSize
+        # comm
+        self.comm.Alltoallv([self.far_dataSends, (self.far_dataCounterSends, self.far_dataOffsetSends)],
+                            [self.far_dataReceives, (self.far_dataCounterReceives, self.far_dataOffsetReceives)])
+        # unpack
+        for p in range(commSize):
+            off1 = self.far_offsetsReceives[p]
+            if p == commSize-1:
+                off2 = self.far_remoteReceives.shape[0]
+            else:
+                off2 = self.far_offsetsReceives[p+1]
+            k = self.far_dataOffsetReceives[p]
+            for i in range(off1, off2):
+                id = self.far_remoteReceives[i]
+                n = self.node_lookup[id]
+                lclSize = n.coefficientsUp.shape[0]
+                for j in range(lclSize):
+                    n.coefficientsUp[j] = self.far_dataReceives[k+j]
+                k += lclSize
+
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cdef INDEX_t matvec(self, REAL_t[::1] x, REAL_t[::1] y) except -1:
+        cdef:
+            INDEX_t level
+            tree_node n1, n2
+            farFieldClusterPair clusterPair
+            H2Matrix localMat = self.localMat
+        # near field
+        xTemp = uninitialized((self.localMat.Anear.shape[1]), dtype=REAL)
+        xTemp[:self.localMat.Anear.shape[0]] = x
+        self.communicateNear(x, xTemp)
+        localMat.Anear(xTemp, y)
+        # far field
+        self.lclRoot.upwardPass(x, 0, skip_leaves=False, local=True)
+        self.communicateFar()
+        self.lclRoot.resetCoefficientsDown()
+        for level in localMat.Pfar:
+            for clusterPair in localMat.Pfar[level]:
+                n1, n2 = clusterPair.n1, clusterPair.n2
+                clusterPair.apply(n2.coefficientsUp, n1.coefficientsDown)
+        self.lclRoot.downwardPass(y, 0, local=True)
+
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cpdef tuple convert(self):
+        cdef:
+            dict gid_to_lid_rowmap
+            INDEX_t[:, ::1] lcl_A_rowmap_a
+            INDEX_t k, dof, p
+            DistributedMap distRowMap
+            INDEX_t[:, ::1] lcl_Anear_colmap_a
+            DistributedMap distColMap
+            dict clusterID_to_lid
+            INDEX_t lid, clusterID, cluster_gid, cluster_lid
+            tree_node n
+            INDEX_t[::1] lcl_clusterGIDs
+            INDEX_t[:, ::1] lcl_clusterMap, lcl_ghosted_clusterMap
+            DistributedMap distClusterMap
+            INDEX_t lcl_coeffmap_size, lcl_ghosted_coeffmap_size
+            INDEX_t[:, ::1] lcl_coeffmap, lcl_ghosted_coeffmap
+            INDEX_t[::1] lcl_blocksizes
+            dict gid_to_clusterID
+            dict gid_cluster_to_lid_coeff
+            INDEX_t[::1] lid_cluster_to_gid_coeff, ghosted_lid_cluster_to_gid_coeff
+            INDEX_t offset, gid_coeff, lid_coeff, lid_dof, dofNo
+            IJOperator lcl_basisMatrix, lcl_transfer, lcl_transferBlockGraph, lcl_kernelApproximation, lcl_kernelBlockGraph
+            INDEX_t blockSize
+            INDEX_t i, k1, k2
+            INDEX_t lid_coeff1, lid_coeff2
+            INDEX_t cluster_gid1, cluster_gid2
+            INDEX_t lid_cluster1, lid_cluster2
+            farFieldClusterPair cP
+            MPI.Comm comm = self.comm
+            INDEX_t commSize = comm.size
+            INDEX_t commRank = comm.rank
+            INDEX_t minDistFromRoot
+        # rowmap
+        gid_to_lid_rowmap = {}
+        lcl_A_rowmap_a = np.zeros((self.lclRoot.num_dofs, 2), dtype=INDEX)
+        lcl_A_rowmap_a[:, 0] = self.rowIdx
+        lcl_A_rowmap_a[:, 1] = commRank
+        for dof in range(self.lclRoot.num_dofs):
+            gid_to_lid_rowmap[self.rowIdx[dof]] = dof
+
+        distRowMap = DistributedMap(comm, lcl_A_rowmap_a)
+
+        # Anear colmap
+        lcl_Anear_colmap_a = np.zeros((self.lclRoot.num_dofs+self.near_remoteReceives.shape[0], 2), dtype=INDEX)
+        lcl_Anear_colmap_a[:, 0] = self.colIdx
+        for k in range(self.lclRoot.num_dofs):
+            lcl_Anear_colmap_a[k, 1] = commRank
+        for p in range(commSize):
+            for k in range(self.near_offsetReceives[p],
+                           self.near_offsetReceives[p]+self.near_counterReceives[p]):
+                lcl_Anear_colmap_a[self.lclRoot.num_dofs+k, 1] = p
+
+        distColMap = DistributedMap(comm, lcl_Anear_colmap_a)
+
+        # Anear
+        lclAnear = self.localMat.Anear
+
+        minDistFromRoot = comm.allreduce(min(self.localMat.Pfar.keys()), op=MPI.MIN)
+
+        # clustermap
+        clusterID_to_lid = {}
+        lid = 0
+        for n in self.lclRoot.get_tree_nodes():
+            clusterID = n.id
+            if clusterID not in clusterID_to_lid:
+                clusterID_to_lid[clusterID] = lid
+                lid += 1
+
+        sizes = comm.gather(len(clusterID_to_lid))
+        if commRank == 0:
+            sizes = np.concatenate(([0], np.cumsum(sizes[:commSize-1])))
+        offset = comm.scatter(sizes)
+        clusterID_to_gid = {clusterID: offset+clusterID_to_lid[clusterID] for clusterID in clusterID_to_lid}
+        lcl_clusterGIDs = np.arange(offset, offset+len(clusterID_to_lid), dtype=INDEX)
+        lcl_clusterMap = np.zeros((lcl_clusterGIDs.shape[0], 2), dtype=INDEX)
+        lcl_clusterMap[:, 0] = lcl_clusterGIDs
+        lcl_clusterMap[:, 1] = commRank
+        distClusterMap = DistributedMap(comm, lcl_clusterMap)
+
+        # ghosted clustermap
+        sendsClusterIDs = np.zeros((np.sum(self.far_counterSends)), dtype=INDEX)
+        comm.Alltoallv([self.far_remoteReceives, (self.far_counterReceives, self.far_offsetsReceives)],
+                       [sendsClusterIDs, (self.far_counterSends, self.far_offsetsSends)])
+        receivesClusterGIDs = np.zeros_like(self.far_remoteReceives)
+        sendsClusterGIDs = np.zeros_like(sendsClusterIDs)
+        for k, clusterID in enumerate(sendsClusterIDs):
+            sendsClusterGIDs[k] = clusterID_to_gid[clusterID]
+        comm.Alltoallv([sendsClusterGIDs, (self.far_counterSends, self.far_offsetsSends)],
+                       [receivesClusterGIDs, (self.far_counterReceives, self.far_offsetsReceives)])
+
+        lcl_ghosted_clusterMap = np.zeros((lcl_clusterMap.shape[0]+receivesClusterGIDs.shape[0], 2), dtype=INDEX)
+        lcl_ghosted_clusterMap[:lcl_clusterMap.shape[0], :] = lcl_clusterMap
+
+        for k in range(self.far_remoteReceives.shape[0]):
+            clusterID = self.far_remoteReceives[k]
+            gid = receivesClusterGIDs[k]
+            clusterID_to_gid[clusterID] = gid
+            lcl_ghosted_clusterMap[lcl_clusterMap.shape[0]+k, 0] = gid
+        for rank in range(commSize):
+            lcl_ghosted_clusterMap[lcl_clusterMap.shape[0]+self.far_offsetsReceives[rank]:lcl_clusterMap.shape[0]+self.far_offsetsReceives[rank]++self.far_counterReceives[rank], 1] = rank
+
+        distGhostedClusterMap = DistributedMap(comm, lcl_ghosted_clusterMap)
+        gid_to_clusterID = {clusterID_to_gid[clusterID]: clusterID for clusterID in clusterID_to_gid}
+
+        # coeffMap, blocksizes
+        lcl_coeffmap_size = 0
+        for cluster_lid in range(distClusterMap.getLocalNumElements()):
+            cluster_gid = distClusterMap.getGlobalElement(cluster_lid)
+            n = self.lcl_node_lookup[gid_to_clusterID[cluster_gid]]
+            lcl_coeffmap_size += n.transferOperator.shape[0]
+        sizes = comm.gather(lcl_coeffmap_size)
+        if commRank == 0:
+            sizes = np.concatenate(([0], np.cumsum(sizes[:commSize-1])))
+        offset = comm.scatter(sizes)
+
+        lcl_coeffmap = np.zeros((lcl_coeffmap_size, 2), dtype=INDEX)
+        lcl_blocksizes = np.zeros((distClusterMap.getLocalNumElements()), dtype=INDEX)
+        gid_cluster_to_lid_coeff = {}
+        lid_cluster_to_gid_coeff = np.zeros((distClusterMap.getLocalNumElements()), dtype=INDEX)
+        lid_coeff = 0
+        for lid_cluster in range(distClusterMap.getLocalNumElements()):
+            cluster_gid = distClusterMap.getGlobalElement(lid_cluster)
+            n = self.lcl_node_lookup[gid_to_clusterID[cluster_gid]]
+            blockSize = n.transferOperator.shape[0]
+            for i in range(lid_coeff, lid_coeff+blockSize):
+                lcl_coeffmap[i, 0] = offset+i
+            lid_cluster_to_gid_coeff[lid_cluster] = offset+lid_coeff
+            lcl_blocksizes[lid_cluster] = blockSize
+            gid_cluster_to_lid_coeff[cluster_gid] = lid_coeff
+            lid_coeff += blockSize
+        lcl_coeffmap[:, 1] = commRank
+
+        distCoeffMap = DistributedMap(comm, lcl_coeffmap)
+
+        # ghosted coeffMap
+        ghosted_lid_cluster_to_gid_coeff = Import(distGhostedClusterMap, distClusterMap)(lid_cluster_to_gid_coeff)
+
+        lcl_ghosted_coeffmap_size = 0
+        for cluster_lid in range(distGhostedClusterMap.getLocalNumElements()):
+            cluster_gid = distGhostedClusterMap.getGlobalElement(cluster_lid)
+            n = self.node_lookup[gid_to_clusterID[cluster_gid]]
+            lcl_ghosted_coeffmap_size += n.transferOperator.shape[0]
+
+        lcl_ghosted_coeffmap = np.zeros((lcl_ghosted_coeffmap_size, 2), dtype=INDEX)
+        lid_coeff = 0
+        for lid_cluster in range(distGhostedClusterMap.getLocalNumElements()):
+            cluster_gid = distGhostedClusterMap.getGlobalElement(lid_cluster)
+            n = self.node_lookup[gid_to_clusterID[cluster_gid]]
+            blockSize = n.transferOperator.shape[0]
+            gid_coeff = ghosted_lid_cluster_to_gid_coeff[lid_cluster]
+            for i in range(blockSize):
+                lcl_ghosted_coeffmap[lid_coeff+i, 0] = gid_coeff+i
+            lid_coeff += blockSize
+
+        distGhostedCoeffMap = DistributedMap(comm, lcl_ghosted_coeffmap)
+
+        gid_lid_clusterMap = {}
+        for lid in range(lcl_clusterMap.shape[0]):
+            gid_lid_clusterMap[lcl_clusterMap[lid, 0]] = lid
+        gid_lid_ghosted_clusterMap = {}
+        for lid in range(lcl_ghosted_clusterMap.shape[0]):
+            gid_lid_ghosted_clusterMap[lcl_ghosted_clusterMap[lid, 0]] = lid
+
+        lcl_basisMatrix = IJOperator(distRowMap.getLocalNumElements(),
+                                     distCoeffMap.getLocalNumElements())
+        for n in self.lclRoot.get_tree_nodes():
+
+            if n.isLeaf:
+                for dofNo, dof in enumerate(n.dofs):
+                    lid_dof = gid_to_lid_rowmap[dof]
+                    gid_cluster = clusterID_to_gid[n.id]
+                    lid_coeff = gid_cluster_to_lid_coeff[gid_cluster]
+                    for coeffNo in range(n.value.shape[2]):
+                        lcl_basisMatrix.setEntry(lid_dof,
+                                                 lid_coeff,
+                                                 n.value[0, dofNo, coeffNo])
+                        lid_coeff += 1
+        lcl_basisMatrix_csr = lcl_basisMatrix.to_csr_linear_operator()
+
+        lcl_transfers = {}
+        lcl_transfersBlockGraph = {}
+        for n in self.lclRoot.get_tree_nodes():
+            try:
+                n.transferOperator
+                dist = n.distFromRoot
+                if dist-2 < minDistFromRoot:
+                    continue
+                if dist not in lcl_transfersBlockGraph:
+                    lcl_transfers[dist] = IJOperator(distCoeffMap.getLocalNumElements(),
+                                                     distCoeffMap.getLocalNumElements())
+                    lcl_transfersBlockGraph[dist] = IJOperator(distClusterMap.getLocalNumElements(),
+                                                               distClusterMap.getLocalNumElements())
+                lcl_transfer = lcl_transfers[dist]
+                cluster_gid1 = clusterID_to_gid[n.parent.id]
+                cluster_gid2 = clusterID_to_gid[n.id]
+                lid_coeff1 = gid_cluster_to_lid_coeff[cluster_gid1]
+                for k1 in range(n.transferOperator.shape[0]):
+                    lid_coeff2 = gid_cluster_to_lid_coeff[cluster_gid2]
+                    for k2 in range(n.transferOperator.shape[1]):
+                        lcl_transfer.setEntry(lid_coeff1, lid_coeff2, n.transferOperator[k1, k2])
+                        lid_coeff2 += 1
+                    lid_coeff1 += 1
+                lcl_transferBlockGraph = lcl_transfersBlockGraph[dist]
+                lcl_transferBlockGraph.setEntry(gid_lid_clusterMap[cluster_gid1],
+                                                gid_lid_clusterMap[cluster_gid2],
+                                                1.)
+            except (AttributeError, KeyError):
+                pass
+        for dist in lcl_transfersBlockGraph:
+            lcl_transfers[dist] = lcl_transfers[dist].to_csr_linear_operator()
+            lcl_transfersBlockGraph[dist] = lcl_transfersBlockGraph[dist].to_csr_linear_operator()
+
+        lcl_kernelBlockGraph = IJOperator(distClusterMap.getLocalNumElements(),
+                                          distGhostedClusterMap.getLocalNumElements())
+        lcl_kernelApproximation = IJOperator(distCoeffMap.getLocalNumElements(),
+                                             distGhostedCoeffMap.getLocalNumElements())
+        for lvl in self.localMat.Pfar:
+            for cP in self.localMat.Pfar[lvl]:
+                gid_cluster1 = clusterID_to_gid[cP.n1.id]
+                gid_cluster2 = clusterID_to_gid[cP.n2.id]
+                lid_cluster1 = gid_lid_clusterMap[gid_cluster1]
+                lid_cluster2 = gid_lid_ghosted_clusterMap[gid_cluster2]
+                lcl_kernelBlockGraph.setEntry(lid_cluster1,
+                                              lid_cluster2,
+                                              1.)
+                lid_coeff1 = gid_cluster_to_lid_coeff[gid_cluster1]
+                for k1 in range(cP.kernelInterpolant.shape[0]):
+                    lid_coeff2 = distGhostedCoeffMap.getLocalElement(ghosted_lid_cluster_to_gid_coeff[lid_cluster2])
+                    for k2 in range(cP.kernelInterpolant.shape[1]):
+                        lcl_kernelApproximation.setEntry(lid_coeff1, lid_coeff2, cP.kernelInterpolant[k1, k2])
+                        lid_coeff2 += 1
+                    lid_coeff1 += 1
+        lcl_kernelApproximation_csr = lcl_kernelApproximation.to_csr_linear_operator()
+        lcl_kernelBlockGraph_csr = lcl_kernelBlockGraph.to_csr_linear_operator()
+
+        return (lclAnear,
+                distRowMap,
+                distColMap,
+                distCoeffMap, distGhostedCoeffMap,
+                distClusterMap, distGhostedClusterMap,
+                lcl_blocksizes,
+                lcl_kernelApproximation_csr, lcl_kernelBlockGraph_csr,
+                lcl_transfers, lcl_transfersBlockGraph,
+                lcl_basisMatrix_csr)
+
+
 
 @cython.initializedcheck(False)
 @cython.boundscheck(False)
@@ -2010,12 +2816,10 @@ def getDoFBoxesAndCells(meshBase mesh, DoFMap DoFMap, comm=None):
         REAL_t[:, ::1] boxes2
         REAL_t[:, ::1] simplex = uninitialized((dim+1, dim), dtype=REAL)
         REAL_t[::1] m = uninitialized((dim), dtype=REAL), M = uninitialized((dim), dtype=REAL)
-        list cells
+        sparsityPattern cells_pre = sparsityPattern(DoFMap.num_dofs)
 
     boxes[:, :, 0] = np.inf
     boxes[:, :, 1] = -np.inf
-
-    cells = [set() for i in range(DoFMap.num_dofs)]
 
     if comm:
         start = <INDEX_t>np.ceil(mesh.num_cells*comm.rank/comm.size)
@@ -2057,7 +2861,9 @@ def getDoFBoxesAndCells(meshBase mesh, DoFMap DoFMap, comm=None):
         for j in range(DoFMap.dofs_per_element):
             I = DoFMap.cell2dof(i, j)
             if I >= 0:
-                cells[I].add(i)
+                cells_pre.add(I, i)
+    indptr, indices = cells_pre.freeze()
+    cells = sparseGraph(indices, indptr, DoFMap.num_dofs, mesh.num_cells)
     return np.array(boxes, copy=False), cells
 
 
@@ -2108,7 +2914,15 @@ def getFractionalOrdersDiagonal(variableFractionalOrder s, meshBase mesh):
 @cython.initializedcheck(False)
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cpdef BOOL_t getAdmissibleClusters(FractionalKernel kernel, tree_node n1, tree_node n2, INDEX_t farFieldInteractionSize, REAL_t eta=1., dict Pfar=None, list Pnear=None, INDEX_t level=0, INDEX_t maxLevels=200):
+cpdef BOOL_t getAdmissibleClusters(FractionalKernel kernel,
+                                   tree_node n1,
+                                   tree_node n2,
+                                   refinementParams refParams,
+                                   dict Pfar=None,
+                                   list Pnear=None,
+                                   INDEX_t level=0,
+                                   REAL_t[:, :, ::1] boxes=None,
+                                   REAL_t[:, ::1] coords=None):
     cdef:
         tree_node t1, t2
         bint seemsAdmissible
@@ -2124,7 +2938,7 @@ cpdef BOOL_t getAdmissibleClusters(FractionalKernel kernel, tree_node n1, tree_n
     diam1 = diamBox(n1.box)
     diam2 = diamBox(n2.box)
 
-    seemsAdmissible = eta*dist >= max(diam1, diam2) and not n1.mixed_node and not n2.mixed_node and (farFieldInteractionSize <= n1.get_num_dofs()*n2.get_num_dofs()) and n1.canBeAssembled and n2.canBeAssembled
+    seemsAdmissible = refParams.eta*dist >= max(diam1, diam2) and not n1.mixed_node and not n2.mixed_node and (refParams.farFieldInteractionSize <= n1.get_num_dofs()*n2.get_num_dofs()) and n1.canBeAssembled and n2.canBeAssembled
 
     horizon = kernel.horizon
     assert isinstance(horizon, constant)
@@ -2153,35 +2967,44 @@ cpdef BOOL_t getAdmissibleClusters(FractionalKernel kernel, tree_node n1, tree_n
         except KeyError:
             Pfar[level] = [cp]
         return True
-    elif (n1.get_is_leaf() and n2.get_is_leaf()) or (level == maxLevels):
-        Pnear.append(nearFieldClusterPair(n1, n2))
-        if kernel.finiteHorizon and len(Pnear[len(Pnear)-1].cellsInter) > 0:
-            if diamUnion > kernel.horizon.value:
-                print("Near field cluster pairs need to fit within horizon.\nBox1 {}\nBox2 {}\n{}, {} -> {}".format(np.array(n1.box),
-                                                                                                                    np.array(n2.box),
-                                                                                                                    diam1,
-                                                                                                                    diam2,
-                                                                                                                    diamUnion))
-
-    elif (farFieldInteractionSize > n1.get_num_dofs()*n2.get_num_dofs()) and (diamUnion < horizonValue):
-        Pnear.append(nearFieldClusterPair(n1, n2))
-        return False
-    elif n1.get_is_leaf():
-        for t2 in n2.children:
-            addedFarFieldClusters |= getAdmissibleClusters(kernel, n1, t2, farFieldInteractionSize, eta,
-                                                           Pfar, Pnear,
-                                                           level+1, maxLevels)
-    elif n2.get_is_leaf():
-        for t1 in n1.children:
-            addedFarFieldClusters |= getAdmissibleClusters(kernel, t1, n2, farFieldInteractionSize, eta,
-                                                           Pfar, Pnear,
-                                                           level+1, maxLevels)
     else:
-        for t1 in n1.children:
+        if refParams.attemptRefinement:
+            if n1.get_is_leaf():
+                n1.refine(boxes, coords, refParams, False)
+            if n2.get_is_leaf():
+                n2.refine(boxes, coords, refParams, False)
+        if (n1.get_is_leaf() and n2.get_is_leaf()) or (level == refParams.maxLevels):
+            Pnear.append(nearFieldClusterPair(n1, n2))
+            # if kernel.finiteHorizon and len(Pnear[len(Pnear)-1].cellsInter) > 0:
+            #     if diamUnion > kernel.horizon.value:
+            #         print("Near field cluster pairs need to fit within horizon.\nBox1 {}\nBox2 {}\n{}, {} -> {}".format(np.array(n1.box),
+            #                                                                                                             np.array(n2.box),
+            #                                                                                                             diam1,
+            #                                                                                                             diam2,
+            #                                                                                                             diamUnion))
+            return False
+        elif (refParams.farFieldInteractionSize > n1.get_num_dofs()*n2.get_num_dofs()) and (diamUnion < horizonValue):
+            Pnear.append(nearFieldClusterPair(n1, n2))
+            return False
+        elif n1.get_is_leaf():
             for t2 in n2.children:
-                addedFarFieldClusters |= getAdmissibleClusters(kernel, t1, t2, farFieldInteractionSize, eta,
+                addedFarFieldClusters |= getAdmissibleClusters(kernel, n1, t2, refParams,
                                                                Pfar, Pnear,
-                                                               level+1, maxLevels)
+                                                               level+1,
+                                                               boxes, coords)
+        elif n2.get_is_leaf():
+            for t1 in n1.children:
+                addedFarFieldClusters |= getAdmissibleClusters(kernel, t1, n2, refParams,
+                                                               Pfar, Pnear,
+                                                               level+1,
+                                                               boxes, coords)
+        else:
+            for t1 in n1.children:
+                for t2 in n2.children:
+                    addedFarFieldClusters |= getAdmissibleClusters(kernel, t1, t2, refParams,
+                                                                   Pfar, Pnear,
+                                                                   level+1,
+                                                                   boxes, coords)
     if not addedFarFieldClusters:
         if diamUnion < horizonValue:
             del Pnear[lenNearField:]
@@ -2193,13 +3016,14 @@ def symmetrizeNearFieldClusters(list Pnear):
     cdef:
         set clusters = set()
         nearFieldClusterPair cpNear
-        farFieldClusterPair cpFar
         INDEX_t id1, id2
         dict lookup = {}
     for cpNear in Pnear:
-        clusters.add((cpNear.n1.id, cpNear.n2.id))
-        lookup[cpNear.n1.id] = cpNear.n1
-        lookup[cpNear.n2.id] = cpNear.n2
+        id1 = cpNear.n1.id
+        id2 = cpNear.n2.id
+        clusters.add((id1, id2))
+        lookup[id1] = cpNear.n1
+        lookup[id2] = cpNear.n2
     while len(clusters) > 0:
         id1, id2 = clusters.pop()
         if id1 != id2:
@@ -2209,12 +3033,14 @@ def symmetrizeNearFieldClusters(list Pnear):
                 clusters.remove((id2, id1))
 
 
-def trimTree(tree_node tree, list Pnear, dict Pfar, comm):
+def trimTree(tree_node tree, list Pnear, dict Pfar, comm, keep=[]):
     cdef:
         nearFieldClusterPair cpNear
         farFieldClusterPair cpFar
         tree_node n
         bitArray used = bitArray(maxElement=tree.get_max_id())
+    for n in keep:
+        used.set(n.id)
     for cpNear in Pnear:
         used.set(cpNear.n1.id)
         used.set(cpNear.n2.id)
@@ -2226,9 +3052,9 @@ def trimTree(tree_node tree, list Pnear, dict Pfar, comm):
     if (comm is not None) and len(tree.children) == comm.size:
         for n in tree.children:
             used.set(n.id)
-    # print(used.getNumEntries(), tree.get_max_id(), tree.nodes)
+    # print('before', used.getNumEntries(), tree.get_max_id(), tree.nodes)
     tree.trim(used)
-    tree.set_id()
+    # tree.set_id()
     # used.empty()
     # for cpNear in Pnear:
     #     used.set(cpNear.n1.id)
@@ -2237,7 +3063,7 @@ def trimTree(tree_node tree, list Pnear, dict Pfar, comm):
     #     for cpFar in Pfar[lvl]:
     #         used.set(cpFar.n1.id)
     #         used.set(cpFar.n2.id)
-    # print(used.getNumEntries(), tree.get_max_id(), tree.nodes)
+    # print('after', used.getNumEntries(), tree.get_max_id(), tree.nodes)
 
 
 @cython.initializedcheck(False)
@@ -2310,7 +3136,7 @@ cdef class exactSphericalIntegral2D(function):
         root = tree_node(None, set(np.arange(dm.num_dofs)), boxes)
         maxLevels = int(np.floor(0.5*np.log2(mesh.num_vertices)))
         root.refine(boxes, centers, maxLevels=maxLevels)
-        root.set_id()
+        # root.set_id()
         # enter cells in leaf nodes
         for n in root.leaves():
             n._cells = set()

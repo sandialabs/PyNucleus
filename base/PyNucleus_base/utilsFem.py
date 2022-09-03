@@ -101,8 +101,11 @@ class TimerManager:
         data2 = OrderedDict()
         for key in data.keys():
             val = data[key]
+            # (number of calls, min over calls, mean over calls, med over calls, max over calls)
+            # on rank
             data2[key] = (len(val), np.min(val), np.mean(val), np.median(val), np.max(val))
         data = data2
+        # gather data for all ranks
         if self.comm is not None:
             data = self.comm.gather(data, root=rank)
         else:
@@ -648,6 +651,32 @@ class outputGroup:
         return result
 
 
+class statisticOutputGroup(outputGroup):
+    def __init__(self, comm):
+        super(statisticOutputGroup, self).__init__()
+        self.comm = comm
+        self.doSum = {}
+
+    def add(self, label, value, format=None, aTol=None, rTol=None, tested=None, sumOverRanks=True):
+        value = self.comm.gather(value)
+        if self.comm.rank == 0:
+            self.doSum[label] = sumOverRanks
+            super(statisticOutputGroup, self).add(label, value, format=format, aTol=aTol, rTol=rTol, tested=tested)
+
+    def __repr__(self):
+        lines = []
+        header = ['quantity', 'min', 'mean', 'med', 'max', 'sum']
+        for p in self.entries:
+            key = p.label
+            data = p.value
+            if self.doSum[key]:
+                lines.append((key, np.min(data), np.mean(data), np.median(data), np.max(data), np.sum(data)))
+            else:
+                lines.append((key, np.min(data), np.mean(data), np.median(data), np.max(data), None))
+        from tabulate import tabulate
+        return tabulate(lines, headers=header)
+
+
 class timerOutputGroup(outputGroup):
     def __init__(self):
         super(timerOutputGroup, self).__init__()
@@ -667,10 +696,14 @@ class timerOutputGroup(outputGroup):
             medNumCalls = np.median(numCalls)
             maxNumCalls = np.max(numCalls)
 
+            # min over min call counts
             minCall = np.min([p[1] for p in data])
+            # (\sum_{rank} numCalls*meanPerCall) / (\sum_{rank} numCalls)
             meanCall = np.sum([p[0]*p[2] for p in data])/numCalls.sum()
-            maxCall = np.median([p[4] for p in data])
+            # max over max call counts
+            maxCall = np.max([p[4] for p in data])
 
+            # total time per rank
             sums = [p[0]*p[2] for p in data]
             if len(sums) > 1:
                 minSum = np.min(sums)
@@ -1085,6 +1118,14 @@ class driver:
         assert group.aTol == aTol
         assert group.rTol == rTol
         return group
+
+    def addStatsOutputGroup(self, name, group=None, aTol=None, rTol=None, tested=False):
+        if name in self.outputGroups:
+            group = self.outputGroups[name]
+            assert isinstance(group, statisticOutputGroup)
+            return group
+        else:
+            return self.addOutputGroup(name, statisticOutputGroup(comm=self.comm))
 
     def addOutputSeries(self, name, aTol=None, rTol=None, tested=False):
         group = seriesOutputGroup(name, aTol, rTol, tested)
