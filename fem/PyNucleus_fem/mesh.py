@@ -689,20 +689,23 @@ def doubleSquareWithInteractionsCorners(ax=0., ay=0., bx=1., by=1., cx=2., cy=1.
         return mesh
 
 
-def discWithInteraction(radius, horizon, h=0.25):
+def discWithInteraction(radius, horizon, h=0.25, max_volume=None):
+    if max_volume is None:
+        max_volume = h**2
+    n = int(np.around(2*np.pi*radius/h))
     if horizon > 0:
         outerRadius = radius + horizon
         if h > horizon:
             LOGGER.warn("h = {} > horizon = {}. Using h=horizon instead.".format(h, horizon))
             h = horizon
-        return circleWithInnerRadius(int(2*np.pi*outerRadius/h),
+        return circleWithInnerRadius(n,
                                      radius=outerRadius,
                                      innerRadius=radius,
-                                     max_volume=h**2)
+                                     max_volume=max_volume)
     else:
-        return circle(int(2*np.pi*radius/h),
+        return circle(n,
                       radius=radius,
-                      max_volume=h**2)
+                      max_volume=max_volume)
 
 
 def discWithIslands(horizon=0., radius=1., islandOffCenter=0.35, islandDiam=0.5):

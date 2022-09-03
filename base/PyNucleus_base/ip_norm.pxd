@@ -45,6 +45,18 @@ cdef class ip_serial(ipBase):
     pass
 
 
+cdef class ip_distributed_nonoverlapping(ipBase):
+    cdef:
+        MPI.Comm comm
+        ip_serial localIP
+
+
+cdef class norm_distributed_nonoverlapping(normBase):
+    cdef:
+        MPI.Comm comm
+        ip_serial localIP
+
+
 cdef class ip_distributed(ipBase):
     cdef:
         object overlap

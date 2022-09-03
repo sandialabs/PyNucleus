@@ -36,6 +36,10 @@ cdef class interactionDomain(parametrizedTwoPointFunction):
     cdef BOOL_t nextSubSimplex_Node(self, REAL_t[:, ::1] A, REAL_t[::1] b, REAL_t *vol)
 
 
+cdef class fullSpace(interactionDomain):
+    pass
+
+
 cdef class ball1(interactionDomain):
     pass
 

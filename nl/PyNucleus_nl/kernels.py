@@ -24,8 +24,10 @@ from . fractionalOrders import (fractionalOrderBase,
                                 constantIntegrableScaling)
 from . kernelsCy import (Kernel,
                          FractionalKernel,
+                         
                          FRACTIONAL, INDICATOR, PERIDYNAMIC,
                          getKernelEnum)
+
 
 
 def _getDim(dim):
@@ -50,6 +52,7 @@ def _getKernelType(kernel):
 def _getFractionalOrder(s):
     if isinstance(s, fractionalOrderBase):
         sFun = s
+    
     elif isinstance(s, (REAL, float)):
         sFun = constFractionalOrder(s)
     else:
@@ -105,16 +108,18 @@ def getFractionalKernel(dim,
     horizonFun = _getHorizon(horizon)
     interaction = _getInteraction(interaction, horizonFun)
 
-    if scaling is None:
-        if normalized:
-            if isinstance(sFun, constFractionalOrder) and isinstance(horizonFun, constant):
-                scaling = constantFractionalLaplacianScaling(dim, sFun.value, horizonFun.value)
+    if False: pass
+    else:
+        if scaling is None:
+            if normalized:
+                if isinstance(sFun, constFractionalOrder) and isinstance(horizonFun, constant):
+                    scaling = constantFractionalLaplacianScaling(dim, sFun.value, horizonFun.value)
+                else:
+                    symmetric = sFun.symmetric and isinstance(horizonFun, constant)
+                    scaling = variableFractionalLaplacianScaling(symmetric)
             else:
-                symmetric = sFun.symmetric and isinstance(horizonFun, constant)
-                scaling = variableFractionalLaplacianScaling(symmetric)
-        else:
-            scaling = constantTwoPoint(0.5)
-    kernel = FractionalKernel(dim_, sFun, horizonFun, interaction, scaling, phi, piecewise=piecewise)
+                scaling = constantTwoPoint(0.5)
+        kernel = FractionalKernel(dim_, sFun, horizonFun, interaction, scaling, phi, piecewise=piecewise)
     return kernel
 
 

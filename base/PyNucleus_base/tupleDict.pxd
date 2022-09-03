@@ -43,6 +43,10 @@ cdef class arrayIndexSet(indexSet):
         INDEX_t[::1] I
 
 
+cdef class unsortedArrayIndexSet(arrayIndexSet):
+    pass
+
+
 cdef class arrayIndexSetIterator(indexSetIterator):
     cdef:
         INDEX_t k

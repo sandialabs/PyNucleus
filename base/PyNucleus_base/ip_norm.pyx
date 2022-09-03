@@ -111,6 +111,47 @@ cdef class norm_serial(normBase):
         return norm(v)
 
 
+cdef class ip_distributed_nonoverlapping(ipBase):
+    def __init__(self, comm):
+        self.comm = comm
+        self.localIP = ip_serial()
+
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cdef REAL_t eval(self,
+                       vector_t v1, vector_t v2,
+                       BOOL_t acc1=False, BOOL_t acc2=False,
+                       BOOL_t asynchronous=False):
+        cdef:
+            REAL_t temp_mem[1]
+            REAL_t[::1] temp = temp_mem
+        temp[0] = self.localIP.eval(v1, v2)
+        self.comm.Allreduce(MPI.IN_PLACE, temp)
+        return temp[0]
+
+
+cdef class norm_distributed_nonoverlapping(normBase):
+    def __init__(self, comm):
+        self.comm = comm
+        self.localIP = ip_serial()
+
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cdef REAL_t eval(self,
+                       vector_t v,
+                       BOOL_t acc=False,
+                       BOOL_t asynchronous=False):
+        cdef:
+            REAL_t temp_mem[1]
+            REAL_t[::1] temp = temp_mem
+        temp[0] = self.localIP.eval(v, v)
+        self.comm.Allreduce(MPI.IN_PLACE, temp)
+        return sqrt(temp[0])
+
+
+
 cdef class ip_distributed(ipBase):
     def __init__(self, overlap, INDEX_t level=-1):
         self.overlap = overlap

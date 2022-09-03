@@ -354,6 +354,65 @@ cdef class arrayIndexSet(indexSet):
         return newIS
 
 
+cdef class unsortedArrayIndexSet(arrayIndexSet):
+    def __init__(self, INDEX_t[::1] I = None):
+        if I is not None:
+            self.I = I
+        else:
+            self.I = np.empty((0), dtype=INDEX)
+
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cdef BOOL_t inSet(self, INDEX_t i):
+        cdef:
+            INDEX_t j
+        for j in range(self.I.shape[0]):
+            if self.I[j] == i:
+                return True
+        return False
+
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cpdef void fromSet(self, set s):
+        cdef:
+            INDEX_t i, k
+        self.I = np.empty((len(s)), dtype=INDEX)
+        k = 0
+        for i in s:
+            self.I[k] = i
+            k += 1
+
+    cpdef set toSet(self):
+        cdef:
+            INDEX_t k
+            set s = set()
+        for k in range(self.I.shape[0]):
+            s.add(self.I[k])
+        return s
+
+    cpdef INDEX_t[::1] toArray(self):
+        return self.I
+
+    cdef indexSetIterator getIter(self):
+        return arrayIndexSetIterator(self)
+
+    cdef INDEX_t getNumEntries(self):
+        return self.I.shape[0]
+
+    cpdef void empty(self):
+        self.I = np.empty((0), dtype=INDEX)
+
+    cpdef indexSet union(self, indexSet other):
+        raise NotImplementedError()
+
+    cpdef indexSet inter(self, indexSet other):
+        raise NotImplementedError()
+
+    cpdef indexSet setminus(self, indexSet other):
+        raise NotImplementedError()
+
 
 cdef class arrayIndexSetIterator(indexSetIterator):
     def __init__(self, arrayIndexSet aIS=None):

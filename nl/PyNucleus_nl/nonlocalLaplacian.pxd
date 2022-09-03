@@ -7,12 +7,16 @@
 
 
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, ENCODE_t, BOOL_t
-from PyNucleus_base.tupleDict cimport tupleDictMASK, indexSet, indexSetIterator, arrayIndexSet, arrayIndexSetIterator
+from PyNucleus_base.tupleDict cimport tupleDictMASK, indexSet, indexSetIterator, arrayIndexSet, unsortedArrayIndexSet, arrayIndexSetIterator
 from PyNucleus_fem.quadrature cimport (simplexQuadratureRule, quadQuadratureRule,
                                        doubleSimplexQuadratureRule, GaussJacobi,
                                        simplexDuffyTransformation, simplexXiaoGimbutas)
 from PyNucleus_fem.DoFMaps cimport DoFMap
-from . clusterMethodCy cimport tree_node, farFieldClusterPair, H2Matrix, DistributedH2Matrix
+from . clusterMethodCy cimport (tree_node,
+                                farFieldClusterPair,
+                                H2Matrix,
+                                DistributedH2Matrix_globalData,
+                                DistributedH2Matrix_localData)
 from . nonlocalLaplacianBase cimport (double_local_matrix_t,
                                         nonlocalLaplacian,
                                         panelType,
@@ -63,13 +67,14 @@ cdef class nonlocalBuilder:
     cdef inline double_local_matrix_t getLocalMatrixBoundaryZeroExterior(self, dict params, BOOL_t infHorizon)
     cpdef REAL_t getEntry(self, INDEX_t I, INDEX_t J)
     cpdef REAL_t getEntryCluster(self, INDEX_t I, INDEX_t J)
-    cpdef LinearOperator assembleClusters(self, list Pnear, bint forceUnsymmetric=*, LinearOperator Anear=*, dict jumps=*, indexSet myDofs=*, str prefix=*)
+    cpdef LinearOperator assembleClusters(self, list Pnear, bint forceUnsymmetric=*, LinearOperator Anear=*, dict jumps=*, indexSet myDofs=*, str prefix=*, tree_node myRoot=*)
 
 
 cdef class nearFieldClusterPair:
     cdef:
         public tree_node n1, n2
         public indexSet cellsUnion, cellsInter
+    cdef void set_cells(self)
 
 
-cdef LinearOperator getSparseNearField(DoFMap DoFMap, list Pnear, bint symmetric=*)
+cdef LinearOperator getSparseNearField(DoFMap DoFMap, list Pnear, bint symmetric=*, tree_node myRoot=*)

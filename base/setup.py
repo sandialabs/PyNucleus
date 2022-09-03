@@ -161,7 +161,8 @@ p.addExtension("tupleDict",
                sources=[p.folder+"tupleDict.pyx"])
 p.addExtension("SchurComplement",
                sources=[p.folder+"SchurComplement.pyx"])
-
+p.addExtension("io",
+               sources=[p.folder+"io.pyx"])
 
 
 p.setup(description="Helper functions for PyNucleus.",

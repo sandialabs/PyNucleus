@@ -704,20 +704,23 @@ cdef class DoFMap:
 
         """
         try:
-            from PyNucleus_nl import nonlocalBuilder
-            builder = nonlocalBuilder(self.mesh, self, kernel, dm2=dm2, **kwargs)
-            if matrixFormat.upper() == 'DENSE':
-                return builder.getDense()
-            elif matrixFormat.upper() == 'SPARSE':
-                return builder.getDense(trySparsification=True)
-            elif matrixFormat.upper() == 'H2':
-                return builder.getH2(returnNearField=returnNearField)
-            elif matrixFormat.upper() == 'H2CORRECTED':
-                A = builder.getH2FiniteHorizon()
-                A.setKernel(kernel)
-                return A
+            if False: pass
             else:
-                raise NotImplementedError('Unknown matrix format: {}'.format(matrixFormat))
+                from PyNucleus_nl import nonlocalBuilder
+
+                builder = nonlocalBuilder(self.mesh, self, kernel, dm2=dm2, **kwargs)
+                if matrixFormat.upper() == 'DENSE':
+                    return builder.getDense()
+                elif matrixFormat.upper() == 'SPARSE':
+                    return builder.getDense(trySparsification=True)
+                elif matrixFormat.upper() == 'H2':
+                    return builder.getH2(returnNearField=returnNearField)
+                elif matrixFormat.upper() == 'H2CORRECTED':
+                    A = builder.getH2FiniteHorizon()
+                    A.setKernel(kernel)
+                    return A
+                else:
+                    raise NotImplementedError('Unknown matrix format: {}'.format(matrixFormat))
         except ImportError as e:
             raise ImportError('\'PyNucleus_nl\' needs to be installed first.') from e
 
