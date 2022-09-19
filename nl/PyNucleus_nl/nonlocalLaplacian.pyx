@@ -1041,6 +1041,7 @@ cdef class nonlocalBuilder:
             n3._cells.fromSet(cells)
 
             c3 = nearFieldClusterPair(n3, n3)
+            c3.set_cells()
             clusters.append(c3)
         else:
             aI1 = arrayIndexSet(I_view)
@@ -1063,7 +1064,9 @@ cdef class nonlocalBuilder:
             n2._cells.fromSet(cells)
 
             c1 = nearFieldClusterPair(n1, n2)
+            c1.set_cells()
             c2 = nearFieldClusterPair(n2, n1)
+            c2.set_cells()
             clusters.append(c1)
             clusters.append(c2)
         A = Dense_SubBlock_LinearOperator(I_view,
@@ -1754,6 +1757,7 @@ cdef class nonlocalBuilder:
             n = tree_node(None, set([I]), fake_boxes)
             n._cells = d2c[I]
             c = nearFieldClusterPair(n, n)
+            c.set_cells()
             clusters.append(c)
         D = self.assembleClusters(clusters, Anear=D)
         if self.comm:
@@ -1945,7 +1949,7 @@ cdef class nonlocalBuilder:
             INDEX_t lvl, id1, id2
             nearFieldClusterPair cPnear
             farFieldClusterPair cP
-            tree_node n1
+            tree_node n1, n
             dict added
             INDEX_t N
             dict node_lookup
@@ -1953,6 +1957,11 @@ cdef class nonlocalBuilder:
             set myCells
         with self.PLogger.Timer('admissible clusters'):
             if doDistributedAssembly:
+                if assembleOnRoot:
+                    # we need all tree nodes to be already available when we gather the far field clusters
+                    for n in root.children:
+                        n.refine(boxes, coords, refParams, recursive=True)
+
                 for n in root.children:
                     getAdmissibleClusters(self.local_matrix.kernel, myRoot, n,
                                           refParams,
@@ -2479,23 +2488,6 @@ cdef class horizonCorrected(TimeStepperLinearOperator):
         return TimeStepperLinearOperator.matvec_no_overwrite(self, x, y)
 
 
-def assembleFractionalLaplacian(meshBase mesh,
-                                DoFMap DoFMap,
-                                fractionalOrderBase s,
-                                function horizon=constant(np.inf),
-                                target_order=None,
-                                bint zeroExterior=True,
-                                bint genKernel=False,
-                                MPI.Comm comm=None,
-                                bint forceNonSym=False,
-                                **kwargs):
-    warnings.warn('"assembleFractionalLaplacian" deprecated, use "assembleNonlocalOperator"', DeprecationWarning)
-    params = {'target_order': target_order,
-              'genKernel': genKernel,
-              'forceNonSym': forceNonSym}
-    return assembleNonlocalOperator(mesh, DoFMap, s, horizon, params, zeroExterior, comm, **kwargs)
-
-
 def assembleNonlocalOperator(meshBase mesh,
                              DoFMap DoFMap,
                              fractionalOrderBase s,
@@ -2508,19 +2500,6 @@ def assembleNonlocalOperator(meshBase mesh,
     builder = nonlocalBuilder(mesh, DoFMap, kernel, params, zeroExterior, comm, **kwargs)
     return builder.getDense()
 
-
-
-def assembleFractionalLaplacianDiagonal(meshBase mesh,
-                                        DoFMap DoFMap,
-                                        fractionalOrderBase s,
-                                        function horizon=constant(np.inf),
-                                        dict params={},
-                                        bint zeroExterior=True,
-                                        comm=None,
-                                        **kwargs):
-    kernel = getFractionalKernel(mesh.dim, s, horizon)
-    builder = nonlocalBuilder(mesh, DoFMap, kernel, params, zeroExterior, comm, **kwargs)
-    return builder.getDiagonal()
 
 
 @cython.initializedcheck(False)
@@ -2599,6 +2578,9 @@ cdef class nearFieldClusterPair:
                                                                                       cells2.toSet(),
                                                                                       self.cellsInter.toSet(),
                                                                                       self.cellsUnion.toSet())
+
+    def set_cells_py(self):
+        self.set_cells()
 
     def plot(self, color='red'):
         import matplotlib.pyplot as plt

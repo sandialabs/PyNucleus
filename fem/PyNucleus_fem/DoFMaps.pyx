@@ -698,9 +698,12 @@ cdef class DoFMap:
 
         :param kernel: The kernel function :math:`\gamma`
 
-        :param matrixFormat: The matrix format for the assembly. Valid values are `dense`, `sparse`, `H2` and `H2corrected`.
-            `H2` assembles into a hierachical matrix format. `H2corrected` also assembles a hierachical matrix for an infinite
-            horizon kernel and a correction term.
+        :param matrixFormat: The matrix format for the assembly. Valid
+            values are `dense`, 'diagonal, `sparse`, `H2` and
+            `H2corrected`. `H2` assembles into a hierachical matrix
+            format. `H2corrected` also assembles a hierachical matrix
+            for an infinite horizon kernel and a correction term.
+            'diagonal' returns the matrix diagonal.
 
         """
         try:
@@ -711,6 +714,8 @@ cdef class DoFMap:
                 builder = nonlocalBuilder(self.mesh, self, kernel, dm2=dm2, **kwargs)
                 if matrixFormat.upper() == 'DENSE':
                     return builder.getDense()
+                elif matrixFormat.upper() == 'DIAGONAL':
+                    return builder.getDiagonal()
                 elif matrixFormat.upper() == 'SPARSE':
                     return builder.getDense(trySparsification=True)
                 elif matrixFormat.upper() == 'H2':

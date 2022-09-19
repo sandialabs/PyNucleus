@@ -4,21 +4,35 @@ ifeq ($(VIRTUAL_ENV),)
   FLAGS ?= --no-use-pep517 -e
   PIP_FLAGS ?= --user
 else
-  PYTHON = python
+  PYTHON ?= python
   FLAGS ?= -e
   PIP_FLAGS ?=
 endif
+PIP_INSTALL_FLAGS ?=
 TEST_RESULTS ?= index.html
+MODULE_INSTALL_DIR ?= ${PWD}/modules/install
+MODULES_DIR ?= ${PWD}/modules/modules
+DATE = $(shell date +%y%m%d)
+SHA = $(shell git describe --always --dirty --abbrev=40)
+VERSION = ${DATE}-${SHA}
 
 
 install :
-	$(PYTHON) -m pip install packageTools/. && \
-	$(PYTHON) -m pip install base/. && \
-	$(PYTHON) -m pip install metisCy/.  && \
-	$(PYTHON) -m pip install fem/.  && \
-	$(PYTHON) -m pip install multilevelSolver/.  && \
-	$(PYTHON) -m pip install nl/.  && \
-	$(PYTHON) -m pip install .
+	$(PYTHON) -m pip install $(PIP_INSTALL_FLAGS) packageTools/. && \
+	$(PYTHON) -m pip install $(PIP_INSTALL_FLAGS) base/. && \
+	$(PYTHON) -m pip install $(PIP_INSTALL_FLAGS) metisCy/.  && \
+	$(PYTHON) -m pip install $(PIP_INSTALL_FLAGS) fem/.  && \
+	$(PYTHON) -m pip install $(PIP_INSTALL_FLAGS) multilevelSolver/.  && \
+	$(PYTHON) -m pip install $(PIP_INSTALL_FLAGS) nl/.  && \
+	$(PYTHON) -m pip install $(PIP_INSTALL_FLAGS) .
+
+module_lmod:
+	rm -rf $(MODULE_INSTALL_DIR)/PyNucleus/$(VERSION)
+	mkdir -p $(MODULE_INSTALL_DIR)/PyNucleus/$(VERSION)
+	mkdir -p $(MODULES_DIR)/PyNucleus/
+	$(PYTHON) makeModule.py $(MODULES_DIR)/PyNucleus/$(VERSION).lua $(MODULE_INSTALL_DIR)/PyNucleus/$(VERSION)
+	PYTHON="PYTHONPATH=$(MODULE_INSTALL_DIR)/PyNucleus/$(VERSION):${PYTHONPATH} $(PYTHON)" PIP_INSTALL_FLAGS="--target=$(MODULE_INSTALL_DIR)/PyNucleus/$(VERSION)" PIP_FLAGS="" make prereq
+	PYTHON="PYTHONPATH=$(MODULE_INSTALL_DIR)/PyNucleus/$(VERSION):${PYTHONPATH} $(PYTHON)" PIP_INSTALL_FLAGS="--target=$(MODULE_INSTALL_DIR)/PyNucleus/$(VERSION)" PIP_FLAGS="" make install
 
 
 clean :
@@ -156,7 +170,8 @@ docker-mac:
 
 
 prereq:
-	$(PYTHON) -m pip install $(PIP_FLAGS) Cython cython numpy scipy matplotlib pyyaml h5py pybind11 MeshPy tabulate modepy mpi4py scikit-sparse pyamg
+	$(PYTHON) -m pip install $(PIP_FLAGS) $(PIP_INSTALL_FLAGS) Cython cython numpy scipy matplotlib pyyaml h5py pybind11 MeshPy tabulate modepy mpi4py pyamg
+	$(PYTHON) -m pip install $(PIP_FLAGS) $(PIP_INSTALL_FLAGS) scikit-sparse
 
 prereq-extra:
 	$(PYTHON) -m pip install $(PIP_FLAGS) pytest pytest-html pytest-xdist Sphinx sphinxcontrib-programoutput

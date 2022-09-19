@@ -22,7 +22,6 @@ mprofile_*.dat
 **/config.pxi
 **/config.py
 /*/build/
-build/**
 /*/dist/
 /base/PyNucleus_base/*.c
 /base/PyNucleus_base/myTypes.pxd
@@ -31,5 +30,4 @@ build/**
 /metisCy/PyNucleus_metisCy/*.c
 /fem/PyNucleus_fem/*.c
 /multilevelSolver/PyNucleus_multilevelSolver/*.c
-/nl/PyNucleus_nl/*.c
 docs/example1_*.py

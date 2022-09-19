@@ -1315,6 +1315,14 @@ cdef class sumMultiplyOperator(LinearOperator):
 
     diagonal = property(fget=get_diagonal)
 
+    def isSparse(self):
+        cdef:
+            BOOL_t sparse = True
+            INDEX_t i
+        for i in range(len(self.ops)):
+            sparse &= self.ops[i].isSparse()
+        return sparse
+
 
 cdef class interpolationOperator(sumMultiplyOperator):
     cdef:
@@ -1500,6 +1508,9 @@ cdef class multiIntervalInterpolationOperator(LinearOperator):
     def __repr__(self):
         return '<%dx%d %s with %d intervals and %d interpolation nodes>' % (self.num_rows, self.num_columns, self.__class__.__name__, len(self.ops), self.numInterpolationNodes)
 
+    def isSparse(self):
+        return self.getSelectedOp().isSparse()
+
 
 cdef class delayedConstructionOperator(LinearOperator):
     def __init__(self, INDEX_t numRows, INDEX_t numCols):
@@ -1555,3 +1566,7 @@ cdef class delayedConstructionOperator(LinearOperator):
             if key not in self.params or self.params[key] != kwargs[key]:
                 self.isConstructed = False
                 self.params[key] = kwargs[key]
+
+    def isSparse(self):
+        self.assure_constructed()
+        return self.A.isSparse()
