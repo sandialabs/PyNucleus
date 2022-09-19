@@ -29,10 +29,8 @@ from . kernelsCy import (Kernel,
                          getKernelEnum,
                          FRACTIONAL, INDICATOR, PERIDYNAMIC)
 from . kernels import getKernel, getIntegrableKernel, getFractionalKernel
-from . nonlocalLaplacian import (assembleFractionalLaplacian,
-                                 assembleNonlocalOperator,
+from . nonlocalLaplacian import (assembleNonlocalOperator,
                                  
-                                 assembleFractionalLaplacianDiagonal,
                                  nonlocalBuilder)
 from . clusterMethodCy import H2Matrix
 from . fractionalLaplacian1D import (fractionalLaplacian1D_P1,
@@ -433,38 +431,35 @@ def getFracLapl(mesh, DoFMap, kernel=None, rangedOpParams={}, **kwargs):
 
 
 class delayedNonlocalOp(delayedConstructionOperator):
-    def __init__(self, dm, kernel, *args, **kwargs):
+    def __init__(self, dm, kernel, **kwargs):
         super().__init__(dm.num_dofs,
                          dm.num_dofs)
         self.dm = dm
         self.kernel = kernel
-        self.args = args
         self.kwargs = kwargs
 
     def construct(self):
         from copy import copy
         d = copy(self.kwargs)
         d.update(self.params)
-        A = self.dm.assembleNonlocal(self.kernel, *self.args, **d)
+        A = self.dm.assembleNonlocal(self.kernel, **d)
         return A
 
 
 class delayedFractionalLaplacianOp(delayedConstructionOperator):
-    def __init__(self, mesh, dm, kernel, *args, **kwargs):
+    def __init__(self, mesh, dm, kernel, **kwargs):
         super().__init__(dm.num_dofs,
                          dm.num_dofs)
         self.mesh = mesh
         self.dm = dm
         self.kernel = kernel
-        self.args = args
         self.kwargs = kwargs
 
     def construct(self):
         from copy import copy
         d = copy(self.kwargs)
         d.update(self.params)
-        A = getFracLapl(self.mesh, self.dm, self.kernel,
-                        *self.args, **d)
+        A = getFracLapl(self.mesh, self.dm, self.kernel, **d)
         return A
 
 

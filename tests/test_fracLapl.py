@@ -12,7 +12,6 @@ import numpy.linalg
 from PyNucleus.fem import simpleInterval, circle, P1_DoFMap, P2_DoFMap
 from PyNucleus.fem import constant
 from PyNucleus.nl.nonlocalLaplacian import (assembleNonlocalOperator,
-                                            assembleFractionalLaplacianDiagonal,
                                             
                                             nonlocalBuilder)
 from PyNucleus.nl.clusterMethodCy import H2Matrix
@@ -152,7 +151,7 @@ def h2(dim, s, refinements, element, errBnd, genKernel=False):
     elif dim == 2:
         mesh = circle(10)
         eta = 3
-        maxLevels = 2
+        maxLevels = 4
     # mesh = mesh.refine()
     for _ in range(refinements):
         mesh = mesh.refine()
@@ -186,13 +185,13 @@ def h2(dim, s, refinements, element, errBnd, genKernel=False):
     y_d = np.dot(Afar, x)
     y_h2 = np.zeros_like(y_d)
     if len(A_h2.Pfar) > 0:
-        A_h2.tree.upwardPass(x)
-        A_h2.tree.resetCoefficientsDown()
+        A_h2.tree.upwardPass_py(x)
+        A_h2.tree.resetCoefficientsDown_py()
         for level in A_h2.Pfar:
             for clusterPair in A_h2.Pfar[level]:
                 n1, n2 = clusterPair.n1, clusterPair.n2
                 clusterPair.apply(n2.coefficientsUp, n1.coefficientsDown)
-        A_h2.tree.downwardPass(y_h2)
+        A_h2.tree.downwardPass_py(y_h2)
     errFar = np.absolute(y_d-y_h2).max()
 
     y_d = np.dot(A_d, x)

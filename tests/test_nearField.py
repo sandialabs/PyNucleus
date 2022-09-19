@@ -17,7 +17,8 @@ from PyNucleus.fem import simpleInterval, uniformSquare, P0_DoFMap, P1_DoFMap, c
 from PyNucleus.nl import H2Matrix, nonlocalBuilder, getFractionalKernel
 from PyNucleus.nl.nonlocalLaplacian import nearFieldClusterPair
 from PyNucleus.nl.clusterMethodCy import (getDoFBoxesAndCells,
-                                          tree_node)
+                                          tree_node,
+                                          getRefinementParams)
 
 from PyNucleus.nl.fractionalOrders import (constFractionalOrder,
                                            variableConstFractionalOrder,
@@ -111,14 +112,18 @@ class test:
             assert self.dm.num_dofs == sum([len(c.dofs) for c in root.children])
             assert len(root.children) > 1
         if maxLevels > 0:
+            refParams = getRefinementParams(self.mesh, self.builder.kernel,
+                                            {'maxLevels': maxLevels,
+                                             'maxLevelsMixed': maxLevels})
             for n in root.leaves():
-                n.refine(boxes, centers, maxLevels=maxLevels, maxLevelsMixed=maxLevels)
+                n.refine(boxes, centers, refParams)
         root.set_id()
         # enter cells in leaf nodes
         for n in root.leaves():
             myCells = set()
             for dof in n.dofs.toSet():
-                myCells |= cells[dof]
+                for jj in range(cells.indptr[dof], cells.indptr[dof+1]):
+                    myCells.add(cells.indices[jj])
             n._cells = arrayIndexSet()
             n._cells.fromSet(myCells)
 
@@ -136,6 +141,8 @@ class test:
                 assert c.isLeaf
                 assert d.isLeaf
                 Pnear.append(nearFieldClusterPair(c, d))
+        for cP in Pnear:
+            cP.set_cells_py()
         return Pnear, jumps
 
     def constH2(self):

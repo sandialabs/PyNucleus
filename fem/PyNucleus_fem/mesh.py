@@ -689,7 +689,7 @@ def doubleSquareWithInteractionsCorners(ax=0., ay=0., bx=1., by=1., cx=2., cy=1.
         return mesh
 
 
-def discWithInteraction(radius, horizon, h=0.25, max_volume=None):
+def discWithInteraction(radius, horizon, h=0.25, max_volume=None, projectNodeToOrigin=True):
     if max_volume is None:
         max_volume = h**2
     n = int(np.around(2*np.pi*radius/h))
@@ -705,7 +705,8 @@ def discWithInteraction(radius, horizon, h=0.25, max_volume=None):
     else:
         return circle(n,
                       radius=radius,
-                      max_volume=max_volume)
+                      max_volume=max_volume,
+                      projectNodeToOrigin=projectNodeToOrigin)
 
 
 def discWithIslands(horizon=0., radius=1., islandOffCenter=0.35, islandDiam=0.5):
@@ -866,7 +867,7 @@ def Lshape(d):
     return mesh2d(vertices, cells)
 
 
-def circle(n, radius=1., returnFacets=False, **kwargs):
+def circle(n, radius=1., returnFacets=False, projectNodeToOrigin=True, **kwargs):
     from meshpy.triangle import MeshInfo, build
     mesh_info = MeshInfo()
 
@@ -886,12 +887,13 @@ def circle(n, radius=1., returnFacets=False, **kwargs):
     mesh_meshpy = build(mesh_info, **kwargs)
     mesh = mesh2d(np.array(mesh_meshpy.points, dtype=REAL),
                   np.array(mesh_meshpy.elements, dtype=INDEX))
-    # Make sure that one node is on the origin.
-    # Otherwise the radialMeshTransformation does weird stuff
-    k = np.linalg.norm(mesh.vertices_as_array, axis=1).argmin()
-    mesh.vertices[k, :] = 0.
-    mesh.resetMeshInfo()
-    assert mesh.delta < 10.
+    if projectNodeToOrigin:
+        # Make sure that one node is on the origin.
+        # Otherwise the radialMeshTransformation does weird stuff
+        k = np.linalg.norm(mesh.vertices_as_array, axis=1).argmin()
+        mesh.vertices[k, :] = 0.
+        mesh.resetMeshInfo()
+        assert mesh.delta < 10., (mesh, mesh.hmin, mesh.h, mesh.delta)
     from . meshCy import radialMeshTransformer
     mesh.setMeshTransformation(radialMeshTransformer())
     if returnFacets:
@@ -1733,7 +1735,7 @@ class meshNd(meshBase):
             labels = [labels]
         sols = []
         for xx in x:
-            sol, _ = DoFMap.linearPart(self, xx)
+            sol, _ = DoFMap.linearPart(xx)
             v2d = uninitialized((self.num_vertices, 1), dtype=INDEX)
             DoFMap.getVertexDoFs(v2d)
             sol2 = uninitialized((self.num_vertices))
@@ -2219,6 +2221,8 @@ class mesh2d(meshNd):
 
     def plotPrepocess(self, x, DoFMap=None, tag=0):
         from . DoFMaps import P1_DoFMap, P0_DoFMap
+        if DoFMap is not None and hasattr(x, 'dm'):
+            DoFMap = x.dm
         if DoFMap is not None:
             if isinstance(DoFMap, P0_DoFMap):
                 if DoFMap.num_dofs < self.num_cells:
@@ -2230,7 +2234,7 @@ class mesh2d(meshNd):
                 else:
                     return self.plotPrepocess(x)
             elif not isinstance(DoFMap, P1_DoFMap):
-                return self.plotPrepocess(DoFMap.linearPart(self, x)[0])
+                return self.plotPrepocess(DoFMap.linearPart(x)[0])
             elif isinstance(DoFMap, P1_DoFMap):
                 v = self.vertices_as_array
                 X, Y = v[:, 0], v[:, 1]
@@ -3384,6 +3388,7 @@ class plotManager:
 
     def plot(self, legendOutside=False):
         import matplotlib.pyplot as plt
+        from . DoFMaps import fe_vector
 
         assert self.comm is None or self.comm.rank == 0
 
@@ -3395,7 +3400,11 @@ class plotManager:
             for x, k in self.plots:
                 if 'label' in k:
                     needLegend = True
-                self.mesh.plotFunction(x, DoFMap=self.dm, **k)
+                if isinstance(x, fe_vector):
+                    assert self.dm == x.dm
+                    x.plot(**k)
+                else:
+                    self.mesh.plotFunction(x, DoFMap=self.dm, **k)
             if needLegend:
                 if legendOutside:
                     plt.gca().legend(loc='lower left',
@@ -3419,7 +3428,11 @@ class plotManager:
                     vmin = kwargs.pop('vmin', None)
                     vmax = kwargs.pop('vmax', None)
                     x = self.plots[k][0]
-                    self.mesh.plotFunction(x, DoFMap=self.dm, **kwargs)
+                    if isinstance(x, fe_vector):
+                        assert self.dm == x.dm
+                        x.plot(**kwargs)
+                    else:
+                        self.mesh.plotFunction(x, DoFMap=self.dm, **kwargs)
                     ax.set_ylim([vmin, vmax])
                     ax.set_title(label)
 

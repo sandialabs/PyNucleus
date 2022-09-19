@@ -25,6 +25,7 @@ from PyNucleus_base.sparsityPattern cimport sparsityPattern
 from PyNucleus_fem.splitting import dofmapSplitter
 from . nonlocalLaplacianBase cimport variableFractionalOrder
 from . nonlocalLaplacian cimport nearFieldClusterPair
+from . kernelsCy cimport Kernel
 from PyNucleus_fem.DoFMaps cimport DoFMap, P1_DoFMap, P2_DoFMap
 from PyNucleus_fem.meshCy cimport meshBase
 from PyNucleus_fem.functions cimport constant
@@ -33,6 +34,61 @@ mpi4py.rc.initialize = False
 from mpi4py import MPI
 
 COMPRESSION = 'gzip'
+
+
+def getRefinementParams(meshBase mesh, Kernel kernel, dict params={}):
+    cdef:
+        fractionalOrderBase s = kernel.s
+        refinementParams refParams
+
+    target_order = params.get('target_order', 2.)
+    refParams.eta = params.get('eta', 3.)
+
+    iO = params.get('interpolation_order', None)
+    if iO is None:
+        loggamma = abs(np.log(0.25))
+        refParams.interpolation_order = max(np.ceil((2*target_order+max(mesh.dim+2*s.max, 2))*abs(np.log(mesh.hmin/mesh.diam))/loggamma/3.), 2)
+    else:
+        refParams.interpolation_order = iO
+    mL = params.get('maxLevels', None)
+    if mL is None:
+        # maxLevels = max(int(np.around(np.log2(DoFMap.num_dofs)/mesh.dim-np.log2(refParams.interpolation_order))), 0)
+        refParams.maxLevels = 200
+    else:
+        refParams.maxLevels = mL
+    refParams.maxLevelsMixed = refParams.maxLevels
+    mCS = params.get('minClusterSize', None)
+    if mCS is None:
+        refParams.minSize = refParams.interpolation_order**mesh.dim//2
+    else:
+        refParams.minSize = mCS
+    if kernel.finiteHorizon:
+        refParams.minMixedSize = max(min(kernel.horizon.value//(2*mesh.h)-1, refParams.minSize), 1)
+    else:
+        refParams.minMixedSize = refParams.minSize
+    mFFBS = params.get('minFarFieldBlockSize', None)
+    if mFFBS is None:
+        # For this value, size(kernelInterpolant) == size(dense block)
+        # If we choose a smaller value for minFarFieldBlockSize, then we use more memory,
+        # but we might save time, since the assembly of a far field block is cheaper than a near field block.
+        refParams.farFieldInteractionSize = refParams.interpolation_order**(2*mesh.dim)
+    else:
+        refParams.farFieldInteractionSize = mFFBS
+
+    rT = params.get('refinementType', 'MEDIAN')
+    refParams.refType = {'geometric': GEOMETRIC,
+                         'GEOMETRIC': GEOMETRIC,
+                         'median': MEDIAN,
+                         'MEDIAN': MEDIAN,
+                         'barycenter': BARYCENTER,
+                         'BARYCENTER': BARYCENTER}[rT]
+
+    refParams.splitEveryDim = params.get('splitEveryDim', False)
+
+    refParams.attemptRefinement = True
+
+    return refParams
+
 
 @cython.initializedcheck(False)
 @cython.boundscheck(False)
