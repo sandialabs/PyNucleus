@@ -112,13 +112,19 @@ def pacman(h=0.1, **kwargs):
     return mesh
 
 
-def uniformSquare(N, M=None, ax=0, ay=0, bx=1, by=1, crossed=False):
+def uniformSquare(N, M=None, ax=0, ay=0, bx=1, by=1, crossed=False, preserveLinesHorizontal=[], preserveLinesVertical=[]):
     if M is None:
         M = max(int(np.around((by-ay)/(bx-ax)))*N, 2)
     assert N >= 2
     assert M >= 2
-    x, y = np.meshgrid(np.linspace(ax, bx, N),
-                       np.linspace(ay, by, M))
+    xVals = np.linspace(ax, bx, N)
+    yVals = np.linspace(ay, by, M)
+    x, y = np.meshgrid(xVals, yVals)
+    for yVal in preserveLinesHorizontal:
+        assert (yVals-yVal).min() < 1e-10
+    for xVal in preserveLinesVertical:
+        assert (xVals-xVal).min() < 1e-10
+
     vertices = [np.array([xx, yy]) for xx, yy in
                 zip(x.flatten(), y.flatten())]
     cells = []

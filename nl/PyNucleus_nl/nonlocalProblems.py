@@ -674,7 +674,8 @@ class nonlocalProblem(problem):
                 self.rhsData = constant(1.)
                 self.fluxData = constant(0)
                 self.dirichletData = constant(0.)
-                if (self.kType == FRACTIONAL) and isinstance(self.kernel.s, constFractionalOrder):
+                if (self.kType == FRACTIONAL) and (isinstance(self.kernel.s, constFractionalOrder) or
+                                                   isinstance(self.kernel.s, variableConstFractionalOrder)):
                     self.analyticSolution = functionFactory('solFractional', dim=1, s=self.kernel.s.value)
             else:
                 raise NotImplementedError(params['problem'])
@@ -788,7 +789,8 @@ class nonlocalProblem(problem):
                 self.rhsData = constant(1.)
                 self.fluxData = constant(0)
                 self.dirichletData = constant(0)
-                if (self.kType == FRACTIONAL) and isinstance(self.kernel.s, constFractionalOrder):
+                if (self.kType == FRACTIONAL) and (isinstance(self.kernel.s, constFractionalOrder) or
+                                                   isinstance(self.kernel.s, variableConstFractionalOrder)):
                     self.analyticSolution = functionFactory('solFractional', dim=2, s=self.kernel.s.value)
             else:
                 raise NotImplementedError(params['problem'])

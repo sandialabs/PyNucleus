@@ -43,10 +43,10 @@ cdef class twoPointFunction:
     @cython.wraparound(False)
     @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
-        pass
+        raise NotImplementedError()
 
     cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
-        pass
+        raise NotImplementedError()
 
     def __getstate__(self):
         return self.symmetric
