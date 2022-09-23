@@ -256,6 +256,7 @@ cdef class tree_node:
         self._dofs = dofs
         self.mixed_node = mixed_node
         self.canBeAssembled = canBeAssembled
+        self._irregularLevelsOffset = 0
         if parent is None:
             self.levelNo = 0
             self.id = 0
@@ -347,11 +348,36 @@ cdef class tree_node:
 
     nodes = property(fget=get_nodes)
 
+    def get_irregularLevelsOffset(self):
+        if self._irregularLevelsOffset < 0:
+            if self.parent is not None:
+                self._irregularLevelsOffset = self.parent.irregularLevelsOffset
+            elif self.parent is None:
+                raise Exception()
+        return self._irregularLevelsOffset
+
+    def set_irregularLevelsOffset(self, INDEX_t irregularLevelsOffset):
+        self._irregularLevelsOffset = irregularLevelsOffset
+
+    irregularLevelsOffset = property(fget=get_irregularLevelsOffset,
+                                     fset=set_irregularLevelsOffset)
+
     cdef get_num_root_children(self):
         if self.parent is None:
-            return len(self.children)
+            return self.get_num_children(self.irregularLevelsOffset)
         else:
             return self.parent.get_num_root_children()
+
+    cdef get_num_children(self, INDEX_t levelOffset=1):
+        cdef:
+            tree_node n
+            INDEX_t nc = 0
+        if levelOffset > 1:
+            for n in self.children:
+                nc += n.get_num_children(levelOffset-1)
+            return nc
+        else:
+            return len(self.children)
 
     @cython.initializedcheck(False)
     @cython.wraparound(False)
@@ -711,6 +737,15 @@ cdef class tree_node:
             for j in i.get_tree_nodes():
                 yield j
 
+    def get_tree_nodes_up_to_level(self, INDEX_t level):
+        cdef:
+            tree_node i, j
+        yield self
+        if level > 0:
+            for i in self.children:
+                for j in i.get_tree_nodes_up_to_level(level-1):
+                    yield j
+
     cdef INDEX_t _getLevels(self):
         cdef:
             tree_node c
@@ -769,14 +804,21 @@ cdef class tree_node:
                     k += 1
                 y = level*np.ones((len(dofs)), dtype=REAL)
                 plt.plot(np.array(points)[:, 0], np.array(y), color='red' if self.mixed_node else 'blue')
-                if printClusterIds:
+                if printClusterIds and printNumDoFs:
+                    label = 'id={},nd={}'.format(self.id, self.num_dofs)
+                elif printClusterIds:
+                    label = '{}'.format(self.id)
+                elif printNumDoFs:
+                    label = '{}'.format(self.num_dofs)
+                if printClusterIds or printNumDoFs:
                     myCenter = np.mean(self.box, axis=1)
-                    plt.text(myCenter[0], level, s=str(self.id),
+                    plt.text(myCenter[0], level, s=label,
                              horizontalalignment='center',
                              verticalalignment='center')
                 if recurse:
                     for c in self.children:
-                        c.plot(level=level+1, plotDoFs=plotDoFs, dofCoords=dofCoords, recurse=recurse, printClusterIds=printClusterIds)
+                        c.plot(level=level+1, plotDoFs=plotDoFs, dofCoords=dofCoords, recurse=recurse,
+                               printClusterIds=printClusterIds, printNumDoFs=printNumDoFs)
             elif self.dim == 2:
                 assert dofCoords is not None
                 dofs = self.get_dofs()
@@ -822,14 +864,15 @@ cdef class tree_node:
                     ax = plt.gca()
 
                 ax.plot(np.array(x), np.array(y), color='red' if self.mixed_node else 'blue')
-                if printClusterIds:
+                if printClusterIds and printNumDoFs:
+                    label = 'id={},nd={}'.format(self.id, self.num_dofs)
+                elif printClusterIds:
+                    label = '{}'.format(self.id)
+                elif printNumDoFs:
+                    label = '{}'.format(self.num_dofs)
+                if printClusterIds or printNumDoFs:
                     myCenter = np.mean(self.box, axis=1)
-                    ax.text(myCenter[0], myCenter[1], s=str(self.id),
-                            horizontalalignment='center',
-                            verticalalignment='center')
-                if printNumDoFs:
-                    myCenter = np.mean(self.box, axis=1)
-                    ax.text(myCenter[0], myCenter[1], s=str(self.num_dofs),
+                    ax.text(myCenter[0], myCenter[1], s=label,
                             horizontalalignment='center',
                             verticalalignment='center')
 
@@ -1284,7 +1327,7 @@ cdef class tree_node:
             if not c_delNode:
                 delNode = False
                 newChildren.append(c)
-            delAllChildren &= not keep.inSet(c.id)
+            delAllChildren &= c_delNode
         if not self.get_is_leaf() and len(newChildren) == 0:
             # self._cells = self.get_cells()
             self._dofs = self.get_dofs()
@@ -1300,6 +1343,7 @@ cdef class tree_node:
                     newChildren.append(c2)
                     c2.parent = self
             self.children = newChildren
+            assert self.num_dofs == self.get_dofs().getNumEntries()
         return delNode
 
     def HDF5write(self, node):
@@ -3108,6 +3152,8 @@ def trimTree(tree_node tree, list Pnear, dict Pfar, comm, keep=[]):
     if (comm is not None) and len(tree.children) == comm.size:
         for n in tree.children:
             used.set(n.id)
+    for n in tree.get_tree_nodes_up_to_level(tree.irregularLevelsOffset):
+        used.set(n.id)
     # print('before', used.getNumEntries(), tree.get_max_id(), tree.nodes)
     tree.trim(used)
     # tree.set_id()

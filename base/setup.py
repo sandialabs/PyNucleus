@@ -166,6 +166,6 @@ p.addExtension("io",
 
 
 p.setup(description="Helper functions for PyNucleus.",
-        install_requires=['numpy', 'scipy', 'cython', 'mpi4py>=2.0.0', 'matplotlib', 'tabulate', 'h5py', 'pyyaml'],
+        install_requires=['numpy', 'scipy', 'cython', 'mpi4py>=2.0.0', 'matplotlib', 'tabulate', 'h5py', 'pyyaml', 'psutil'],
         
         )

@@ -1,6 +1,7 @@
+Timers: {}
 results:
-  L2 error: 0.00013930834576278384
+  L2 error: 3.520976371802504e-05
   Tolerance: 1.0e-05
-  numIter: 34
-  res: 7.1932386159155384e-06
-  solution L2 norm: 1.0312683908932019
+  numIter: 25
+  res: 7.360986469365956e-06
+  solution L2 norm: 1.0156292872665378

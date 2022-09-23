@@ -652,6 +652,26 @@ cdef class variableFractionalLaplacianScaling(parametrizedTwoPointFunction):
         else:
             raise NotImplementedError()
 
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
+        cdef:
+            REAL_t s = getREAL(self.params, fS)
+            REAL_t horizon2 = getREAL(self.params, fHORIZON2)
+
+        if self.dim == 1:
+            if horizon2 < inf:
+                return (2.-2*s) * pow(horizon2, s-1.) * 0.5
+            else:
+                return 2.0**(2.0*s) * s * gamma(s+0.5)/sqrt(pi)/gamma(1.0-s) * 0.5
+        elif self.dim == 2:
+            if horizon2 < inf:
+                return (2.-2*s)*pow(horizon2, s-1.) * 2./pi * 0.5
+            else:
+                return 2.0**(2.0*s) * s * gamma(s+1.0)/pi/gamma(1.-s) * 0.5
+        else:
+            raise NotImplementedError()
+
     def getScalingWithDifferentHorizon(self):
         cdef:
             variableFractionalLaplacianScalingWithDifferentHorizon scaling
@@ -687,5 +707,23 @@ cdef class variableFractionalLaplacianScalingWithDifferentHorizon(variableFracti
         setREAL(paramsModified, fHORIZON2, horizon**2)
         self.setParams(paramsModified)
         scalingValue = variableFractionalLaplacianScaling.eval(self, x, y)
+        self.setParams(params)
+        return scalingValue
+
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    @cython.cdivision(True)
+    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
+        cdef:
+            void* params
+            void* paramsModified = malloc(NUM_KERNEL_PARAMS*OFFSET)
+            REAL_t horizon
+            REAL_t[::1] xA = <REAL_t[:dim]> x
+        horizon = self.horizonFun.eval(xA)
+        params = self.getParams()
+        memcpy(paramsModified, params, NUM_KERNEL_PARAMS*OFFSET)
+        setREAL(paramsModified, fHORIZON2, horizon**2)
+        self.setParams(paramsModified)
+        scalingValue = variableFractionalLaplacianScaling.evalPtr(self, dim, x, y)
         self.setParams(params)
         return scalingValue

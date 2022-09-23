@@ -1207,7 +1207,7 @@ cdef class nonlocalBuilder:
     @cython.initializedcheck(False)
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    cpdef LinearOperator assembleClusters(self, list Pnear, bint forceUnsymmetric=False, LinearOperator Anear=None, dict jumps={}, indexSet myDofs=None, str prefix='', tree_node myRoot=None):
+    cpdef LinearOperator assembleClusters(self, list Pnear, bint forceUnsymmetric=False, LinearOperator Anear=None, dict jumps={}, str prefix='', tree_node myRoot=None):
         cdef:
             INDEX_t cellNo1, cellNo2, cellNo3
             REAL_t fac
@@ -1233,6 +1233,11 @@ cdef class nonlocalBuilder:
             indexSetIterator it = arrayIndexSetIterator()
             INDEX_t startCluster
             INDEX_t numAssembledCells
+            indexSet myDofs = None
+            REAL_t sValuePre, sValuePost
+
+        if myRoot is not None:
+            myDofs = myRoot.get_dofs()
 
         if Anear is None:
             useSymmetricMatrix = self.local_matrix.symmetricLocalMatrix and self.local_matrix.symmetricCells and not forceUnsymmetric
@@ -1445,167 +1450,175 @@ cdef class nonlocalBuilder:
                             iM.addToMatrixElemSym(contribZeroExterior, 1.)
 
         else:
-            # This corresponds to
-            #  \int_D \int_E u(x) v(x) C(d, s) / |x-y|^{d+2s}
-            # where
-            #  D = (supp u) \cap (supp v) \subset E,
-            #  E = Omega \ ((supp u) \cup (supp v)).
-            # We only update unknows that are in the cluster pair.
-            with self.PLogger.Timer(prefix+'cluster exterior'):
-                iM = IndexManager(self.dm, Anear_filtered)
+            if not self.kernel.complement:
+                # This corresponds to
+                #  \int_D \int_E u(x) v(x) C(d, s) / |x-y|^{d+2s}
+                # where
+                #  D = (supp u) \cap (supp v) \subset E,
+                #  E = Omega \ ((supp u) \cup (supp v)).
+                # We only update unknows that are in the cluster pair.
+                with self.PLogger.Timer(prefix+'cluster exterior'):
+                    iM = IndexManager(self.dm, Anear_filtered)
 
-                fake_cells = uninitialized((1, self.mesh.dim), dtype=INDEX)
-                for cluster in Pnear:
+                    fake_cells = uninitialized((1, self.mesh.dim), dtype=INDEX)
+                    for cluster in Pnear:
 
-                    cellsInter = cluster.cellsInter
-                    if len(cellsInter) == 0:
-                        continue
+                        cellsInter = cluster.cellsInter
+                        if len(cellsInter) == 0:
+                            continue
 
-                    clusterDofs1 = cluster.n1.get_dofs()
-                    clusterDofs2 = cluster.n2.get_dofs()
+                        clusterDofs1 = cluster.n1.get_dofs()
+                        clusterDofs2 = cluster.n2.get_dofs()
 
-                    Anear_filtered.setFilter(clusterDofs1, clusterDofs2)
+                        Anear_filtered.setFilter(clusterDofs1, clusterDofs2)
 
-                    if not self.kernel.complement:
+                        if not self.kernel.complement:
 
-                        # surface of the union of clusters n1 and n2
-                        if self.mesh.dim == 1:
-                            surface_cells = boundaryVertices(cells, cluster.cellsUnion)
-                        elif self.mesh.dim == 2:
-                            surface_cells = boundaryEdges(cells, cluster.cellsUnion)
-                        else:
-                            raise NotImplementedError()
-                        self.local_matrix_surface.setVerticesCells2(self.mesh.vertices, surface_cells)
-
-                        it.setIndexSet(cellsInter)
-                        while it.step():
-                            cellNo1 = it.i
-                            self.local_matrix_surface.setCell1(cellNo1)
-                            iM.getDoFsElem(cellNo1)
-                            for cellNo2 in range(surface_cells.shape[0]):
-                                self.local_matrix_surface.setCell2(cellNo2)
-                                if self.mesh.dim == 1:
-                                    if self.local_matrix_surface.center1[0] < self.local_matrix_surface.center2[0]:
-                                        self.local_matrix_surface.center2[0] += evalShift
-                                    else:
-                                        self.local_matrix_surface.center2[0] -= evalShift
-                                elif self.mesh.dim == 2:
-                                    self.local_matrix_surface.center2[0] += evalShift*(self.local_matrix_surface.simplex2[1, 1]-self.local_matrix_surface.simplex2[0, 1])
-                                    self.local_matrix_surface.center2[1] -= evalShift*(self.local_matrix_surface.simplex2[1, 0]-self.local_matrix_surface.simplex2[0, 0])
-                                panel = self.local_matrix_surface.getPanelType()
-                                if panel != IGNORED:
-                                    self.local_matrix_surface.eval(contribZeroExterior, panel)
-                                    if self.local_matrix_surface.symmetricLocalMatrix:
-                                        iM.addToMatrixElemSym(contribZeroExterior, 1.)
-                                    else:
-                                        raise NotImplementedError()
-
-                    for hv in jumps:
-                        decode_edge(hv, cellPair)
-                        if not (cluster.cellsUnion.inSet(cellPair[0]) or
-                                cluster.cellsUnion.inSet(cellPair[1])):
+                            # surface of the union of clusters n1 and n2
                             if self.mesh.dim == 1:
-                                fake_cells[0, 0] = jumps[hv]
-                            else:
-                                hv2 = jumps[hv]
-                                decode_edge(hv2, edge)
-                                for vertexNo in range(self.mesh.dim):
-                                    fake_cells[0, vertexNo] = edge[vertexNo]
-                            self.local_matrix_surface.setVerticesCells2(self.mesh.vertices, fake_cells)
-                            self.local_matrix_surface.setCell2(0)
-                            if self.mesh.dim == 1:
-                                self.local_matrix_surface.center2[0] += evalShift
+                                surface_cells = boundaryVertices(cells, cluster.cellsUnion)
                             elif self.mesh.dim == 2:
-                                self.local_matrix_surface.center2[0] += evalShift*(self.local_matrix_surface.simplex2[1, 1]-self.local_matrix_surface.simplex2[0, 1])
-                                self.local_matrix_surface.center2[1] += evalShift*(self.local_matrix_surface.simplex2[0, 0]-self.local_matrix_surface.simplex2[1, 0])
+                                surface_cells = boundaryEdges(cells, cluster.cellsUnion)
+                            else:
+                                raise NotImplementedError()
+                            self.local_matrix_surface.setVerticesCells2(self.mesh.vertices, surface_cells)
 
                             it.setIndexSet(cellsInter)
                             while it.step():
-                                cellNo3 = it.i
-                                self.local_matrix_surface.setCell1(cellNo3)
-                                panel = self.local_matrix_surface.getPanelType()
-                                if panel != IGNORED:
+                                cellNo1 = it.i
+                                self.local_matrix_surface.setCell1(cellNo1)
+                                iM.getDoFsElem(cellNo1)
+                                for cellNo2 in range(surface_cells.shape[0]):
+                                    self.local_matrix_surface.setCell2(cellNo2)
                                     if self.mesh.dim == 1:
                                         if self.local_matrix_surface.center1[0] < self.local_matrix_surface.center2[0]:
-                                            fac = 1.
+                                            self.local_matrix_surface.center2[0] += evalShift
                                         else:
-                                            fac = -1.
-                                    else:
-                                        fac = 1.
-                                    self.local_matrix_surface.eval(contribZeroExterior, panel)
-                                    iM.getDoFsElem(cellNo3)
-                                    if self.local_matrix_surface.symmetricLocalMatrix:
-                                        iM.addToMatrixElemSym(contribZeroExterior, fac)
-                                    else:
-                                        raise NotImplementedError()
-
-                            if self.mesh.dim == 1:
-                                self.local_matrix_surface.center2[0] -= 2.*evalShift
-                            elif self.mesh.dim == 2:
-                                self.local_matrix_surface.center2[0] -= 2.*evalShift*(self.local_matrix_surface.simplex2[1, 1]-self.local_matrix_surface.simplex2[0, 1])
-                                self.local_matrix_surface.center2[1] -= 2.*evalShift*(self.local_matrix_surface.simplex2[0, 0]-self.local_matrix_surface.simplex2[1, 0])
-
-                            it.reset()
-                            while it.step():
-                                cellNo3 = it.i
-                                self.local_matrix_surface.setCell1(cellNo3)
-                                panel = self.local_matrix_surface.getPanelType()
-                                if panel != IGNORED:
-                                    if self.mesh.dim == 1:
-                                        if self.local_matrix_surface.center1[0] < self.local_matrix_surface.center2[0]:
-                                            fac = -1.
+                                            self.local_matrix_surface.center2[0] -= evalShift
+                                    elif self.mesh.dim == 2:
+                                        self.local_matrix_surface.center2[0] += evalShift*(self.local_matrix_surface.simplex2[1, 1]-self.local_matrix_surface.simplex2[0, 1])
+                                        self.local_matrix_surface.center2[1] -= evalShift*(self.local_matrix_surface.simplex2[1, 0]-self.local_matrix_surface.simplex2[0, 0])
+                                    panel = self.local_matrix_surface.getPanelType()
+                                    if panel != IGNORED:
+                                        self.local_matrix_surface.eval(contribZeroExterior, panel)
+                                        if self.local_matrix_surface.symmetricLocalMatrix:
+                                            iM.addToMatrixElemSym(contribZeroExterior, 1.)
                                         else:
-                                            fac = 1.
-                                    else:
-                                        fac = -1.
-                                    self.local_matrix_surface.eval(contribZeroExterior, panel)
-                                    iM.getDoFsElem(cellNo3)
-                                    if self.local_matrix_surface.symmetricLocalMatrix:
-                                        iM.addToMatrixElemSym(contribZeroExterior, fac)
-                                    else:
-                                        raise NotImplementedError()
-                if not self.zeroExterior and not self.kernel.finiteHorizon:
-                    with self.PLogger.Timer(prefix+'zeroExterior'):
-                        # Subtract the zeroExterior contribution for Omega x Omega^C that was added in the previous loop.
-                        # This is for the regional fractional Laplacian.
-                        surface = self.mesh.get_surface_mesh()
-                        iM = IndexManager(self.dm, Anear, myDofs=myDofs)
+                                            raise NotImplementedError()
 
-                        self.local_matrix_zeroExterior.setMesh2(surface)
-
-                        for cellNo1 in range(self.mesh.num_cells):
-                            self.local_matrix_zeroExterior.setCell1(cellNo1)
-                            iM.getDoFsElem(cellNo1)
-                            for cellNo2 in range(surface.num_cells):
-                                self.local_matrix_zeroExterior.setCell2(cellNo2)
+                        for hv in jumps:
+                            decode_edge(hv, cellPair)
+                            if not (cluster.cellsUnion.inSet(cellPair[0]) or
+                                    cluster.cellsUnion.inSet(cellPair[1])):
                                 if self.mesh.dim == 1:
-                                    if self.local_matrix_zeroExterior.center1[0] < self.local_matrix_zeroExterior.center2[0]:
-                                        self.local_matrix_zeroExterior.center2[0] += evalShift
-                                    else:
-                                        self.local_matrix_zeroExterior.center2[0] -= evalShift
+                                    fake_cells[0, 0] = jumps[hv]
                                 elif self.mesh.dim == 2:
-                                    self.local_matrix_zeroExterior.center2[0] += evalShift*(self.local_matrix_zeroExterior.simplex2[1, 1]-self.local_matrix_zeroExterior.simplex2[0, 1])
-                                    self.local_matrix_zeroExterior.center2[1] -= evalShift*(self.local_matrix_zeroExterior.simplex2[1, 0]-self.local_matrix_zeroExterior.simplex2[0, 0])
-                                panel = self.local_matrix_zeroExterior.getPanelType()
-                                self.local_matrix_zeroExterior.eval(contribZeroExterior, panel)
-                                if self.local_matrix_zeroExterior.symmetricLocalMatrix:
-                                    iM.addToMatrixElemSym(contribZeroExterior, -1.)
+                                    hv2 = jumps[hv]
+                                    decode_edge(hv2, edge)
+                                    for vertexNo in range(self.mesh.dim):
+                                        fake_cells[0, vertexNo] = edge[vertexNo]
                                 else:
                                     raise NotImplementedError()
-                elif not self.zeroExterior and self.kernel.finiteHorizon:
-                    with self.PLogger.Timer(prefix+'zeroExterior'):
-                        # Subtract the contribution for Omega x (\partial B_\delta(x))
-                        assert isinstance(self.kernel.horizon, constant)
-                        self.local_matrix_zeroExterior.center2 = uninitialized((self.mesh.dim), dtype=REAL)
-                        coeff = horizonSurfaceIntegral(self.local_matrix_zeroExterior, self.kernel.horizon.value)
-                        qr = simplexXiaoGimbutas(2, self.mesh.dim)
-                        if self.mesh.dim == 1:
-                            mass = mass_1d_sym_scalar_anisotropic(coeff, self.dm, qr)
-                        elif self.mesh.dim == 2:
-                            mass = mass_2d_sym_scalar_anisotropic(coeff, self.dm, qr)
-                        else:
-                            raise NotImplementedError()
-                        assembleMatrix(self.mesh, self.dm, mass, A=Anear)
+                                self.local_matrix_surface.setVerticesCells2(self.mesh.vertices, fake_cells)
+                                self.local_matrix_surface.setCell2(0)
+                                if self.mesh.dim == 1:
+                                    self.local_matrix_surface.center2[0] += evalShift
+                                elif self.mesh.dim == 2:
+                                    self.local_matrix_surface.center2[0] += evalShift*(self.local_matrix_surface.simplex2[1, 1]-self.local_matrix_surface.simplex2[0, 1])
+                                    self.local_matrix_surface.center2[1] += evalShift*(self.local_matrix_surface.simplex2[0, 0]-self.local_matrix_surface.simplex2[1, 0])
+
+                                it.setIndexSet(cellsInter)
+                                while it.step():
+                                    cellNo3 = it.i
+                                    self.local_matrix_surface.setCell1(cellNo3)
+                                    panel = self.local_matrix_surface.getPanelType()
+                                    if panel != IGNORED:
+                                        if self.mesh.dim == 1:
+                                            if self.local_matrix_surface.center1[0] < self.local_matrix_surface.center2[0]:
+                                                fac = 1.
+                                            else:
+                                                fac = -1.
+                                        else:
+                                            fac = 1.
+                                        self.local_matrix_surface.eval(contribZeroExterior, panel)
+                                        iM.getDoFsElem(cellNo3)
+                                        if self.local_matrix_surface.symmetricLocalMatrix:
+                                            iM.addToMatrixElemSym(contribZeroExterior, fac)
+                                        else:
+                                            raise NotImplementedError()
+                                sValuePre = self.local_matrix_surface.kernel.sValue
+
+                                if self.mesh.dim == 1:
+                                    self.local_matrix_surface.center2[0] -= 2.*evalShift
+                                elif self.mesh.dim == 2:
+                                    self.local_matrix_surface.center2[0] -= 2.*evalShift*(self.local_matrix_surface.simplex2[1, 1]-self.local_matrix_surface.simplex2[0, 1])
+                                    self.local_matrix_surface.center2[1] -= 2.*evalShift*(self.local_matrix_surface.simplex2[0, 0]-self.local_matrix_surface.simplex2[1, 0])
+
+                                it.reset()
+                                while it.step():
+                                    cellNo3 = it.i
+                                    self.local_matrix_surface.setCell1(cellNo3)
+                                    panel = self.local_matrix_surface.getPanelType()
+                                    if panel != IGNORED:
+                                        if self.mesh.dim == 1:
+                                            if self.local_matrix_surface.center1[0] < self.local_matrix_surface.center2[0]:
+                                                fac = -1.
+                                            else:
+                                                fac = 1.
+                                        else:
+                                            fac = -1.
+                                        self.local_matrix_surface.eval(contribZeroExterior, panel)
+                                        iM.getDoFsElem(cellNo3)
+                                        if self.local_matrix_surface.symmetricLocalMatrix:
+                                            iM.addToMatrixElemSym(contribZeroExterior, fac)
+                                        else:
+                                            raise NotImplementedError()
+                                sValuePost = self.local_matrix_surface.kernel.sValue
+                                if abs(sValuePre-sValuePost) < 1e-9:
+                                    print(np.array(self.local_matrix_surface.simplex2))
+                                    assert False, "Jump of fractional order between elements is zero (Value = {}). Check that the mesh aligns with the jump in the fractional order.".format(sValuePre)
+                    if not self.zeroExterior and not self.kernel.finiteHorizon:
+                        with self.PLogger.Timer(prefix+'zeroExterior'):
+                            # Subtract the zeroExterior contribution for Omega x Omega^C that was added in the previous loop.
+                            # This is for the regional fractional Laplacian.
+                            surface = self.mesh.get_surface_mesh()
+                            iM = IndexManager(self.dm, Anear, myDofs=myDofs)
+
+                            self.local_matrix_zeroExterior.setMesh2(surface)
+
+                            for cellNo1 in range(self.mesh.num_cells):
+                                self.local_matrix_zeroExterior.setCell1(cellNo1)
+                                iM.getDoFsElem(cellNo1)
+                                for cellNo2 in range(surface.num_cells):
+                                    self.local_matrix_zeroExterior.setCell2(cellNo2)
+                                    if self.mesh.dim == 1:
+                                        if self.local_matrix_zeroExterior.center1[0] < self.local_matrix_zeroExterior.center2[0]:
+                                            self.local_matrix_zeroExterior.center2[0] += evalShift
+                                        else:
+                                            self.local_matrix_zeroExterior.center2[0] -= evalShift
+                                    elif self.mesh.dim == 2:
+                                        self.local_matrix_zeroExterior.center2[0] += evalShift*(self.local_matrix_zeroExterior.simplex2[1, 1]-self.local_matrix_zeroExterior.simplex2[0, 1])
+                                        self.local_matrix_zeroExterior.center2[1] -= evalShift*(self.local_matrix_zeroExterior.simplex2[1, 0]-self.local_matrix_zeroExterior.simplex2[0, 0])
+                                    panel = self.local_matrix_zeroExterior.getPanelType()
+                                    self.local_matrix_zeroExterior.eval(contribZeroExterior, panel)
+                                    if self.local_matrix_zeroExterior.symmetricLocalMatrix:
+                                        iM.addToMatrixElemSym(contribZeroExterior, -1.)
+                                    else:
+                                        raise NotImplementedError()
+                    elif not self.zeroExterior and self.kernel.finiteHorizon:
+                        with self.PLogger.Timer(prefix+'zeroExterior'):
+                            # Subtract the contribution for Omega x (\partial B_\delta(x))
+                            assert isinstance(self.kernel.horizon, constant)
+                            self.local_matrix_zeroExterior.center2 = uninitialized((self.mesh.dim), dtype=REAL)
+                            coeff = horizonSurfaceIntegral(self.local_matrix_zeroExterior, self.kernel.horizon.value)
+                            qr = simplexXiaoGimbutas(2, self.mesh.dim)
+                            if self.mesh.dim == 1:
+                                mass = mass_1d_sym_scalar_anisotropic(coeff, self.dm, qr)
+                            elif self.mesh.dim == 2:
+                                mass = mass_2d_sym_scalar_anisotropic(coeff, self.dm, qr)
+                            else:
+                                raise NotImplementedError()
+                            assembleMatrix(self.mesh, self.dm, mass, A=Anear)
 
         return Anear
 
@@ -1826,23 +1839,22 @@ cdef class nonlocalBuilder:
                         jumps[hv] = hv2
         return blocks, jumps
 
-    def getTree(self, BOOL_t doDistributedAssembly, refinementParams refParams):
+    def getTree(self,
+                BOOL_t doDistributedAssembly,
+                refinementParams refParams,
+                REAL_t[:, :, ::1] boxes,
+                sparseGraph cells,
+                REAL_t[:, ::1] coords):
         cdef:
-            REAL_t[:, :, ::1] boxes = None
-            sparseGraph cells
-            REAL_t[:, ::1] coords = None
             INDEX_t num_cluster_dofs
             dict blocks = {}, jumps = {}
-            indexSet dofs, clusterDofs, subDofs, blockDofs, myDofs = None
+            indexSet dofs, clusterDofs, subDofs, blockDofs
             indexSetIterator it
             REAL_t key
             INDEX_t[::1] part = None
             tree_node root, myRoot, n
 
         with self.PLogger.Timer('prepare tree'):
-            boxes, cells = getDoFBoxesAndCells(self.dm.mesh, self.dm, self.comm)
-            coords = self.dm.getDoFCoordinates()
-
             dofs = arrayIndexSet(np.arange(self.dm.num_dofs, dtype=INDEX), sorted=True)
             root = tree_node(None, dofs, boxes)
 
@@ -1906,34 +1918,49 @@ cdef class nonlocalBuilder:
                 root._dofs = None
 
                 myRoot = root.children[self.comm.rank]
-                myDofs = myRoot.get_dofs()
             else:
                 myRoot = root
 
             if self.kernel.variable:
-                # node ids are otherwise incorrect
-                assert not doDistributedAssembly
                 blocks, jumps = self.getKernelBlocksAndJumps()
-                for n in root.leaves():
-                    clusterDofs = n.get_dofs()
-                    num_cluster_dofs = clusterDofs.getNumEntries()
-                    num_dofs = 0
-                    for p, key in enumerate(sorted(blocks)):
-                        blockDofs = arrayIndexSet()
-                        blockDofs.fromSet(blocks[key])
-                        subDofs = blockDofs.inter(clusterDofs)
-                        if subDofs.getNumEntries() > 0:
-                            num_dofs += subDofs.getNumEntries()
-                            n.children.append(tree_node(n, subDofs, boxes, mixed_node=key == np.inf))
-                            n.children[p].id = p+1
-                    assert num_dofs == num_cluster_dofs, (num_dofs, num_cluster_dofs)
-                    n._dofs = None
+                if len(jumps) > 0:
+                    my_id = root.get_max_id()+1
+                    for n in root.leaves():
+                        clusterDofs = n.get_dofs()
+                        num_cluster_dofs = clusterDofs.getNumEntries()
+                        num_dofs = 0
+                        children = []
+                        for key in sorted(blocks):
+                            blockDofs = arrayIndexSet()
+                            blockDofs.fromSet(blocks[key])
+                            subDofs = blockDofs.inter(clusterDofs)
+                            if subDofs.getNumEntries() > 0:
+                                num_dofs += subDofs.getNumEntries()
+                                children.append(tree_node(n, subDofs, boxes, mixed_node=key == np.inf))
+                                children[-1].id = my_id
+                                my_id += 1
+                        assert num_dofs == num_cluster_dofs, (num_dofs, num_cluster_dofs)
+                        n.children = children
+                        n._dofs = None
+                        # node ids are otherwise incorrect
+                        # assert not doDistributedAssembly, "Cannot assemble variable kernel in distributed mode"
+                else:
+                    for n in root.leaves():
+                        n.canBeAssembled = True
                 LOGGER.info('Jumps: {}, Block sizes: {}, Leaf nodes: {}'.format(len(jumps), str({key: len(blocks[key]) for key in blocks}), len(list(root.leaves()))))
+
+            if doDistributedAssembly:
+                if self.kernel.variable:
+                    root.irregularLevelsOffset = root.numLevels-1
+                else:
+                    root.irregularLevelsOffset = 1
+            else:
+                root.irregularLevelsOffset = 1
 
             if refParams.maxLevels <= 0:
                 refParams.maxLevels = root.numLevels+refParams.maxLevels
 
-            return root, myRoot, boxes, cells, coords, myDofs, jumps, doDistributedAssembly
+            return root, myRoot, jumps, doDistributedAssembly
 
     def getAdmissibleClusters(self,
                               tree_node root, tree_node myRoot,
@@ -1942,7 +1969,8 @@ cdef class nonlocalBuilder:
                               REAL_t[:, :, ::1] boxes,
                               sparseGraph cells,
                               REAL_t[:, ::1] coords,
-                              BOOL_t assembleOnRoot=True):
+                              BOOL_t assembleOnRoot=True,
+                              BOOL_t ignoreDiagonalBlocks=False):
         cdef:
             dict Pfar = {}
             list Pnear = []
@@ -1959,10 +1987,12 @@ cdef class nonlocalBuilder:
             if doDistributedAssembly:
                 if assembleOnRoot:
                     # we need all tree nodes to be already available when we gather the far field clusters
-                    for n in root.children:
+                    for n in root.leaves():
                         n.refine(boxes, coords, refParams, recursive=True)
 
                 for n in root.children:
+                    if ignoreDiagonalBlocks and (n.id == myRoot.id):
+                        pass
                     getAdmissibleClusters(self.local_matrix.kernel, myRoot, n,
                                           refParams,
                                           Pfar=Pfar, Pnear=Pnear,
@@ -2109,28 +2139,64 @@ cdef class nonlocalBuilder:
 
         return refParams
 
-    def getH2(self, BOOL_t returnNearField=False, returnTree=False):
+    def doLocalFarFieldIndexing(self, tree_node myRoot, REAL_t[:, :, ::1] boxes):
+        cdef:
+            meshBase mesh = self.mesh
+            REAL_t[:, :, ::1] local_boxes = None
+            INDEX_t local_dof, global_dof, k, new_dof, i, j
+            dict lookup
+            CSR_LinearOperator lclR = None, lclP = None
+            INDEX_t[::1] newDoFsArray
+            unsortedArrayIndexSet newDoFs
+            indexSetIterator it
+            DoFMap local_dm = None
+            tree_node n
+            arrayIndexSet oldDoFs
+        with self.PLogger.Timer('localFarFieldIndexing'):
+            lclDoFs = myRoot.dofs.toArray()
+            lclIndicator = self.dm.zeros()
+            lclIndicator.toarray()[lclDoFs] = 1.
+            split = dofmapSplitter(self.dm, {'lcl': lclIndicator})
+            local_dm = split.getSubMap('lcl')
+            lclR, lclP = split.getRestrictionProlongation('lcl')
+            lookup = {}
+            for local_dof in range(local_dm.num_dofs):
+                global_dof = lclR.indices[local_dof]
+                lookup[global_dof] = local_dof
+            for n in myRoot.leaves():
+                oldDoFs = n._dofs
+                newDoFsArray = uninitialized((oldDoFs.getNumEntries()), dtype=INDEX)
+                k = 0
+                it = oldDoFs.getIter()
+                while it.step():
+                    dof = it.i
+                    new_dof = lookup[dof]
+                    newDoFsArray[k] = new_dof
+                    k += 1
+                newDoFs = unsortedArrayIndexSet(newDoFsArray)
+                n._local_dofs = newDoFs
+            local_boxes = uninitialized((local_dm.num_dofs, mesh.dim, 2), dtype=REAL)
+            for local_dof in range(local_dm.num_dofs):
+                global_dof = lclR.indices[local_dof]
+                for i in range(mesh.dim):
+                    for j in range(2):
+                        local_boxes[local_dof, i, j] = boxes[global_dof, i, j]
+        return local_boxes, local_dm, lclR, lclP
+
+    def getH2(self, BOOL_t returnNearField=False, returnTree=False, tree_node root=None, tree_node myRoot=None, dict jumps={}, BOOL_t ignoreDiagonalBlocks=False):
         cdef:
             meshBase mesh = self.mesh
             DoFMap DoFMap = self.dm
-            tree_node root, myRoot
             fractionalOrderBase s = self.kernel.s
-            REAL_t[:, :, ::1] boxes, local_boxes
+            REAL_t[:, :, ::1] boxes = None, local_boxes
+            sparseGraph cells = None
+            REAL_t[:, ::1] coords = None
             dict Pfar
             list Pnear
             LinearOperator h2 = None, Anear = None
-            dict jumps
-            indexSet myDofs
             BOOL_t forceUnsymmetric, doDistributedAssembly = False, assembleOnRoot = True, localFarFieldIndexing = False
             refinementParams refParams
-            tree_node n
-            arrayIndexSet oldDoFs
-            unsortedArrayIndexSet newDoFs
-            indexSetIterator it
-            INDEX_t local_dof, global_dof, k, new_dof, i, j
-            dict lookup
             CSR_LinearOperator lclR
-            INDEX_t[::1] newDoFsArray
         assert isinstance(self.kernel, FractionalKernel), 'H2 is only implemented for fractional kernels'
 
         refParams = self.getH2RefinementParams()
@@ -2139,13 +2205,19 @@ cdef class nonlocalBuilder:
         assembleOnRoot = self.params.get('assembleOnRoot', True)
         localFarFieldIndexing = self.params.get('localFarFieldIndexing', False)
         localFarFieldIndexing = doDistributedAssembly and not assembleOnRoot and localFarFieldIndexing
+        if doDistributedAssembly and not assembleOnRoot:
+            assert forceUnsymmetric
+
+        with self.PLogger.Timer('boxes, cells, coords'):
+            boxes, cells = getDoFBoxesAndCells(self.dm.mesh, self.dm, self.comm)
+            coords = self.dm.getDoFCoordinates()
 
         # construct the cluster tree
-        (root, myRoot, boxes, cells, coords, myDofs, jumps,
-         doDistributedAssembly) = self.getTree(doDistributedAssembly, refParams)
+        if root is None:
+            root, myRoot, jumps, doDistributedAssembly = self.getTree(doDistributedAssembly, refParams, boxes, cells, coords)
 
         # get the admissible cluster pairs
-        Pnear, Pfar = self.getAdmissibleClusters(root, myRoot, doDistributedAssembly, refParams, boxes, cells, coords, assembleOnRoot=assembleOnRoot)
+        Pnear, Pfar = self.getAdmissibleClusters(root, myRoot, doDistributedAssembly, refParams, boxes, cells, coords, assembleOnRoot=assembleOnRoot, ignoreDiagonalBlocks=ignoreDiagonalBlocks)
         lenPfar = len(Pfar)
         if doDistributedAssembly:
             lenPfar = self.comm.bcast(lenPfar)
@@ -2153,51 +2225,26 @@ cdef class nonlocalBuilder:
         if lenPfar > 0:
             # get near field matrix
             with self.PLogger.Timer('near field'):
-                Anear = self.assembleClusters(Pnear, jumps=jumps, myDofs=myDofs, forceUnsymmetric=forceUnsymmetric, myRoot=myRoot)
+                Anear = self.assembleClusters(Pnear, jumps=jumps, forceUnsymmetric=forceUnsymmetric, myRoot=myRoot)
             if doDistributedAssembly and assembleOnRoot:
                 with self.PLogger.Timer('reduceNearOp'):
-                    Anear = self.reduceNearOp(Anear, myDofs)
+                    Anear = self.reduceNearOp(Anear, myRoot.get_dofs())
 
             if localFarFieldIndexing:
-                with self.PLogger.Timer('localFarFieldIndexing'):
-                    lclDoFs = myRoot.dofs.toArray()
-                    lclIndicator = self.dm.zeros()
-                    lclIndicator.toarray()[lclDoFs] = 1.
-                    split = dofmapSplitter(self.dm, {'lcl': lclIndicator})
-                    local_dm = split.getSubMap('lcl')
-                    lclR, lclP = split.getRestrictionProlongation('lcl')
-                    lookup = {}
-                    for local_dof in range(local_dm.num_dofs):
-                        global_dof = lclR.indices[local_dof]
-                        lookup[global_dof] = local_dof
-                    for n in myRoot.leaves():
-                        oldDoFs = n._dofs
-                        newDoFsArray = uninitialized((oldDoFs.getNumEntries()), dtype=INDEX)
-                        k = 0
-                        it = oldDoFs.getIter()
-                        while it.step():
-                            dof = it.i
-                            new_dof = lookup[dof]
-                            newDoFsArray[k] = new_dof
-                            k += 1
-                        newDoFs = unsortedArrayIndexSet(newDoFsArray)
-                        n._local_dofs = newDoFs
-                    local_boxes = uninitialized((local_dm.num_dofs, mesh.dim, 2), dtype=REAL)
-                    for local_dof in range(local_dm.num_dofs):
-                        global_dof = lclR.indices[local_dof]
-                        for i in range(mesh.dim):
-                            for j in range(2):
-                                local_boxes[local_dof, i, j] = boxes[global_dof, i, j]
+                local_boxes, local_dm, lclR, lclP = self.doLocalFarFieldIndexing(myRoot, boxes)
 
             with self.PLogger.Timer('leaf values'):
                 # get leave values
-                if s.max < 1.:
+                if (s.min > 0) and (s.max < 1):
                     if not localFarFieldIndexing:
                         root.enterLeafValues(mesh, DoFMap, refParams.interpolation_order, boxes, self.comm, assembleOnRoot=assembleOnRoot)
                     else:
                         myRoot.enterLeafValues(mesh, local_dm, refParams.interpolation_order, local_boxes, local=True)
-                elif s.min > 1:
-                    root.enterLeafValuesGrad(mesh, DoFMap, refParams.interpolation_order, boxes, self.comm)
+                elif (s.min > 1) and (s.max < 2):
+                    if not localFarFieldIndexing:
+                        root.enterLeafValuesGrad(mesh, DoFMap, refParams.interpolation_order, boxes, self.comm)
+                    else:
+                        raise NotImplementedError()
                 else:
                     raise NotImplementedError()
 

@@ -65,6 +65,7 @@ cdef class tree_node:
         public list children
         public INDEX_t dim
         public INDEX_t id
+        public INDEX_t _irregularLevelsOffset
         public INDEX_t distFromRoot
         public indexSet _dofs
         public indexSet _local_dofs
@@ -83,6 +84,7 @@ cdef class tree_node:
     cdef INDEX_t get_num_dofs(self)
     cdef indexSet get_cells(self)
     cdef get_num_root_children(self)
+    cdef get_num_children(self, INDEX_t levelOffset=*)
     cdef BOOL_t get_is_leaf(self)
     cdef INDEX_t _getLevels(self)
     cdef INDEX_t _getParentLevels(self)

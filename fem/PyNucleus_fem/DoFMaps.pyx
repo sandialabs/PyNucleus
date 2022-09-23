@@ -1307,6 +1307,27 @@ cdef class DoFMap:
                     self.dofs[cellNo, dofNo] = remap[dof]
         self.num_dofs = k+1
 
+    def __eq__(self, DoFMap other):
+        if self.dofs_per_element != other.dofs_per_element:
+            return False
+        if self.dofs_per_vertex != other.dofs_per_vertex:
+            return False
+        if self.dofs_per_edge != other.dofs_per_edge:
+            return False
+        if self.dofs_per_face != other.dofs_per_face:
+            return False
+        if self.dofs_per_cell != other.dofs_per_cell:
+            return False
+        if self.num_dofs != other.num_dofs:
+            return False
+        if self.num_boundary_dofs != other.num_boundary_dofs:
+            return False
+        if np.absolute(np.array(self.dofs)-np.array(other.dofs)).max() > 0:
+            return False
+        if self.mesh != other.mesh:
+            return False
+        return True
+
 
 cdef class globalShapeFunction(function):
     cdef:
