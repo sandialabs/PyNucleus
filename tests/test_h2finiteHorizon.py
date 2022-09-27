@@ -32,7 +32,7 @@ def idfunc(param):
                         (1, constFractionalOrder(0.25), 1.0, 2.5, False),
                         (1, constFractionalOrder(0.75), 1.0, 2.5, False),
                         (1, variableConstFractionalOrder(0.75), 0.5, 1.0, False),
-                        (1, leftRightFractionalOrder(0.25, 0.75), 0.5, 1.0, False),
+                        
                         ],
                 ids=idfunc)
 def kernels(request):
