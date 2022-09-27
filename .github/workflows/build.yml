@@ -12,6 +12,8 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    env:
+      MPIEXEC_FLAGS: "--allow-run-as-root --oversubscribe"
 
     steps:
     - name: Check out repo
@@ -27,3 +29,13 @@ jobs:
 
     - name: Install
       run: make install
+
+    - name: Run tests
+      run: make tests
+
+    - name: Archive test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-report
+        path: index.html

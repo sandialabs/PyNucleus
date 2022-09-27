@@ -1294,8 +1294,11 @@ def runDriver(path, py, python=None, timeout=600, ranks=None, cacheDir='',
             import sys
             python = sys.executable
         cmd = [python] + py
-        cmd = ['mpiexec', '--bind-to', 'none', '-n', str(ranks)]+cmd
-
+        if 'MPIEXEC_FLAGS' in os.environ:
+            mpi_flags = str(os.environ['MPIEXEC_FLAGS'])
+        else:
+            mpi_flags = '--bind-to none'
+        cmd = ['mpiexec'] + mpi_flags.split(' ') + ['-n', str(ranks)]+cmd
         logger.info('Launching "{}" from "{}"'.format(' '.join(cmd), path))
         my_env = {}
         for key in os.environ:
