@@ -1255,10 +1255,10 @@ cdef class DoFMap:
             INDEX_t cellNo, dofNo, dof1, dof2
             DoFMap dmCombined
 
-        assert type(self) == type(other)
-        assert self.mesh == other.mesh
-        assert self.num_dofs == other.num_boundary_dofs
-        assert self.num_boundary_dofs == other.num_dofs
+        assert type(self) == type(other), "Cannot combine DoFMaps of different type"
+        assert self.mesh == other.mesh, "Both DoFMaps need to have the same mesh"
+        assert self.num_dofs == other.num_boundary_dofs, "DoFMaps need to be complementary"
+        assert self.num_boundary_dofs == other.num_dofs, "DoFMaps need to be complementary"
 
         dmCombined = deepcopy(self)
         dmCombined.num_dofs = self.num_dofs+other.num_dofs

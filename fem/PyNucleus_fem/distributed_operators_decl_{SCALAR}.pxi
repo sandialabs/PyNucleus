@@ -8,7 +8,9 @@
 
 from PyNucleus_base.myTypes cimport INDEX_t, {SCALAR}_t, BOOL_t
 from PyNucleus_base.linear_operators cimport {SCALAR_label}LinearOperator, {SCALAR_label}CSR_LinearOperator
+from . DoFMaps cimport DoFMap
 from . algebraicOverlaps cimport algebraicOverlapManager
+from mpi4py cimport MPI
 
 
 cdef class {SCALAR_label}DistributedLinearOperator({SCALAR_label}LinearOperator):
@@ -28,3 +30,28 @@ cdef class {SCALAR_label}CSR_DistributedLinearOperator({SCALAR_label}Distributed
     cdef:
         {SCALAR_label}CSR_LinearOperator csrA
         INDEX_t[::1] overlap_indices
+
+
+cdef class {SCALAR_label}RowDistributedOperator({SCALAR_label}LinearOperator):
+    cdef:
+        public {SCALAR_label}CSR_LinearOperator localMat
+        public MPI.Comm comm
+        public DoFMap dm
+        public DoFMap lcl_dm
+        public LinearOperator lclR
+        public LinearOperator lclP
+        INDEX_t[::1] near_offsetReceives
+        INDEX_t[::1] near_offsetSends
+        INDEX_t[::1] near_remoteReceives
+        INDEX_t[::1] near_remoteSends
+        INDEX_t[::1] near_counterReceives
+        INDEX_t[::1] near_counterSends
+        {SCALAR}_t[::1] near_dataReceives
+        {SCALAR}_t[::1] near_dataSends
+        INDEX_t[::1] rowIdx
+        INDEX_t[::1] colIdx
+    cdef void setupNear(self)
+    cdef void communicateNear(self, {SCALAR}_t[::1] src, {SCALAR}_t[::1] target)
+    cdef INDEX_t matvec(self,
+                        {SCALAR}_t[::1] x,
+                        {SCALAR}_t[::1] y) except -1
