@@ -2342,6 +2342,12 @@ cdef class DistributedH2Matrix_globalData(LinearOperator):
     def __repr__(self):
         return '<Rank %d/%d, %s>' % (self.comm.rank, self.comm.size, self.localMat)
 
+    property diagonal:
+        def __get__(self):
+            d = self.localMat.Anear.diagonal
+            self.comm.Allreduce(MPI.IN_PLACE, d)
+            return d
+
 
 cdef class DistributedH2Matrix_localData(LinearOperator):
     """
@@ -2903,6 +2909,10 @@ cdef class DistributedH2Matrix_localData(LinearOperator):
                 lcl_kernelApproximation_csr, lcl_kernelBlockGraph_csr,
                 lcl_transfers, lcl_transfersBlockGraph,
                 lcl_basisMatrix_csr)
+
+    property diagonal:
+        def __get__(self):
+            return self.localMat.Anear.diagonal
 
 
 
