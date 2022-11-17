@@ -126,11 +126,11 @@ createVirtualEnv:
 
 
 list-tests:
-	$(PYTHON) -m pytest --collect-only tests/ tests/test.py
+	$(PYTHON) -m pytest --collect-only tests/
 
 .PHONY: tests
 tests:
-	$(PYTHON) -m pytest -rA --html=$(TEST_RESULTS) --self-contained-html tests/ tests/test.py
+	$(PYTHON) -m pytest -rA --html=$(TEST_RESULTS) --self-contained-html tests/
 
 docker:
 	mkdir docker-build
