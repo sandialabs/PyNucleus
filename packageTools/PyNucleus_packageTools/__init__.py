@@ -34,7 +34,7 @@ except ImportError:
             self.join()
 
 
-def build_extensions(self):
+def build_extensions_multithreaded(self):
     """Function to monkey-patch
     distutils.command.build_ext.build_ext.build_extensions
 
@@ -50,7 +50,7 @@ def build_extensions(self):
         pool.map(self.build_extension, self.extensions)
 
 
-def compile(
+def compile_multithreaded(
         self, sources, output_dir=None, macros=None, include_dirs=None,
         debug=0, extra_preargs=None, extra_postargs=None, depends=None):
     """Function to monkey-patch distutils.ccompiler.CCompiler"""
@@ -69,9 +69,6 @@ def compile(
     # Return *all* object filenames, not just the ones we just built.
     return objects
 
-
-build_ext.build_extensions = build_extensions
-CCompiler.compile = compile
 
 ###############################################################################
 
@@ -279,6 +276,15 @@ class package:
             if not Path(includeDir).exists():
                 import warnings
                 warnings.warn('The include path \'{}\' does not exist.'.format(includeDir))
+
+        from sys import platform
+        if platform == 'darwin':
+            warnings.warn('Multithreaded builds currently do not work on MacOS. Falling back to serial build.')
+            self.config['threads'] = 1
+
+        if self.config['threads'] > 1:
+            build_ext.build_extensions = build_extensions_multithreaded
+            CCompiler.compile = compile_multithreaded
 
         if len(self.extensions) > 0:
             from Cython.Build import cythonize

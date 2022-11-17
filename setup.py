@@ -10,6 +10,7 @@ import os
 import importlib
 from setuptools import setup
 import versioneer
+from pathlib import Path
 
 requirements = ['numpy', 'cython']
 
@@ -36,6 +37,7 @@ for pkg, srcLocation in [
 
 setup(name='PyNucleus',
       packages=['PyNucleus'],
+      data_files=[('drivers', [str(p) for p in Path('drivers').glob('*.py')])],
       version=versioneer.get_version(),
       cmdclass=versioneer.get_cmdclass(),
       description='A finite element code that specifically targets nonlocal operators.',
