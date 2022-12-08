@@ -38,6 +38,7 @@ from . nonlocalLaplacianBase import MASK
 from . twoPointFunctions cimport constantTwoPoint
 from . fractionalOrders cimport (fractionalOrderBase,
                                  constFractionalOrder,
+                                 piecewiseConstantFractionalOrder,
                                  variableFractionalOrder,
                                  variableFractionalLaplacianScaling)
 from . kernels import getFractionalKernel
@@ -45,7 +46,6 @@ from . kernels import getFractionalKernel
 from . clusterMethodCy import (assembleFarFieldInteractions,
                                getDoFBoxesAndCells,
                                getFractionalOrders,
-                               getFractionalOrdersDiagonal,
                                getAdmissibleClusters,
                                symmetrizeNearFieldClusters,
                                trimTree)
@@ -62,6 +62,8 @@ mpi4py.rc.initialize = False
 from mpi4py import MPI
 from mpi4py cimport MPI
 include "panelTypes.pxi"
+
+cdef REAL_t INTERFACE_DOF = np.inf
 
 LOGGER = logging.getLogger(__name__)
 
@@ -1506,6 +1508,7 @@ cdef class nonlocalBuilder:
                                         else:
                                             raise NotImplementedError()
 
+                        # integrate all the jump interfaces
                         for hv in jumps:
                             decode_edge(hv, cellPair)
                             if not (cluster.cellsUnion.inSet(cellPair[0]) or
@@ -1790,18 +1793,25 @@ cdef class nonlocalBuilder:
             INDEX_t[::1] edge = uninitialized((2), dtype=INDEX)
             INDEX_t cellNo, dofNo, dof, cellNo1, cellNo2, vertexNo1, vertexNo2, vertex1, vertex2, i
             ENCODE_t hv
-        orders = getFractionalOrdersDiagonal(s, mesh)
-        dofOrders = -np.inf*np.ones((DoFMap.num_dofs), dtype=REAL)
+            REAL_t UNASSIGNED = -np.inf
+        if isinstance(s, piecewiseConstantFractionalOrder):
+            orders = P0_DoFMap(mesh).interpolate(s.blockIndicator)
+        else:
+            orders = P0_DoFMap(mesh).interpolate(s.diagonal())
+        dofOrders = np.full((DoFMap.num_dofs), fill_value=UNASSIGNED, dtype=REAL)
         for cellNo in range(mesh.num_cells):
             cellOrder = orders[cellNo]
             for dofNo in range(DoFMap.dofs_per_element):
                 dof = DoFMap.cell2dof(cellNo, dofNo)
                 if dof >= 0:
-                    if dofOrders[dof] == -np.inf:
+                    if dofOrders[dof] == UNASSIGNED:
                         dofOrders[dof] = cellOrder
-                    elif dofOrders[dof] < np.inf:
+                    elif dofOrders[dof] != INTERFACE_DOF:
                         if dofOrders[dof] != cellOrder:
-                            dofOrders[dof] = np.inf
+                            dofOrders[dof] = INTERFACE_DOF
+        # blocks is a dict
+        #  value fractional order -> set of dofs
+        # dofs at interfaces between different fractional orders are in blocks[INTERFACE_DOF]
         blocks = {}
         for dof in range(DoFMap.num_dofs):
             try:
@@ -1810,6 +1820,11 @@ cdef class nonlocalBuilder:
                 blocks[dofOrders[dof]] = set([dof])
         LOGGER.debug('Block sizes: '+str({key: len(blocks[key]) for key in blocks}))
 
+        # jumps is a dict of element interfaces where the kernel has a jump.
+        # in 1D:
+        #  encoded cell pair -> vertex at the interface between cells
+        # in 2D:
+        #  encoded cell pair -> encoded edge
         jumps = {}
         cellConnectivity = mesh.getCellConnectivity(mesh.dim)
         for cellNo1 in range(mesh.num_cells):
@@ -1936,7 +1951,7 @@ cdef class nonlocalBuilder:
                             subDofs = blockDofs.inter(clusterDofs)
                             if subDofs.getNumEntries() > 0:
                                 num_dofs += subDofs.getNumEntries()
-                                children.append(tree_node(n, subDofs, boxes, mixed_node=key == np.inf))
+                                children.append(tree_node(n, subDofs, boxes, mixed_node=key == INTERFACE_DOF))
                                 children[-1].id = my_id
                                 my_id += 1
                         assert num_dofs == num_cluster_dofs, (num_dofs, num_cluster_dofs)

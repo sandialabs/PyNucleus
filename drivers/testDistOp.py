@@ -50,6 +50,14 @@ if d.domain == 'disc':
                                   kernel=d.kernel,
                                   boundaryCondition=HOMOGENEOUS_DIRICHLET,
                                   h=h,
+                                  max_volume=h**2/2,
+                                  projectNodeToOrigin=False)
+elif d.domain == 'gradedDisc':
+    h = 0.04/2**(d.noRef-6)
+    mesh, _ = nonlocalMeshFactory(d.domain,
+                                  kernel=d.kernel,
+                                  boundaryCondition=HOMOGENEOUS_DIRICHLET,
+                                  h=h,
                                   max_volume=h**2/2)
 else:
     mesh = d.mesh
@@ -58,6 +66,8 @@ else:
 dm = dofmapFactory(d.element, mesh)
 
 if d.isMaster:
+    print("Global mesh: ", dm.mesh)
+    print("Mesh aspect ratio: ", dm.mesh.h/dm.mesh.hmin)
     print("Global DM: ", dm)
 
 d.comm.Barrier()
@@ -132,11 +142,12 @@ if d.buildDistributedHalo:
     d.logger.info('\n'+str(stats))
 
 
-    with d.timer('distributed, halo matvec'):
-        x_local = A3.lcl_dm.zeros()
-        x_local.assign(A3.lclR*x)
-        y3 = A3.lcl_dm.zeros()
-        A3(x_local, y3)
+    x_local = A3.lcl_dm.zeros()
+    x_local.assign(A3.lclR*x)
+    y3 = A3.lcl_dm.zeros()
+    for k in range(100):
+        with d.timer('distributed, halo matvec'):
+            A3(x_local, y3)
 
 ##################################################
 ##################################################

@@ -29,8 +29,8 @@ cdef class complexFunction:
 
 cdef class vectorFunction:
     cdef:
-        list components
-        INDEX_t rows
+        public list components
+        public INDEX_t rows
     cdef void eval(self, REAL_t[::1] x, REAL_t[::1] vals)
 
 

@@ -6,34 +6,49 @@
 ###################################################################################
 
 
+# cython: initializedcheck=False, boundscheck=False, wraparound=False
 import numpy as np
 from PyNucleus_base import INDEX
+from PyNucleus_base.myTypes cimport INDEX_t, REAL_t
+from . meshCy cimport meshBase
 from . import P0_DoFMap
+from . DoFMaps cimport DoFMap
 from . import getSubmesh
+from . functions cimport function
 from . DoFMaps import (getSubMapRestrictionProlongation,
                        getSubMapRestrictionProlongation2)
+from PyNucleus_base.linear_operators cimport sparseGraph
 
 
-class meshSplitter:
-    def __init__(self, mesh, indicators):
+cdef class meshSplitter:
+    cdef:
+        meshBase mesh
+        dict indicators
+        dict submeshes
+        dict selectedCells
+
+    def __init__(self, meshBase mesh, indicators):
         self.mesh = mesh
         self.indicators = indicators
         self.submeshes = {}
         self.selectedCells = {}
 
     def getSubMesh(self, label):
-        from . import function
+        cdef:
+            DoFMap dm
+            list selectedCellsList
+            INDEX_t cellNo, dofNo
         if label not in self.submeshes:
             ind = self.indicators[label]
             if isinstance(ind, function):
                 dm = P0_DoFMap(self.mesh, ind)
-                selectedCells = []
+                selectedCellsList = []
                 for cellNo in range(self.mesh.num_cells):
                     for dofNo in range(dm.dofs_per_element):
                         if dm.dofs[cellNo, dofNo] >= 0:
-                            selectedCells.append(cellNo)
+                            selectedCellsList.append(cellNo)
                             break
-                selectedCells = np.array(selectedCells, dtype=INDEX)
+                selectedCells = np.array(selectedCellsList, dtype=INDEX)
             else:
                 selectedCells = ind
             self.selectedCells[label] = selectedCells
@@ -65,6 +80,38 @@ class meshSplitter:
         sub_dm.num_boundary_dofs = -sub_boundary_dof-1
         return sub_dm
 
+    def getSubMapOnFullMesh(self, label, dm):
+        sub_dm = type(dm)(self.mesh, -1)
+        sub_dof = 0
+        sub_boundary_dof = -1
+        assigned_dofs = {}
+        for cellNo in self.selectedCells[label]:
+            for dofNo in range(dm.dofs_per_element):
+                dof = dm.cell2dof_py(cellNo, dofNo)
+                try:
+                    sub_dm.dofs[cellNo, dofNo] = assigned_dofs[dof]
+                except KeyError:
+                    if dof >= 0:
+                        sub_dm.dofs[cellNo, dofNo] = sub_dof
+                        assigned_dofs[dof] = sub_dof
+                        sub_dof += 1
+                    else:
+                        sub_dm.dofs[cellNo, dofNo] = sub_boundary_dof
+                        assigned_dofs[dof] = sub_boundary_dof
+                        sub_boundary_dof -= 1
+        for cellNo in range(self.mesh.num_cells):
+            for dofNo in range(dm.dofs_per_element):
+                dof = dm.cell2dof_py(cellNo, dofNo)
+                try:
+                    sub_dm.dofs[cellNo, dofNo] = assigned_dofs[dof]
+                except KeyError:
+                    sub_dm.dofs[cellNo, dofNo] = sub_boundary_dof
+                    assigned_dofs[dof] = sub_boundary_dof
+                    sub_boundary_dof -= 1
+        sub_dm.num_dofs = sub_dof
+        sub_dm.num_boundary_dofs = -sub_boundary_dof-1
+        return sub_dm
+
     def getRestrictionProlongation(self, label, dm, sub_dm):
         cellIndices = -np.ones((self.mesh.num_cells), dtype=INDEX)
         cells = self.selectedCells[label]
@@ -83,6 +130,52 @@ class meshSplitter:
             dm0 = P0_DoFMap(submesh, -1)
             dm0.ones().plot(flat=True)
             plt.title(label)
+
+
+
+cdef class meshSplitter2(meshSplitter):
+    cdef:
+        INDEX_t[::1] cell2subdomain
+        sparseGraph subdomain2cell
+
+    def __init__(self, meshBase mesh, function indicator):
+        super(meshSplitter2, self).__init__(mesh, {})
+        self.cell2subdomain, self.subdomain2cell = self.createSubdomains(indicator)
+        for subdomainNo in range(self.subdomain2cell.shape[0]):
+            self.indicators[subdomainNo] = self.subdomain2cell.indices[self.subdomain2cell.indptr[subdomainNo]:self.subdomain2cell.indptr[subdomainNo+1]]
+
+    def createSubdomains(self, function indicator):
+        cdef:
+            REAL_t[:, ::1] centers
+            INDEX_t[::1] cell2subdomain
+            INDEX_t[::1] subdomains
+            INDEX_t cellNo, num_subdomains, subdomainNo
+            INDEX_t[::1] indices, indptr
+            DoFMap dm
+        dm = P0_DoFMap(self.mesh)
+        cell2subdomain = np.around(dm.interpolate(indicator).toarray()).astype(INDEX)
+        # centers = self.mesh.getCellCenters()
+        # cell2subdomain = np.zeros((self.mesh.num_cells), dtype=INDEX)
+        subdomains = np.unique(cell2subdomain)
+        assert min(subdomains) == 0
+        assert len(subdomains) == max(subdomains)+1
+        num_subdomains = subdomains.shape[0]
+        indptr = np.zeros((num_subdomains+1), dtype=INDEX)
+        indices = np.zeros((self.mesh.num_cells), dtype=INDEX)
+        for cellNo in range(self.mesh.num_cells):
+            subdomainNo = cell2subdomain[cellNo]
+            indptr[subdomainNo+1] += 1
+        for subdomainNo in range(num_subdomains):
+            indptr[subdomainNo+1] += indptr[subdomainNo]
+        for cellNo in range(self.mesh.num_cells):
+            subdomainNo = cell2subdomain[cellNo]
+            indices[indptr[subdomainNo]] = cellNo
+            indptr[subdomainNo] += 1
+        for subdomainNo in range(num_subdomains-1, -1, -1):
+            indptr[subdomainNo+1] = indptr[subdomainNo]
+        indptr[0] = 0
+        subdomain2cell = sparseGraph(indices, indptr, num_subdomains, self.mesh.num_cells)
+        return cell2subdomain, subdomain2cell
 
 
 class dofmapSplitter:

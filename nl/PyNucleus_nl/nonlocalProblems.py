@@ -13,6 +13,7 @@ from PyNucleus_base.utilsFem import problem
 from PyNucleus_fem import (simpleInterval, intervalWithInteraction,
                            uniformSquare, squareWithInteractions,
                            discWithInteraction,
+                           gradedDiscWithInteraction,
                            double_graded_interval,
                            double_graded_interval_with_interaction,
                            discWithIslands,
@@ -198,6 +199,7 @@ nonlocalMeshFactory.register('interval', simpleInterval, intervalWithInteraction
 nonlocalMeshFactory.register('gradedInterval', double_graded_interval, double_graded_interval_with_interaction, 1, intervalIndicators, {'a': -1, 'b': 1, 'mu_ll': 2., 'mu_rr': 2.}, {'a': -1, 'b': 1, 'mu_ll': 2., 'mu_rr': 2.})
 nonlocalMeshFactory.register('square', uniformSquare, squareWithInteractions, 2, squareIndicators, {'N': 2, 'M': 2, 'ax': -1, 'ay': -1, 'bx': 1, 'by': 1}, {'ax': -1, 'ay': -1, 'bx': 1, 'by': 1}, aliases=['rectangle'])
 nonlocalMeshFactory.register('disc', discWithInteraction, discWithInteraction, 2, radialIndicators, {'horizon': 0., 'radius': 1.}, {'radius': 1.})
+nonlocalMeshFactory.register('gradedDisc', gradedDiscWithInteraction, gradedDiscWithInteraction, 2, radialIndicators, {'horizon': 0., 'radius': 1.}, {'radius': 1.})
 nonlocalMeshFactory.register('discWithIslands', discWithIslands, discWithIslands, 2, radialIndicators, {'horizon': 0., 'radius': 1., 'islandOffCenter': 0.35, 'islandDiam': 0.5}, {'radius': 1., 'islandOffCenter': 0.35, 'islandDiam': 0.5})
 nonlocalMeshFactory.register('twinDisc', twinDisc, twinDisc, 2, radialIndicators, {'radius': 1., 'sep': 0.1}, {'radius': 1., 'sep': 0.1})
 
@@ -413,7 +415,7 @@ class fractionalLaplacianProblem(problem):
 class nonlocalProblem(problem):
     def setDriverArgs(self, driver):
         driver.add('kernel', acceptedValues=['fractional', 'indicator', 'peridynamic'])
-        driver.add('domain', 'interval', acceptedValues=['gradedInterval', 'square', 'disc', 'discWithIslands'])
+        driver.add('domain', 'interval', acceptedValues=['gradedInterval', 'square', 'disc', 'gradedDisc', 'discWithIslands'])
         self.addParametrizedArg('indicator', [float, float])
         driver.add('problem', 'poly-Dirichlet',
                    argInterpreter=self.argInterpreter(['indicator'], acceptedValues=['poly-Dirichlet', 'poly-Dirichlet2', 'poly-Dirichlet3', 'poly-Neumann', 'zeroFlux', 'source', 'constant', 'exact-sin-Dirichlet', 'exact-sin-Neumann']))
@@ -756,7 +758,7 @@ class nonlocalProblem(problem):
                 self.dirichletData = constant(0)
             else:
                 raise NotImplementedError(params['problem'])
-        elif params['domain'] == 'disc':
+        elif params['domain'] in ('disc', 'gradedDisc'):
             if params['noRef'] is None:
                 self.noRef = 4
             meshParams = {}

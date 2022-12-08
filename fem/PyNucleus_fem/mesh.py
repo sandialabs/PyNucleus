@@ -399,8 +399,8 @@ def squareWithInteractions(ax, ay, bx, by,
             M2 = np.logical_and(np.absolute(mesh.vertices_as_array[:, 1]-by) < eps,
                                 np.logical_and(mesh.vertices_as_array[:, 0] >= ax-eps,
                                                mesh.vertices_as_array[:, 0] <= bx+eps)).sum()
-            assert N1 == N2
-            assert M1 == M2
+            assert N1 == N2, (N1, N2)
+            assert M1 == M2, (M1, M2)
             mesh2 = uniformSquare(N=N1, M=M1, ax=ax, ay=ay, bx=bx, by=by)
             mesh = snapMeshes(mesh, mesh2)
 
@@ -437,9 +437,10 @@ def squareWithInteractions(ax, ay, bx, by,
         y = getNodes(ay, by, horizon, h, strictInteraction)
         M = x.shape[0]
         N = y.shape[0]
-        x, y = np.meshgrid(x, y)
-        vertices = [np.array([xx, yy]) for xx, yy in
-                    zip(x.flatten(), y.flatten())]
+        vertices = []
+        for i in range(M):
+            for j in range(N):
+                vertices.append((x[i], y[j]))
         cells = []
         for i in range(M-1):
             for j in range(N-1):
@@ -715,6 +716,19 @@ def discWithInteraction(radius, horizon, h=0.25, max_volume=None, projectNodeToO
                       projectNodeToOrigin=projectNodeToOrigin)
 
 
+def gradedDiscWithInteraction(radius, horizon, mu=2., h=0.25, max_volume=None, projectNodeToOrigin=True):
+    if max_volume is None:
+        max_volume = h**2
+    n = int(np.around(2*np.pi*radius/h))
+    if horizon > 0:
+        raise NotImplementedError()
+    else:
+        return graded_circle(n,
+                             mu=mu,
+                             radius=radius,
+                             max_volume=max_volume)
+
+
 def discWithIslands(horizon=0., radius=1., islandOffCenter=0.35, islandDiam=0.5):
     from . meshConstruction import circle, rectangle
     numPointsPerLength = 4
@@ -749,6 +763,46 @@ def simpleBox():
                       (0, 2, 3, 6),
                       (0, 3, 7, 6)], dtype=INDEX)
     return mesh3d(vertices, cells)
+
+
+def box(ax=0., ay=0., az=0., bx=1., by=1., bz=1., Nx=2, Ny=2, Nz=2):
+    x = np.linspace(ax, bx, Nx)
+    y = np.linspace(ay, by, Ny)
+    z = np.linspace(az, bz, Nz)
+
+    vertices = []
+    for kz in range(Nz):
+        for ky in range(Ny):
+            for kx in range(Nx):
+                vertices.append(np.array([x[kx], y[ky], z[kz]]))
+
+    def getVertexNo(kx, ky, kz):
+        return Ny*Nx*kz + Nx*ky + kx
+
+    def boxCells(a, b, c, d, e, f, g, h):
+        return [(a, b, g, f),
+                (a, b, c, g),
+                (a, e, f, g),
+                (a, e, g, h),
+                (a, c, d, g),
+                (a, d, h, g)]
+
+    cells = []
+    for kz in range(Nz-1):
+        for ky in range(Ny-1):
+            for kx in range(Nx-1):
+                a = getVertexNo(kx, ky, kz)
+                b = getVertexNo(kx+1, ky, kz)
+                c = getVertexNo(kx+1, ky+1, kz)
+                d = getVertexNo(kx, ky+1, kz)
+                e = getVertexNo(kx, ky, kz+1)
+                f = getVertexNo(kx+1, ky, kz+1)
+                g = getVertexNo(kx+1, ky+1, kz+1)
+                h = getVertexNo(kx, ky+1, kz+1)
+
+                cells += boxCells(a, b, c, d, e, f, g, h)
+    return mesh3d(np.array(vertices, dtype=REAL),
+                  np.array(cells, dtype=INDEX))
 
 
 def gradedBox(factor=0.6):
@@ -1734,20 +1788,35 @@ class meshNd(meshBase):
                                  cell_data=cell_data),
                      file_format='vtk')
 
-    def exportSolutionVTK(self, x, DoFMap, filename, labels='solution', cell_data=None):
+    def exportSolutionVTK(self, x, filename, labels='solution', cell_data=None):
         import meshio
+        from . DoFMaps import Product_DoFMap
         if not isinstance(x, (list, tuple)):
             x = [x]
             labels = [labels]
+        else:
+            assert len(x) == len(labels)
         sols = []
-        for xx in x:
-            sol, _ = DoFMap.linearPart(xx)
-            v2d = uninitialized((self.num_vertices, 1), dtype=INDEX)
-            DoFMap.getVertexDoFs(v2d)
-            sol2 = uninitialized((self.num_vertices))
-            for i in range(self.num_vertices):
-                sol2[i] = sol[v2d[i, 0]]
-            sols.append(sol2)
+        point_data = {}
+        for xx, label in zip(x, labels):
+            sol = xx.linearPart()
+
+            if isinstance(xx.dm, Product_DoFMap):
+                v2d = uninitialized((self.num_vertices, 1), dtype=INDEX)
+                sol.dm.getVertexDoFs(v2d)
+                sol2 = np.zeros((self.num_vertices, sol.dm.numComponents), dtype=REAL)
+                for component in range(sol.dm.numComponents):
+                    R, _ = sol.dm.getRestrictionProlongation(component)
+                    for i in range(self.num_vertices):
+                        sol2[i, component] = (R*sol)[v2d[i, 0]]
+                point_data[label] = sol2
+            else:
+                v2d = uninitialized((self.num_vertices, 1), dtype=INDEX)
+                sol.dm.getVertexDoFs(v2d)
+                sol2 = np.zeros((self.num_vertices), dtype=REAL)
+                for i in range(self.num_vertices):
+                    sol2[i] = sol[v2d[i, 0]]
+                point_data[label] = np.array(sol2)
         if self.dim == 1:
             cell_type = 'line'
         elif self.dim == 2:
@@ -1761,7 +1830,7 @@ class meshNd(meshBase):
         meshio.write(filename,
                      meshio.Mesh(vertices,
                                  {cell_type: self.cells_as_array},
-                                 point_data={label: np.array(sol) for label, sol in zip(labels, sols)},
+                                 point_data=point_data,
                                  cell_data=cell_data,),
                      file_format='vtk')
 

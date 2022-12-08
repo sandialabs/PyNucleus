@@ -11,6 +11,7 @@ cdef class {SCALAR_label_lc_}fe_vector:
     def __init__(self, {SCALAR}_t[::1] data, DoFMap dm):
         self.data = data
         self.dm = dm
+        assert self.data.shape[0] == self.dm.num_dofs, "Mismatch in dimensions: {} != {}".format(self.data.shape[0], self.dm.num_dofs)
 
     def __getbuffer__(self, Py_buffer* info, int flags):
         info.buf = &self.data[0]
@@ -45,6 +46,7 @@ cdef class {SCALAR_label_lc_}fe_vector:
             {SCALAR_label_lc_}fe_vector v, v3
             complex_fe_vector vc, v2c, v3c
             {SCALAR}_t[::1] v3d
+        assert self.data.shape[0] == other.shape[0], "Mismatch in dimensions: {} != {}".format(self.data.shape[0], other.shape[0])
         if isinstance(other, {SCALAR_label_lc_}fe_vector):
             v = {SCALAR_label_lc_}fe_vector(np.empty((self.data.shape[0]), dtype={SCALAR}), self.dm)
             v3 = other
@@ -69,6 +71,7 @@ cdef class {SCALAR_label_lc_}fe_vector:
             {SCALAR_label_lc_}fe_vector v, v3
             complex_fe_vector vc, v2c, v3c
             {SCALAR}_t[::1] v3d
+        assert self.data.shape[0] == other.shape[0], "Mismatch in dimensions: {} != {}".format(self.data.shape[0], other.shape[0])
         if isinstance(other, {SCALAR_label_lc_}fe_vector):
             v = {SCALAR_label_lc_}fe_vector(np.empty((self.data.shape[0]), dtype={SCALAR}), self.dm)
             v3 = other
@@ -89,10 +92,12 @@ cdef class {SCALAR_label_lc_}fe_vector:
             raise NotImplementedError()
 
     def __iadd__({SCALAR_label_lc_}fe_vector self, {SCALAR}_t[::1] other):
+        assert self.data.shape[0] == other.shape[0], "Mismatch in dimensions: {} != {}".format(self.data.shape[0], other.shape[0])
         assign3(self.data, self.data, 1.0, other, 1.0)
         return self
 
     def __isub__({SCALAR_label_lc_}fe_vector self, {SCALAR}_t[::1] other):
+        assert self.data.shape[0] == other.shape[0], "Mismatch in dimensions: {} != {}".format(self.data.shape[0], other.shape[0])
         assign3(self.data, self.data, 1.0, other, -1.0)
         return self
 
@@ -149,6 +154,7 @@ cdef class {SCALAR_label_lc_}fe_vector:
             {SCALAR}_t[::1] v2
         if isinstance(other, {SCALAR_label_lc_}fe_vector):
             v = other
+            assert self.shape[0] == v.shape[0]
             assign(self.data, v.data)
         elif isinstance(other, {SCALAR}):
             for i in range(self.data.shape[0]):
@@ -158,6 +164,7 @@ cdef class {SCALAR_label_lc_}fe_vector:
                 self.data[i] = other
         else:
             v2 = other
+            assert self.shape[0] == v2.shape[0]
             assign(self.data, v2)
 
     def astype(self, dtype):
@@ -221,6 +228,15 @@ cdef class {SCALAR_label_lc_}fe_vector:
         mesh = self.dm.mesh
         if isinstance(self.dm, P0_DoFMap):
             return mesh.plotFunction(self.toarray(), DoFMap=self.dm, **kwargs)
+        elif isinstance(self.dm, Product_DoFMap) and self.dm.dim == 2:
+            import matplotlib.pyplot as plt
+            coords = self.dm.scalarDM.getDoFCoordinates()
+            return plt.quiver(coords[:, 0], coords[:, 1], self.getComponent(0).toarray(), self.getComponent(1).toarray())
+        elif isinstance(self.dm, Product_DoFMap) and self.dm.dim == 3:
+            import matplotlib.pyplot as plt
+            coords = self.dm.scalarDM.getDoFCoordinates()
+            ax = plt.gcf().add_subplot(projection='3d')
+            return plt.quiver(coords[:, 0], coords[:, 1], coords[:, 2], self.getComponent(0).toarray(), self.getComponent(1).toarray(), self.getComponent(2).toarray())
         else:
             y = self.linearPart()
             return mesh.plotFunction(y.toarray(), DoFMap=y.dm, **kwargs)
@@ -268,6 +284,28 @@ cdef class {SCALAR_label_lc_}fe_vector:
 
     def linearPart(self):
         return self.dm.linearPart(self)[0]
+
+    def getComponent(self, INDEX_t component):
+        if isinstance(self.dm, Product_DoFMap):
+            x = self.dm.scalarDM.zeros()
+            R, _ = self.dm.getRestrictionProlongation(component)
+            R(self, x)
+            return x
+        else:
+            assert component == 0
+            return self
+
+    def getComponents(self):
+        if isinstance(self.dm, Product_DoFMap):
+            components = []
+            for component in range(self.dm.numComponents):
+                components.append(self.getComponent(component))
+            return components
+        else:
+            return self
+
+    def augmentWithBoundaryData(self, {SCALAR_label_lc_}fe_vector boundaryData):
+        return self.dm.augmentWithBoundaryData(self, boundaryData)
 
 
 @cython.initializedcheck(False)

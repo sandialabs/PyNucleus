@@ -164,6 +164,74 @@ cdef class variableConstFractionalOrder(variableFractionalOrder):
         variableConstFractionalOrder.__init__(self, state)
 
 
+cdef REAL_t piecewiseConstantFractionalOrderFun(REAL_t *x, REAL_t *y, void *c_params):
+    cdef:
+        INDEX_t dim = getINDEX(c_params, fDIM)
+        REAL_t[::1] xA =<REAL_t[:dim]> x
+        REAL_t[::1] yA =<REAL_t[:dim]> y
+        function blockIndicator = (<function>((<void**>(c_params+fLAMBDA))[0]))
+        INDEX_t numBlocks = getINDEX(c_params, fSR)
+        REAL_t* sVals = getREALArray2D(c_params, fR)
+        INDEX_t blockX, blockY
+    blockX = <INDEX_t>blockIndicator.eval(xA)
+    blockY = <INDEX_t>blockIndicator.eval(yA)
+    if blockX >= 0 and blockX < numBlocks and blockY >= 0 and blockY < numBlocks:
+        return sVals[blockX*numBlocks+blockY]
+    else:
+        return -1.
+
+
+cdef class piecewiseConstantFractionalOrder(variableFractionalOrder):
+    def __init__(self, INDEX_t dim, function blockIndicator, REAL_t[:,::1] sVals):
+        cdef:
+            INDEX_t numBlocks = sVals.shape[0]
+        assert sVals.shape[0] == sVals.shape[1]
+
+        for i in range(numBlocks):
+            for j in range(numBlocks):
+                if i == j:
+                    assert np.isfinite(sVals[i, j])
+                else:
+                    if not np.isfinite(sVals[i, j]):
+                        sVals[i, j] = 0.5*(sVals[i, i]+sVals[j, j])
+        smin = np.array(sVals, copy=False).min()
+        smax = np.array(sVals, copy=False).max()
+        symmetric = np.absolute(np.array(sVals, copy=False)-np.array(sVals, copy=False).T).max() < 1e-10
+
+        self.blockIndicator = blockIndicator
+        self.sVals = sVals
+
+        super(piecewiseConstantFractionalOrder, self).__init__(smin, smax, symmetric)
+
+        setFun(self.c_params, fSFUN, &piecewiseConstantFractionalOrderFun)
+        setINDEX(self.c_params, fDIM, dim)
+        setINDEX(self.c_params, fSR, numBlocks)
+        setREALArray2D(self.c_params, fR, self.sVals)
+        (<void**>(self.c_params+fLAMBDA))[0] = <void*>self.blockIndicator
+
+    def __getstate__(self):
+        cdef:
+            INDEX_t dim = getINDEX(self.c_params, fDIM)
+            function blockIndicator = (<function>((<void**>(self.c_params+fLAMBDA))[0]))
+            INDEX_t numBlocks = getINDEX(self.c_params, fSR)
+            REAL_t[:, ::1] sVals = <REAL_t[:numBlocks, :numBlocks]>getREALArray2D(self.c_params, fR)
+        return (dim, blockIndicator, sVals)
+
+    def __setstate__(self, state):
+        piecewiseConstantFractionalOrder.__init__(self, state[0], state[1], state[2])
+
+    def __repr__(self):
+        cdef:
+            INDEX_t numBlocks = getINDEX(self.c_params, fSR)
+        return '{}(numBlocks={},sym={})'.format(self.__class__.__name__, numBlocks, self.symmetric)
+
+    @property
+    def numBlocks(self):
+        cdef:
+            INDEX_t numBlocks = getINDEX(self.c_params, fSR)
+        return numBlocks
+
+
 cdef REAL_t leftRightFractionalOrderFun(REAL_t *x, REAL_t *y, void *c_params):
     cdef:
         REAL_t sll, srr, slr, srl

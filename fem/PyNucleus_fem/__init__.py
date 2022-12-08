@@ -8,7 +8,7 @@
 
 import numpy as np
 from . mesh import mesh1d, mesh2d, mesh3d, meshNd
-from . mesh import (simpleInterval, simpleSquare, simpleLshape, simpleBox,
+from . mesh import (simpleInterval, simpleSquare, simpleLshape, simpleBox, box,
                     circle, graded_circle, cutoutCircle, twinDisc, dumbbell, wrench,
                     Hshape, ball, rectangle, crossSquare,
                     gradedSquare, gradedBox,
@@ -21,6 +21,7 @@ from . mesh import (simpleInterval, simpleSquare, simpleLshape, simpleBox,
                     discWithIslands,
                     squareWithInteractions,
                     discWithInteraction,
+                    gradedDiscWithInteraction,
                     plotFunctions)
 from . mesh import (PHYSICAL, INTERIOR_NONOVERLAPPING, INTERIOR, NO_BOUNDARY,
                     DIRICHLET, HOMOGENEOUS_DIRICHLET,
@@ -29,6 +30,7 @@ from . mesh import (PHYSICAL, INTERIOR_NONOVERLAPPING, INTERIOR, NO_BOUNDARY,
 from . mesh import meshFactory as meshFactoryClass
 from . meshCy import radialMeshTransformation
 from . DoFMaps import (P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap,
+                       Product_DoFMap,
                        
                        str2DoFMap, str2DoFMapOrder, getAvailableDoFMaps,
                        lookupFunction)
@@ -139,18 +141,35 @@ meshFactory.register('circle', circle, 2, aliases=['disc', 'unitDisc', 'ball2d',
 meshFactory.register('graded_circle', graded_circle, 2, aliases=['gradedCircle'])
 meshFactory.register('discWithInteraction', discWithInteraction, 2)
 meshFactory.register('cutoutCircle', cutoutCircle, 2, aliases=['cutoutDisc'])
-meshFactory.register('simpleBox', simpleBox, 3, aliases=['box', 'unitBox', 'cube', 'unitCube'])
+meshFactory.register('simpleBox', simpleBox, 3, aliases=['unitBox', 'cube', 'unitCube'])
+meshFactory.register('box', box, 3)
 meshFactory.register('simpleFicheraCube', simpleFicheraCube, 3, aliases=['fichera', 'ficheraCube'])
+meshFactory.register('standardSimplex2D', standardSimplex2D, 2)
+meshFactory.register('standardSimplex3D', standardSimplex3D, 3)
 
 
 
 from PyNucleus_base.factory import factory
+
+
+class vectorDoFMap:
+    def __init__(self, dmType):
+        self.dmType = dmType
+
+    def __call__(self, mesh, *args, **kwargs):
+        dim = mesh.dim
+        scalarDM = self.dmType(mesh, *args, **kwargs)
+        return Product_DoFMap(scalarDM, mesh.dim)
+
 
 dofmapFactory = factory()
 dofmapFactory.register('P0d', P0_DoFMap, aliases=['P0'])
 dofmapFactory.register('P1c', P1_DoFMap, aliases=['P1'])
 dofmapFactory.register('P2c', P2_DoFMap, aliases=['P2'])
 dofmapFactory.register('P3c', P3_DoFMap, aliases=['P3'])
+for dmType, dmName in [(P0_DoFMap, 'P0d'), (P1_DoFMap, 'P1c'), (P2_DoFMap, 'P2c'), (P3_DoFMap, 'P3c')]:
+    dmNameShort = dmName[:-1]
+    dofmapFactory.register('vector'+dmName, vectorDoFMap(dmType), aliases=['vector'+dmNameShort, 'vector-'+dmNameShort, 'vector '+dmNameShort])
 
 
 functionFactory = factory()

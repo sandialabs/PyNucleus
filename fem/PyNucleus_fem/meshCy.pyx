@@ -1645,6 +1645,43 @@ cdef REAL_t volume1Din2Dsimplex(REAL_t[:, ::1] simplex):
         REAL_t v1 = simplex[1, 1]-simplex[0, 1]
     return sqrt(v0*v0 + v1*v1)
 
+
+@cython.initializedcheck(False)
+@cython.wraparound(False)
+@cython.boundscheck(False)
+@cython.cdivision(True)
+cdef REAL_t volume3Dsimplex(REAL_t[:, ::1] simplex):
+    cdef:
+        REAL_t v00 = simplex[1, 0]-simplex[0, 0]
+        REAL_t v01 = simplex[1, 1]-simplex[0, 1]
+        REAL_t v02 = simplex[1, 2]-simplex[0, 2]
+        REAL_t v10 = simplex[2, 0]-simplex[0, 0]
+        REAL_t v11 = simplex[2, 1]-simplex[0, 1]
+        REAL_t v12 = simplex[2, 2]-simplex[0, 2]
+        REAL_t v20 = simplex[3, 0]-simplex[0, 0]
+        REAL_t v21 = simplex[3, 1]-simplex[0, 1]
+        REAL_t v22 = simplex[3, 2]-simplex[0, 2]
+    return abs((v01*v12-v02*v11) * v20
+               - (v00*v12-v02*v10) * v21
+               + (v00*v11-v01*v10) * v22)/6.0
+
+
+@cython.initializedcheck(False)
+@cython.wraparound(False)
+@cython.boundscheck(False)
+cdef REAL_t volume2Din3Dsimplex(REAL_t[:, ::1] simplex):
+    cdef:
+        REAL_t v00 = simplex[1, 0]-simplex[0, 0]
+        REAL_t v01 = simplex[1, 1]-simplex[0, 1]
+        REAL_t v02 = simplex[1, 2]-simplex[0, 2]
+        REAL_t v10 = simplex[2, 0]-simplex[0, 0]
+        REAL_t v11 = simplex[2, 1]-simplex[0, 1]
+        REAL_t v12 = simplex[2, 2]-simplex[0, 2]
+    return sqrt((v01*v12-v02*v11)**2
+                - (v00*v12-v02*v10)**2
+                + (v00*v11-v01*v11)**2)*0.5
+
+
 @cython.initializedcheck(False)
 @cython.wraparound(False)
 @cython.boundscheck(False)

@@ -22,11 +22,13 @@ cdef class DoFMap:
         BOOL_t reordered
         public list localShapeFunctions
         public REAL_t[:, ::1] nodes
+        public REAL_t[:, ::1] dof_dual
         public INDEX_t num_dofs
         public INDEX_t num_boundary_dofs
         public INDEX_t[:, ::1] dofs
         public INDEX_t polynomialOrder
         public list tag
+        public function tagFunction
         public INDEX_t dofs_per_vertex
         public INDEX_t dofs_per_edge
         public INDEX_t dofs_per_face
@@ -79,3 +81,9 @@ cdef class vectorShapeFunction:
     cpdef void setCell(self, INDEX_t[::1] cell)
     cdef void eval(self, const REAL_t[::1] lam, const REAL_t[:, ::1] gradLam, REAL_t[::1] value)
     cdef void evalGlobal(self, const REAL_t[:, ::1] simplex, const REAL_t[::1] x, REAL_t[::1] value)
+
+
+cdef class Product_DoFMap(DoFMap):
+    cdef:
+        public INDEX_t numComponents
+        public DoFMap scalarDM

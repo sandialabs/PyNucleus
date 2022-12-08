@@ -320,7 +320,10 @@ cdef class DoFMap:
         self.num_dofs = numDoFs
 
         if isinstance(tag, function):
+            self.tagFunction = tag
             self.resetUsingIndicator(tag)
+        else:
+            self.tagFunction = None
 
         self.inner = ip_serial()
         self.norm = norm_serial()
@@ -519,6 +522,7 @@ cdef class DoFMap:
     def interpolate(self, fun):
         cdef:
             function real_fun
+            vectorFunction real_vec_fun
             REAL_t[::1] real_vec_data
             fe_vector real_vec
             complexFunction complex_fun
@@ -536,6 +540,11 @@ cdef class DoFMap:
             complex_fun = fun
             complex_vec_data = self.full(fill_value=np.nan, dtype=COMPLEX)
             complex_vec = complex_fe_vector(complex_vec_data, self)
+        elif isinstance(fun, vectorFunction):
+            real_vec_fun = fun
+            real_fvals = uninitialized((real_vec_fun.rows), dtype=REAL)
+            real_vec_data = self.full(fill_value=np.nan, dtype=REAL)
+            real_vec = fe_vector(real_vec_data, self)
         else:
             raise NotImplementedError()
         if isinstance(fun, function):
@@ -556,6 +565,18 @@ cdef class DoFMap:
                     if dof >= 0 and isnan(complex_vec_data[dof].real):
                         complex_vec_data[dof] = complex_fun.eval(pos[i, :])
             return complex_vec
+        elif isinstance(fun, vectorFunction):
+            for cellNo in range(self.mesh.num_cells):
+                self.mesh.getSimplex(cellNo, simplex)
+                matmat(self.nodes, simplex, pos)
+                for i in range(self.dofs_per_element):
+                    dof = self.cell2dof(cellNo, i)
+                    if dof >= 0 and isnan(real_vec_data[dof]):
+                        real_vec_fun.eval(pos[i, :], real_fvals)
+                        real_vec_data[dof] = 0.
+                        for k in range(real_vec_fun.rows):
+                            real_vec_data[dof] += real_fvals[k]*self.dof_dual[i, k]
+            return real_vec
 
     def getDoFCoordinates(self):
         from . functions import coordinate
@@ -593,21 +614,47 @@ cdef class DoFMap:
            \int_D u(x) coefficient(x) v(x) dx
 
         """
-        if dm2 is None:
-            from . femCy import assembleMass
-            return assembleMass(self,
-                                boundary_data,
-                                rhs_contribution,
-                                A,
-                                start_idx, end_idx,
-                                sss_format,
-                                reorder,
-                                cellIndices,
-                                coefficient=coefficient)
+        if not isinstance(self, Product_DoFMap):
+            if dm2 is None:
+                from . femCy import assembleMass
+                return assembleMass(self,
+                                    boundary_data,
+                                    rhs_contribution,
+                                    A,
+                                    start_idx, end_idx,
+                                    sss_format,
+                                    reorder,
+                                    cellIndices,
+                                    coefficient=coefficient)
+            else:
+                assert self.mesh == dm2.mesh
+                from . femCy import assembleMassNonSym
+                return assembleMassNonSym(self.mesh, self, dm2, A, start_idx, end_idx)
         else:
-            assert self.mesh == dm2.mesh
-            from . femCy import assembleMassNonSym
-            return assembleMassNonSym(self.mesh, self, dm2, A, start_idx, end_idx)
+            componentRs = []
+            componentPs = []
+            if dm2 is not None:
+                assert isinstance(dm2, Product_DoFMap)
+                assert dm2.numComponents == self.numComponents
+            for row in range(self.numComponents):
+                R, P = self.getRestrictionProlongation(row)
+                if dm2 is None:
+                    componentRs.append(R)
+                componentPs.append(P)
+            if dm2 is not None:
+                for row in range(self.numComponents):
+                    R, _ = dm2.getRestrictionProlongation(row)
+                    componentRs.append(R)
+
+            M_component = self.scalarDM.assembleMass(sss_format=sss_format, dm2=dm2.scalarDM if dm2 is not None else None, coefficient=coefficient)
+            firstOp = True
+            for row in range(self.numComponents):
+                if firstOp:
+                    M = componentPs[row]*M_component*componentRs[row]
+                    firstOp = False
+                else:
+                    M = M+componentPs[row]*M_component*componentRs[row]
+            return M
 
     def assembleDrift(self,
                       vectorFunction coeff,
@@ -707,7 +754,35 @@ cdef class DoFMap:
 
         """
         try:
-            if False: pass
+            
+            from PyNucleus_nl.kernelsCy import RangedFractionalKernel
+
+            if isinstance(kernel, RangedFractionalKernel):
+                from PyNucleus_base.linear_operators import multiIntervalInterpolationOperator
+                from PyNucleus_nl import getChebyIntervalsAndNodes, delayedNonlocalOp
+                s_left, s_right = kernel.admissibleOrders.ranges[0, 0], kernel.admissibleOrders.ranges[0, 1]
+                horizonValue = min(self.mesh.diam, kernel.horizon.value)
+                r = 1/2
+                if kernel.errorBound <= 0.:
+                    # errorBound = 0.25*self.mesh.h**0.5
+                    errorBound = 0.1*self.mesh.h**0.5
+                    # errorBound = 0.01*self.mesh.h**0.5
+                    # errorBound = self.mesh.h**0.5
+                else:
+                    errorBound = kernel.errorBound
+                intervals, nodes = getChebyIntervalsAndNodes(s_left, s_right, horizonValue, r,
+                                                             errorBound,
+                                                             M_min=kernel.M_min, M_max=kernel.M_max,
+                                                             fixedXi=kernel.xi, variableOrder=True)
+                ops = []
+                for n in nodes:
+                    intervalOps = []
+                    for s in n:
+                        gamma = kernel.getFrozenKernel(s)
+                        intervalOps.append(delayedNonlocalOp(self, gamma, matrixFormat=matrixFormat, dm2=dm2, **kwargs))
+                    ops.append(intervalOps)
+                return multiIntervalInterpolationOperator(intervals, nodes, ops)
+            
             else:
                 from PyNucleus_nl import nonlocalBuilder
 
@@ -728,6 +803,45 @@ cdef class DoFMap:
                     raise NotImplementedError('Unknown matrix format: {}'.format(matrixFormat))
         except ImportError as e:
             raise ImportError('\'PyNucleus_nl\' needs to be installed first.') from e
+
+    def assembleElasticity(self,
+                           lam=1.,
+                           mu=1.,
+                           DoFMap dm2=None):
+        """Assemble
+
+        .. math::
+
+           \int_D sigma[u](x) : \epsilon[v](x) dx
+           \epsilon[u] = (\nabla u + (\nabla u)^T) / 2
+           \sigma[u]   = \lambda \nabla \cdot u I + 2\mu \epsilon[u]
+
+        """
+        from . femCy import (assembleMatrix,
+                             assembleNonSymMatrix_CSR,
+                             elasticity_1d_P1,
+                             elasticity_2d_P1,
+                             elasticity_3d_P1)
+
+        dim = self.mesh.dim
+        if isinstance(self, Product_DoFMap):
+            if isinstance(self.scalarDM, P1_DoFMap):
+                if dim == 1:
+                    lm = elasticity_1d_P1(lam, mu)
+                elif dim == 2:
+                    lm = elasticity_2d_P1(lam, mu)
+                elif dim == 3:
+                    lm = elasticity_3d_P1(lam, mu)
+                else:
+                    raise NotImplementedError()
+            else:
+                raise NotImplementedError()
+        else:
+            raise NotImplementedError()
+        if dm2 is None:
+            return assembleMatrix(self.mesh, self, lm)
+        else:
+            return assembleNonSymMatrix_CSR(self.mesh, lm, self, dm2, symLocalMatrix=True)
 
     def __getstate__(self):
         return (self.mesh,
@@ -958,10 +1072,17 @@ cdef class DoFMap:
                                 const REAL_t[::1] x,
                                 const REAL_t[::1] boundaryData):
         cdef:
-            DoFMap dm = type(self)(self.mesh, tag=MAX_INT)
-            fe_vector y = dm.empty(dtype=REAL)
-            REAL_t[::1] yy = y
+            DoFMap dm
+            fe_vector y
+            REAL_t[::1] yy
             INDEX_t i, k, dof, dof2, num_cells = self.mesh.num_cells
+
+        if isinstance(self, Product_DoFMap):
+            dm = Product_DoFMap(type(self.scalarDM)(self.mesh, tag=MAX_INT), self.numComponents)
+        else:
+            dm = type(self)(self.mesh, tag=MAX_INT)
+        y = dm.empty(dtype=REAL)
+        yy = y
 
         for i in range(num_cells):
             for k in range(self.dofs_per_element):
@@ -2123,3 +2244,152 @@ cdef class elementSizeFunction(function):
         if cellNo == -1:
             return -1.
         return self.hVector[cellNo]
+
+
+cdef class productSpaceShapeFunction(vectorShapeFunction):
+    cdef:
+        shapeFunction phi
+        INDEX_t k
+        INDEX_t K
+
+    def __init__(self, shapeFunction phi, INDEX_t K, INDEX_t k, INDEX_t dim):
+        super(productSpaceShapeFunction, self).__init__(dim)
+        self.phi = phi
+        self.K = K
+        self.k = k
+
+    def __call__(self, lam, gradLam):
+        cdef:
+            INDEX_t i
+        value = np.zeros((self.K), dtype=REAL)
+        for i in range(self.K):
+            if i == self.k:
+                value[i] = self.phi.eval(lam)
+            else:
+                value[i] = 0.
+        return value
+
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef void eval(self, const REAL_t[::1] lam, const REAL_t[:, ::1] gradLam, REAL_t[::1] value):
+        cdef:
+            INDEX_t i
+        for i in range(self.K):
+            if i == self.k:
+                value[i] = self.phi.eval(lam)
+            else:
+                value[i] = 0.
+
+    def __getstate__(self):
+        return (self.phi, self.K, self.k, self.dim)
+
+    def __setstate__(self, state):
+        self.phi = state[0]
+        self.K = state[1]
+        self.k = state[2]
+        self.dim = state[3]
+
+
+cdef class Product_DoFMap(DoFMap):
+    def __init__(self, DoFMap dm, INDEX_t numComponents):
+        cdef:
+            INDEX_t component, dim, scalarDoF, dofNo, i, j
+            shapeFunction phi
+        dim = dm.mesh.dim
+        super(Product_DoFMap, self).__init__(dm.mesh,
+                                             dm.dofs_per_vertex*numComponents,
+                                             dm.dofs_per_edge*numComponents,
+                                             dm.dofs_per_face*numComponents,
+                                             dm.dofs_per_cell*numComponents,
+                                             dm.tag,
+                                             -1)
+        self.polynomialOrder = dm.polynomialOrder
+        self.numComponents = numComponents
+        self.scalarDM = dm
+
+        dof = 0
+        bdof = -1
+        for cellNo in range(self.mesh.num_cells):
+            for dofNo in range(self.scalarDM.dofs_per_element):
+                scalarDoF = self.scalarDM.cell2dof(cellNo, dofNo)
+                if scalarDoF >= 0:
+                    for j in range(self.numComponents):
+                        self.dofs[cellNo, dofNo*numComponents+j] = numComponents*scalarDoF+j
+                else:
+                    for j in range(self.numComponents):
+                        self.dofs[cellNo, dofNo*numComponents+j] = numComponents*(scalarDoF+1)-j-1
+        self.num_dofs = self.numComponents*self.scalarDM.num_dofs
+        self.num_boundary_dofs = self.numComponents*self.scalarDM.num_boundary_dofs
+
+        self.localShapeFunctions = []
+        self.nodes = uninitialized((self.dofs_per_element, self.mesh.dim+1), dtype=REAL)
+        self.dof_dual = np.zeros((self.dofs_per_element, numComponents), dtype=REAL)
+        i = 0
+        for dofNo in range(self.scalarDM.dofs_per_element):
+            for component in range(numComponents):
+                phi = self.scalarDM.localShapeFunctions[dofNo]
+                self.localShapeFunctions.append(productSpaceShapeFunction(phi, numComponents, component, self.mesh.dim))
+                for j in range(dim+1):
+                    self.nodes[i, j] = self.scalarDM.nodes[dofNo, j]
+                self.dof_dual[i, component] = 1.
+                i += 1
+
+    def __repr__(self):
+        return '({})^{} with {} DoFs and {} boundary DoFs.'.format(type(self.scalarDM).__name__,
+                                                                   self.numComponents,
+                                                                   self.num_dofs,
+                                                                   self.num_boundary_dofs)
+
+    def getRestrictionProlongation(self, INDEX_t component):
+        cdef:
+            INDEX_t[::1] indices
+            INDEX_t vertexOffset, k, cellNo, dofNo, dof, component_dof
+        assert 0 <= component
+        assert component < self.numComponents
+        indices = uninitialized((self.scalarDM.num_dofs), dtype=INDEX)
+        vertexOffset = 0
+        for k in range(component):
+            vertexOffset += self.scalarDM.dofs_per_vertex
+        for cellNo in range(self.mesh.num_cells):
+            for dofNo in range(self.scalarDM.dofs_per_element):
+                dof = self.cell2dof(cellNo, dofNo*self.numComponents+component)
+                if dof >= 0:
+                    component_dof = self.scalarDM.cell2dof(cellNo, dofNo)
+                    indices[component_dof] = dof
+        indptr = np.arange(self.scalarDM.num_dofs+1, dtype=INDEX)
+        vals = np.ones((self.scalarDM.num_dofs), dtype=REAL)
+        R = CSR_LinearOperator(indices, indptr, vals)
+        R.num_columns = self.num_dofs
+        P = R.transpose()
+        return R, P
+
+    def __getstate__(self):
+        return (self.scalarDM, self.numComponents)
+
+    def __setstate__(self, state):
+        self.__init__(state[0], state[1])
+
+    def getComplementDoFMap(self):
+        complement_dm = super(Product_DoFMap, self).getComplementDoFMap()
+        complement_dm.scalarDM = self.scalarDM.getComplementDoFMap()
+        complement_dm.numComponents = self.numComponents
+        complement_dm.dof_dual = self.dof_dual
+        return complement_dm
+
+    def linearPart(self, fe_vector x):
+        if isinstance(self.scalarDM, P1_DoFMap):
+            return x, self
+
+        components = []
+        for component in range(self.numComponents):
+            linear_component, linear_dm = self.scalarDM.linearPart(x.getComponent(component))
+            components.append(linear_component)
+        linear_dm = Product_DoFMap(linear_dm, self.numComponents)
+        linear_x = linear_dm.zeros()
+        for component in range(self.numComponents):
+            _, P = linear_dm.getRestrictionProlongation(component)
+            linear_x += P*components[component]
+        return linear_x, linear_dm
+
+    cpdef void getVertexDoFs(self, INDEX_t[:, ::1] v2d):
+        self.scalarDM.getVertexDoFs(v2d)

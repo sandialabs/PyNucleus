@@ -53,3 +53,24 @@ cdef class FractionalKernel(Kernel):
     cdef REAL_t getsValue(self)
 
 
+cdef class RangedFractionalKernel(FractionalKernel):
+    cdef:
+        public admissibleOrders
+        public BOOL_t normalized
+        public REAL_t errorBound
+        public INDEX_t M_min
+        public INDEX_t M_max
+        public REAL_t xi
+
+
+cdef class RangedVariableFractionalKernel(FractionalKernel):
+    cdef:
+        public function blockIndicator
+        public admissibleOrders
+        public BOOL_t normalized
+        public REAL_t errorBound
+        public INDEX_t M_min
+        public INDEX_t M_max
+        public REAL_t xi
+
+

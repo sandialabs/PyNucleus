@@ -66,6 +66,8 @@ p.addExtension("boundaryLayerCy",
                sources=[p.folder+"boundaryLayerCy.pyx"])
 p.addExtension("simplexMapper",
                sources=[p.folder+"simplexMapper.pyx"])
+p.addExtension("splitting",
+               sources=[p.folder+"splitting.pyx"])
 
 p.setup(description="A finite element code.",
         install_requires=['cython', 'numpy', 'scipy', 'matplotlib', 'meshpy', 'modepy',

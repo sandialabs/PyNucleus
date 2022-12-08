@@ -41,6 +41,9 @@ from . fractionalLaplacian2D import (fractionalLaplacian2D_P1,
 from . nonlocalLaplacianND import (integrable1D,
                                    integrable2D)
 
+from . operatorInterpolation import (admissibleSet,
+                                     admissibleSetPair,
+                                     getChebyIntervalsAndNodes)
 from PyNucleus_fem import (DIRICHLET, HOMOGENEOUS_DIRICHLET,
                            NEUMANN, HOMOGENEOUS_NEUMANN,
                            NORM, boundaryConditions)
@@ -341,7 +344,49 @@ def getFracLapl(mesh, DoFMap, kernel=None, rangedOpParams={}, **kwargs):
         kwargs['timer'] = timer
 
     if kernel is None:
-         raise NotImplementedError()
+        s = rangedOpParams['s']
+        horizon = rangedOpParams.get('horizon', constant(np.inf))
+        scaling = rangedOpParams.get('scaling', None)
+        normalized = rangedOpParams.get('normalized', True)
+        if isinstance(rangedOpParams['s'], admissibleSet):
+            errorBound = rangedOpParams.get('errorBound', None)
+            M_min = rangedOpParams.get('M_min', 1)
+            M_max = rangedOpParams.get('M_max', 20)
+            xi = rangedOpParams.get('xi', 0.)
+            if errorBound is None:
+                # errorBound = 0.25*mesh.h**0.5
+                errorBound = 0.1*mesh.h**0.5
+                # errorBound = 0.01*mesh.h**0.5
+                # errorBound = mesh.h**0.5
+            assert errorBound is not None
+            assert M_min is not None
+            assert M_max is not None
+
+            assert s.numParams == 1, "Cannot handle {} params".format(s.numParams)
+            s_left, s_right = s.ranges[0, 0], s.ranges[0, 1]
+            if isinstance(horizon, constant):
+                horizonValue = horizon.value
+            elif isinstance(horizon, admissibleSet):
+                horizonValue = horizon.ranges[0, 1]
+                horizon = constant(horizonValue)
+            else:
+                raise NotImplementedError(horizon)
+            horizonValue = min(mesh.diam, horizonValue)
+            r = 1/2
+            intervals, nodes = getChebyIntervalsAndNodes(s_left, s_right, horizonValue, r, errorBound, M_min=M_min, M_max=M_max, fixedXi=xi, variableOrder=True)
+            ops = []
+            for n in nodes:
+                intervalOps = []
+                for s in n:
+                    kernel = getFractionalKernel(mesh.dim, constFractionalOrder(s), horizon, scaling=scaling, normalized=normalized)
+                    intervalOps.append(delayedFractionalLaplacianOp(mesh, DoFMap, kernel, **kwargs))
+                ops.append(intervalOps)
+            A = multiIntervalInterpolationOperator(intervals, nodes, ops)
+            return A
+        elif isinstance(horizon, admissibleSet):
+            horizon = constant(horizon.ranges[0, 1])
+        else:
+            raise NotImplementedError()
     else:
         horizon = kernel.horizon
         scaling = kernel.scaling

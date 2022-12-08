@@ -24,10 +24,10 @@ from . fractionalOrders import (fractionalOrderBase,
                                 constantIntegrableScaling)
 from . kernelsCy import (Kernel,
                          FractionalKernel,
-                         
+                         RangedFractionalKernel,
                          FRACTIONAL, INDICATOR, PERIDYNAMIC,
                          getKernelEnum)
-
+from . operatorInterpolation import admissibleSet
 
 
 def _getDim(dim):
@@ -52,7 +52,10 @@ def _getKernelType(kernel):
 def _getFractionalOrder(s):
     if isinstance(s, fractionalOrderBase):
         sFun = s
-    
+    elif isinstance(s, admissibleSet):
+        sFun = s
+    elif isinstance(s, tuple) and len(s) == 2:
+        sFun = admissibleSet(s)
     elif isinstance(s, (REAL, float)):
         sFun = constFractionalOrder(s)
     else:
@@ -108,7 +111,8 @@ def getFractionalKernel(dim,
     horizonFun = _getHorizon(horizon)
     interaction = _getInteraction(interaction, horizonFun)
 
-    if False: pass
+    if isinstance(sFun, admissibleSet):
+        kernel = RangedFractionalKernel(dim_, sFun, horizonFun, normalized=normalized)
     else:
         if scaling is None:
             if normalized:
