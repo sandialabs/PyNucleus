@@ -208,7 +208,19 @@ cdef class monomial(function):
         return s
 
     def __repr__(self):
-        return '{}'.format(self.value)
+        s = ''
+        for i in range(self.exponent.shape[0]):
+            if self.exponent[i] != 0.:
+                if len(s) > 0:
+                    s += '*'
+                if self.exponent[i] != 1.:
+                    s += 'x_{}^{}'.format(i, self.exponent[i])
+                else:
+                    s += 'x_{}'.format(i)
+        if self.factor != 1.:
+            return str(self.factor) + s
+        else:
+            return s
 
 
 cdef class _rhsFunSin1D(function):

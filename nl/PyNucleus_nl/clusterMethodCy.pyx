@@ -790,9 +790,9 @@ cdef class tree_node:
             REAL_t[::1] x, y
 
         if plotDoFs:
+            assert dofCoords is not None
             from scipy.spatial import ConvexHull
             if self.dim == 1:
-                assert dofCoords is not None
                 dofs = self.get_dofs()
                 points = uninitialized((len(dofs), self.dim), dtype=REAL)
                 it = dofs.getIter()
@@ -820,7 +820,6 @@ cdef class tree_node:
                         c.plot(level=level+1, plotDoFs=plotDoFs, dofCoords=dofCoords, recurse=recurse,
                                printClusterIds=printClusterIds, printNumDoFs=printNumDoFs)
             elif self.dim == 2:
-                assert dofCoords is not None
                 dofs = self.get_dofs()
                 points = uninitialized((len(dofs), self.dim), dtype=REAL)
                 it = dofs.getIter()
@@ -3002,23 +3001,6 @@ def getFractionalOrders(variableFractionalOrder s, meshBase mesh):
                                                   centers[cellNo2, :])
     return orders
 
-
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-def getFractionalOrdersDiagonal(variableFractionalOrder s, meshBase mesh):
-    cdef:
-        REAL_t[:, ::1] centers
-        INDEX_t numCells = mesh.num_cells
-        INDEX_t cellNo1
-        REAL_t[::1] orders = uninitialized((numCells), dtype=REAL)
-
-    centers = mesh.getCellCenters()
-
-    for cellNo1 in range(numCells):
-        orders[cellNo1] = s.eval(centers[cellNo1, :],
-                                 centers[cellNo1, :])
-    return orders
 
 
 @cython.initializedcheck(False)

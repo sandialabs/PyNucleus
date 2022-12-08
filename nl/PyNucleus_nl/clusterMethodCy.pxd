@@ -9,12 +9,13 @@
 cimport numpy as np
 from mpi4py cimport MPI
 from PyNucleus_fem.quadrature cimport (simplexDuffyTransformation,
-                             simplexQuadratureRule,
-                             simplexXiaoGimbutas)
+                                       simplexQuadratureRule,
+                                       simplexXiaoGimbutas)
 from PyNucleus_fem.functions cimport function
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, BOOL_t
 from PyNucleus_base.linear_operators cimport (LinearOperator,
-                                               Dense_LinearOperator)
+                                              Dense_LinearOperator,
+                                              SSS_LinearOperator)
 from PyNucleus_base.tupleDict cimport indexSet, indexSetIterator, arrayIndexSet, arrayIndexSetIterator, bitArray
 from PyNucleus_base.performanceLogger cimport PLogger, FakePLogger
 from PyNucleus_fem.DoFMaps cimport DoFMap

@@ -12,25 +12,32 @@ cimport cython
 from libc.math cimport sqrt, exp, atan
 from PyNucleus_base.myTypes import INDEX, REAL, ENCODE, BOOL
 
+cdef enum fixed_type:
+    FIXED_X
+    FIXED_Y
+    DIAGONAL
+
 
 cdef class fixedTwoPointFunction(function):
     cdef:
         twoPointFunction f
         REAL_t[::1] point
-        BOOL_t fixX
+        fixed_type fixedType
 
-    def __init__(self, twoPointFunction f, REAL_t[::1] point, BOOL_t fixX):
+    def __init__(self, twoPointFunction f, REAL_t[::1] point, fixed_type fixedType):
         self.f = f
         self.point = point
-        self.fixX = fixX
+        self.fixedType = fixedType
 
     @cython.wraparound(False)
     @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x):
-        if self.fixX:
+        if self.fixedType == FIXED_X:
             return self.f(self.point, x)
-        else:
+        if self.fixedType == FIXED_Y:
             return self.f(x, self.point)
+        else:
+            return self.f(x, x)
 
 
 cdef class twoPointFunction:
@@ -55,10 +62,13 @@ cdef class twoPointFunction:
         twoPointFunction.__init__(self, state)
 
     def fixedX(self, REAL_t[::1] x):
-        return fixedTwoPointFunction(self, x, True)
+        return fixedTwoPointFunction(self, x, FIXED_X)
 
     def fixedY(self, REAL_t[::1] y):
-        return fixedTwoPointFunction(self, y, False)
+        return fixedTwoPointFunction(self, y, FIXED_Y)
+
+    def diagonal(self):
+        return fixedTwoPointFunction(self, None, DIAGONAL)
 
     def plot(self, mesh, **kwargs):
         cdef:
@@ -231,46 +241,6 @@ cdef class matrixTwoPoint(twoPointFunction):
                     d += self.n[i]*self.mat[i, j]*self.n[j]
             return d
         return 1.
-
-
-cdef class tensorTwoPoint(twoPointFunction):
-    cdef:
-        function f1, f2
-
-    def __init__(self, function f1, function f2=None):
-        self.f1 = f1
-        if f2 is not None:
-            self.f2 = f2
-            super(tensorTwoPoint, self).__init__(False)
-        else:
-            self.f2 = f1
-            super(tensorTwoPoint, self).__init__(True)
-
-    def __getstate__(self):
-        if self.symmetric:
-            return self.f1
-        else:
-            return (self.f1, self.f2)
-
-    def __setstate__(self, state):
-        if isinstance(state, tuple):
-            tensorTwoPoint.__init__(self, state[0], state[1])
-        else:
-            tensorTwoPoint.__init__(self, state)
-
-    def __repr__(self):
-        return '{}({},{},sym={})'.format(self.__class__.__name__, self.f1, self.f2, self.symmetric)
-
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
-        return self.f1(x)*self.f2(y)
-
-    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
-        cdef:
-            REAL_t[::1] xv = <REAL_t[:dim]>x
-            REAL_t[::1] yv = <REAL_t[:dim]>y
-        return self.f1(xv)*self.f2(yv)
 
 
 cdef class leftRightTwoPoint(twoPointFunction):
@@ -452,6 +422,52 @@ cdef class temperedTwoPoint(twoPointFunction):
         for i in range(dim):
             r += (x[i]-y[i])*(x[i]-y[i])
         return exp(-self.lambdaCoeff*sqrt(r))
+
+
+cdef class tensorTwoPoint(twoPointFunction):
+    cdef:
+        INDEX_t i, j, dim
+
+    def __init__(self, INDEX_t i, INDEX_t j, INDEX_t dim):
+        super(tensorTwoPoint, self).__init__(True)
+        self.dim = dim
+        self.i = i
+        self.j = j
+
+    def __getstate__(self):
+        return (self.i, self.j, self.dim)
+
+    def __setstate__(self, state):
+        tensorTwoPoint.__init__(self, state[0], state[1], state[2])
+
+    def __repr__(self):
+        return '{}(i={},j={})'.format(self.__class__.__name__, self.i, self.j)
+
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
+        cdef:
+            INDEX_t i
+            REAL_t n2 = 0., ExE
+        for i in range(self.dim):
+            n2 += (x[i]-y[i])*(x[i]-y[i])
+        if n2 > 0:
+            ExE = (x[self.i]-y[self.i])*(x[self.j]-y[self.j])/n2
+        else:
+            ExE = 1.
+        return ExE
+
+    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
+        cdef:
+            INDEX_t i
+            REAL_t n2 = 0., ExE
+        for i in range(self.dim):
+            n2 += (x[i]-y[i])*(x[i]-y[i])
+        if n2 > 0:
+            ExE = (x[self.i]-y[self.i])*(x[self.j]-y[self.j])/n2
+        else:
+            ExE = 1.
+        return ExE
 
 
 cdef class smoothedLeftRightTwoPoint(twoPointFunction):

@@ -19,6 +19,7 @@ from PyNucleus_fem.functions cimport constant
 from . interactionDomains cimport ball1, ball2, ballInf, fullSpace
 from . fractionalOrders cimport (constFractionalOrder,
                                  variableFractionalOrder,
+                                 piecewiseConstantFractionalOrder,
                                  constantFractionalLaplacianScaling,
                                  variableFractionalLaplacianScaling)
 
@@ -563,5 +564,118 @@ cdef class FractionalKernel(Kernel):
 
     def __setstate__(self, state):
         FractionalKernel.__init__(self, state[0], state[1], state[2], state[3], state[4], state[5], state[6])
+
+
+cdef class RangedFractionalKernel(FractionalKernel):
+    def __init__(self, INDEX_t dim,
+                 admissibleOrders,
+                 function horizon,
+                 BOOL_t normalized=True,
+                 REAL_t errorBound=-1.,
+                 INDEX_t M_min=1, INDEX_t M_max=20,
+                 REAL_t xi=0.):
+        self.dim = dim
+        assert admissibleOrders.numParams == 1, "Cannot handle {} params".format(admissibleOrders.numParams)
+        self.admissibleOrders = admissibleOrders
+        assert isinstance(horizon, constant)
+        self.horizon = horizon
+        if isinstance(horizon, constant) and horizon.value == np.inf:
+            self.interaction = fullSpace()
+        else:
+            self.interaction = ball2()
+        self.normalized = normalized
+
+        self.setOrder(admissibleOrders.getLowerBounds()[0])
+
+        self.errorBound = errorBound
+        self.M_min = M_min
+        self.M_max = M_max
+        self.xi = xi
+
+    def setOrder(self, REAL_t s):
+        assert self.admissibleOrders.isAdmissible(s)
+        sFun = constFractionalOrder(s)
+        dim = self.dim
+        horizon = self.horizon
+        interactionDomain = self.interaction
+        if self.normalized:
+            scaling = constantFractionalLaplacianScaling(dim, sFun.value, horizon.value)
+        else:
+            scaling = constantTwoPoint(0.5)
+        super(RangedFractionalKernel, self).__init__(dim, sFun, horizon, interactionDomain, scaling)
+
+    def getFrozenKernel(self, REAL_t s):
+        assert self.admissibleOrders.isAdmissible(s)
+        sFun = constFractionalOrder(s)
+        dim = self.dim
+        horizon = self.horizon
+        interactionDomain = self.interaction
+        if self.normalized:
+            scaling = constantFractionalLaplacianScaling(dim, sFun.value, horizon.value)
+        else:
+            scaling = constantTwoPoint(0.5)
+        return FractionalKernel(dim, sFun, horizon, interactionDomain, scaling)
+
+    def __repr__(self):
+        return 'ranged '+super(RangedFractionalKernel, self).__repr__()
+
+
+cdef class RangedVariableFractionalKernel(FractionalKernel):
+    def __init__(self,
+                 INDEX_t dim,
+                 function blockIndicator,
+                 admissibleOrders,
+                 function horizon,
+                 BOOL_t normalized=True,
+                 REAL_t errorBound=-1.,
+                 INDEX_t M_min=1, INDEX_t M_max=20,
+                 REAL_t xi=0.):
+        self.dim = dim
+        self.blockIndicator = blockIndicator
+        self.admissibleOrders = admissibleOrders
+
+        assert isinstance(horizon, constant)
+        self.horizon = horizon
+        if isinstance(horizon, constant) and horizon.value == np.inf:
+            self.interaction = fullSpace()
+        else:
+            self.interaction = ball2()
+        self.normalized = normalized
+
+        numBlocks = <INDEX_t>np.around(sqrt(admissibleOrders.numParams))
+        assert numBlocks*numBlocks == admissibleOrders.numParams
+        self.setOrder(admissibleOrders.getLowerBounds().reshape((numBlocks, numBlocks)))
+
+        self.errorBound = errorBound
+        self.M_min = M_min
+        self.M_max = M_max
+        self.xi = xi
+
+    def setOrder(self, REAL_t[:, ::1] sVals):
+        assert self.admissibleOrders.isAdmissible(np.array(sVals, copy=False).flatten())
+        sFun = piecewiseConstantFractionalOrder(self.dim, self.blockIndicator, sVals)
+        dim = self.dim
+        horizon = self.horizon
+        interactionDomain = self.interaction
+        if self.normalized:
+            scaling = variableFractionalLaplacianScaling(sFun.symmetric)
+        else:
+            scaling = constantTwoPoint(0.5)
+        super(RangedVariableFractionalKernel, self).__init__(dim, sFun, horizon, interactionDomain, scaling)
+
+    def getFrozenKernel(self, REAL_t[:, ::1] sVals):
+        assert self.admissibleOrders.isAdmissible(np.array(sVals, copy=False).flatten())
+        sFun = piecewiseConstantFractionalOrder(self.dim, self.blockIndicator, sVals)
+        dim = self.dim
+        horizon = self.horizon
+        interactionDomain = self.interaction
+        if self.normalized:
+            scaling = variableFractionalLaplacianScaling(sFun.symmetric)
+        else:
+            scaling = constantTwoPoint(0.5)
+        return FractionalKernel(dim, sFun, horizon, interactionDomain, scaling)
+
+    def __repr__(self):
+        return 'ranged '+super(RangedVariableFractionalKernel, self).__repr__()
 
 

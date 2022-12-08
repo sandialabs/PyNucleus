@@ -73,15 +73,21 @@ cdef class local_matrix_t:
             self.cell[i] = cell[i]
 
 
+@cython.initializedcheck(False)
+@cython.wraparound(False)
+@cython.boundscheck(False)
 cdef inline REAL_t simplexVolume1D(const REAL_t[:, ::1] simplex,
-                                     REAL_t[:, ::1] temp):
+                                   REAL_t[:, ::1] temp):
     # temp needs to bed of size 0x1
     # Calculate volume
     return abs(simplex[1, 0]-simplex[0, 0])
 
 
+@cython.initializedcheck(False)
+@cython.wraparound(False)
+@cython.boundscheck(False)
 cdef inline REAL_t simplexVolume2D(const REAL_t[:, ::1] simplex,
-                                     REAL_t[:, ::1] temp):
+                                   REAL_t[:, ::1] temp):
     # temp needs to bed of size 2x2
     cdef:
         INDEX_t j
@@ -93,8 +99,11 @@ cdef inline REAL_t simplexVolume2D(const REAL_t[:, ::1] simplex,
     return volume2Dnew(temp)
 
 
+@cython.initializedcheck(False)
+@cython.wraparound(False)
+@cython.boundscheck(False)
 cdef inline REAL_t simplexVolume1Din2D(const REAL_t[:, ::1] simplex,
-                                         REAL_t[:, ::1] temp):
+                                       REAL_t[:, ::1] temp):
     # temp needs to bed of size 1x2
     # Calculate volume
     temp[0, 0] = simplex[1, 0]-simplex[0, 0]
@@ -102,8 +111,11 @@ cdef inline REAL_t simplexVolume1Din2D(const REAL_t[:, ::1] simplex,
     return volume1D_in_2D(temp)
 
 
+@cython.initializedcheck(False)
+@cython.wraparound(False)
+@cython.boundscheck(False)
 cdef inline REAL_t simplexVolume3D(const REAL_t[:, ::1] simplex,
-                                     REAL_t[:, ::1] temp):
+                                   REAL_t[:, ::1] temp):
     # temp needs to be 4x3
     cdef:
         INDEX_t j
@@ -116,8 +128,13 @@ cdef inline REAL_t simplexVolume3D(const REAL_t[:, ::1] simplex,
     return volume3Dnew(temp[:3, :], temp[3, :])
 
 
+@cython.initializedcheck(False)
+@cython.wraparound(False)
+@cython.boundscheck(False)
 cdef inline REAL_t simplexVolume2Din3D(const REAL_t[:, ::1] simplex,
-                                         REAL_t[:, ::1] temp):
+                                       REAL_t[:, ::1] temp):
+    cdef:
+        INDEX_t j
     # temp needs to bed of size 2x3
     # Calculate volume
     for j in range(3):
@@ -149,6 +166,438 @@ cdef inline void coeffProducts1D(const REAL_t[:, ::1] simplex,
     # inner product of barycentric gradients
     innerProducts[0] = (-1.*temp[0, 0])/vol
     innerProducts[1] = (1.*temp[0, 0])/vol
+
+
+# TODO: double check
+@cython.initializedcheck(False)
+@cython.wraparound(False)
+@cython.boundscheck(False)
+@cython.cdivision(True)
+cdef inline REAL_t simplexVolumeAndProducts1D(const REAL_t[:, ::1] simplex,
+                                                REAL_t[::1] innerProducts,
+                                                REAL_t[:, ::1] temp):
+    # innerProducts needs to be of size 2
+    # temp needs to bed of size 2x1
+    cdef:
+        INDEX_t i
+        REAL_t fac = 0.5, vol
+    vol = abs(simplex[1, 0]-simplex[0, 0])
+
+    # inner product of barycentric gradients
+    innerProducts[0] = vol**2
+    innerProducts[1] = -vol**2
+    innerProducts[2] = vol**2
+    return vol
+
+
+cdef class simplexComputations:
+    cdef:
+        REAL_t[:, ::1] simplex
+
+    cdef void setSimplex(self, REAL_t[:, ::1] simplex):
+        self.simplex = simplex
+
+    cdef REAL_t evalVolume(self):
+        """Returns the simplex volume."""
+        pass
+
+    cdef REAL_t evalVolumeGradients(self,
+                                    REAL_t[:, ::1] gradients):
+        """Returns the simplex volume and the gradients of the barycentric coordinates
+\nabla \lambda_i(x) for x \in K
+        """
+        pass
+
+    cdef REAL_t evalVolumeGradientsInnerProducts(self,
+                                                 REAL_t[:, ::1] gradients,
+                                                 REAL_t[::1] innerProducts):
+        """Returns the simplex volume, the gradients of the barycentric
+coordinates
+\nabla \lambda_i(x) for x \in K
+ and the innerProducts of the gradients of the barycentric
+coordinates
+\int_K \nabla \lambda_i \cdot \nabla \lambda_j = vol * gradient_i * gradient_j
+        """
+        pass
+
+    cdef REAL_t evalSimplexVolumeGradientsInnerProducts(self,
+                                                        const REAL_t[:, ::1] simplex,
+                                                        REAL_t[:, ::1] gradients,
+                                                        REAL_t[::1] innerProducts):
+        """Returns the simplex volume, the gradients of the barycentric
+coordinates
+\nabla \lambda_i(x) for x \in K
+ and the innerProducts of the gradients of the barycentric
+coordinates
+\int_K \nabla \lambda_i \cdot \nabla \lambda_j = vol * gradient_i * gradient_j
+        """
+        pass
+
+
+cdef class simplexComputations1D(simplexComputations):
+    cdef:
+        REAL_t[:, ::1] temp
+
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    @cython.cdivision(True)
+    cdef REAL_t evalVolume(self):
+        cdef:
+            REAL_t vol
+
+        # Calculate volume
+        vol = abs(self.simplex[0, 0]-self.simplex[1, 0])
+        return vol
+
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    @cython.cdivision(True)
+    cdef REAL_t evalVolumeGradients(self,
+                                    REAL_t[:, ::1] gradients):
+        cdef:
+            REAL_t vol
+
+        # Calculate volume
+        vol = abs(self.simplex[0, 0]-self.simplex[1, 0])
+        gradients[0, 0] = 1./vol
+        gradients[1, 0] = -gradients[0, 0]
+        return vol
+
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    @cython.cdivision(True)
+    cdef REAL_t evalVolumeGradientsInnerProducts(self,
+                                                 REAL_t[:, ::1] gradients,
+                                                 REAL_t[::1] innerProducts):
+        cdef:
+            REAL_t vol
+
+        # Calculate volume
+        vol = abs(self.simplex[0, 0]-self.simplex[1, 0])
+        gradients[0, 0] = 1./vol
+        gradients[1, 0] = -gradients[0, 0]
+
+        # inner product of barycentric gradients
+        innerProducts[0] = vol*gradients[0, 0]*gradients[0, 0]
+        innerProducts[1] = vol*gradients[0, 0]*gradients[1, 0]
+        innerProducts[2] = vol*gradients[1, 0]*gradients[1, 0]
+        return vol
+
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    @cython.cdivision(True)
+    cdef REAL_t evalSimplexVolumeGradientsInnerProducts(self,
+                                                        const REAL_t[:, ::1] simplex,
+                                                        REAL_t[:, ::1] gradients,
+                                                        REAL_t[::1] innerProducts):
+        cdef:
+            REAL_t vol
+
+        # Calculate volume
+        vol = abs(simplex[0, 0]-simplex[1, 0])
+        gradients[0, 0] = 1./vol
+        gradients[1, 0] = -gradients[0, 0]
+
+        # inner product of barycentric gradients
+        innerProducts[0] = vol*gradients[0, 0]*gradients[0, 0]
+        innerProducts[1] = vol*gradients[0, 0]*gradients[1, 0]
+        innerProducts[2] = vol*gradients[1, 0]*gradients[1, 0]
+        return vol
+
+
+cdef class simplexComputations2D(simplexComputations):
+    cdef:
+        REAL_t[:, ::1] temp
+
+    def __init__(self):
+        self.temp = uninitialized((2, 2), dtype=REAL)
+
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    @cython.cdivision(True)
+    cdef REAL_t evalVolume(self):
+        cdef:
+            REAL_t vol
+            INDEX_t j
+
+        # Calculate volume
+        for j in range(2):
+            self.temp[0, j] = self.simplex[1, j]-self.simplex[0, j]
+            self.temp[1, j] = self.simplex[2, j]-self.simplex[0, j]
+        vol = volume2Dnew(self.temp)
+        return vol
+
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    @cython.cdivision(True)
+    cdef REAL_t evalVolumeGradients(self,
+                                    REAL_t[:, ::1] gradients):
+        cdef:
+            REAL_t vol, f = 1
+            INDEX_t j, k
+
+        # Calculate volume
+        for j in range(2):
+            gradients[0, 1-j] = f*(self.simplex[2, j]-self.simplex[1, j])
+            gradients[1, 1-j] = f*(self.simplex[0, j]-self.simplex[2, j])
+            gradients[2, 1-j] = f*(self.simplex[1, j]-self.simplex[0, j])
+            f = -1
+        vol = volume2Dnew(gradients[1:, :])
+        f = 0.5/vol
+        for k in range(3):
+            for j in range(2):
+                gradients[k, j] *= f
+        return vol
+
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    @cython.cdivision(True)
+    cdef REAL_t evalVolumeGradientsInnerProducts(self,
+                                                 REAL_t[:, ::1] gradients,
+                                                 REAL_t[::1] innerProducts):
+        cdef:
+            REAL_t vol, f = 1
+            INDEX_t j, k
+
+        # Calculate volume
+        for j in range(2):
+            gradients[0, 1-j] = f*(self.simplex[2, j]-self.simplex[1, j])
+            gradients[1, 1-j] = f*(self.simplex[0, j]-self.simplex[2, j])
+            gradients[2, 1-j] = f*(self.simplex[1, j]-self.simplex[0, j])
+            f = -1
+        vol = volume2Dnew(gradients[1:, :])
+        f = 0.5/vol
+        for k in range(3):
+            for j in range(2):
+                gradients[k, j] *= f
+        # inner product of barycentric gradients
+        innerProducts[0] = vol*mydot(gradients[0, :], gradients[0, :])
+        innerProducts[1] = vol*mydot(gradients[0, :], gradients[1, :])
+        innerProducts[2] = vol*mydot(gradients[0, :], gradients[2, :])
+        innerProducts[3] = vol*mydot(gradients[1, :], gradients[1, :])
+        innerProducts[4] = vol*mydot(gradients[1, :], gradients[2, :])
+        innerProducts[5] = vol*mydot(gradients[2, :], gradients[2, :])
+        return vol
+
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    @cython.cdivision(True)
+    cdef REAL_t evalSimplexVolumeGradientsInnerProducts(self,
+                                                        const REAL_t[:, ::1] simplex,
+                                                        REAL_t[:, ::1] gradients,
+                                                        REAL_t[::1] innerProducts):
+        cdef:
+            REAL_t vol, f = 1
+            INDEX_t j, k
+
+        # Calculate volume
+        for j in range(2):
+            gradients[0, 1-j] = f*(simplex[2, j]-simplex[1, j])
+            gradients[1, 1-j] = f*(simplex[0, j]-simplex[2, j])
+            gradients[2, 1-j] = f*(simplex[1, j]-simplex[0, j])
+            f = -1
+        vol = volume2Dnew(gradients[1:, :])
+        f = 0.5/vol
+        for k in range(3):
+            for j in range(2):
+                gradients[k, j] *= f
+        # inner product of barycentric gradients
+        innerProducts[0] = vol*mydot(gradients[0, :], gradients[0, :])
+        innerProducts[1] = vol*mydot(gradients[0, :], gradients[1, :])
+        innerProducts[2] = vol*mydot(gradients[0, :], gradients[2, :])
+        innerProducts[3] = vol*mydot(gradients[1, :], gradients[1, :])
+        innerProducts[4] = vol*mydot(gradients[1, :], gradients[2, :])
+        innerProducts[5] = vol*mydot(gradients[2, :], gradients[2, :])
+        return vol
+
+
+
+cdef class simplexComputations3D(simplexComputations):
+    cdef:
+        REAL_t[:, ::1] temp
+
+    def __init__(self):
+        self.temp = uninitialized((7, 3), dtype=REAL)
+
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    @cython.cdivision(True)
+    cdef REAL_t evalVolume(self):
+        cdef:
+            REAL_t vol
+            INDEX_t j
+
+        # Calculate volume
+        for j in range(3):
+            self.temp[0, j] = self.simplex[1, j]-self.simplex[0, j]  # v01
+            self.temp[1, j] = self.simplex[2, j]-self.simplex[0, j]  # v02
+            self.temp[2, j] = self.simplex[3, j]-self.simplex[0, j]  # v03
+            self.temp[3, j] = self.simplex[2, j]-self.simplex[1, j]  # v12
+            self.temp[4, j] = self.simplex[3, j]-self.simplex[1, j]  # v13
+            self.temp[5, j] = self.simplex[2, j]-self.simplex[3, j]  # v32
+        vol = volume3Dnew(self.temp[:3, :], self.temp[6, :])
+        return vol
+
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    @cython.cdivision(True)
+    cdef REAL_t evalVolumeGradients(self,
+                                    REAL_t[:, ::1] gradients):
+        cdef:
+            REAL_t vol, f
+            INDEX_t j, k
+
+        # Calculate volume
+        for j in range(3):
+            self.temp[0, j] = self.simplex[1, j]-self.simplex[0, j]  # v01
+            self.temp[1, j] = self.simplex[2, j]-self.simplex[0, j]  # v02
+            self.temp[2, j] = self.simplex[3, j]-self.simplex[0, j]  # v03
+            self.temp[3, j] = self.simplex[2, j]-self.simplex[1, j]  # v12
+            self.temp[4, j] = self.simplex[3, j]-self.simplex[1, j]  # v13
+            self.temp[5, j] = self.simplex[2, j]-self.simplex[3, j]  # v32
+        vol = volume3Dnew(self.temp[:3, :], self.temp[6, :])
+
+        # v12 x v13
+        vectorProduct(self.temp[3, :], self.temp[4, :], gradients[0, :])
+        # v02 x v32
+        vectorProduct(self.temp[1, :], self.temp[5, :], gradients[1, :])
+        # v01 x v03
+        vectorProduct(self.temp[0, :], self.temp[2, :], gradients[2, :])
+        # v12 x v02
+        vectorProduct(self.temp[3, :], self.temp[1, :], gradients[3, :])
+        f = 0.16666666666666674/vol
+        for k in range(4):
+            for j in range(3):
+                gradients[k, j] *= f
+        return vol
+
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    @cython.cdivision(True)
+    cdef REAL_t evalVolumeGradientsInnerProducts(self,
+                                                 REAL_t[:, ::1] gradients,
+                                                 REAL_t[::1] innerProducts):
+        cdef:
+            REAL_t vol, f
+            INDEX_t j, k
+
+        # Calculate volume
+        for j in range(3):
+            self.temp[0, j] = self.simplex[1, j]-self.simplex[0, j]  # v01
+            self.temp[1, j] = self.simplex[2, j]-self.simplex[0, j]  # v02
+            self.temp[2, j] = self.simplex[3, j]-self.simplex[0, j]  # v03
+            self.temp[3, j] = self.simplex[2, j]-self.simplex[1, j]  # v12
+            self.temp[4, j] = self.simplex[3, j]-self.simplex[1, j]  # v13
+            self.temp[5, j] = self.simplex[2, j]-self.simplex[3, j]  # v32
+        vol = volume3Dnew(self.temp[:3, :], self.temp[6, :])
+
+        # v12 x v13
+        vectorProduct(self.temp[3, :], self.temp[4, :], gradients[0, :])
+        # v02 x v32
+        vectorProduct(self.temp[1, :], self.temp[5, :], gradients[1, :])
+        # v01 x v03
+        vectorProduct(self.temp[0, :], self.temp[2, :], gradients[2, :])
+        # v12 x v02
+        vectorProduct(self.temp[3, :], self.temp[1, :], gradients[3, :])
+        f = 0.16666666666666674/vol
+        for k in range(4):
+            for j in range(3):
+                gradients[k, j] *= f
+        # inner product of barycentric gradients
+        innerProducts[0] = vol*mydot(gradients[0, :], gradients[0, :])
+        innerProducts[1] = vol*mydot(gradients[0, :], gradients[1, :])
+        innerProducts[2] = vol*mydot(gradients[0, :], gradients[2, :])
+        innerProducts[3] = vol*mydot(gradients[0, :], gradients[3, :])
+        innerProducts[4] = vol*mydot(gradients[1, :], gradients[1, :])
+        innerProducts[5] = vol*mydot(gradients[1, :], gradients[2, :])
+        innerProducts[6] = vol*mydot(gradients[1, :], gradients[3, :])
+        innerProducts[7] = vol*mydot(gradients[2, :], gradients[2, :])
+        innerProducts[8] = vol*mydot(gradients[2, :], gradients[3, :])
+        innerProducts[9] = vol*mydot(gradients[3, :], gradients[3, :])
+        return vol
+
+    @cython.initializedcheck(False)
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    @cython.cdivision(True)
+    cdef REAL_t evalSimplexVolumeGradientsInnerProducts(self,
+                                                        const REAL_t[:, ::1] simplex,
+                                                        REAL_t[:, ::1] gradients,
+                                                        REAL_t[::1] innerProducts):
+        cdef:
+            REAL_t vol, f
+            INDEX_t j, k
+
+        # Calculate volume
+        for j in range(3):
+            self.temp[0, j] = simplex[1, j]-simplex[0, j]  # v01
+            self.temp[1, j] = simplex[2, j]-simplex[0, j]  # v02
+            self.temp[2, j] = simplex[3, j]-simplex[0, j]  # v03
+            self.temp[3, j] = simplex[2, j]-simplex[1, j]  # v12
+            self.temp[4, j] = simplex[3, j]-simplex[1, j]  # v13
+            self.temp[5, j] = simplex[2, j]-simplex[3, j]  # v32
+        vol = volume3Dnew(self.temp[:3, :], self.temp[6, :])
+
+        # v12 x v13
+        vectorProduct(self.temp[3, :], self.temp[4, :], gradients[0, :])
+        # v02 x v32
+        vectorProduct(self.temp[1, :], self.temp[5, :], gradients[1, :])
+        # v01 x v03
+        vectorProduct(self.temp[0, :], self.temp[2, :], gradients[2, :])
+        # v12 x v02
+        vectorProduct(self.temp[3, :], self.temp[1, :], gradients[3, :])
+        f = 0.16666666666666674/vol
+        for k in range(4):
+            for j in range(3):
+                gradients[k, j] *= f
+        # inner product of barycentric gradients
+        innerProducts[0] = vol*mydot(gradients[0, :], gradients[0, :])
+        innerProducts[1] = vol*mydot(gradients[0, :], gradients[1, :])
+        innerProducts[2] = vol*mydot(gradients[0, :], gradients[2, :])
+        innerProducts[3] = vol*mydot(gradients[0, :], gradients[3, :])
+        innerProducts[4] = vol*mydot(gradients[1, :], gradients[1, :])
+        innerProducts[5] = vol*mydot(gradients[1, :], gradients[2, :])
+        innerProducts[6] = vol*mydot(gradients[1, :], gradients[3, :])
+        innerProducts[7] = vol*mydot(gradients[2, :], gradients[2, :])
+        innerProducts[8] = vol*mydot(gradients[2, :], gradients[3, :])
+        innerProducts[9] = vol*mydot(gradients[3, :], gradients[3, :])
+        return vol
+
+
+# TODO: double check
+@cython.initializedcheck(False)
+@cython.wraparound(False)
+@cython.boundscheck(False)
+@cython.cdivision(True)
+cdef inline REAL_t simplexVolumeGradientsProducts1D(const REAL_t[:, ::1] simplex,
+                                                    REAL_t[::1] innerProducts,
+                                                    REAL_t[:, ::1] gradients):
+    # innerProducts needs to be of size 2
+    # temp needs to bed of size 2x1
+    cdef:
+        REAL_t vol, f = 1
+        INDEX_t j
+
+    # Calculate volume
+    gradients[0, 0] = simplex[1, 0]-simplex[0, 0]
+    gradients[1, 0] = -gradients[0, 0]
+    vol = abs(gradients[0, 0])
+    # inner product of barycentric gradients
+    innerProducts[0] = vol**2
+    innerProducts[1] = -vol**2
+    innerProducts[2] = vol**2
+    return vol
 
 
 @cython.initializedcheck(False)
@@ -292,6 +741,53 @@ cdef inline REAL_t simplexVolumeAndProducts3D(const REAL_t[:, ::1] simplex,
     innerProducts[7] = mydot(temp[8, :], temp[8, :])
     innerProducts[8] = mydot(temp[8, :], temp[9, :])
     innerProducts[9] = mydot(temp[9, :], temp[9, :])
+    return vol
+
+
+@cython.initializedcheck(False)
+@cython.wraparound(False)
+@cython.boundscheck(False)
+@cython.cdivision(True)
+cdef inline REAL_t simplexVolumeGradientsProducts3D(const REAL_t[:, ::1] simplex,
+                                                    REAL_t[::1] innerProducts,
+                                                    REAL_t[:, ::1] gradients,
+                                                    REAL_t[:, ::1] temp):
+    # innerProducts needs to be of size 10
+    # gradients needs to be of size 4x3
+    # temp needs to be of size 7x3
+    cdef:
+        REAL_t vol
+        INDEX_t j
+
+    # Calculate volume
+    for j in range(3):
+        temp[0, j] = simplex[1, j]-simplex[0, j]  # v01
+        temp[1, j] = simplex[2, j]-simplex[0, j]  # v02
+        temp[2, j] = simplex[3, j]-simplex[0, j]  # v03
+        temp[3, j] = simplex[2, j]-simplex[1, j]  # v12
+        temp[4, j] = simplex[3, j]-simplex[1, j]  # v13
+        temp[5, j] = simplex[2, j]-simplex[3, j]  # v32
+    vol = volume3Dnew(temp[:3, :], temp[6, :])
+
+    # v12 x v13
+    vectorProduct(temp[3, :], temp[4, :], gradients[0, :])
+    # v02 x v32
+    vectorProduct(temp[1, :], temp[5, :], gradients[1, :])
+    # v01 x v03
+    vectorProduct(temp[0, :], temp[2, :], gradients[2, :])
+    # v12 x v02
+    vectorProduct(temp[3, :], temp[1, :], gradients[3, :])
+    # inner product of barycentric gradients
+    innerProducts[0] = mydot(gradients[0, :], gradients[0, :])
+    innerProducts[1] = mydot(gradients[0, :], gradients[1, :])
+    innerProducts[2] = mydot(gradients[0, :], gradients[2, :])
+    innerProducts[3] = mydot(gradients[0, :], gradients[3, :])
+    innerProducts[4] = mydot(gradients[1, :], gradients[1, :])
+    innerProducts[5] = mydot(gradients[1, :], gradients[2, :])
+    innerProducts[6] = mydot(gradients[1, :], gradients[3, :])
+    innerProducts[7] = mydot(gradients[2, :], gradients[2, :])
+    innerProducts[8] = mydot(gradients[2, :], gradients[3, :])
+    innerProducts[9] = mydot(gradients[3, :], gradients[3, :])
     return vol
 
 
@@ -826,6 +1322,219 @@ cdef class stiffness_2d_sym_anisotropic3_P1(stiffness_2d_sym):
             for k in range(j, 3):
                 contrib[p] = mydot(self.temp2, self.temp[k, :])*vol
                 p += 1
+
+
+
+cdef class div_div_2d(local_matrix_t):
+    cdef:
+        REAL_t[:, ::1] gradients
+        REAL_t[::1] innerProducts
+
+    def __init__(self):
+        cdef:
+            INDEX_t dim = 2
+        local_matrix_t.__init__(self, dim)
+        self.innerProducts = uninitialized((((dim+1)*(dim+2))//2), dtype=REAL)
+        self.gradients = uninitialized((dim+1, dim), dtype=REAL)
+
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.cdivision(True)
+    @cython.wraparound(False)
+    cdef inline void eval(self,
+                          const REAL_t[:, ::1] simplex,
+                          REAL_t[::1] contrib):
+        cdef:
+            REAL_t vol = 0.25, fac1, fac2
+            INDEX_t p, vertexNo1, vertexNo2, component1, component2
+            INDEX_t dim = 2
+
+        # Calculate gradient matrix
+        vol /= simplexVolumeGradientsProducts2D(simplex, self.innerProducts, self.gradients)
+
+        p = 0
+        for vertexNo1 in range(dim+1):
+            for component1 in range(dim):
+                fac1 = self.gradients[vertexNo1, component1]
+                # vertexNo2 = vertexNo1
+                for component2 in range(component1, dim):
+                    fac2 = self.gradients[vertexNo1, component2]
+                    contrib[p] = vol * fac1 * fac2
+                    p += 1
+                for vertexNo2 in range(vertexNo1+1, dim+1):
+                    for component2 in range(dim):
+                        fac2 = self.gradients[vertexNo2, component2]
+                        contrib[p] = vol * fac1 * fac2
+                        p += 1
+
+
+cdef class elasticity_1d_P1(local_matrix_t):
+    cdef:
+        REAL_t[:, ::1] gradients
+        REAL_t[::1] innerProducts
+        REAL_t lam, mu
+        simplexComputations sC
+
+    def __init__(self, REAL_t lam, REAL_t mu):
+        cdef:
+            INDEX_t dim = 1
+        local_matrix_t.__init__(self, dim)
+        self.lam = lam
+        self.mu = mu
+        self.innerProducts = uninitialized((((dim+1)*(dim+2))//2), dtype=REAL)
+        self.gradients = uninitialized((dim+1, dim), dtype=REAL)
+        self.sC = simplexComputations1D()
+
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.cdivision(True)
+    @cython.wraparound(False)
+    cdef inline void eval(self,
+                          const REAL_t[:, ::1] simplex,
+                          REAL_t[::1] contrib):
+        cdef:
+            REAL_t vol, fac1, fac2
+            INDEX_t p, vertexNo1, vertexNo2, component1, component2, j, q
+            INDEX_t dim = 1
+
+        # Calculate gradient matrix
+        vol = self.sC.evalSimplexVolumeGradientsInnerProducts(simplex, self.gradients, self.innerProducts)
+
+        p = 0
+        for vertexNo1 in range(dim+1):
+            for component1 in range(dim):
+                fac1 = self.gradients[vertexNo1, component1]
+                # vertexNo2 = vertexNo1
+                for component2 in range(component1, dim):
+                    fac2 = self.gradients[vertexNo1, component2]
+                    contrib[p] = vol * self.gradients[vertexNo1, component2] * self.gradients[vertexNo1, component1]
+                    if component1 == component2:
+                        q = vertexNo1*(dim+1)
+                        contrib[p] += self.innerProducts[q]
+                    contrib[p] = self.lam*vol*fac1*fac2 + self.mu * contrib[p]
+                    p += 1
+                for vertexNo2 in range(vertexNo1+1, dim+1):
+                    for component2 in range(dim):
+                        fac2 = self.gradients[vertexNo2, component2]
+                        contrib[p] = vol * self.gradients[vertexNo1, component2] * self.gradients[vertexNo2, component1]
+                        if component1 == component2:
+                            q = vertexNo1*dim + vertexNo2
+                            contrib[p] += self.innerProducts[q]
+                        contrib[p] = self.lam*vol*fac1*fac2 + self.mu * contrib[p]
+                        p += 1
+
+
+cdef class elasticity_2d_P1(local_matrix_t):
+    cdef:
+        REAL_t[:, ::1] gradients
+        REAL_t[::1] innerProducts
+        REAL_t lam, mu
+        simplexComputations sC
+
+    def __init__(self, REAL_t lam, REAL_t mu):
+        cdef:
+            INDEX_t dim = 2
+        local_matrix_t.__init__(self, dim)
+        self.lam = lam
+        self.mu = mu
+        self.innerProducts = uninitialized((((dim+1)*(dim+2))//2), dtype=REAL)
+        self.gradients = uninitialized((dim+1, dim), dtype=REAL)
+        self.sC = simplexComputations2D()
+
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.cdivision(True)
+    @cython.wraparound(False)
+    cdef inline void eval(self,
+                          const REAL_t[:, ::1] simplex,
+                          REAL_t[::1] contrib):
+        cdef:
+            REAL_t vol, fac1, fac2
+            INDEX_t p, vertexNo1, vertexNo2, component1, component2, j, q
+            INDEX_t dim = 2
+
+        # Calculate gradient matrix
+        vol = self.sC.evalSimplexVolumeGradientsInnerProducts(simplex, self.gradients, self.innerProducts)
+
+        p = 0
+        for vertexNo1 in range(dim+1):
+            for component1 in range(dim):
+                fac1 = self.gradients[vertexNo1, component1]
+                # vertexNo2 = vertexNo1
+                for component2 in range(component1, dim):
+                    fac2 = self.gradients[vertexNo1, component2]
+                    contrib[p] = vol * self.gradients[vertexNo1, component2] * self.gradients[vertexNo1, component1]
+                    if component1 == component2:
+                        q = vertexNo1*(dim+1) - (vertexNo1*(vertexNo1-1))//2
+                        contrib[p] += self.innerProducts[q]
+                    contrib[p] = self.lam*vol*fac1*fac2 + self.mu * contrib[p]
+                    p += 1
+                for vertexNo2 in range(vertexNo1+1, dim+1):
+                    for component2 in range(dim):
+                        fac2 = self.gradients[vertexNo2, component2]
+                        contrib[p] = vol * self.gradients[vertexNo1, component2] * self.gradients[vertexNo2, component1]
+                        if component1 == component2:
+                            q = vertexNo1*dim - (vertexNo1*(vertexNo1-1))//2 + vertexNo2
+                            contrib[p] += self.innerProducts[q]
+                        contrib[p] = self.lam*vol*fac1*fac2 + self.mu * contrib[p]
+                        p += 1
+
+
+cdef class elasticity_3d_P1(local_matrix_t):
+    cdef:
+        REAL_t[:, ::1] gradients
+        REAL_t[::1] innerProducts
+        REAL_t lam, mu
+        simplexComputations sC
+
+    def __init__(self, REAL_t lam, REAL_t mu):
+        cdef:
+            INDEX_t dim = 3
+        local_matrix_t.__init__(self, dim)
+        self.lam = lam
+        self.mu = mu
+        self.innerProducts = uninitialized((((dim+1)*(dim+2))//2), dtype=REAL)
+        self.gradients = uninitialized((dim+1, dim), dtype=REAL)
+        self.sC = simplexComputations3D()
+
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.cdivision(True)
+    @cython.wraparound(False)
+    cdef inline void eval(self,
+                          const REAL_t[:, ::1] simplex,
+                          REAL_t[::1] contrib):
+        cdef:
+            REAL_t vol, fac1, fac2
+            INDEX_t p, vertexNo1, vertexNo2, component1, component2, j, q
+            INDEX_t dim = 3
+            REAL_t temp
+
+        # Calculate gradient matrix
+        vol = self.sC.evalSimplexVolumeGradientsInnerProducts(simplex, self.gradients, self.innerProducts)
+
+        p = 0
+        for vertexNo1 in range(dim+1):
+            for component1 in range(dim):
+                fac1 = self.gradients[vertexNo1, component1]
+                # vertexNo2 = vertexNo1
+                for component2 in range(component1, dim):
+                    fac2 = self.gradients[vertexNo1, component2]
+                    contrib[p] = vol * self.gradients[vertexNo1, component2] * self.gradients[vertexNo1, component1]
+                    if component1 == component2:
+                        q = vertexNo1*(dim+1) - (vertexNo1*(vertexNo1-1))//2
+                        contrib[p] += self.innerProducts[q]
+                    contrib[p] = self.lam*vol*fac1*fac2 + self.mu * contrib[p]
+                    p += 1
+                for vertexNo2 in range(vertexNo1+1, dim+1):
+                    for component2 in range(dim):
+                        fac2 = self.gradients[vertexNo2, component2]
+                        contrib[p] = vol * self.gradients[vertexNo1, component2] * self.gradients[vertexNo2, component1]
+                        if component1 == component2:
+                            q = vertexNo1*dim - (vertexNo1*(vertexNo1-1))//2 + vertexNo2
+                            contrib[p] += self.innerProducts[q]
+                        contrib[p] = self.lam*vol*fac1*fac2 + self.mu * contrib[p]
+                        p += 1
 
 
 cdef class mass_1d_in_2d_sym_P2(mass_2d):
@@ -1722,9 +2431,11 @@ def assembleRHS(FUNCTION_t fun, DoFMap dm,
         REAL_t[:, ::1] simplex = uninitialized((mesh.manifold_dim+1, mesh.dim),
                                                  dtype=REAL)
         volume_t volume
+        simplexComputations sC
         vectorShapeFunction phi
         REAL_t[::1] fvals
         REAL_t[:, ::1] fvalsVector
+        INDEX_t fun_rows
 
     if qr is None:
         if dim == dimManifold:
@@ -1793,18 +2504,28 @@ def assembleRHS(FUNCTION_t fun, DoFMap dm,
                 for j in range(num_quad_nodes):
                     data[I] += vol*weights[j]*fvals[j]*PHI[k, j]
     else:
-        PHIVector = uninitialized((dm.dofs_per_element, qr.num_nodes, dim), dtype=REAL)
-        innerProducts = uninitialized((6), dtype=REAL)
-        gradients = uninitialized((3, 2), dtype=REAL)
+        fun_rows = fun.rows
+        PHIVector = uninitialized((dm.dofs_per_element, qr.num_nodes, fun_rows), dtype=REAL)
+        gradients = uninitialized((mesh.dim+1, mesh.dim), dtype=REAL)
 
-        fvalsVector = uninitialized((num_quad_nodes, dim), dtype=REAL)
+        fvalsVector = uninitialized((num_quad_nodes, fun_rows), dtype=REAL)
+
+        if dim == 1:
+            sC = simplexComputations1D()
+        elif dim == 2:
+            sC = simplexComputations2D()
+        elif dim == 3:
+            sC = simplexComputations3D()
+        else:
+            raise NotImplementedError()
+        sC.setSimplex(simplex)
 
         for i in range(mesh.num_cells):
             # Get local vertices
             mesh.getSimplex(i, simplex)
 
             # Calculate volume
-            vol = simplexVolumeGradientsProducts2D(simplex, innerProducts, gradients)
+            vol = sC.evalVolumeGradients(gradients)
 
             # evaluate local shape functions on quadrature nodes
             for k in range(dm.dofs_per_element):
@@ -1822,7 +2543,7 @@ def assembleRHS(FUNCTION_t fun, DoFMap dm,
                 if I < 0:
                     continue
                 for j in range(num_quad_nodes):
-                    for l in range(dim):
+                    for l in range(fun_rows):
                         data[I] += vol*weights[j]*fvalsVector[j, l]*PHIVector[k, j, l]
     return dataVec
 

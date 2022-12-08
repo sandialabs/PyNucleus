@@ -70,6 +70,8 @@ cdef REAL_t volume0Dsimplex(REAL_t[:, ::1] simplex)
 cdef REAL_t volume1Dsimplex(REAL_t[:, ::1] simplex)
 cdef REAL_t volume2Dsimplex(REAL_t[:, ::1] simplex)
 cdef REAL_t volume1Din2Dsimplex(REAL_t[:, ::1] simplex)
+cdef REAL_t volume3Dsimplex(REAL_t[:, ::1] simplex)
+cdef REAL_t volume2Din3Dsimplex(REAL_t[:, ::1] simplex)
 
 cdef ENCODE_t encode_edge(INDEX_t[::1] e)
 cdef void sortEdge(INDEX_t c0, INDEX_t c1, INDEX_t[::1] e)

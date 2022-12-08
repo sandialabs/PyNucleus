@@ -52,6 +52,12 @@ cdef class variableFractionalOrder(fractionalOrderBase):
     cdef void setFractionalOrderFun(self, void* params)
 
 
+cdef class piecewiseConstantFractionalOrder(variableFractionalOrder):
+    cdef:
+        public function blockIndicator
+        REAL_t[:, ::1] sVals
+
+
 cdef class constantIntegrableScaling(constantTwoPoint):
     cdef:
         kernelType kType
