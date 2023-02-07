@@ -26,3 +26,10 @@ cdef class local_matrix_t:
 
     cdef void setCell(self,
                       INDEX_t[::1] cell)
+
+
+cdef class multi_function:
+    cdef:
+        public INDEX_t numInputs, numOutputs
+
+    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y)

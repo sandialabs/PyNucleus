@@ -16,7 +16,8 @@ from . clusterMethodCy cimport (tree_node,
                                 farFieldClusterPair,
                                 H2Matrix,
                                 DistributedH2Matrix_globalData,
-                                DistributedH2Matrix_localData)
+                                DistributedH2Matrix_localData,
+                                DistributedLinearOperator)
 from . nonlocalLaplacianBase cimport (double_local_matrix_t,
                                         nonlocalLaplacian,
                                         panelType,

@@ -25,7 +25,7 @@ from . fractionalOrders import (fractionalOrderBase,
 from . kernelsCy import (Kernel,
                          FractionalKernel,
                          RangedFractionalKernel,
-                         FRACTIONAL, INDICATOR, PERIDYNAMIC,
+                         FRACTIONAL, INDICATOR, PERIDYNAMIC, GAUSSIAN,
                          getKernelEnum)
 from . operatorInterpolation import admissibleSet
 
@@ -171,3 +171,5 @@ def getKernel(dim,
                                    interaction=interaction,
                                    normalized=normalized,
                                    piecewise=piecewise, phi=phi)
+
+

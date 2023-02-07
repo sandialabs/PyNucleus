@@ -12,7 +12,7 @@ cimport cython
 from libc.math cimport (sin, cos, sinh, cosh, tanh, sqrt, atan, atan2,
                         log, ceil,
                         fabs as abs, M_PI as pi, pow,
-                        tgamma as gamma, exp)
+                        tgamma as gamma, exp, erf)
 from PyNucleus_base.myTypes import INDEX, REAL, ENCODE, BOOL
 from PyNucleus_fem.functions cimport constant
 from PyNucleus_fem.meshCy cimport meshBase
@@ -618,6 +618,8 @@ cdef class layersFractionalOrder(variableFractionalOrder):
 cdef class constantFractionalLaplacianScaling(constantTwoPoint):
     def __init__(self, INDEX_t dim, REAL_t s, REAL_t horizon):
         self.dim = dim
+        if 1. < s and s < 2.:
+            s = s-1.
         self.s = s
         self.horizon = horizon
         if (self.horizon <= 0.) or (self.s <= 0.) or (self.s >= 1.):
@@ -674,6 +676,18 @@ cdef class constantIntegrableScaling(constantTwoPoint):
                 elif dim == 2:
                     if isinstance(self.interaction, ball2):
                         value = 6./pi/horizon**3 / 2.
+                    else:
+                        raise NotImplementedError()
+                else:
+                    raise NotImplementedError()
+            elif kType == GAUSSIAN:
+                if dim == 1:
+                    # value = 4.0/sqrt(pi)/(horizon/3.)**3 / 2.
+                    value = 4.0/sqrt(pi)/(erf(3.0)-6.0*exp(-9.0)/sqrt(pi))/(horizon/3.0)**3 / 2.
+                elif dim == 2:
+                    if isinstance(self.interaction, ball2):
+                        # value = 4.0/pi/(horizon/3.0)**4 / 2.
+                        value = 4.0/pi/(1.0-10.0*exp(-9.0))/(horizon/3.0)**4 / 2.
                     else:
                         raise NotImplementedError()
                 else:

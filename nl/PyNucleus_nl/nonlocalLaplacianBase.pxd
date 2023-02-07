@@ -96,8 +96,10 @@ cdef class nonlocalLaplacian(double_local_matrix_t):
         public Kernel kernel
         REAL_t[:, ::1] x, y
         void** distantQuadRulesPtr
+        REAL_t[::1] temp, temp2
     cdef void getNearQuadRule(self, panelType panel)
     cdef inline shapeFunction getLocalShapeFunction(self, INDEX_t local_dof)
+    cdef void eval_distant(self, REAL_t[::1] contrib, panelType panel, MASK_t mask=*)
 
 
 cdef class specialQuadRule:
@@ -114,7 +116,6 @@ cdef class specialQuadRule:
 cdef class nonlocalLaplacian1D(nonlocalLaplacian):
     cdef:
         public REAL_t target_order, quad_order_diagonal
-        REAL_t[::1] temp, temp2
         dict distantPSI
         INDEX_t[::1] idx
 
@@ -124,4 +125,3 @@ cdef class nonlocalLaplacian2D(nonlocalLaplacian):
         public REAL_t target_order, quad_order_diagonal, quad_order_diagonalV
         dict distantPSI
         INDEX_t[::1] idx1, idx2, idx3, idx4
-        public REAL_t[::1] temp

@@ -104,6 +104,10 @@ cdef class twoPointFunction:
             return constantTwoPoint(self.value*other.value)
         elif isinstance(self, parametrizedTwoPointFunction) or isinstance(other, parametrizedTwoPointFunction):
             return productParametrizedTwoPoint(self, other)
+        elif isinstance(self, constantTwoPoint) and isinstance(other, (float, REAL)):
+            return constantTwoPoint(self.value*other)
+        elif isinstance(other, constantTwoPoint) and isinstance(self, (float, REAL)):
+            return constantTwoPoint(self*other.value)
         else:
             return productTwoPoint(self, other)
 

@@ -2078,14 +2078,68 @@ cdef class waveFunction(complexFunction):
 
 
 cdef class vectorFunction:
-    def __init__(self, list components):
-        self.rows = len(components)
-        self.components = components
+    def __init__(self, INDEX_t numComponents):
+        self.rows = numComponents
 
     def __call__(self, REAL_t[::1] x):
         vals = uninitialized((self.rows), dtype=REAL)
         self.eval(x, vals)
         return vals
+
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] vals):
+        raise NotImplementedError()
+
+    def norm(self):
+        return vectorNorm(self)
+
+    def __repr__(self):
+        return '{}'.format(self.__class__.__name__)
+
+    def __add__(self, vectorFunction other):
+        if isinstance(self, mulVectorFunction):
+            if isinstance(other, mulVectorFunction):
+                return sumVectorFunction(self.f, self.fac, other.f, other.fac)
+            else:
+                return sumVectorFunction(self.f, self.fac, other, 1.)
+        else:
+            if isinstance(other, mulVectorFunction):
+                return sumVectorFunction(self, 1., other.f, other.fac)
+            else:
+                return sumVectorFunction(self, 1., other, 1.)
+
+    def __sub__(self, vectorFunction other):
+        if isinstance(self, mulVectorFunction):
+            if isinstance(other, mulVectorFunction):
+                return sumVectorFunction(self.f, self.fac, other.f, -other.fac)
+            else:
+                return sumVectorFunction(self.f, self.fac, other, -1.)
+        else:
+            if isinstance(other, mulVectorFunction):
+                return sumVectorFunction(self, 1., other.f, -other.fac)
+            else:
+                return sumVectorFunction(self, 1., other, -1.)
+
+    def __mul__(first, second):
+        if isinstance(first, vectorFunction) and isinstance(second, vectorFunction):
+            return NotImplementedError()
+        elif isinstance(first, vectorFunction) and isinstance(second, function):
+            return mulVectorFunction(first, 1.0, second)
+        elif isinstance(first, function) and isinstance(second, vectorFunction):
+            return mulVectorFunction(second, 1.0, first)
+        elif isinstance(first, vectorFunction):
+            return mulVectorFunction(first, second)
+        elif isinstance(second, vectorFunction):
+            return mulVectorFunction(second, first)
+        else:
+            return NotImplemented
+
+
+cdef class componentVectorFunction(vectorFunction):
+    def __init__(self, list components):
+        super(componentVectorFunction, self).__init__(len(components))
+        self.components = components
 
     @cython.wraparound(False)
     @cython.boundscheck(False)
@@ -2103,9 +2157,6 @@ cdef class vectorFunction:
     def __getitem__(self, i):
         return self.components[i]
 
-    def norm(self):
-        return vectorNorm(self)
-
 
 cdef class vectorNorm(function):
     cdef:
@@ -2121,6 +2172,66 @@ cdef class vectorNorm(function):
     cdef REAL_t eval(self, REAL_t[::1] x):
         self.vecFun.eval(x, self.vals)
         return norm(self.vals)
+
+
+cdef class sumVectorFunction(vectorFunction):
+    cdef:
+        public vectorFunction f1, f2
+        public REAL_t fac1, fac2
+        REAL_t[::1] temp
+
+    def __init__(self, vectorFunction f1, REAL_t fac1, vectorFunction f2, REAL_t fac2):
+        assert f1.rows == f2.rows
+        super(sumVectorFunction, self).__init__(f1.rows)
+        self.f1 = f1
+        self.fac1 = fac1
+        self.f2 = f2
+        self.fac2 = fac2
+        self.temp = uninitialized((self.f2.rows), dtype=REAL)
+
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] vals):
+        self.f1.eval(x, vals)
+        self.f2.eval(x, self.temp)
+        for i in range(self.rows):
+            vals[i] = self.fac1*vals[i]+self.fac2*self.temp[i]
+
+    def __repr__(self):
+        return '{}*{}+{}*{}'.format(self.fac1, self.f1, self.fac2, self.f2)
+
+
+cdef class mulVectorFunction(vectorFunction):
+    cdef:
+        public vectorFunction f
+        public function g
+        public REAL_t fac
+
+    def __init__(self, vectorFunction f, REAL_t fac, function g=None):
+        super(mulVectorFunction, self).__init__(f.rows)
+        self.f = f
+        self.g = g
+        self.fac = fac
+
+    @cython.wraparound(False)
+    @cython.boundscheck(False)
+    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] vals):
+        cdef:
+            INDEX_t i
+            REAL_t v = 1.
+        self.f.eval(x, vals)
+        if self.g is not None:
+            v = self.g.eval(x)
+        for i in range(self.rows):
+            vals[i] *= self.fac*v
+
+    def __repr__(self):
+        if self.g is None:
+            return '{}*{}'.format(self.fac, self.f)
+        elif abs(self.fac-1.) < 1e-10:
+            return '{}*{}'.format(self.g, self.f)
+        else:
+            return '{}*{}*{}'.format(self.fac, self.g, self.f)
 
 
 cdef class matrixFunction:

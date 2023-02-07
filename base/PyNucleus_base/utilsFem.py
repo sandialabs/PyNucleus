@@ -20,6 +20,7 @@ mpi4py.rc.initialize = False
 from mpi4py import MPI
 from collections import OrderedDict
 from copy import deepcopy
+import inspect
 from . myTypes import INDEX, REAL
 from . performanceLogger import PLogger, LoggingTimer, Timer, LoggingPLogger
 from . blas import uninitialized, uninitialized_like
@@ -576,11 +577,12 @@ class outputParam:
 
 
 class outputGroup:
-    def __init__(self, aTol=None, rTol=None, tested=False):
+    def __init__(self, aTol=None, rTol=None, tested=False, driver=None):
         self.entries = []
         self.tested = tested
         self.aTol = aTol
         self.rTol = rTol
+        self.driver = driver
 
     def add(self, label, value, format=None, aTol=None, rTol=None, tested=None):
         if aTol is None:
@@ -595,6 +597,12 @@ class outputGroup:
     def __repr__(self):
         lines = [(p.label, p.format, p.value) for p in self.entries]
         return columns(lines)
+
+    def log(self):
+        if self.driver is not None:
+            self.driver.logger.info('\n'+str(self))
+        else:
+            raise NotImplementedError()
 
     def __add__(self, other):
         c = outputGroup()
@@ -652,8 +660,8 @@ class outputGroup:
 
 
 class statisticOutputGroup(outputGroup):
-    def __init__(self, comm):
-        super(statisticOutputGroup, self).__init__()
+    def __init__(self, comm, driver=None):
+        super(statisticOutputGroup, self).__init__(driver=driver)
         self.comm = comm
         self.doSum = {}
 
@@ -678,8 +686,8 @@ class statisticOutputGroup(outputGroup):
 
 
 class timerOutputGroup(outputGroup):
-    def __init__(self):
-        super(timerOutputGroup, self).__init__()
+    def __init__(self, driver=None):
+        super(timerOutputGroup, self).__init__(driver=driver)
 
     def __repr__(self):
         lines = []
@@ -722,19 +730,20 @@ class timerOutputGroup(outputGroup):
 
 
 class seriesOutputGroup:
-    def __init__(self, name, aTol=None, rTol=None, tested=False):
+    def __init__(self, name, aTol=None, rTol=None, tested=False, driver=None):
         self.name = name
         self.aTol = aTol
         self.rTol = rTol
         self.tested = tested
         self.groups = {}
+        self.driver = driver
 
     def addGroup(self, label):
         label = str(label)
         if label in self.groups:
             group = self.groups[label]
         else:
-            group = outputGroup(aTol=self.aTol, rTol=self.rTol, tested=self.tested)
+            group = outputGroup(aTol=self.aTol, rTol=self.rTol, tested=self.tested, driver=self.driver)
             self.groups[label] = group
         return group
 
@@ -866,8 +875,11 @@ class driverArgGroup:
             self.parent.add(*args, **kwargs)
 
 
+dependencyLogger = logging.getLogger('Dependencies')
+
+
 class driver:
-    def __init__(self, comm=None, setCommExitHandler=True, masterRank=0, description=None):
+    def __init__(self, comm=None, setCommExitHandler=True, masterRank=0, description=None, dependencyLoggerLevel=logging.INFO):
         self.comm = comm
         self._identifier = ''
         self.processHook = []
@@ -879,6 +891,7 @@ class driver:
         self._timer = None
         self._figures = {}
         self._display_available = None
+        dependencyLogger.setLevel(dependencyLoggerLevel)
         if self.comm is not None and setCommExitHandler:
             exitHandler(self.comm)
         if self.isMaster:
@@ -1003,11 +1016,12 @@ class driver:
                 group = self.mainGroup
             group.add_argument(name, nargs=nargs)
 
-
     def addToProcessHook(self, fun):
         self.processHook.append(fun)
 
     def process(self, override={}):
+        if self.isMaster:
+            self.parser.set_defaults(**override)
         doTerminate = False
         if self.isMaster:
             if 'plots' in self.argGroups:
@@ -1044,7 +1058,6 @@ class driver:
                 params['mpiGlobalCommSize'] = self.comm.size
             else:
                 params['mpiGlobalCommSize'] = 1
-            params.update(override)
         else:
             params = {}
         if self.comm:
@@ -1112,7 +1125,7 @@ class driver:
             group = self.outputGroups[name]
         else:
             if group is None:
-                group = outputGroup(tested=tested, aTol=aTol, rTol=rTol)
+                group = outputGroup(tested=tested, aTol=aTol, rTol=rTol, driver=self)
             self.outputGroups[name] = group
         assert group.tested == tested
         assert group.aTol == aTol
@@ -1125,10 +1138,10 @@ class driver:
             assert isinstance(group, statisticOutputGroup)
             return group
         else:
-            return self.addOutputGroup(name, statisticOutputGroup(comm=self.comm))
+            return self.addOutputGroup(name, statisticOutputGroup(comm=self.comm, driver=self))
 
     def addOutputSeries(self, name, aTol=None, rTol=None, tested=False):
-        group = seriesOutputGroup(name, aTol, rTol, tested)
+        group = seriesOutputGroup(name, aTol, rTol, tested, driver=self)
         group = self.addOutputGroup(name, group, aTol, rTol, tested)
         return group
 
@@ -1430,19 +1443,287 @@ class parametrizedArg:
         return [p(v) for v, p in zip(m.groups(), self.params)]
 
 
-class problem:
+class propertyBuilder:
+    def __init__(self, baseObj, fun):
+        self.baseObj = baseObj
+        self.fun = fun
+        self.baseName = fun.__name__
+        self.requiredProperties = inspect.getfullargspec(self.fun).args[1:]
+        self.generatedProperties = set()
+        self.cached_args = {}
+
+    def declareGeneratedProperty(self, prop):
+        self.generatedProperties.add(prop)
+
+    def declareGeneratedProperties(self, props):
+        for prop in props:
+            self.declareGeneratedProperty(prop)
+
+    def __call__(self):
+        cached_args = {}
+        args = []
+        needToBuild = False
+        for prop in self.requiredProperties:
+            try:
+                newValue = getattr(self.baseObj, prop)
+                oldValue = self.cached_args.get(prop, None)
+                args.append(newValue)
+                cached_args[prop] = newValue
+                # TODO: keep hash?
+                try:
+                    if newValue != oldValue:
+                        needToBuild = True
+                except:
+                    dependencyLogger.debug('Cannot compare values for property \'{}\', force call \'{}\''.format(prop, self.fun.__name__))
+                    needToBuild = True
+            except AttributeError:
+                raise AttributeError('Method \'{}\' has unsatisfied dependency on \'{}\''.format(self.fun.__name__, prop))
+        if needToBuild:
+            self.cached_args = cached_args
+            self.fun(*args)
+        else:
+            for prop in self.generatedProperties:
+                self.baseObj.setState(prop, VALID)
+
+
+VALID = 0
+INVALID = 1
+
+
+def generates(properties):
+    def wrapper(fun):
+        clsName = fun.__qualname__.split('.')[-2]
+        if not isinstance(properties, (list, tuple, set)):
+            props = [properties]
+        else:
+            props = properties
+        try:
+            generatorMethodsToProperties[clsName]
+        except KeyError:
+            generatorMethodsToProperties[clsName] = {}
+        generatorMethodsToProperties[clsName][fun] = props
+        return fun
+    return wrapper
+
+
+generatorMethodsToProperties = {}
+
+
+class classWithComputedDependencies:
+
+    generates = generates
+
+    def __init__(self):
+        # maps properties to the builder functions that depend on them
+        self.requiredPropToBuilder = {}
+        # maps builder functions to their produced properties
+        self.builderToProps = {}
+        # map properties to their builder
+        self.generatedPropToBuilder = {}
+        self.remoteRequiredProperties = {}
+        self.remoteGeneratedProperties = {}
+        self.methodToBuilder = {}
+
+        clsNames = [cls.__name__ for cls in self.__class__.__bases__] + [self.__class__.__name__]
+        for clsName in clsNames:
+            if clsName in generatorMethodsToProperties:
+                for clsMethod in generatorMethodsToProperties[clsName]:
+                    methodName = clsMethod.__name__
+                    if methodName in dir(self):
+                        method = getattr(self, methodName)
+                        props = generatorMethodsToProperties[clsName][clsMethod]
+                        self.addProperties(props, method)
+
+    def getState(self, prop):
+        stateFlag = '__state_'+prop
+        return getattr(self, stateFlag)
+
+    def setState(self, prop, state):
+        stateFlag = '__state_'+prop
+        setattr(self, stateFlag, state)
+
+    def getValue(self, prop):
+        valueFlag = '__value_'+prop
+        return getattr(self, valueFlag)
+
+    def setValue(self, prop, value):
+        valueFlag = '__value_'+prop
+        setattr(self, valueFlag, value)
+
+    def directlyGetWithoutChecks(self, prop):
+        return self.getValue(prop)
+
+    def directlySetWithoutChecks(self, prop, value):
+        self.setState(prop, VALID)
+        self.setValue(prop, value)
+
+    @property
+    def allProperties(self):
+        return set(self.generatedPropToBuilder.keys()) | set(self.requiredPropToBuilder.keys())
+
+    def addProperty(self, prop, method=None, postProcess=None):
+        """Adds property that is generated by calling "method"
+        The generated value is then cached."""
+        if method is not None:
+            assert inspect.ismethod(method), "Need the builder to be a method."
+            if method in self.methodToBuilder:
+                builder = self.methodToBuilder[method]
+            else:
+                builder = propertyBuilder(self, method)
+                self.methodToBuilder[method] = builder
+
+            try:
+                self.builderToProps[builder].add(prop)
+            except KeyError:
+                self.builderToProps[builder] = set()
+                self.builderToProps[builder].add(prop)
+
+            builder.declareGeneratedProperty(prop)
+            for reqProp in builder.requiredProperties:
+                try:
+                    self.requiredPropToBuilder[reqProp].add(builder)
+                except KeyError:
+                    self.requiredPropToBuilder[reqProp] = set()
+                    self.requiredPropToBuilder[reqProp].add(builder)
+        else:
+            builder = None
+        self.generatedPropToBuilder[prop] = builder
+
+        self.setValue(prop, None)
+        self.setState(prop, INVALID)
+
+        def getter(self):
+            builder = self.generatedPropToBuilder[prop]
+            state = self.getState(prop)
+            if builder is not None:
+                if state == INVALID:
+                    dependencyLogger.debug('Calling \'{}\''.format(builder.baseName))
+                    builder()
+                    assert self.getState(prop) == VALID, 'Calling \'{}\' did not result in \'{}\' being set.'.format(builder.baseName, prop)
+            else:
+                assert state == VALID, 'Property \'{}\' needs to be set before it can be used.'.format(prop)
+            return self.getValue(prop)
+
+        def setter(self, value):
+            # TODO: check whether we set from builder or not and don't allow setting generated properties directly
+
+            dependencyLogger.debug('Setting \'{}\''.format(prop))
+            self.invalidateDependencies(prop)
+            if prop in self.remoteGeneratedProperties:
+                for obj in self.remoteGeneratedProperties[prop]:
+                    obj.invalidateDependencies(prop)
+            self.setValue(prop, value)
+            self.setState(prop, VALID)
+            if postProcess is not None:
+                postProcess()
+
+        setattr(self.__class__, prop, property(getter, setter))
+
+    def invalidateDependencies(self, prop):
+        """Invalidate all properties that get generated by builders that depend on "prop"."""
+        if prop in self.requiredPropToBuilder:
+            for builder in self.requiredPropToBuilder[prop]:
+                for genProp in builder.generatedProperties:
+                    if self.getState(genProp) == VALID:
+                        dependencyLogger.debug('Changing {}.{} => invalidating {}.{}'.format(self.__class__.__name__,
+                                                                                             prop,
+                                                                                             self.__class__.__name__,
+                                                                                             genProp))
+                    self.setState(genProp, INVALID)
+                    self.invalidateDependencies(genProp)
+        if prop in self.remoteGeneratedProperties:
+            for obj in self.remoteGeneratedProperties[prop]:
+                obj.invalidateDependencies(prop)
+
+    def addProperties(self, properties, method=None, postProcess=None):
+        """Adds multiple properties that are generated by calling "method"."""
+        for prop in properties:
+            self.addProperty(prop, method, postProcess=postProcess)
+
+    def addRemoteRequiredProperty(self, obj, prop):
+        """Adds a property of another object to self."""
+        self.remoteRequiredProperties[prop] = obj
+        obj.addRemoteGeneratedProperty(self, prop)
+
+        def getter(self):
+            obj = self.remoteRequiredProperties[prop]
+            return getattr(obj, prop)
+
+        # def setter(self, value):
+        #     setattr(obj, prop, value)
+
+        # setattr(cls, prop, property(getter, setter))
+        setattr(self.__class__, prop, property(getter))
+
+    def addRemoteRequiredProperties(self, obj, properties):
+        """Adds multiple properties of another object."""
+        for prop in properties:
+            self.addRemoteRequiredProperty(obj, prop)
+
+    def addRemoteGeneratedProperty(self, obj, prop):
+        try:
+            self.remoteGeneratedProperties[prop].add(obj)
+        except KeyError:
+            self.remoteGeneratedProperties[prop] = set([obj])
+
+    def addRemote(self, obj):
+        for prop in obj.allProperties:
+            self.addRemoteRequiredProperty(obj, prop)
+
+    def getGraph(self, includeRemote=False):
+        import networkx as nx
+
+        G = nx.DiGraph()
+        for prop in self.allProperties:
+            G.add_node(prop, color='blue')
+        for builder in self.builderToProps:
+            G.add_node(builder.baseName, color='green')
+            for reqProp in builder.requiredProperties:
+                G.add_edge(reqProp, builder.baseName)
+            for prop in builder.generatedProperties:
+                G.add_edge(builder.baseName, prop)
+
+        if includeRemote:
+            objs = set()
+            for remoteProp in self.remoteRequiredProperties:
+                G.add_node(remoteProp, color='blue')
+                objs.add(self.remoteRequiredProperties[remoteProp])
+            for remoteProp in self.remoteGeneratedProperties:
+                G.add_node(remoteProp, color='blue')
+                for obj in self.remoteGeneratedProperties[remoteProp]:
+                    objs.add(obj)
+            for obj in objs:
+                G = nx.compose(G, obj.getGraph())
+
+        return G
+
+    def plot(self, includeRemote=False, layout='dot'):
+        import networkx as nx
+        import matplotlib.pyplot as plt
+        G = self.getGraph(includeRemote)
+        colors = [node[1]['color'] for node in G.nodes(data=True)]
+        nx.draw(G,
+                with_labels=True,
+                # node_size=0,
+                arrowsize=20,
+                node_color=colors,
+                pos=nx.nx_agraph.pygraphviz_layout(G, layout))
+        plt.show()
+
+
+class driverAddon:
     def __init__(self, driver):
-        self.__values__ = {}
-        self.__args__ = {}
-        self._driver = driver
-        self.setDriverArgs(driver)
-        self._driver.addToProcessHook(self.process)
+        self.driver = driver
+        self.__parametrized_args__ = {}
+        self.flags = []
+        self.setDriverArgs()
+        self.driver.addToProcessHook(self.process)
 
     def addParametrizedArg(self, name, params=[]):
-        self.__args__[name] = parametrizedArg(name, params)
+        self.__parametrized_args__[name] = parametrizedArg(name, params)
 
     def parametrizedArg(self, name):
-        return self.__args__[name]
+        return self.__parametrized_args__[name]
 
     def argInterpreter(self, parametrizedArgs, acceptedValues=[]):
         from argparse import ArgumentTypeError
@@ -1472,35 +1753,63 @@ class problem:
 
         return interpreter
 
-    def setDriverArgs(self, driver):
+    def setDriverFlag(self, *args, **kwargs):
+        flag = args[0]
+        self.addProperty(flag)
+        if 'group' in kwargs:
+            group = kwargs.pop('group')
+            group.add(*args, **kwargs)
+        else:
+            self.driver.add(*args, **kwargs)
+        self.flags.append(flag)
+
+    def setDriverArgs(self):
         pass
 
-    def processImpl(self, params):
+    @property
+    def timer(self):
+        return self.driver.getTimer()
+
+    def processCmdline(self, params):
         pass
 
     def process(self, params):
-        self.__values__.update(params)
-        self.processImpl(params)
-        self._driver.setIdentifier(self.getIdentifier(params))
-        for key in self.__values__:
-            params[key] = self.__values__[key]
+        self.processCmdline(params)
+        self.driver.setIdentifier(self.getIdentifier(params))
 
-    def __setattr__(self, name, value):
-        if name in ('__values__', '_driver', '__args__'):
-            object.__setattr__(self, name, value)
-        else:
-            self.__values__[name] = value
-            self._driver.params[name] = value
 
-    def __getattr__(self, name):
-        if name in ('__values__', '_driver', '__args__'):
-            raise AttributeError()
-        else:
-            return self.__values__[name]
+class problem(classWithComputedDependencies,
+              driverAddon):
+    def __init__(self, driver):
+        classWithComputedDependencies.__init__(self)
+        driverAddon.__init__(self, driver)
+
+        try:
+            self.driver.addGroup('input/output').add('showDependencyGraph', False,
+                                                     help="Show dependency graph of problem classes.")
+        except argparse.ArgumentError:
+            pass
+
+    def processCmdline(self, params):
+        driverAddon.processCmdline(self, params)
+        for key in self.flags:
+            self.directlySetWithoutChecks(key, params[key])
+        for key in self.flags:
+            params[key] = getattr(self, key)
+
+    def process(self, params):
+        driverAddon.process(self, params)
+        if self.driver.showDependencyGraph:
+            if self.driver.isMaster:
+                classWithComputedDependencies.plot(self, True)
+            if self.driver.comm is not None:
+                self.driver.comm.Barrier()
+            exit(0)
 
     def __repr__(self):
-        lines = [(label, '{}', e) for label, e in self.__values__.items()]
-        return columns(lines)
+        return str(type(self))
+    #     lines = [(label, '{}', e) for label, e in self.__values__.items()]
+    #     return columns(lines)
 
     def getIdentifier(self, params):
         return ''

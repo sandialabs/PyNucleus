@@ -16,41 +16,16 @@ from PyNucleus_base.myTypes import INDEX, REAL, BOOL
 from PyNucleus_base import uninitialized, uninitialized_like
 from PyNucleus_base.blas cimport mydot
 from PyNucleus_fem.quadrature cimport (simplexQuadratureRule,
-                             transformQuadratureRule,
-                             doubleSimplexQuadratureRule, GaussJacobi,
-                             simplexDuffyTransformation, simplexXiaoGimbutas)
+                                       transformQuadratureRule,
+                                       doubleSimplexQuadratureRule, GaussJacobi,
+                                       simplexDuffyTransformation, simplexXiaoGimbutas)
 from PyNucleus_fem.DoFMaps cimport DoFMap, P1_DoFMap, shapeFunction
-from scipy.special import gamma
+from PyNucleus_nl.fractionalOrders cimport constFractionalOrder
 from . nonlocalLaplacianBase import ALL
 
 include "panelTypes.pxi"
 
 cdef INDEX_t MAX_INT = np.iinfo(INDEX).max
-
-
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.cdivision(True)
-@cython.wraparound(False)
-cdef inline REAL_t findIntersection(REAL_t[::1] x, REAL_t[::1] y1, REAL_t[::1] y2, REAL_t horizon2):
-    cdef:
-        REAL_t nn = 0., p = 0., q = 0., A, B, c
-        INDEX_t k
-    for k in range(2):
-        A = y2[k]-y1[k]
-        B = y1[k]-x[k]
-        nn += A**2
-        p += A*B
-        q += B**2
-    nn = 1./nn
-    p *= 2.*nn
-    q = (q-horizon2)*nn
-    A = -p*0.5
-    B = sqrt(A**2-q)
-    c = A+B
-    if (c < 0) or (c > 1):
-        c = A-B
-    return c
 
 
 cdef class fractionalLaplacian2DZeroExterior(nonlocalLaplacian2D):
@@ -348,221 +323,20 @@ cdef class fractionalLaplacian2D_P1(nonlocalLaplacian2D):
             REAL_t vol, val, temp
             REAL_t vol1 = self.vol1, vol2 = self.vol2
             INDEX_t[::1] idx1, idx2, idx3, idx4
-            INDEX_t numQuadNodes, numQuadNodes0, numQuadNodes1, dofs_per_element
-            specialQuadRule sQR
-            doubleSimplexQuadratureRule qr2
+            INDEX_t numQuadNodes
             quadQuadratureRule qrEdge
-            REAL_t[:, ::1] PSI
             REAL_t[:, ::1] simplex1 = self.simplex1
             REAL_t[:, ::1] simplex2 = self.simplex2
             REAL_t s = (<FractionalKernel>self.kernel).getsValue()
             REAL_t scaling = self.kernel.getScalingValue()
-            BOOL_t cutElements = False
-            REAL_t horizon2
-            simplexQuadratureRule qr0, qr1
-            transformQuadratureRule qr1trans
-            INDEX_t numInside
-            INDEX_t outside, inside1, inside2
-            INDEX_t inside, outside1, outside2
-            REAL_t vol3 = np.nan, vol4 = np.nan, d1, d2, c1, c2
-            REAL_t PSI_I, PSI_J
-            REAL_t a_b1[3]
-            REAL_t a_b2[3]
-            REAL_t a_A1[3][3]
-            REAL_t a_A2[3][3]
-            REAL_t[:, ::1] A1, A2
-            REAL_t[::1] b1, b2
-            BOOL_t a_ind[3]
-            BOOL_t[::1] ind
 
-        if self.kernel.finiteHorizon and panel >= 1 :
-            # check if the horizon might cut the elements
-            if self.kernel.interaction.relPos == CUT:
-                cutElements = True
-            if self.kernel.complement:
-                cutElements = False
-                # TODO: cutElements should be set to True, but
-                #       need to figure out the element
-                #       transformation.
+        if panel >= 1:
+            self.eval_distant(contrib, panel, mask)
+            return
 
         contrib[:] = 0.
 
-        if panel >= 1 and not cutElements:
-            sQR = <specialQuadRule>(self.distantQuadRulesPtr[panel])
-            qr2 = <doubleSimplexQuadratureRule>(sQR.qr)
-            PSI = sQR.PSI
-            numQuadNodes0 = qr2.rule1.num_nodes
-            numQuadNodes1 = qr2.rule2.num_nodes
-            qr2.rule1.nodesInGlobalCoords(simplex1, self.x)
-            qr2.rule2.nodesInGlobalCoords(simplex2, self.y)
-            k = 0
-            for i in range(numQuadNodes0):
-                for j in range(numQuadNodes1):
-                    self.temp[k] = (qr2.weights[k] *
-                                    self.kernel.evalPtr(2,
-                                                        &self.x[i, 0],
-                                                        &self.y[j, 0]))
-                    k += 1
-            vol = vol1 * vol2
-            # loop over all local DoFs
-            k = 0
-            for I in range(6):
-                for J in range(I, 6):
-                    if mask & (1 << k):
-                        val = 0.
-                        for l in range(numQuadNodes0*numQuadNodes1):
-                            val += self.temp[l]*PSI[I, l]*PSI[J, l]
-                        contrib[k] = val*vol
-                    k += 1
-        elif panel >= 1 and cutElements:
-            sQR = <specialQuadRule>(self.distantQuadRulesPtr[panel])
-            qr2 = <doubleSimplexQuadratureRule>(sQR.qr)
-            qr0 = qr2.rule1
-            qr1 = qr2.rule2
-            qr1trans = transformQuadratureRule(qr1)
-            numQuadNodes0 = qr0.num_nodes
-            numQuadNodes1 = qr1.num_nodes
-
-            horizon2 = self.kernel.getHorizonValue2()
-            vol = vol1*vol2
-            dofs_per_element = self.DoFMap.dofs_per_element
-
-            A1 = a_A1
-            A2 = a_A2
-            b1 = a_b1
-            b2 = a_b2
-
-            ind = a_ind
-            qr0.nodesInGlobalCoords(simplex1, self.x)
-            for i in range(qr0.num_nodes):
-                numInside = 0
-                for j in range(3):
-                    d2 = 0.
-                    for k in range(2):
-                        d2 += (simplex2[j, k]-self.x[i, k])**2
-                    ind[j] = (d2 <= horizon2)
-                    numInside += ind[j]
-                if numInside == 0:
-                    continue
-                elif numInside == 1:
-                    inside = 0
-                    while not ind[inside]:
-                        inside += 1
-                    outside1 = (inside+1)%3
-                    outside2 = (inside+2)%3
-                    c1 = findIntersection(self.x[i, :], simplex2[inside, :], simplex2[outside1, :], horizon2)
-                    c2 = findIntersection(self.x[i, :], simplex2[inside, :], simplex2[outside2, :], horizon2)
-                    A1[:, :] = 0.
-                    b1[:] = 0.
-                    A1[inside,inside] = c1+c2
-                    A1[inside,outside1] = c2
-                    A1[inside,outside2] = c1
-                    A1[outside1,outside1] = c1
-                    A1[outside2,outside2] = c2
-                    b1[inside] = 1-c1-c2
-                    vol3 = c1*c2
-                    qr1trans.setBaryTransform(A1, b1)
-                    qr1 = qr1trans
-                elif numInside == 2:
-                    # outside = np.where(ind == False)[0][0]
-                    outside = 0
-                    while ind[outside]:
-                        outside += 1
-                    inside1 = (outside+1)%3
-                    inside2 = (outside+2)%3
-                    c1 = findIntersection(self.x[i,: ], simplex2[outside, :], simplex2[inside1, :], horizon2)
-                    c2 = findIntersection(self.x[i,: ], simplex2[outside, :], simplex2[inside2, :], horizon2)
-                    d1 = 0.
-                    d2 = 0.
-                    for k in range(2):
-                        d1 += (simplex2[outside, k]
-                               + c1*(simplex2[inside1, k]-simplex2[outside, k])
-                               - simplex2[inside2, k])**2
-                        d2 += (simplex2[outside, k]
-                               + c2*(simplex2[inside2, k]-simplex2[outside, k])
-                               - simplex2[inside1, k])
-                    A1[:, :] = 0.
-                    b1[:] = 0.
-                    A2[:, :] = 0.
-                    b2[:] = 0.
-
-                    if d1 < d2:
-                        A1[outside,outside] = 1-c1
-                        A1[inside1,inside1] = 1-c1
-                        A1[inside1,inside2] = -c1
-                        A1[inside2,inside2] = 1.
-                        b1[inside1] = c1
-                        vol3 = 1-c1
-
-                        A2[outside,outside] = 1-c2
-                        A2[inside2,inside2] = 1
-                        A2[inside2,outside] = c2
-                        A2[outside,inside1] = 1-c1
-                        A2[inside1,inside1] = c1
-                        vol4 = c1*(1-c2)
-                    else:
-                        A1[outside,outside] = 1-c2
-                        A1[inside2,inside2] = 1-c2
-                        A1[inside2,inside1] = -c2
-                        A1[inside1,inside1] = 1.
-                        b1[inside2] = c2
-                        vol3 = 1-c2
-
-                        A2[outside,outside] = 1-c1
-                        A2[inside1,inside1] = 1
-                        A2[inside1,outside] = c1
-                        A2[outside,inside2] = 1-c2
-                        A2[inside2,inside2] = c2
-                        vol4 = c2*(1-c1)
-
-                    qr1trans.setBaryTransform(A1, b1)
-                    qr1 = qr1trans
-                else:
-                    qr1 = qr2.rule2
-                    vol3 = 1.
-
-                qr1.nodesInGlobalCoords(simplex2, self.y)
-                for j in range(qr1.num_nodes):
-                    val = qr0.weights[i]*qr1.weights[j]*self.kernel.evalPtr(2, &self.x[i, 0], &self.y[j, 0])
-                    val *= vol*vol3
-
-                    k = 0
-                    for I in range(6):
-                        if I < dofs_per_element:
-                            PSI_I = self.getLocalShapeFunction(I).evalStrided(&qr0.nodes[0, i], numQuadNodes0)
-                        else:
-                            PSI_I = -self.getLocalShapeFunction(I-dofs_per_element).evalStrided(&qr1.nodes[0, j], numQuadNodes1)
-                        for J in range(I, 6):
-                            if mask & (1 << k):
-                                if J < dofs_per_element:
-                                    PSI_J = self.getLocalShapeFunction(J).evalStrided(&qr0.nodes[0, i], numQuadNodes0)
-                                else:
-                                    PSI_J = -self.getLocalShapeFunction(J-dofs_per_element).evalStrided(&qr1.nodes[0, j], numQuadNodes1)
-                                contrib[k] += val * PSI_I*PSI_J
-                            k += 1
-                if numInside == 2:
-                    qr1trans.setBaryTransform(A2, b2)
-                    qr1.nodesInGlobalCoords(simplex2, self.y)
-                    for j in range(qr1.num_nodes):
-                        val = qr0.weights[i]*qr1.weights[j]*self.kernel.evalPtr(2, &self.x[i, 0], &self.y[j, 0])
-                        val *= vol*vol4
-
-                        k = 0
-                        for I in range(6):
-                            if I < dofs_per_element:
-                                PSI_I = self.getLocalShapeFunction(I).evalStrided(&qr0.nodes[0, i], numQuadNodes0)
-                            else:
-                                PSI_I = -self.getLocalShapeFunction(I-dofs_per_element).evalStrided(&qr1.nodes[0, j], numQuadNodes1)
-                            for J in range(I, 6):
-                                if mask & (1 << k):
-                                    if J < dofs_per_element:
-                                        PSI_J = self.getLocalShapeFunction(J).evalStrided(&qr0.nodes[0, i], numQuadNodes0)
-                                    else:
-                                        PSI_J = -self.getLocalShapeFunction(J-dofs_per_element).evalStrided(&qr1.nodes[0, j], numQuadNodes1)
-                                    contrib[k] += val * PSI_I*PSI_J
-                                k += 1
-
-        elif panel == COMMON_FACE:
+        if panel == COMMON_FACE:
             # factor 2 comes from symmetric contributions
             vol = scaling*4.0*2.0*vol1**2
 

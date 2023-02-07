@@ -90,9 +90,9 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
         return A
 
     @staticmethod
-    def from_dense(matrix):
+    def from_dense(matrix, REAL_t tolerance=0.):
         cdef:
-            INDEX_t i, j, nnz
+            INDEX_t i, j, nnz, k, jj
             {SCALAR}_t[:, ::1] data
             INDEX_t[::1] indptr, indices
             {SCALAR}_t[::1] values
@@ -103,7 +103,7 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
         indptr = np.zeros((data.shape[0]+1), dtype=INDEX)
         for i in range(data.shape[0]):
             for j in range(data.shape[1]):
-                if data[i, j] != 0.:
+                if abs(data[i, j]) >= tolerance:
                     indptr[i+1] += 1
         for i in range(data.shape[0]):
             indptr[i+1] += indptr[i]
@@ -111,14 +111,13 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
         indices = np.empty((nnz), dtype=INDEX)
         values = np.empty((nnz), dtype={SCALAR})
         for i in range(data.shape[0]):
+            k = 0
             for j in range(data.shape[1]):
-                if data[i, j] != 0.:
-                    indices[indptr[i]] = j
-                    values[indptr[i]] = data[i, j]
-                    indptr[i] += 1
-        for i in range(data.shape[0], 0, -1):
-            indptr[i] = indptr[i-1]
-        indptr[0] = 0
+                if abs(data[i, j]) >= tolerance:
+                    jj = indptr[i]+k
+                    indices[jj] = j
+                    values[jj] = data[i, j]
+                    k += 1
         A = {SCALAR_label}CSR_LinearOperator(indices, indptr, values)
         A.num_rows = data.shape[0]
         A.num_columns = data.shape[1]

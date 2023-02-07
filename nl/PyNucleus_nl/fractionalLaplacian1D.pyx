@@ -112,7 +112,6 @@ cdef class fractionalLaplacian1D_P1(nonlocalLaplacian1D):
         numQuadNodes0 = qr2.rule1.num_nodes
         numQuadNodes1 = qr2.rule2.num_nodes
         dofs_per_element = self.DoFMap.dofs_per_element
-        self.distantQuadRules[panel] = qr2
         PSI = uninitialized((2*dofs_per_element,
                              qr2.num_nodes), dtype=REAL)
         # phi_i(x) - phi_i(y) = phi_i(x) for i = 0,1
@@ -131,7 +130,9 @@ cdef class fractionalLaplacian1D_P1(nonlocalLaplacian1D):
                 for j in range(numQuadNodes1):
                     PSI[I+dofs_per_element, k] = -sf.evalStrided(&qr2.rule2.nodes[0, j], numQuadNodes1)
                     k += 1
-        self.distantPSI[panel] = PSI
+        sQR = specialQuadRule(qr2, PSI)
+        self.distantQuadRules[panel] = sQR
+        self.distantQuadRulesPtr[panel] = <void*>(self.distantQuadRules[panel])
 
         if qr2.rule1.num_nodes > self.x.shape[0]:
             self.x = uninitialized((qr2.rule1.num_nodes, self.dim), dtype=REAL)
@@ -254,35 +255,16 @@ cdef class fractionalLaplacian1D_P1(nonlocalLaplacian1D):
                    panelType panel,
                    MASK_t mask=ALL):
         cdef:
-            INDEX_t k, i, j, I, J, t, m
+            INDEX_t k, i, j, I, J, t
             REAL_t vol, val, vol1 = self.vol1, vol2 = self.vol2
             INDEX_t[::1] idx = self.idx
-            doubleSimplexQuadratureRule qr2
-            REAL_t[:, ::1] PSI
             REAL_t[:, ::1] simplex1 = self.simplex1
             REAL_t[:, ::1] simplex2 = self.simplex2
             REAL_t s = (<FractionalKernel>self.kernel).getsValue()
-            REAL_t horizon2, horizon, c1, c2, PSI_I, PSI_J, l, r
-            transformQuadratureRule qr0, qr1
-            INDEX_t dofs_per_element, numQuadNodes0, numQuadNodes1
-            REAL_t a_b1[2]
-            REAL_t a_b2[2]
-            REAL_t a_A1[2][2]
-            REAL_t a_A2[2][2]
-            REAL_t intervals[3]
-            REAL_t[::1] b1, b2
-            REAL_t[:, ::1] A1, A2
-            BOOL_t cutElements = False, lr
 
-        if self.kernel.finiteHorizon and panel >= 1 :
-            # check if the horizon might cut the elements
-            if self.kernel.interaction.relPos == CUT:
-                cutElements = True
-            if self.kernel.complement:
-                cutElements = False
-                # TODO: cutElements should be set to True, but
-                #       need to figure out the element
-                #       transformation.
+        if panel >= 1:
+            self.eval_distant(contrib, panel, mask)
+            return
 
         if panel == COMMON_EDGE:
             # # exact value:
@@ -357,72 +339,6 @@ cdef class fractionalLaplacian1D_P1(nonlocalLaplacian1D):
                                     self.PSI_vertex[idx[J], i] *
                                     pow(vol1*self.PSI_vertex[0, i]-vol2*self.PSI_vertex[2, i], -1.-2.*s))
                         contrib[k] += val*vol
-        elif panel >= 1 and not cutElements:
-            qr2 = <doubleSimplexQuadratureRule>self.distantQuadRules[panel]
-            PSI = self.distantPSI[panel]
-            qr2.rule1.nodesInGlobalCoords(simplex1, self.x)
-            qr2.rule2.nodesInGlobalCoords(simplex2, self.y)
-            k = 0
-            for i in range(qr2.rule1.num_nodes):
-                for j in range(qr2.rule2.num_nodes):
-                    self.temp[k] = qr2.weights[k]*self.kernel.evalPtr(1,
-                                                                      &self.x[i, 0],
-                                                                      &self.y[j, 0])
-                    k += 1
-
-            vol = vol1*vol2
-            k = 0
-            for I in range(4):
-                for J in range(I, 4):
-                    if mask & (1 << k):
-                        val = 0.
-                        for i in range(qr2.num_nodes):
-                            val += self.temp[i]*PSI[I, i]*PSI[J, i]
-                        contrib[k] = val*vol
-                    k += 1
-        elif panel >= 1 and cutElements:
-            qr2 = <doubleSimplexQuadratureRule>self.distantQuadRules[panel]
-            qr0 = transformQuadratureRule(qr2.rule1)
-            qr1 = transformQuadratureRule(qr2.rule2)
-            numQuadNodes0 = qr0.num_nodes
-            numQuadNodes1 = qr1.num_nodes
-
-            contrib[:] = 0.
-
-            vol = vol1*vol2
-            dofs_per_element = self.DoFMap.dofs_per_element
-
-            A1 = a_A1
-            b1 = a_b1
-            A2 = a_A2
-            b2 = a_b2
-
-            self.kernel.interaction.startLoopSubSimplices_Simplex(simplex1, simplex2)
-            while self.kernel.interaction.nextSubSimplex_Simplex(A1, b1, &c1):
-                qr0.setBaryTransform(A1, b1)
-                qr0.nodesInGlobalCoords(simplex1, self.x)
-                for i in range(qr0.num_nodes):
-                    self.kernel.interaction.startLoopSubSimplices_Node(self.x[i, :], simplex2)
-                    while self.kernel.interaction.nextSubSimplex_Node(A2, b2, &c2):
-                        qr1.setBaryTransform(A2, b2)
-                        qr1.nodesInGlobalCoords(simplex2, self.y)
-                        for j in range(qr1.num_nodes):
-                            val = qr0.weights[i]*qr1.weights[j]*self.kernel.evalPtr(1, &self.x[i, 0], &self.y[j, 0])
-                            val *= c1 * c2 * vol
-                            k = 0
-                            for I in range(2*dofs_per_element):
-                                if I < dofs_per_element:
-                                    PSI_I = self.getLocalShapeFunction(I).evalStrided(&qr0.nodes[0, i], numQuadNodes0)
-                                else:
-                                    PSI_I = -self.getLocalShapeFunction(I-dofs_per_element).evalStrided(&qr1.nodes[0, j], numQuadNodes1)
-                                for J in range(I, 2*dofs_per_element):
-                                    if mask & (1 << k):
-                                        if J < dofs_per_element:
-                                            PSI_J = self.getLocalShapeFunction(J).evalStrided(&qr0.nodes[0, i], numQuadNodes0)
-                                        else:
-                                            PSI_J = -self.getLocalShapeFunction(J-dofs_per_element).evalStrided(&qr1.nodes[0, j], numQuadNodes1)
-                                        contrib[k] += val * PSI_I*PSI_J
-                                    k += 1
         else:
             print(np.array(simplex1), np.array(simplex2))
             raise NotImplementedError('Unknown panel type: {}'.format(panel))
@@ -679,18 +595,20 @@ cdef class fractionalLaplacian1D_P0(nonlocalLaplacian1D):
             REAL_t T
             REAL_t[:, ::1] simplex1 = self.simplex1
             REAL_t[:, ::1] simplex2 = self.simplex2
+            REAL_t s = self.kernel.sValue
+            REAL_t scaling = self.kernel.scalingValue
         if panel == COMMON_EDGE:
             contrib[:] = 0.
         else:
-            T = -((pow(abs(simplex1[1, 0]-simplex2[1, 0]), 1.-2.*self.s) -
-                   pow(abs(simplex1[1, 0]-simplex2[0, 0]), 1.-2.*self.s) -
-                   pow(abs(simplex1[0, 0]-simplex2[1, 0]), 1.-2.*self.s) +
-                   pow(abs(simplex1[0, 0]-simplex2[0, 0]), 1.-2.*self.s)) /
-                  ((2.*self.s)*(2.*self.s-1.)))
+            T = -((pow(abs(simplex1[1, 0]-simplex2[1, 0]), 1.-2.*s) -
+                   pow(abs(simplex1[1, 0]-simplex2[0, 0]), 1.-2.*s) -
+                   pow(abs(simplex1[0, 0]-simplex2[1, 0]), 1.-2.*s) +
+                   pow(abs(simplex1[0, 0]-simplex2[0, 0]), 1.-2.*s)) /
+                  ((2.*s)*(2.*s-1.)))
 
-            contrib[0] = self.scaling*T
-            contrib[1] = -self.scaling*T
-            contrib[2] = self.scaling*T
+            contrib[0] = scaling*T
+            contrib[1] = -scaling*T
+            contrib[2] = scaling*T
         # else:
         #     print(np.array(simplex1), np.array(simplex2))
         #     raise NotImplementedError('Unknown panel type: {}'.format(panel))
@@ -750,8 +668,10 @@ cdef class fractionalLaplacian1D_P0_boundary(fractionalLaplacian1DZeroExterior):
             REAL_t vol = self.vol1, T
             REAL_t[:, ::1] simplex = self.simplex1
             REAL_t[:, ::1] simplex2 = self.simplex2
-        T = -((pow(abs(simplex[1, 0]-simplex2[0, 0]), 1.-2.*self.s) -
-               pow(abs(simplex[0, 0]-simplex2[0, 0]), 1.-2.*self.s)) /
-              ((2.*self.s)*(2.*self.s-1.))) * (-1)**(simplex[0, 0] < simplex2[0, 0])*2.
+            REAL_t s = self.kernel.sValue
+            REAL_t scaling = self.kernel.scalingValue
+        T = -((pow(abs(simplex[1, 0]-simplex2[0, 0]), 1.-2.*s) -
+               pow(abs(simplex[0, 0]-simplex2[0, 0]), 1.-2.*s)) /
+              ((2.*s)*(2.*s-1.))) * (-1)**(simplex[0, 0] < simplex2[0, 0])*2.
 
-        contrib[0] = self.scaling*T
+        contrib[0] = scaling*T

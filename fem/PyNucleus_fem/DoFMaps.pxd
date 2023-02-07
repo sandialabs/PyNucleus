@@ -78,6 +78,7 @@ cdef class vectorShapeFunction:
     cdef:
         INDEX_t dim
         INDEX_t[::1] cell
+        public BOOL_t needsGradients
     cpdef void setCell(self, INDEX_t[::1] cell)
     cdef void eval(self, const REAL_t[::1] lam, const REAL_t[:, ::1] gradLam, REAL_t[::1] value)
     cdef void evalGlobal(self, const REAL_t[:, ::1] simplex, const REAL_t[::1] x, REAL_t[::1] value)

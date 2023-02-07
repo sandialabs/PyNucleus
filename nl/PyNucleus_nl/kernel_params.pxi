@@ -10,7 +10,7 @@ cdef enum:
     OFFSET = sizeof(void*)
 
 cdef enum:
-    NUM_KERNEL_PARAMS = 10
+    NUM_KERNEL_PARAMS = 11
 
 cdef enum kernelParams:
     fS = 0*OFFSET
@@ -23,6 +23,7 @@ cdef enum kernelParams:
     fSCALINGFUN = 7*OFFSET
     fEVAL = 8*OFFSET
     fINTERACTION = 9*OFFSET
+    fEXPONENTINVERSE = 10*OFFSET
 
 
 cdef inline BOOL_t isNull(void *c_params, size_t pos):
@@ -65,3 +66,4 @@ cpdef enum:
     FRACTIONAL = 0
     INDICATOR = 1
     PERIDYNAMIC = 2
+    GAUSSIAN = 3

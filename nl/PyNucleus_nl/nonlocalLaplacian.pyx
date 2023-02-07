@@ -17,6 +17,8 @@ from libc.math cimport sin, cos, M_PI as pi
 from PyNucleus_base.myTypes import INDEX, REAL, ENCODE, BOOL
 from PyNucleus_base import uninitialized
 from PyNucleus_base.intTuple cimport intTuple
+from PyNucleus_base.ip_norm cimport (ip_distributed_nonoverlapping,
+                                     norm_distributed_nonoverlapping)
 from PyNucleus_fem.mesh import mesh0d, mesh1d
 from PyNucleus_fem.functions cimport function, constant
 from PyNucleus_fem.DoFMaps cimport P0_DoFMap, P1_DoFMap, P2_DoFMap
@@ -828,6 +830,117 @@ cdef class nonlocalBuilder:
     @cython.initializedcheck(False)
     @cython.boundscheck(False)
     @cython.wraparound(False)
+    def getSparse(self, BOOL_t returnNearField=False, str prefix=''):
+        cdef:
+            INDEX_t cellNo1, cellNo2
+            LinearOperator A = None
+            REAL_t[::1] contrib = self.contrib
+            IndexManager iM
+            REAL_t fac
+            REAL_t[:, ::1] data
+            BOOL_t symmetricLocalMatrix = self.local_matrix.symmetricLocalMatrix
+            BOOL_t symmetricCells = self.local_matrix.symmetricCells
+            INDEX_t startCluster
+            INDEX_t[::1] cellPair = uninitialized((2), dtype=INDEX)
+            nearFieldClusterPair cluster
+            panelType panel
+            tupleDictMASK masks = None
+            ENCODE_t hv, hv2
+            MASK_t mask = 0
+            BOOL_t ignoreDiagonalBlocks = False
+
+        refParams = self.getH2RefinementParams()
+        doDistributedAssembly = self.comm is not None and self.comm.size > 1 and self.dm.num_dofs > self.comm.size
+        forceUnsymmetric = self.params.get('forceUnsymmetric', doDistributedAssembly)
+        assembleOnRoot = False
+        localFarFieldIndexing = True
+        localFarFieldIndexing = doDistributedAssembly and localFarFieldIndexing
+        if doDistributedAssembly and not assembleOnRoot:
+            assert forceUnsymmetric
+
+        with self.PLogger.Timer(prefix+'boxes, cells, coords'):
+            boxes, cells = getDoFBoxesAndCells(self.dm.mesh, self.dm, self.comm)
+            coords = self.dm.getDoFCoordinates()
+
+        # construct the cluster tree
+        root, myRoot, jumps, doDistributedAssembly = self.getTree(doDistributedAssembly, refParams, boxes, cells, coords, allNearField=True)
+
+        # get the admissible cluster pairs
+        Pnear, Pfar = self.getAdmissibleClusters(root, myRoot, doDistributedAssembly, refParams, boxes, cells, coords, assembleOnRoot=assembleOnRoot, ignoreDiagonalBlocks=ignoreDiagonalBlocks)
+        assert len(Pfar) == 0
+
+        useSymmetricMatrix = self.local_matrix.symmetricLocalMatrix and self.local_matrix.symmetricCells and not forceUnsymmetric
+        with self.PLogger.Timer(prefix+'build sparsity pattern'):
+            if doDistributedAssembly:
+                Anear = getSparseNearField(self.dm, Pnear, symmetric=useSymmetricMatrix, myRoot=myRoot)
+            else:
+                Anear = getSparseNearField(self.dm, Pnear, symmetric=useSymmetricMatrix)
+
+        useSymmetricCells = self.local_matrix.symmetricCells
+
+        iM = IndexManager(self.dm, Anear)
+
+        # Pre-record all element x element contributions.
+        # This way, we only assembly over each element x element pair once.
+        # We load balance the cells and only get the list for the local rank.
+        assert contrib.shape[0] <= 64, "Mask type is not large enough for {} entries".format(contrib.shape[0])
+        startCluster = 0
+        while startCluster < len(Pnear):
+            with self.PLogger.Timer(prefix+'interior - build masks'):
+                masks = iM.buildMasksForClusters(Pnear, self.local_matrix.symmetricCells, &startCluster)
+
+            if (masks.getSizeInBytes() >> 20) > 20:
+                LOGGER.info('element x element pairs {}, {} MB'.format(masks.nnz, masks.getSizeInBytes() >> 20))
+            # Compute all element x element contributions
+            with self.PLogger.Timer(prefix+'interior - compute'):
+                masks.startIter()
+                while masks.next(cellPair, &mask):
+                    # decode_edge(hv, cellPair)
+                    cellNo1 = cellPair[0]
+                    cellNo2 = cellPair[1]
+                    self.local_matrix.setCell1(cellNo1)
+                    self.local_matrix.setCell2(cellNo2)
+                    panel = self.local_matrix.getPanelType()
+                    if panel != IGNORED:
+                        if useSymmetricCells and (cellNo1 != cellNo2):
+                            fac = 2.
+                        else:
+                            fac = 1.
+                        if iM.getDoFsElemElem(cellNo1, cellNo2):
+                            continue
+                        self.local_matrix.eval(contrib, panel)
+                        if useSymmetricCells:
+                            iM.addToMatrixElemElemSym(contrib, fac)
+                        else:
+                            raise NotImplementedError()
+                masks = None
+        if doDistributedAssembly and assembleOnRoot:
+            with self.PLogger.Timer('reduceNearOp'):
+                Anear = self.reduceNearOp(Anear, myRoot.get_dofs())
+        if localFarFieldIndexing:
+            local_boxes, local_dm, lclR, lclP = self.doLocalFarFieldIndexing(myRoot, boxes)
+        if self.comm is None or (assembleOnRoot and self.comm.rank == 0) or (not assembleOnRoot):
+            if self.comm is None or (assembleOnRoot and self.comm.rank == 0):
+                return Anear
+            else:
+                with self.PLogger.Timer('setup distributed op'):
+                    if not localFarFieldIndexing:
+                        raise NotImplementedError()
+                    else:
+                        h2 = DistributedLinearOperator(Anear, root, Pnear, self.comm, self.dm, local_dm, lclR, lclP)
+                if returnNearField:
+                    return h2, Pnear
+                else:
+                    return h2
+        else:
+            if returnNearField:
+                return Anear, Pnear
+            else:
+                return Anear
+
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
     def getDense(self, BOOL_t trySparsification=False):
         cdef:
             INDEX_t cellNo1, cellNo2
@@ -1349,7 +1462,7 @@ cdef class nonlocalBuilder:
                     #  C(d,s)/(2s) \int_D u(x) v(x) \int_E n.(x-y)/|x-y|^{d+2s}
                     # where
                     #  D = (supp u) \cap (supp v) \subset E,
-                    #  E = \partial((supp u) \cap (supp v)).
+                    #  E = \partial((supp u) \cup (supp v)).
                     # We only update unknows that are in the cluster pair.
 
                     iM = IndexManager(self.dm, Anear_filtered)
@@ -1859,7 +1972,8 @@ cdef class nonlocalBuilder:
                 refinementParams refParams,
                 REAL_t[:, :, ::1] boxes,
                 sparseGraph cells,
-                REAL_t[:, ::1] coords):
+                REAL_t[:, ::1] coords,
+                BOOL_t allNearField=False):
         cdef:
             INDEX_t num_cluster_dofs
             dict blocks = {}, jumps = {}
@@ -1871,7 +1985,7 @@ cdef class nonlocalBuilder:
 
         with self.PLogger.Timer('prepare tree'):
             dofs = arrayIndexSet(np.arange(self.dm.num_dofs, dtype=INDEX), sorted=True)
-            root = tree_node(None, dofs, boxes)
+            root = tree_node(None, dofs, boxes, mixed_node=allNearField)
 
             if doDistributedAssembly:
                 from PyNucleus_fem.meshPartitioning import regularDofPartitioner, metisDofPartitioner, PartitionerException
@@ -1927,7 +2041,7 @@ cdef class nonlocalBuilder:
                 for p in range(self.comm.size):
                     subDofs = arrayIndexSet(np.where(np.array(part, copy=False) == p)[0].astype(INDEX), sorted=True)
                     num_dofs += subDofs.getNumEntries()
-                    root.children.append(tree_node(root, subDofs, boxes, canBeAssembled=not self.kernel.variable))
+                    root.children.append(tree_node(root, subDofs, boxes, canBeAssembled=not self.kernel.variable, mixed_node=allNearField))
                     root.children[p].id = p+1
                 assert self.dm.num_dofs == num_dofs
                 root._dofs = None
@@ -2096,8 +2210,8 @@ cdef class nonlocalBuilder:
     def getH2RefinementParams(self):
         cdef:
             meshBase mesh = self.mesh
-            fractionalOrderBase s = self.kernel.s
             refinementParams refParams
+            REAL_t singularity = self.kernel.max_singularity
 
         target_order = self.local_matrix.target_order
         refParams.eta = self.params.get('eta', 3.)
@@ -2105,7 +2219,7 @@ cdef class nonlocalBuilder:
         iO = self.params.get('interpolation_order', None)
         if iO is None:
             loggamma = abs(np.log(0.25))
-            refParams.interpolation_order = max(np.ceil((2*target_order+max(mesh.dim+2*s.max, 2))*abs(np.log(mesh.hmin/mesh.diam))/loggamma/3.), 2)
+            refParams.interpolation_order = max(np.ceil((2*target_order+max(-singularity, 2))*abs(np.log(mesh.hmin/mesh.diam))/loggamma/3.), 2)
         else:
             refParams.interpolation_order = iO
         mL = self.params.get('maxLevels', None)
@@ -2145,13 +2259,6 @@ cdef class nonlocalBuilder:
 
         refParams.attemptRefinement = True
 
-        LOGGER.info('interpolation_order: {}, maxLevels: {}, minClusterSize: {}, minMixedClusterSize: {}, minFarFieldBlockSize: {}, eta: {}'.format(refParams.interpolation_order,
-                                                                                                                                                    refParams.maxLevels,
-                                                                                                                                                    refParams.minSize,
-                                                                                                                                                    refParams.minMixedSize,
-                                                                                                                                                    refParams.farFieldInteractionSize,
-                                                                                                                                                    refParams.eta))
-
         return refParams
 
     def doLocalFarFieldIndexing(self, tree_node myRoot, REAL_t[:, :, ::1] boxes):
@@ -2173,6 +2280,8 @@ cdef class nonlocalBuilder:
             lclIndicator.toarray()[lclDoFs] = 1.
             split = dofmapSplitter(self.dm, {'lcl': lclIndicator})
             local_dm = split.getSubMap('lcl')
+            local_dm.inner = ip_distributed_nonoverlapping(self.comm)
+            local_dm.norm = norm_distributed_nonoverlapping(self.comm)
             lclR, lclP = split.getRestrictionProlongation('lcl')
             lookup = {}
             for local_dof in range(local_dm.num_dofs):
@@ -2215,6 +2324,14 @@ cdef class nonlocalBuilder:
         assert isinstance(self.kernel, FractionalKernel), 'H2 is only implemented for fractional kernels'
 
         refParams = self.getH2RefinementParams()
+
+        LOGGER.info('interpolation_order: {}, maxLevels: {}, minClusterSize: {}, minMixedClusterSize: {}, minFarFieldBlockSize: {}, eta: {}'.format(refParams.interpolation_order,
+                                                                                                                                                    refParams.maxLevels,
+                                                                                                                                                    refParams.minSize,
+                                                                                                                                                    refParams.minMixedSize,
+                                                                                                                                                    refParams.farFieldInteractionSize,
+                                                                                                                                                    refParams.eta))
+
         forceUnsymmetric = self.params.get('forceUnsymmetric', False)
         doDistributedAssembly = self.comm is not None and self.comm.size > 1 and DoFMap.num_dofs > self.comm.size
         assembleOnRoot = self.params.get('assembleOnRoot', True)

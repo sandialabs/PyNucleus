@@ -95,8 +95,8 @@ meshConst.plot()
 dmConst = dofmapFactory('P1', meshConst, nIConst['domain'])
 dmConstInteraction = dmConst.getComplementDoFMap()
 
-A_const = dmConst.assembleNonlocal(kernelConst, matrixFormat='sparse')
-B_const = dmConst.assembleNonlocal(kernelConst, dm2=dmConstInteraction, matrixFormat='sparse')
+A_const = dmConst.assembleNonlocal(kernelConst, matrixFormat='sparsified')
+B_const = dmConst.assembleNonlocal(kernelConst, dm2=dmConstInteraction, matrixFormat='sparsified')
 
 g = functionFactory('Lambda', lambda x: -(x[0]**2 + x[1]**2)/4)
 g_interp = dmConstInteraction.interpolate(g)
@@ -122,4 +122,3 @@ print(A_const)
 
 ######################################################################
 plt.show()
-

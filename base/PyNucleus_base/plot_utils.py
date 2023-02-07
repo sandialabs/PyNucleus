@@ -220,3 +220,37 @@ def latexFormatRate(r, digits=2):
         return '^{{{}}}'.format(int(np.around(r)))
     else:
         return ('^{{{:.' + str(digits) + '}}}').format(r)
+
+
+class movieCreator:
+    def __init__(self, u, outputFolder, plot_kwargs={}):
+        if isinstance(outputFolder, str):
+            from pathlib import Path
+            outputFolder = Path(outputFolder)
+        self.outputFolder = outputFolder
+        outputFolder.mkdir(parents=True, exist_ok=True)
+        self.plot_kwargs = plot_kwargs
+        self.ts = 0
+
+        import matplotlib.pyplot as plt
+
+        self.fig = plt.figure()
+        self.upd = u.plot(flat=True, **plot_kwargs)
+        plt.savefig(self.outputFolder/'{:05}.png'.format(self.ts), dpi=300)
+
+    def addFrame(self, u):
+        import matplotlib.pyplot as plt
+        self.ts += 1
+        u.plot(flat=True, update=self.upd, **self.plot_kwargs)
+        plt.savefig(self.outputFolder/'{:05}.png'.format(self.ts), dpi=300)
+
+    def generateMovie(self):
+        import matplotlib.pyplot as plt
+        plt.close(self.fig)
+        from subprocess import Popen
+        # Popen(['mencoder', 'mf://*.png', '-mf', 'fps=10', '-o',
+        #        '{}.avi'.format('movie'), '-ovc', 'lavc',
+        #        '-lavcopts', 'vcodec=msmpeg4v2:vbitrate=800'],
+        #       cwd=self.outputFolder).wait()
+        Popen(['ffmpeg', '-framerate', '10', '-i', '%05d.png', '-c:v', 'libx264', '-r', '30', '-pix_fmt', 'yuv420p', '-y', 'movie.mp4'],
+              cwd=self.outputFolder).wait()

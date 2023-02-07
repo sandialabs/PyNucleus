@@ -46,7 +46,6 @@ cdef class integrable1D(nonlocalLaplacian1D):
 
 cdef class integrable2D(nonlocalLaplacian2D):
     cdef:
-        REAL_t[::1] temp2
         INDEX_t[::1] idx
         public quadQuadratureRule qrEdge0, qrEdge1, qrVertex, qrId
         REAL_t[:, :, ::1] PSI_edge, PSI_id, PSI_vertex

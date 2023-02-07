@@ -11,7 +11,7 @@ import numpy as np
 cimport numpy as np
 cimport cython
 
-from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX, ENCODE
+from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX, ENCODE, BOOL
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, COMPLEX_t, ENCODE_t
 from PyNucleus_base import uninitialized
 from PyNucleus_base.ip_norm cimport mydot, vector_t, complex_vector_t
@@ -1607,48 +1607,65 @@ def assembleMass(DoFMap dm,
                  simplexQuadratureRule qr=None):
     cdef:
         INDEX_t dim = dm.mesh.dim
+        INDEX_t manifold_dim = dm.mesh.manifold_dim
         local_matrix_t local_matrix
     if coefficient is None:
-        if isinstance(dm, P0_DoFMap):
-            if dim == 1:
-                local_matrix = mass_1d_sym_P0()
-            elif dim == 2:
-                local_matrix = mass_2d_sym_P0()
-            elif dim == 3:
-                local_matrix = mass_3d_sym_P0()
+        if dim == manifold_dim:
+            if isinstance(dm, P0_DoFMap):
+                if dim == 1:
+                    local_matrix = mass_1d_sym_P0()
+                elif dim == 2:
+                    local_matrix = mass_2d_sym_P0()
+                elif dim == 3:
+                    local_matrix = mass_3d_sym_P0()
+                else:
+                    raise NotImplementedError()
+            elif isinstance(dm, P1_DoFMap):
+                if dim == 1:
+                    local_matrix = mass_1d_sym_P1()
+                elif dim == 2:
+                    local_matrix = mass_2d_sym_P1()
+                elif dim == 3:
+                    local_matrix = mass_3d_sym_P1()
+                else:
+                    raise NotImplementedError()
+            elif isinstance(dm, P2_DoFMap):
+                if dim == 1:
+                    local_matrix = mass_1d_sym_P2()
+                elif dim == 2:
+                    local_matrix = mass_2d_sym_P2()
+                elif dim == 3:
+                    local_matrix = mass_3d_sym_P2()
+                else:
+                    raise NotImplementedError()
+            elif isinstance(dm, P3_DoFMap):
+                if dim == 1:
+                    local_matrix = mass_1d_sym_P3()
+                elif dim == 2:
+                    local_matrix = mass_2d_sym_P3()
+                elif dim == 3:
+                    local_matrix = mass_3d_sym_P3()
+                else:
+                    raise NotImplementedError()
+            
             else:
-                raise NotImplementedError()
-        elif isinstance(dm, P1_DoFMap):
-            if dim == 1:
-                local_matrix = mass_1d_sym_P1()
-            elif dim == 2:
-                local_matrix = mass_2d_sym_P1()
-            elif dim == 3:
-                local_matrix = mass_3d_sym_P1()
-            else:
-                raise NotImplementedError()
-        elif isinstance(dm, P2_DoFMap):
-            if dim == 1:
-                local_matrix = mass_1d_sym_P2()
-            elif dim == 2:
-                local_matrix = mass_2d_sym_P2()
-            elif dim == 3:
-                local_matrix = mass_3d_sym_P2()
-            else:
-                raise NotImplementedError()
-        elif isinstance(dm, P3_DoFMap):
-            if dim == 1:
-                local_matrix = mass_1d_sym_P3()
-            elif dim == 2:
-                local_matrix = mass_2d_sym_P3()
-            elif dim == 3:
-                local_matrix = mass_3d_sym_P3()
-            else:
-                raise NotImplementedError()
-        
+                raise NotImplementedError(dm)
         else:
-            raise NotImplementedError(dm)
+            assert manifold_dim == dim-1
+            if isinstance(dm, P1_DoFMap):
+                if dim == 1:
+                    local_matrix = mass_0d_in_1d_sym_P1()
+                elif dim == 2:
+                    local_matrix = mass_1d_in_2d_sym_P1()
+                elif dim == 3:
+                    local_matrix = mass_2d_in_3d_sym_P1()
+                else:
+                    raise NotImplementedError()
+            else:
+                raise NotImplementedError()
+
     elif isinstance(coefficient, function):
+        assert manifold_dim == dim
         if qr is None:
             qr = simplexXiaoGimbutas(2*dm.polynomialOrder+2, dim)
         if dim == 1:
@@ -2520,31 +2537,60 @@ def assembleRHS(FUNCTION_t fun, DoFMap dm,
             raise NotImplementedError()
         sC.setSimplex(simplex)
 
-        for i in range(mesh.num_cells):
-            # Get local vertices
-            mesh.getSimplex(i, simplex)
+        phi = dm.localShapeFunctions[0]
+        if phi.needsGradients:
 
-            # Calculate volume
-            vol = sC.evalVolumeGradients(gradients)
+            for i in range(mesh.num_cells):
+                # Get local vertices
+                mesh.getSimplex(i, simplex)
+
+                # Calculate volume
+                vol = sC.evalVolumeGradients(gradients)
+
+                # evaluate local shape functions on quadrature nodes
+                for k in range(dm.dofs_per_element):
+                    phi = dm.localShapeFunctions[k]
+                    phi.setCell(mesh.cells[i, :])
+                    for j in range(num_quad_nodes):
+                        phi.eval(np.ascontiguousarray(qr.nodes[:, j]), gradients, PHIVector[k, j, :])
+
+                # Get function values at quadrature nodes
+                qr.evalVectorFun(fun, simplex, fvalsVector)
+
+                # Put everything together
+                for k in range(dm.dofs_per_element):
+                    I = dm.cell2dof(i, k)
+                    if I < 0:
+                        continue
+                    for j in range(num_quad_nodes):
+                        for l in range(fun_rows):
+                            data[I] += vol*weights[j]*fvalsVector[j, l]*PHIVector[k, j, l]
+        else:
 
             # evaluate local shape functions on quadrature nodes
             for k in range(dm.dofs_per_element):
                 phi = dm.localShapeFunctions[k]
-                phi.setCell(mesh.cells[i, :])
                 for j in range(num_quad_nodes):
                     phi.eval(np.ascontiguousarray(qr.nodes[:, j]), gradients, PHIVector[k, j, :])
 
-            # Get function values at quadrature nodes
-            qr.evalVectorFun(fun, simplex, fvalsVector)
+            for i in range(mesh.num_cells):
+                # Get local vertices
+                mesh.getSimplex(i, simplex)
 
-            # Put everything together
-            for k in range(dm.dofs_per_element):
-                I = dm.cell2dof(i, k)
-                if I < 0:
-                    continue
-                for j in range(num_quad_nodes):
-                    for l in range(fun_rows):
-                        data[I] += vol*weights[j]*fvalsVector[j, l]*PHIVector[k, j, l]
+                # Calculate volume
+                vol = sC.evalVolume()
+
+                # Get function values at quadrature nodes
+                qr.evalVectorFun(fun, simplex, fvalsVector)
+
+                # Put everything together
+                for k in range(dm.dofs_per_element):
+                    I = dm.cell2dof(i, k)
+                    if I < 0:
+                        continue
+                    for j in range(num_quad_nodes):
+                        for l in range(fun_rows):
+                            data[I] += vol*weights[j]*fvalsVector[j, l]*PHIVector[k, j, l]
     return dataVec
 
 
@@ -2742,9 +2788,6 @@ def assembleRHSgrad(FUNCTION_t fun, DoFMap dm,
 
 
 cdef class multi_function:
-    cdef:
-        public INDEX_t numInputs, numOutputs
-
     def __init__(self, numInputs, numOutputs):
         self.numInputs = numInputs
         self.numOutputs = numOutputs
@@ -2835,7 +2878,7 @@ cdef class brusselator(multi_function):
         y[1] = -z
 
 
-cdef class CahnHilliard(multi_function):
+cdef class CahnHilliard_F_prime(multi_function):
     def __init__(self):
         multi_function.__init__(self, 1, 1)
 
@@ -2848,7 +2891,7 @@ cdef class CahnHilliard(multi_function):
         y[0] = u**3-u
 
 
-cdef class CahnHilliard2(multi_function):
+cdef class CahnHilliard_F(multi_function):
     def __init__(self):
         multi_function.__init__(self, 1, 1)
 
@@ -2920,7 +2963,7 @@ def assembleNonlinearity(meshBase mesh, multi_function fun, DoFMap DoFMap, multi
 
     u = U.data
 
-    dataList = DoFMap.zeros(fun.numOutputs)
+    dataList = multi_fe_vector(np.zeros((fun.numOutputs, DoFMap.num_dofs), dtype=REAL), DoFMap)
     # data = data_mem
     fvals = uninitialized((num_quad_nodes, fun.numInputs), dtype=REAL)
     fvals2 = uninitialized((num_quad_nodes, fun.numOutputs), dtype=REAL)

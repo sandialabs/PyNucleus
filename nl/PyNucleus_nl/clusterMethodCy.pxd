@@ -15,6 +15,7 @@ from PyNucleus_fem.functions cimport function
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, BOOL_t
 from PyNucleus_base.linear_operators cimport (LinearOperator,
                                               Dense_LinearOperator,
+                                              CSR_LinearOperator,
                                               SSS_LinearOperator)
 from PyNucleus_base.tupleDict cimport indexSet, indexSetIterator, arrayIndexSet, arrayIndexSetIterator, bitArray
 from PyNucleus_base.performanceLogger cimport PLogger, FakePLogger
@@ -142,6 +143,37 @@ cdef class DistributedH2Matrix_globalData(LinearOperator):
     cdef INDEX_t matvec(self,
                         REAL_t[::1] x,
                         REAL_t[::1] y) except -1
+
+
+cdef class DistributedLinearOperator(LinearOperator):
+    cdef:
+        public CSR_LinearOperator localMat
+        public tree_node tree
+        public list Pnear
+        public MPI.Comm comm
+        public DoFMap dm
+        dict node_lookup
+        dict lcl_node_lookup
+        public tree_node lclRoot
+        public DoFMap lcl_dm
+        public LinearOperator lclR
+        public LinearOperator lclP
+        INDEX_t[::1] near_offsetReceives
+        INDEX_t[::1] near_offsetSends
+        INDEX_t[::1] near_remoteReceives
+        INDEX_t[::1] near_remoteSends
+        INDEX_t[::1] near_counterReceives
+        INDEX_t[::1] near_counterSends
+        REAL_t[::1] near_dataReceives
+        REAL_t[::1] near_dataSends
+        INDEX_t[::1] rowIdx
+        INDEX_t[::1] colIdx
+    cdef void setupNear(self)
+    cdef void communicateNear(self, REAL_t[::1] src, REAL_t[::1] target)
+    cdef INDEX_t matvec(self,
+                        REAL_t[::1] x,
+                        REAL_t[::1] y) except -1
+    cpdef tuple convert(self)
 
 
 cdef class DistributedH2Matrix_localData(LinearOperator):

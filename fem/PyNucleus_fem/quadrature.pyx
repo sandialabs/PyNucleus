@@ -213,7 +213,14 @@ cdef class transformQuadratureRule(simplexQuadratureRule):
     @cython.boundscheck(False)
     @cython.wraparound(False)
     @cython.initializedcheck(False)
-    cpdef void setBaryTransform(self, REAL_t[:, ::1] A, REAL_t[::1] b):
+    cpdef void setLinearBaryTransform(self, REAL_t[:, ::1] A):
+        b = np.zeros((A.shape[0]), dtype=REAL)
+        self.setAffineBaryTransform(A, b)
+
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.initializedcheck(False)
+    cpdef void setAffineBaryTransform(self, REAL_t[:, ::1] A, REAL_t[::1] b):
         self.A = A
         self.b = b
         self.compute()

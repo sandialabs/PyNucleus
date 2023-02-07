@@ -29,10 +29,12 @@ include "kernel_params.pxi"
 def getKernelEnum(str kernelTypeString):
     if kernelTypeString.upper() == "FRACTIONAL":
         return FRACTIONAL
-    elif kernelTypeString.upper() == "INDICATOR":
+    elif kernelTypeString.upper() in ("INDICATOR", "CONSTANT"):
         return INDICATOR
-    elif kernelTypeString.upper() == "PERIDYNAMIC":
+    elif kernelTypeString.upper() in ("INVERSEDISTANCE", "INVERSEOFDISTANCE", "PERIDYNAMIC"):
         return PERIDYNAMIC
+    elif kernelTypeString.upper() == "GAUSSIAN":
+        return GAUSSIAN
     else:
         raise NotImplementedError(kernelTypeString)
 
@@ -131,6 +133,34 @@ cdef REAL_t peridynamicKernel2D(REAL_t *x, REAL_t *y, void *c_params):
         return 0.
 
 
+cdef REAL_t gaussianKernel1D(REAL_t *x, REAL_t *y, void *c_params):
+    cdef:
+        interactionDomain interaction = <interactionDomain>((<void**>(c_params+fINTERACTION))[0])
+        REAL_t C, invD
+        REAL_t d2
+    if interaction.evalPtr(1, x, y) != 0.:
+        d2 = (x[0]-y[0])*(x[0]-y[0])
+        C = getREAL(c_params, fSCALING)
+        invD = getREAL(c_params, fEXPONENTINVERSE)
+        return C*exp(-d2*invD)
+    else:
+        return 0.
+
+
+cdef REAL_t gaussianKernel2D(REAL_t *x, REAL_t *y, void *c_params):
+    cdef:
+        interactionDomain interaction = <interactionDomain>((<void**>(c_params+fINTERACTION))[0])
+        REAL_t C, invD
+        REAL_t d2
+    if interaction.evalPtr(2, x, y) != 0.:
+        d2 = (x[0]-y[0])*(x[0]-y[0]) + (x[1]-y[1])*(x[1]-y[1])
+        C = getREAL(c_params, fSCALING)
+        invD = getREAL(c_params, fEXPONENTINVERSE)
+        return C*exp(-d2*invD)
+    else:
+        return 0.
+
+
 cdef REAL_t updateAndEvalIntegrable(REAL_t *x, REAL_t *y, void *c_params):
     cdef:
         INDEX_t dim = getINDEX(c_params, fKDIM)
@@ -210,6 +240,10 @@ cdef class Kernel(twoPointFunction):
             self.min_singularity = -1.
             self.max_singularity = -1.
             self.singularityValue = -1.
+        elif self.kernelType == GAUSSIAN:
+            self.min_singularity = 0.
+            self.max_singularity = 0.
+            self.singularityValue = 0.
 
         self.horizon = horizon
         self.variableHorizon = not isinstance(self.horizon, constant)
@@ -220,6 +254,8 @@ cdef class Kernel(twoPointFunction):
         else:
             self.horizonValue = self.horizon.value
             self.finiteHorizon = self.horizon.value != np.inf
+            if self.kernelType == GAUSSIAN:
+                setREAL(self.c_kernel_params, fEXPONENTINVERSE, 1.0/(self.horizonValue/3.)**2)
 
         self.interaction = interaction
         self.complement = self.interaction.complement
@@ -248,11 +284,15 @@ cdef class Kernel(twoPointFunction):
                     self.kernelFun = indicatorKernel1D
                 elif self.kernelType == PERIDYNAMIC:
                     self.kernelFun = peridynamicKernel1D
+                elif self.kernelType == GAUSSIAN:
+                    self.kernelFun = gaussianKernel1D
             elif dim == 2:
                 if self.kernelType == INDICATOR:
                     self.kernelFun = indicatorKernel2D
                 elif self.kernelType == PERIDYNAMIC:
                     self.kernelFun = peridynamicKernel2D
+                elif self.kernelType == GAUSSIAN:
+                    self.kernelFun = gaussianKernel2D
             else:
                 raise NotImplementedError()
         else:
@@ -263,11 +303,15 @@ cdef class Kernel(twoPointFunction):
                     setFun(self.c_kernel_params, fEVAL, indicatorKernel1D)
                 elif self.kernelType == PERIDYNAMIC:
                     setFun(self.c_kernel_params, fEVAL, peridynamicKernel1D)
+                elif self.kernelType == GAUSSIAN:
+                    setFun(self.c_kernel_params, fEVAL, gaussianKernel1D)
             elif dim == 2:
                 if self.kernelType == INDICATOR:
                     setFun(self.c_kernel_params, fEVAL, indicatorKernel2D)
                 elif self.kernelType == PERIDYNAMIC:
                     setFun(self.c_kernel_params, fEVAL, peridynamicKernel2D)
+                elif self.kernelType == GAUSSIAN:
+                    setFun(self.c_kernel_params, fEVAL, gaussianKernel2D)
             else:
                 raise NotImplementedError()
 
@@ -321,6 +365,8 @@ cdef class Kernel(twoPointFunction):
         if self.piecewise:
             if self.variableHorizon:
                 self.horizonValue = self.horizon.eval(x)
+                if self.kernelType == GAUSSIAN:
+                    setREAL(self.c_kernel_params, fEXPONENTINVERSE, 1.0/(self.horizonValue/3.)**2)
             if self.variableScaling:
                 self.scalingValue = self.scaling.eval(x, y)
 
@@ -333,6 +379,8 @@ cdef class Kernel(twoPointFunction):
             if self.variableHorizon:
                 xA = <REAL_t[:dim]> x
                 self.horizonValue = self.horizon.eval(xA)
+                if self.kernelType == GAUSSIAN:
+                    setREAL(self.c_kernel_params, fEXPONENTINVERSE, 1.0/(self.horizonValue/3.)**2)
             if self.variableScaling:
                 self.scalingValue = self.scaling.evalPtr(dim, x, y)
 
@@ -376,6 +424,8 @@ cdef class Kernel(twoPointFunction):
             kernelName = 'indicator'
         elif self.kernelType == PERIDYNAMIC:
             kernelName = 'peridynamic'
+        elif self.kernelType == GAUSSIAN:
+            kernelName = 'Gaussian'
         else:
             raise NotImplementedError()
         return "{}({}, {}, {})".format(self.__class__.__name__, kernelName, repr(self.interaction), self.scaling)
@@ -389,6 +439,7 @@ cdef class Kernel(twoPointFunction):
     def plot(self, x0=None):
         from matplotlib import ticker
         import matplotlib.pyplot as plt
+        self.evalParams(x0, x0)
         if self.finiteHorizon:
             delta = self.horizonValue
         else:
@@ -567,7 +618,8 @@ cdef class FractionalKernel(Kernel):
 
 
 cdef class RangedFractionalKernel(FractionalKernel):
-    def __init__(self, INDEX_t dim,
+    def __init__(self,
+                 INDEX_t dim,
                  admissibleOrders,
                  function horizon,
                  BOOL_t normalized=True,
@@ -618,6 +670,12 @@ cdef class RangedFractionalKernel(FractionalKernel):
 
     def __repr__(self):
         return 'ranged '+super(RangedFractionalKernel, self).__repr__()
+
+    def __getstate__(self):
+        return (self.dim, self.admissibleOrders, self.horizon, self.normalized, self.errorBound, self.M_min, self.M_max, self.xi)
+
+    def __setstate__(self, state):
+        RangedFractionalKernel.__init__(self, *state)
 
 
 cdef class RangedVariableFractionalKernel(FractionalKernel):
