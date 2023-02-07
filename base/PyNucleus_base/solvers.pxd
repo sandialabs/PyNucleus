@@ -27,7 +27,7 @@ include "config.pxi"
 cdef class solver:
     cdef:
         public BOOL_t initialized
-        LinearOperator A
+        public LinearOperator A
         public INDEX_t num_rows
         public FakePLogger PLogger
     cpdef void setup(self, LinearOperator A=*)

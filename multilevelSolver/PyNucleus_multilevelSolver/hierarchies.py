@@ -60,7 +60,7 @@ class hierarchy:
         elif self.params['keepMeshes'] == 'none':
             self.meshInformationPolicy = [DELETE_MESH]*self.params['noRef'] + [DELETE_MESH]
         else:
-            raise NotImplementedError()
+            raise NotImplementedError(self.params['keepMeshes'])
 
         if self.params['assemble'] == 'all':
             if self.params['meshTransformation'] is None:

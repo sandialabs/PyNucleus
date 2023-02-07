@@ -529,7 +529,7 @@ cdef class DoFMap:
             COMPLEX_t[::1] complex_vec_data
             complex_fe_vector complex_vec
             INDEX_t cellNo, i, dof
-            REAL_t[:, ::1] simplex = uninitialized((self.mesh.dim+1,
+            REAL_t[:, ::1] simplex = uninitialized((self.mesh.manifold_dim+1,
                                                       self.mesh.dim), dtype=REAL)
             REAL_t[:, ::1] pos = uninitialized((self.dofs_per_element, self.mesh.dim), dtype=REAL)
         if isinstance(fun, function):
@@ -746,13 +746,16 @@ cdef class DoFMap:
         :param kernel: The kernel function :math:`\gamma`
 
         :param matrixFormat: The matrix format for the assembly. Valid
-            values are `dense`, 'diagonal, `sparse`, `H2` and
-            `H2corrected`. `H2` assembles into a hierachical matrix
-            format. `H2corrected` also assembles a hierachical matrix
-            for an infinite horizon kernel and a correction term.
-            'diagonal' returns the matrix diagonal.
+            values are `dense`, `diagonal`, `sparsified`, `sparse`,
+            `H2` and `H2corrected`. `H2` assembles into a hierachical
+            matrix format. `H2corrected` also assembles a hierachical
+            matrix for an infinite horizon kernel and a correction
+            term. `diagonal` returns the matrix diagonal. Both
+            `sparsified` and `sparse` return a sparse matrix, but the
+            assembly routines are different.
 
         """
+        
         try:
             
             from PyNucleus_nl.kernelsCy import RangedFractionalKernel
@@ -791,8 +794,10 @@ cdef class DoFMap:
                     return builder.getDense()
                 elif matrixFormat.upper() == 'DIAGONAL':
                     return builder.getDiagonal()
-                elif matrixFormat.upper() == 'SPARSE':
+                elif matrixFormat.upper() == 'SPARSIFIED':
                     return builder.getDense(trySparsification=True)
+                elif matrixFormat.upper() == 'SPARSE':
+                    return builder.getSparse(returnNearField=returnNearField)
                 elif matrixFormat.upper() == 'H2':
                     return builder.getH2(returnNearField=returnNearField)
                 elif matrixFormat.upper() == 'H2CORRECTED':
@@ -842,6 +847,10 @@ cdef class DoFMap:
             return assembleMatrix(self.mesh, self, lm)
         else:
             return assembleNonSymMatrix_CSR(self.mesh, lm, self, dm2, symLocalMatrix=True)
+
+    def assembleNonlinearity(self, fun, multi_fe_vector U):
+        from . femCy import assembleNonlinearity
+        return assembleNonlinearity(self.mesh, fun, self, U)
 
     def __getstate__(self):
         return (self.mesh,
@@ -1093,6 +1102,39 @@ cdef class DoFMap:
                 else:
                     yy[dof2] = boundaryData[-dof-1]
         return y
+
+    def getFullDoFMap(self, DoFMap complement_dm):
+        cdef:
+            DoFMap dm
+            INDEX_t i, k, dof, dof2, num_cells = self.mesh.num_cells
+            INDEX_t[::1] indptr, indices, indptr_bc, indices_bc
+
+        if isinstance(self, Product_DoFMap):
+            dm = Product_DoFMap(type(self.scalarDM)(self.mesh, tag=MAX_INT), self.numComponents)
+        else:
+            dm = type(self)(self.mesh, tag=MAX_INT)
+
+        indptr = np.arange(self.num_dofs+1, dtype=INDEX)
+        indices = np.zeros((self.num_dofs), dtype=INDEX)
+        data = np.ones((self.num_dofs), dtype=REAL)
+        indptr_bc = np.arange(self.num_boundary_dofs+1, dtype=INDEX)
+        indices_bc = np.zeros((self.num_boundary_dofs), dtype=INDEX)
+        data_bc = np.ones((self.num_boundary_dofs), dtype=REAL)
+
+        for i in range(num_cells):
+            for k in range(self.dofs_per_element):
+                dof = self.cell2dof(i, k)
+                dof2 = dm.cell2dof(i, k)
+                if dof >= 0:
+                    indices[dof] = dof2
+                else:
+                    indices_bc[-dof-1] = dof2
+
+        R = CSR_LinearOperator(indices, indptr, data)
+        R.num_columns = dm.num_dofs
+        R_bc = CSR_LinearOperator(indices_bc, indptr_bc, data_bc)
+        R_bc.num_columns = dm.num_dofs
+        return dm, R, R_bc
 
     @cython.boundscheck(False)
     @cython.initializedcheck(False)
@@ -1553,9 +1595,10 @@ cdef class shapeFunction:
 
 
 cdef class vectorShapeFunction:
-    def __init__(self, INDEX_t dim):
+    def __init__(self, INDEX_t dim, BOOL_t needsGradients):
         self.dim = dim
         self.cell = uninitialized((dim+1), dtype=INDEX)
+        self.needsGradients = needsGradients
 
     cpdef void setCell(self, INDEX_t[::1] cell):
         cdef:
@@ -1605,15 +1648,15 @@ cdef class P0_DoFMap(DoFMap):
     def __init__(self, meshBase mesh, tag=None,
                  INDEX_t skipCellsAfter=-1):
         self.polynomialOrder = 0
-        if mesh.dim == 1:
+        if mesh.manifold_dim == 1:
             self.localShapeFunctions = [shapeFunctionP0()]
             self.nodes = np.array([[0.5, 0.5]], dtype=REAL)
             super(P0_DoFMap, self).__init__(mesh, 0, 0, 0, 1, tag, skipCellsAfter)
-        elif mesh.dim == 2:
+        elif mesh.manifold_dim == 2:
             self.localShapeFunctions = [shapeFunctionP0()]
             self.nodes = np.array([[1./3., 1./3., 1./3.]], dtype=REAL)
             super(P0_DoFMap, self).__init__(mesh, 0, 0, 0, 1, tag, skipCellsAfter)
-        elif mesh.dim == 3:
+        elif mesh.manifold_dim == 3:
             self.localShapeFunctions = [shapeFunctionP0()]
             self.nodes = np.array([[0.25, 0.25, 0.25, 0.25]], dtype=REAL)
             super(P0_DoFMap, self).__init__(mesh, 0, 0, 0, 1, tag, skipCellsAfter)
@@ -1697,19 +1740,22 @@ cdef class P1_DoFMap(DoFMap):
     def __init__(self, meshBase mesh, tag=None,
                  INDEX_t skipCellsAfter=-1):
         self.polynomialOrder = 1
-        if mesh.dim == 1:
+        if mesh.manifold_dim == 0:
+            self.localShapeFunctions = [shapeFunctionP1(0)]
+            self.nodes = np.array([[1.]], dtype=REAL)
+        elif mesh.manifold_dim == 1:
             self.localShapeFunctions = [shapeFunctionP1(0),
                                         shapeFunctionP1(1)]
             self.nodes = np.array([[1., 0.],
                                    [0., 1.]], dtype=REAL)
-        elif mesh.dim == 2:
+        elif mesh.manifold_dim == 2:
             self.localShapeFunctions = [shapeFunctionP1(0),
                                         shapeFunctionP1(1),
                                         shapeFunctionP1(2)]
             self.nodes = np.array([[1., 0., 0.],
                                    [0., 1., 0.],
                                    [0., 0., 1.]], dtype=REAL)
-        elif mesh.dim == 3:
+        elif mesh.manifold_dim == 3:
             self.localShapeFunctions = [shapeFunctionP1(0),
                                         shapeFunctionP1(1),
                                         shapeFunctionP1(2),
@@ -2253,7 +2299,7 @@ cdef class productSpaceShapeFunction(vectorShapeFunction):
         INDEX_t K
 
     def __init__(self, shapeFunction phi, INDEX_t K, INDEX_t k, INDEX_t dim):
-        super(productSpaceShapeFunction, self).__init__(dim)
+        super(productSpaceShapeFunction, self).__init__(dim, False)
         self.phi = phi
         self.K = K
         self.k = k

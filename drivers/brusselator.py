@@ -25,6 +25,7 @@ from mpi4py import MPI
 import numpy as np
 from pathlib import Path
 from PyNucleus.base import driver, solverFactory
+from PyNucleus.base.linear_operators import TimeStepperLinearOperator
 from PyNucleus.fem.femCy import assembleNonlinearity
 from PyNucleus.multilevelSolver import hierarchyManager
 from PyNucleus.nl import paramsForFractionalHierarchy
@@ -35,7 +36,7 @@ import h5py
 ###############################################################################
 
 d = driver(MPI.COMM_WORLD)
-brusselatorProblem(d)
+bP = brusselatorProblem(d)
 
 d.add('timestepper', acceptedValues=['koto', 'euler_imex', 'ars3'])
 d.add('dt', 0.01)
@@ -53,8 +54,8 @@ params = d.process()
 ###############################################################################
 
 with d.timer('Assemble matrices'):
-    params['kernel'] = d.kernelU
-    params['domain'] = d.mesh
+    params['kernel'] = bP.kernelU
+    params['domain'] = bP.mesh
     params['keepMeshes'] = 'all'
     params['keepAllDoFMaps'] = True
     params['buildMass'] = True
@@ -62,13 +63,13 @@ with d.timer('Assemble matrices'):
     params['dense'] = d.dense
     params['doSave'] = True
     params['logging'] = True
-    hierarchies, connectors = paramsForFractionalHierarchy(d.noRef, params)
+    hierarchies, connectors = paramsForFractionalHierarchy(bP.noRef, params)
     hM = hierarchyManager(hierarchies, connectors, params)
     hM.setup()
 
     levelsU = hM.getLevelList()
 
-    if d.alpha == d.beta:
+    if bP.alpha == bP.beta:
         levelsV = levelsU
     else:
         raise NotImplementedError()
@@ -79,8 +80,8 @@ with d.timer('Assemble matrices'):
 if d.dt <= 0:
     d.dt = mesh.h**2
 
-N = int(np.around(d.T/d.dt))
-d.dt = d.T/N
+N = int(np.around(bP.T/d.dt))
+d.dt = bP.T/N
 
 info = d.addOutputGroup('info')
 info.add('h', mesh.h)
@@ -90,14 +91,14 @@ info.add('dt', d.dt)
 info.add('N', N)
 info.add('maxiter', d.maxiter)
 info.add('tol', d.tol)
-info.add('A', d.A)
-info.add('B', d.B)
-info.add('Dx', d.Dx)
-info.add('Dy', d.Dy)
-info.add('Q', d.Q)
-info.add('eta', d.eta)
-info.add('B_cr', d.Bcr)
-info.add('k_cr', d.kcr)
+info.add('A', bP.A)
+info.add('B', bP.B)
+info.add('Dx', bP.Dx)
+info.add('Dy', bP.Dy)
+info.add('Q', bP.Q)
+info.add('eta', bP.eta)
+info.add('B_cr', bP.Bcr)
+info.add('k_cr', bP.kcr)
 d.logger.info('\n'+str(info))
 
 
@@ -105,7 +106,7 @@ d.logger.info('\n'+str(info))
 # step diffusion implicitly, nonlinearity explicitly
 
 massU = levelsU[-1]['M']
-massV = (d.eta**2)*levelsV[-1]['M']
+massV = (bP.eta**2)*levelsV[-1]['M']
 S_U = levelsU[-1]['S']
 S_V = levelsV[-1]['S']
 
@@ -119,7 +120,7 @@ elif d.timestepper == 'koto':
 
 def explicit(t, sol, sol_new):
     sol_temp = assembleNonlinearity(mesh,
-                                    d.nonlinearity,
+                                    bP.nonlinearity,
                                     dm,
                                     sol)
     sol_new[0].assign(sol_temp[0])
@@ -158,7 +159,7 @@ with d.timer('Setup solvers'):
             return newLevels
 
         levelsU = newHierarchy(levelsU, 1., ts_class.gamma*d.dt)
-        levelsV = newHierarchy(levelsV, d.eta**2, ts_class.gamma*d.dt)
+        levelsV = newHierarchy(levelsV, bP.eta**2, ts_class.gamma*d.dt)
         solverImplicitU = solverFactory(d.solver, hierarchy=levelsU, setup=True)
         solverImplicitV = solverFactory(d.solver, hierarchy=levelsV, setup=True)
     else:
@@ -207,7 +208,7 @@ def mass_solve(rhs, sol, sol_new):
 
 timestepper = ts_class(dm,
                        implicit, implicit_solve, explicit,
-                       d.nonlinearity.numInputs,
+                       bP.nonlinearity.numInputs,
                        mass, mass_solve)
 
 ###############################################################################
@@ -240,8 +241,8 @@ else:
         resultFile.create_group('dm')
         dm.HDF5write(resultFile['dm'])
 
-    sol[0].assign(dm.project(d.initial_U))
-    sol[1].assign(dm.project(d.initial_V))
+    sol[0].assign(dm.project(bP.initial_U))
+    sol[1].assign(dm.project(bP.initial_V))
 
 d.logger.info('t={:.3} u in [{:.3}, {:.3}], v in [{:.3}, {:.3}]'.format(t,
                                                                         sol[0].min(), sol[0].max(),

@@ -21,7 +21,7 @@ def domain(request):
     return request.param
 
 
-@pytest.fixture(scope='module', params=['fractional', 'indicator', 'peridynamic'])
+@pytest.fixture(scope='module', params=['fractional', 'constant', 'inverseDistance'])
 def kernel(request):
     return request.param
 
@@ -35,7 +35,7 @@ def testNonlocal(domain, kernel, problem, extra):
     base = getPath()+'/../'
     py = ['runNonlocal.py',
           '--domain', domain,
-          '--kernel', kernel,
+          '--kernelType', kernel,
           '--problem', problem]
     # if kernel != 'fractional':
     py += ['--dense']

@@ -70,7 +70,8 @@ cdef class transformQuadratureRule(simplexQuadratureRule):
         simplexQuadratureRule qr
         REAL_t[:, ::1] A
         REAL_t[::1] b
-    cpdef void setBaryTransform(self, REAL_t[:, ::1] A, REAL_t[::1] b)
+    cpdef void setLinearBaryTransform(self, REAL_t[:, ::1] A)
+    cpdef void setAffineBaryTransform(self, REAL_t[:, ::1] A, REAL_t[::1] b)
     cdef void compute(self)
 
 

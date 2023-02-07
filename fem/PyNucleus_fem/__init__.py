@@ -76,7 +76,8 @@ from . functions import (function,
                          shiftScaleFunctor,
                          squareIndicator,
                          radialIndicator,
-                         fractalDiffusivity, expDiffusivity)
+                         fractalDiffusivity, expDiffusivity,
+                         componentVectorFunction)
 rhsFunSin1D = _rhsFunSin1D()
 rhsFunSin2D = _rhsFunSin2D()
 rhsFunSin3D = _rhsFunSin3D()
@@ -202,6 +203,7 @@ functionFactory.register('solBoundaryLayer2D', solBoundaryLayer2D)
 functionFactory.register('solCornerSingularity2D', solCornerSingularity2D)
 functionFactory.register('lookup', lookupFunction)
 functionFactory.register('shiftScaleFunctor', shiftScaleFunctor)
+functionFactory.register('componentVectorFunction', componentVectorFunction, aliases=['vector'])
 
 from . import _version
 __version__ = _version.get_versions()['version']

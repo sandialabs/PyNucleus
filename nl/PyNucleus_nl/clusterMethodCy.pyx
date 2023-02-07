@@ -26,7 +26,7 @@ from PyNucleus_fem.splitting import dofmapSplitter
 from . nonlocalLaplacianBase cimport variableFractionalOrder
 from . nonlocalLaplacian cimport nearFieldClusterPair
 from . kernelsCy cimport Kernel
-from PyNucleus_fem.DoFMaps cimport DoFMap, P1_DoFMap, P2_DoFMap
+from PyNucleus_fem.DoFMaps cimport DoFMap, P0_DoFMap, P1_DoFMap, P2_DoFMap
 from PyNucleus_fem.meshCy cimport meshBase
 from PyNucleus_fem.functions cimport constant
 import mpi4py.rc
@@ -38,7 +38,7 @@ COMPRESSION = 'gzip'
 
 def getRefinementParams(meshBase mesh, Kernel kernel, dict params={}):
     cdef:
-        fractionalOrderBase s = kernel.s
+        REAL_t singularity = kernel.max_singularity
         refinementParams refParams
 
     target_order = params.get('target_order', 2.)
@@ -47,7 +47,7 @@ def getRefinementParams(meshBase mesh, Kernel kernel, dict params={}):
     iO = params.get('interpolation_order', None)
     if iO is None:
         loggamma = abs(np.log(0.25))
-        refParams.interpolation_order = max(np.ceil((2*target_order+max(mesh.dim+2*s.max, 2))*abs(np.log(mesh.hmin/mesh.diam))/loggamma/3.), 2)
+        refParams.interpolation_order = max(np.ceil((2*target_order+max(-singularity, 2))*abs(np.log(mesh.hmin/mesh.diam))/loggamma/3.), 2)
     else:
         refParams.interpolation_order = iO
     mL = params.get('maxLevels', None)
@@ -630,17 +630,17 @@ cdef class tree_node:
             # split along larger box dimension
             subbox = uninitialized((dim, 2), dtype=REAL)
             if self.box[0, 1]-self.box[0, 0] > self.box[1, 1]-self.box[1, 0]:
-                subbox[0, 0] = self.box[0, 0]
+                subbox[0, 0] = self.box[0, 0]-1e-12
                 if refType == GEOMETRIC:
                     subbox[0, 1] = (self.box[0, 0] + self.box[0, 1])*0.5
                 elif refType == MEDIAN:
                     subbox[0, 1] = m0
-                subbox[1, 0] = self.box[1, 0]
-                subbox[1, 1] = self.box[1, 1]
+                subbox[1, 0] = self.box[1, 0]-1e-12
+                subbox[1, 1] = self.box[1, 1]+1e-12
             else:
-                subbox[0, 0] = self.box[0, 0]
-                subbox[0, 1] = self.box[0, 1]
-                subbox[1, 0] = self.box[1, 0]
+                subbox[0, 0] = self.box[0, 0]-1e-12
+                subbox[0, 1] = self.box[0, 1]+1e-12
+                subbox[1, 0] = self.box[1, 0]-1e-12
                 if refType == GEOMETRIC:
                     subbox[1, 1] = (self.box[1, 0] + self.box[1, 1])*0.5
                 elif refType == MEDIAN:
@@ -778,7 +778,7 @@ cdef class tree_node:
         else:
             return self.parent.getParent(parentLevel + 1)
 
-    def plot(self, level=0, plotDoFs=False, REAL_t[:, ::1] dofCoords=None, BOOL_t recurse=False, BOOL_t printClusterIds=False, BOOL_t printNumDoFs=False):
+    def plot(self, level=0, plotType='box', REAL_t[:, ::1] dofCoords=None, BOOL_t recurse=False, BOOL_t printClusterIds=False, BOOL_t printNumDoFs=False, transferOperatorColor='purple', coefficientsColor='red', horizontal=True, levelSkip=1):
         import matplotlib.pyplot as plt
 
         cdef:
@@ -789,7 +789,54 @@ cdef class tree_node:
             INDEX_t[::1] idx
             REAL_t[::1] x, y
 
-        if plotDoFs:
+        if plotType in ('treeDoFCoords', 'treeDoF'):
+            if plotType == 'treeDoFCoords':
+                assert dofCoords is not None
+            if self.dim == 1:
+                if self.parent is not None:
+                    dofs = self.get_dofs()
+                    center = np.zeros((self.dim), dtype=REAL)
+                    it = dofs.getIter()
+                    k = 0
+                    while it.step():
+                        dof = it.i
+                        if plotType == 'treeDoFCoords':
+                            for j in range(self.dim):
+                                center[j] += dofCoords[dof, j]
+                        else:
+                            center[0] += dof
+                        k += 1
+                    for j in range(self.dim):
+                        center[j] /= len(dofs)
+
+                    dofs = self.parent.get_dofs()
+                    pcenter = np.zeros((self.dim), dtype=REAL)
+                    it = dofs.getIter()
+                    k = 0
+                    while it.step():
+                        dof = it.i
+                        if plotType == 'treeDoFCoords':
+                            for j in range(self.dim):
+                                pcenter[j] += dofCoords[dof, j]
+                        else:
+                            pcenter[0] += dof
+                        k += 1
+                    for j in range(self.dim):
+                        pcenter[j] /= len(dofs)
+                    if horizontal:
+                        plt.plot([pcenter[0], center[0]], [level+levelSkip, level], c='k')
+                        level = level-levelSkip
+                    else:
+                        plt.plot([level-levelSkip, level], [pcenter[0], center[0]], c='k')
+                        level = level+levelSkip
+                if recurse:
+                    for c in self.children:
+                        c.plot(level=level, plotType=plotType, dofCoords=dofCoords, recurse=recurse,
+                               printClusterIds=printClusterIds, printNumDoFs=printNumDoFs, horizontal=horizontal,
+                               levelSkip=levelSkip)
+            else:
+                raise NotImplementedError()
+        elif plotType == 'DoFCoords':
             assert dofCoords is not None
             from scipy.spatial import ConvexHull
             if self.dim == 1:
@@ -817,7 +864,7 @@ cdef class tree_node:
                              verticalalignment='center')
                 if recurse:
                     for c in self.children:
-                        c.plot(level=level+1, plotDoFs=plotDoFs, dofCoords=dofCoords, recurse=recurse,
+                        c.plot(level=level+1, plotType=plotType, dofCoords=dofCoords, recurse=recurse,
                                printClusterIds=printClusterIds, printNumDoFs=printNumDoFs)
             elif self.dim == 2:
                 dofs = self.get_dofs()
@@ -877,10 +924,69 @@ cdef class tree_node:
 
                 if recurse and not self.get_is_leaf():
                     for c in self.children:
-                        c.plot(level+1, plotDoFs, dofCoords, recurse, printClusterIds, printNumDoFs)
+                        c.plot(level+1, plotType, dofCoords, recurse, printClusterIds, printNumDoFs)
             else:
                 raise NotImplementedError()
-        else:
+        elif plotType == 'DoF':
+            import matplotlib.patches as patches
+            if self.dim == 1:
+                dofs = self.get_dofs()
+
+                spacing = 0.2
+
+                try:
+                    self.parent.transferOperator
+                    if horizontal:
+                        # box1 = [min(dofs)+spacing, min(dofs)+self.transferOperator.shape[0]-spacing]
+                        box1 = [0.5*(min(dofs)+max(dofs))-0.5*self.transferOperator.shape[0]+spacing, 0.5*(min(dofs)+max(dofs))+0.5*self.transferOperator.shape[0]-spacing]
+                        box2 = [level+spacing, level+self.transferOperator.shape[0]-spacing]
+                    else:
+                        box1 = [level+spacing, level+self.transferOperator.shape[0]-spacing]
+                        # box2 = [max(dofs)-self.transferOperator.shape[0]+spacing, max(dofs)-spacing]
+                        box2 = [0.5*(min(dofs)+max(dofs))-0.5*self.transferOperator.shape[0]+spacing, 0.5*(min(dofs)+max(dofs))+0.5*self.transferOperator.shape[0]-spacing]
+                    plt.gca().add_patch(patches.Rectangle((box1[0], box2[0]), box1[1]-box1[0], box2[1]-box2[0], fill=True, facecolor=transferOperatorColor))
+
+                    if printClusterIds and printNumDoFs:
+                        label = 'id={},nd={}'.format(self.id, self.num_dofs)
+                    elif printClusterIds:
+                        label = '{}'.format(self.id)
+                    elif printNumDoFs:
+                        label = '{}'.format(self.num_dofs)
+                    if printClusterIds or printNumDoFs:
+                        myCenter = np.mean(self.box, axis=1)
+                        plt.text(myCenter[0], level, s=label,
+                                 horizontalalignment='center',
+                                 verticalalignment='center')
+                    if horizontal:
+                        level += self.transferOperator.shape[0]
+                    else:
+                        level -= self.transferOperator.shape[0]
+                except:
+                    pass
+                try:
+                    self.value
+                    if horizontal:
+                        box1 = [min(dofs)+spacing, max(dofs)-spacing]
+                        box2 = [level+spacing, level+self.transferOperator.shape[0]-spacing]
+                    else:
+                        box1 = [level+spacing, level+self.transferOperator.shape[0]-spacing]
+                        box2 = [min(dofs)+spacing, max(dofs)-spacing]
+                    plt.gca().add_patch(patches.Rectangle((box1[0], box2[0]), box1[1]-box1[0], box2[1]-box2[0], fill=True, facecolor=coefficientsColor))
+
+                    if horizontal:
+                        level += self.transferOperator.shape[0]
+                    else:
+                        level -= self.transferOperator.shape[0]
+                except:
+                    pass
+                returnLevel = level
+                if recurse:
+                    for c in self.children:
+                        returnLevel = c.plot(level=level, plotType=plotType, dofCoords=dofCoords, recurse=recurse,
+                                             printClusterIds=printClusterIds, printNumDoFs=printNumDoFs, horizontal=horizontal, transferOperatorColor=transferOperatorColor, coefficientsColor=coefficientsColor)
+                return returnLevel
+
+        elif plotType == 'box':
             import matplotlib.patches as patches
             if self.dim == 2:
                 if recurse and self.parent is None:
@@ -914,6 +1020,8 @@ cdef class tree_node:
                         c.plot(level+1)
             else:
                 raise NotImplementedError()
+        else:
+            raise NotImplementedError(plotType)
 
     @cython.initializedcheck(False)
     @cython.wraparound(False)
@@ -1068,7 +1176,9 @@ cdef class tree_node:
             REAL_t[:, ::1] transferOperator
         dim = mesh.dim
         # Sauter Schwab p. 428
-        if isinstance(DoFMap, P1_DoFMap):
+        if isinstance(DoFMap, P0_DoFMap):
+            quadOrder = order+1
+        elif isinstance(DoFMap, P1_DoFMap):
             quadOrder = order+2
         elif isinstance(DoFMap, P2_DoFMap):
             quadOrder = order+3
@@ -2215,8 +2325,12 @@ cdef class H2Matrix(LinearOperator):
             REAL_t[:, ::1] tr1, tr2, d
             INDEX_t[::1] dofs1, dofs2
         dense = self.Anear.toarray()
-        minLvl = min(self.Pfar)
-        maxLvl = max(self.Pfar)
+        if len(self.Pfar) > 0:
+            minLvl = min(self.Pfar)
+            maxLvl = max(self.Pfar)
+        else:
+            minLvl = 100
+            maxLvl = 0
         lvlNodes = {lvl : set() for lvl in range(minLvl, maxLvl+1)}
         delNodes = {lvl : set() for lvl in range(minLvl, maxLvl+1)}
         for lvl in self.Pfar:
@@ -2273,10 +2387,11 @@ cdef class H2Matrix(LinearOperator):
                     plt.gca().add_patch(patches.Rectangle((box1[0], box2[0]), box1[1]-box1[0], box2[1]-box2[0], fill=True, facecolor=nearFieldColor))
                 for lvl in self.Pfar:
                     for c in self.Pfar[lvl]:
-                        box1 = [min(c.n1.dofs)+spacing, max(c.n1.dofs)-spacing]
-                        box2 = [nd-max(c.n2.dofs)+spacing, nd-min(c.n2.dofs)-spacing]
+                        if farFieldColor is not None:
+                            box1 = [min(c.n1.dofs)+spacing, max(c.n1.dofs)-spacing]
+                            box2 = [nd-max(c.n2.dofs)+spacing, nd-min(c.n2.dofs)-spacing]
+                            plt.gca().add_patch(patches.Rectangle((box1[0], box2[0]), box1[1]-box1[0], box2[1]-box2[0], fill=True, facecolor=farFieldColor))
 
-                        plt.gca().add_patch(patches.Rectangle((box1[0], box2[0]), box1[1]-box1[0], box2[1]-box2[0], fill=True, facecolor=farFieldColor))
                         k = c.kernelInterpolant.shape[0]
 
                         if shiftCoefficientColor is not None:
@@ -2346,6 +2461,225 @@ cdef class DistributedH2Matrix_globalData(LinearOperator):
             d = self.localMat.Anear.diagonal
             self.comm.Allreduce(MPI.IN_PLACE, d)
             return d
+
+
+cdef class DistributedLinearOperator(LinearOperator):
+    """
+    Distributed linear operator, operating on local vectors
+    """
+    def __init__(self, CSR_LinearOperator localMat, tree_node tree, list Pnear, MPI.Comm comm, DoFMap dm, DoFMap local_dm, CSR_LinearOperator lclR, CSR_LinearOperator lclP):
+        cdef:
+            tree_node n
+        super(DistributedLinearOperator, self).__init__(local_dm.num_dofs, local_dm.num_dofs)
+        self.localMat = localMat
+        self.tree = tree
+        self.Pnear = Pnear
+        self.comm = comm
+        self.dm = dm
+
+        self.node_lookup = {}
+        for n in self.tree.get_tree_nodes():
+            self.node_lookup[n.id] = n
+
+        self.lclRoot = self.tree.children[self.comm.rank]
+        self.lcl_node_lookup = {}
+        for n in self.lclRoot.get_tree_nodes():
+            self.lcl_node_lookup[n.id] = n
+
+        self.lcl_dm = local_dm
+        self.lclR = lclR
+        self.lclP = lclP
+
+        self.setupNear()
+
+    def __repr__(self):
+        return '<Rank %d/%d, %s, %d local size>' % (self.comm.rank, self.comm.size, self.localMat, self.lcl_dm.num_dofs)
+
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cdef void setupNear(self):
+        cdef:
+            nearFieldClusterPair cP
+            list remoteReceives_list
+            INDEX_t commSize = self.comm.size, remoteRank
+            INDEX_t local_dof, global_dof, k
+            dict global_to_local
+            INDEX_t[::1] indptr, indices
+            REAL_t[::1] data
+            INDEX_t[::1] new_indptr, new_indices
+            REAL_t[::1] new_data
+            INDEX_t jj, jjj, J
+        remoteReceives_list = [set() for p in range(commSize)]
+        for cP in self.Pnear:
+            if cP.n1.id in self.lcl_node_lookup and cP.n2.id not in self.lcl_node_lookup:
+                remoteRank = cP.n2.getParent(1).id-1
+                remoteReceives_list[remoteRank] |= cP.n2.dofs.toSet()
+            elif cP.n1.id not in self.lcl_node_lookup and cP.n2.id in self.lcl_node_lookup:
+                remoteRank = cP.n1.getParent(1).id-1
+                remoteReceives_list[remoteRank] |= cP.n1.dofs.toSet()
+
+        counterReceives = np.array([len(remoteReceives_list[p]) for p in range(commSize)], dtype=INDEX)
+        remoteReceives = np.concatenate([np.sort(list(remoteReceives_list[p])) for p in range(commSize)]).astype(INDEX)
+        counterSends = np.zeros((commSize), dtype=INDEX)
+        self.comm.Alltoall(counterReceives, counterSends)
+        remoteSends = np.zeros(counterSends.sum(), dtype=INDEX)
+
+        offsetsReceives = np.concatenate(([0], np.cumsum(counterReceives)[:commSize-1])).astype(INDEX)
+        offsetsSends = np.concatenate(([0], np.cumsum(counterSends)[:commSize-1])).astype(INDEX)
+        self.comm.Alltoallv([remoteReceives, (counterReceives, offsetsReceives)],
+                            [remoteSends, (counterSends, offsetsSends)])
+
+        self.near_offsetReceives = offsetsReceives
+        self.near_offsetSends = offsetsSends
+        self.near_remoteReceives = remoteReceives
+        self.near_remoteSends = remoteSends
+        self.near_counterReceives = counterReceives
+        self.near_counterSends = counterSends
+        self.near_dataReceives = uninitialized((np.sum(counterReceives)), dtype=REAL)
+        self.near_dataSends = uninitialized((np.sum(counterSends)), dtype=REAL)
+
+        global_to_local = {}
+        for local_dof in range(self.lcl_dm.num_dofs):
+            global_dof = self.lclR.indices[local_dof]
+            global_to_local[global_dof] = local_dof
+        for k in range(self.near_remoteSends.shape[0]):
+            global_dof = self.near_remoteSends[k]
+            local_dof = global_to_local[global_dof]
+            self.near_remoteSends[k] = local_dof
+
+        self.rowIdx = self.lclR.indices[:self.lcl_dm.num_dofs]
+        self.colIdx = np.concatenate((self.rowIdx,
+                                      self.near_remoteReceives))
+        self.near_remoteReceives = np.arange(self.lcl_dm.num_dofs,
+                                             self.lcl_dm.num_dofs+self.near_remoteReceives.shape[0],
+                                             dtype=INDEX)
+
+        for local_dof in range(self.lcl_dm.num_dofs,
+                               self.lcl_dm.num_dofs+self.near_remoteReceives.shape[0]):
+            global_dof = self.colIdx[local_dof]
+            global_to_local[global_dof] = local_dof
+
+        indptr = self.localMat.indptr
+        indices = self.localMat.indices
+        data = self.localMat.data
+        new_indptr = uninitialized((self.rowIdx.shape[0]+1), dtype=INDEX)
+        new_indices = uninitialized((self.localMat.nnz), dtype=INDEX)
+        new_data = uninitialized((self.localMat.nnz), dtype=REAL)
+        new_indptr[0] = 0
+        for local_dof in range(self.rowIdx.shape[0]):
+            global_dof = self.rowIdx[local_dof]
+            new_indptr[local_dof+1] = new_indptr[local_dof] + indptr[global_dof+1]-indptr[global_dof]
+            jjj = new_indptr[local_dof]
+            for jj in range(indptr[global_dof], indptr[global_dof+1]):
+                J = indices[jj]
+                new_indices[jjj] = global_to_local[J]
+                new_data[jjj] = data[jj]
+                jjj += 1
+        self.localMat.indptr = new_indptr
+        self.localMat.indices = new_indices
+        self.localMat.data = new_data
+        self.localMat.num_rows = self.rowIdx.shape[0]
+        self.localMat.num_columns = self.colIdx.shape[0]
+
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cdef void communicateNear(self, REAL_t[::1] src, REAL_t[::1] target):
+        cdef:
+            INDEX_t i
+        # pack
+        for i in range(self.near_remoteSends.shape[0]):
+            self.near_dataSends[i] = src[self.near_remoteSends[i]]
+        # comm
+        self.comm.Alltoallv([self.near_dataSends, (self.near_counterSends, self.near_offsetSends)],
+                            [self.near_dataReceives, (self.near_counterReceives, self.near_offsetReceives)])
+        # unpack
+        for i in range(self.near_remoteReceives.shape[0]):
+            target[self.near_remoteReceives[i]] = self.near_dataReceives[i]
+
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cdef INDEX_t matvec(self, REAL_t[::1] x, REAL_t[::1] y) except -1:
+        cdef:
+            INDEX_t level
+            tree_node n1, n2
+            farFieldClusterPair clusterPair
+            CSR_LinearOperator localMat = self.localMat
+        # near field
+        xTemp = uninitialized((self.localMat.shape[1]), dtype=REAL)
+        xTemp[:self.localMat.shape[0]] = x
+        self.communicateNear(x, xTemp)
+        localMat(xTemp, y)
+
+    @cython.initializedcheck(False)
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    cpdef tuple convert(self):
+        cdef:
+            dict gid_to_lid_rowmap
+            INDEX_t[:, ::1] lcl_A_rowmap_a
+            INDEX_t k, dof, p
+            DistributedMap distRowMap
+            INDEX_t[:, ::1] lcl_Anear_colmap_a
+            DistributedMap distColMap
+            dict clusterID_to_lid
+            INDEX_t lid, clusterID, cluster_gid, cluster_lid
+            tree_node n
+            INDEX_t[::1] lcl_clusterGIDs
+            INDEX_t[:, ::1] lcl_clusterMap, lcl_ghosted_clusterMap
+            DistributedMap distClusterMap
+            INDEX_t lcl_coeffmap_size, lcl_ghosted_coeffmap_size
+            INDEX_t[:, ::1] lcl_coeffmap, lcl_ghosted_coeffmap
+            INDEX_t[::1] lcl_blocksizes
+            dict gid_to_clusterID
+            dict gid_cluster_to_lid_coeff
+            INDEX_t[::1] lid_cluster_to_gid_coeff, ghosted_lid_cluster_to_gid_coeff
+            INDEX_t offset, gid_coeff, lid_coeff, lid_dof, dofNo
+            IJOperator lcl_basisMatrix, lcl_transfer, lcl_transferBlockGraph, lcl_kernelApproximation, lcl_kernelBlockGraph
+            INDEX_t blockSize
+            INDEX_t i, k1, k2
+            INDEX_t lid_coeff1, lid_coeff2
+            INDEX_t cluster_gid1, cluster_gid2
+            INDEX_t lid_cluster1, lid_cluster2
+            farFieldClusterPair cP
+            MPI.Comm comm = self.comm
+            INDEX_t commSize = comm.size
+            INDEX_t commRank = comm.rank
+            INDEX_t minDistFromRoot
+        # rowmap
+        gid_to_lid_rowmap = {}
+        lcl_A_rowmap_a = np.zeros((self.lclRoot.num_dofs, 2), dtype=INDEX)
+        lcl_A_rowmap_a[:, 0] = self.rowIdx
+        lcl_A_rowmap_a[:, 1] = commRank
+        for dof in range(self.lclRoot.num_dofs):
+            gid_to_lid_rowmap[self.rowIdx[dof]] = dof
+
+        distRowMap = DistributedMap(comm, lcl_A_rowmap_a)
+
+        # Anear colmap
+        lcl_Anear_colmap_a = np.zeros((self.lclRoot.num_dofs+self.near_remoteReceives.shape[0], 2), dtype=INDEX)
+        lcl_Anear_colmap_a[:, 0] = self.colIdx
+        for k in range(self.lclRoot.num_dofs):
+            lcl_Anear_colmap_a[k, 1] = commRank
+        for p in range(commSize):
+            for k in range(self.near_offsetReceives[p],
+                           self.near_offsetReceives[p]+self.near_counterReceives[p]):
+                lcl_Anear_colmap_a[self.lclRoot.num_dofs+k, 1] = p
+
+        distColMap = DistributedMap(comm, lcl_Anear_colmap_a)
+
+        # Anear
+        lclAnear = self.localMat
+
+        return (lclAnear,
+                distRowMap,
+                distColMap)
+
+    property diagonal:
+        def __get__(self):
+            return self.localMat.Anear.diagonal
 
 
 cdef class DistributedH2Matrix_localData(LinearOperator):
@@ -2920,10 +3254,10 @@ cdef class DistributedH2Matrix_localData(LinearOperator):
 @cython.wraparound(False)
 def getDoFBoxesAndCells(meshBase mesh, DoFMap DoFMap, comm=None):
     cdef:
-        INDEX_t i, j, I, k, start, end, dim = mesh.dim
+        INDEX_t i, j, I, k, start, end, dim = mesh.dim, manifold_dim = mesh.manifold_dim
         REAL_t[:, :, ::1] boxes = uninitialized((DoFMap.num_dofs, dim, 2), dtype=REAL)
         REAL_t[:, ::1] boxes2
-        REAL_t[:, ::1] simplex = uninitialized((dim+1, dim), dtype=REAL)
+        REAL_t[:, ::1] simplex = uninitialized((manifold_dim+1, dim), dtype=REAL)
         REAL_t[::1] m = uninitialized((dim), dtype=REAL), M = uninitialized((dim), dtype=REAL)
         sparsityPattern cells_pre = sparsityPattern(DoFMap.num_dofs)
 
@@ -2942,7 +3276,7 @@ def getDoFBoxesAndCells(meshBase mesh, DoFMap DoFMap, comm=None):
         for k in range(dim):
             m[k] = simplex[0, k]
             M[k] = simplex[0, k]
-        for j in range(dim):
+        for j in range(manifold_dim):
             for k in range(dim):
                 m[k] = min(m[k], simplex[j+1, k])
                 M[k] = max(M[k], simplex[j+1, k])
@@ -3006,7 +3340,7 @@ def getFractionalOrders(variableFractionalOrder s, meshBase mesh):
 @cython.initializedcheck(False)
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cpdef BOOL_t getAdmissibleClusters(FractionalKernel kernel,
+cpdef BOOL_t getAdmissibleClusters(Kernel kernel,
                                    tree_node n1,
                                    tree_node n2,
                                    refinementParams refParams,

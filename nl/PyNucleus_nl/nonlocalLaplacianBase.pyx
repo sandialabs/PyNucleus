@@ -6,9 +6,9 @@
 ###################################################################################
 
 
+# cython: initializedcheck=False, wraparound=False, boundscheck=False, cdivision=True
 import numpy as np
 cimport numpy as np
-cimport cython
 from libc.math cimport (sin, cos, sinh, cosh, tanh, sqrt, atan2,
                         log, ceil,
                         fabs as abs, M_PI as pi, pow,
@@ -16,6 +16,7 @@ from libc.math cimport (sin, cos, sinh, cosh, tanh, sqrt, atan2,
 from PyNucleus_base.myTypes import INDEX, REAL, ENCODE, BOOL
 from PyNucleus_base import uninitialized
 from libc.stdlib cimport malloc
+from . interactionDomains cimport CUT
 
 # With 64 bits, we can handle at most 5 DoFs per element.
 MASK = np.uint64
@@ -25,10 +26,7 @@ include "panelTypes.pxi"
 cdef INDEX_t MAX_INT = np.iinfo(INDEX).max
 cdef REAL_t inf = np.inf
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
+
 cdef inline void getSimplexAndCenter(const INDEX_t[:, ::1] cells,
                                      const REAL_t[:, ::1] vertices,
                                      const INDEX_t cellIdx,
@@ -86,10 +84,9 @@ cdef class double_local_matrix_t:
         else:
             raise NotImplementedError()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
+        self.center1 = uninitialized((self.dim), dtype=REAL)
+        self.center2 = uninitialized((self.dim), dtype=REAL)
+
     cdef void precomputeSimplices(self):
         # mesh1 and mesh 2 will be the same
         cdef:
@@ -110,15 +107,9 @@ cdef class double_local_matrix_t:
     cdef INDEX_t getCellPairIdentifierSize(self):
         return -1
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void computeCellPairIdentifierBase(self, INDEX_t[::1] ID, INDEX_t *perm):
         raise NotImplementedError()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void computeCellPairIdentifier(self, INDEX_t[::1] ID, INDEX_t *perm):
         self.computeCellPairIdentifierBase(ID, perm)
 
@@ -142,7 +133,6 @@ cdef class double_local_matrix_t:
         self.vertices1 = vertices1
         self.cells1 = cells1
         self.simplex1 = uninitialized((self.cells1.shape[1], self.dim), dtype=REAL)
-        self.center1 = uninitialized((self.dim), dtype=REAL)
         self.cellNo1 = -1
         self.cellNo2 = -1
         if self.symmetricCells:
@@ -161,13 +151,9 @@ cdef class double_local_matrix_t:
         self.vertices2 = vertices2
         self.cells2 = cells2
         self.simplex2 = uninitialized((self.cells2.shape[1], self.dim), dtype=REAL)
-        self.center2 = uninitialized((self.dim), dtype=REAL)
         self.cellNo1 = -1
         self.cellNo2 = -1
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void setCell1(self, INDEX_t cellNo1):
         if self.cellNo1 == cellNo1:
             return
@@ -180,9 +166,6 @@ cdef class double_local_matrix_t:
             self.center1 = self.precomputedCenters[cellNo1, :]
             self.vol1 = self.precomputedVolumes[cellNo1]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void setCell2(self, INDEX_t cellNo2):
         if self.cellNo2 == cellNo2:
             return
@@ -207,36 +190,26 @@ cdef class double_local_matrix_t:
     def setCell2_py(self, INDEX_t cellNo2):
         self.setCell2(cellNo2)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void swapCells(self):
         self.cellNo1, self.cellNo2 = self.cellNo2, self.cellNo1
         self.simplex1, self.simplex2 = self.simplex2, self.simplex1
         self.center1, self.center2 = self.center2, self.center1
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void setSimplex1(self, REAL_t[:, ::1] simplex1):
         self.simplex1 = simplex1
         self.getSimplexCenter(self.simplex1, self.center1)
+        self.vol1 = self.volume1(self.simplex1)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void setSimplex2(self, REAL_t[:, ::1] simplex2):
         self.simplex2 = simplex2
         self.getSimplexCenter(self.simplex2, self.center2)
+        self.vol2 = self.volume2(self.simplex2)
 
     def __call__(self,
                  REAL_t[::1] contrib,
                  panelType panel):
         return self.eval(contrib, panel)
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef void eval(self,
                    REAL_t[::1] contrib,
                    panelType panel,
@@ -248,31 +221,18 @@ cdef class double_local_matrix_t:
                 panel):
         self.eval(contrib, panel)
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef panelType getQuadOrder(self,
                                 const REAL_t h1,
                                 const REAL_t h2,
                                 REAL_t d):
         raise NotImplementedError()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t get_h_simplex(self, const REAL_t[:, ::1] simplex):
         raise NotImplementedError()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t get_h_surface_simplex(self, const REAL_t[:, ::1] simplex):
         raise NotImplementedError()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cdef void getSimplexCenter(self,
                                const REAL_t[:, ::1] simplex,
                                REAL_t[::1] center):
@@ -287,9 +247,6 @@ cdef class double_local_matrix_t:
         for j in range(simplex.shape[1]):
             center[j] *= fac
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef panelType getProtoPanelType(self):
         # Given two cells, determines their relationship:
         # - COMMON_FACE
@@ -312,9 +269,6 @@ cdef class double_local_matrix_t:
                     break
         return panel
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void computeCenterDistance(self):
         cdef:
             INDEX_t j
@@ -323,9 +277,6 @@ cdef class double_local_matrix_t:
             d2 += (self.center1[j]-self.center2[j])**2
         self.dcenter2 = d2
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void computeExtremeDistances(self):
         cdef:
             INDEX_t i, k, j
@@ -344,10 +295,6 @@ cdef class double_local_matrix_t:
         self.dmin2 = dmin2
         self.dmax2 = dmax2
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cpdef panelType getPanelType(self):
         raise NotImplementedError()
 
@@ -421,9 +368,6 @@ cdef class nonlocalLaplacian(double_local_matrix_t):
     cdef void getNearQuadRule(self, panelType panel):
         raise NotImplementedError()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void computeCellPairIdentifier(self, INDEX_t[::1] ID, INDEX_t *perm):
         assert not self.kernel.variable
         if self.kernel.finiteHorizon:
@@ -440,10 +384,6 @@ cdef class nonlocalLaplacian(double_local_matrix_t):
         else:
             self.computeCellPairIdentifierBase(ID, perm)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cpdef panelType getPanelType(self):
         # Given two cells, determines their relationship:
         # - COMMON_FACE
@@ -492,32 +432,135 @@ cdef class nonlocalLaplacian(double_local_matrix_t):
     cdef inline shapeFunction getLocalShapeFunction(self, INDEX_t local_dof):
         return (<shapeFunction>((<void**>(self.localShapeFunctions+local_dof*sizeof(void*)))[0]))
 
+    cdef void eval_distant(self,
+                           REAL_t[::1] contrib,
+                           panelType panel,
+                           MASK_t mask=ALL):
+        cdef:
+            INDEX_t k, i, j, I, J
+            REAL_t vol, val, vol1 = self.vol1, vol2 = self.vol2
+            doubleSimplexQuadratureRule qr2
+            REAL_t[:, ::1] PSI
+            REAL_t[:, ::1] simplex1 = self.simplex1
+            REAL_t[:, ::1] simplex2 = self.simplex2
+            INDEX_t dim = simplex1.shape[1]
+            REAL_t c1, c2, PSI_I, PSI_J
+            transformQuadratureRule qr0trans, qr1trans
+            INDEX_t dofs_per_element, numQuadNodes0, numQuadNodes1
+            REAL_t a_b1[3]
+            REAL_t a_A1[3][3]
+            REAL_t a_A2[3][3]
+            REAL_t[::1] b1
+            REAL_t[:, ::1] A1, A2
+            BOOL_t cutElements = False
+
+        if self.kernel.finiteHorizon:
+            # check if the horizon might cut the elements
+            if self.kernel.interaction.relPos == CUT:
+                cutElements = True
+            if self.kernel.complement:
+                cutElements = False
+                # TODO: cutElements should be set to True, but
+                #       need to figure out the element
+                #       transformation.
+
+        contrib[:] = 0.
+
+        if not cutElements:
+            vol = vol1*vol2
+            sQR = <specialQuadRule>(self.distantQuadRulesPtr[panel])
+            qr2 = <doubleSimplexQuadratureRule>(sQR.qr)
+            PSI = sQR.PSI
+            qr2.rule1.nodesInGlobalCoords(simplex1, self.x)
+            qr2.rule2.nodesInGlobalCoords(simplex2, self.y)
+
+            k = 0
+            for i in range(qr2.rule1.num_nodes):
+                for j in range(qr2.rule2.num_nodes):
+                    self.temp[k] = qr2.weights[k]*self.kernel.evalPtr(dim,
+                                                                      &self.x[i, 0],
+                                                                      &self.y[j, 0])
+                    k += 1
+
+            k = 0
+            for I in range(2*self.DoFMap.dofs_per_element):
+                for J in range(I, 2*self.DoFMap.dofs_per_element):
+                    if mask & (1 << k):
+                        val = 0.
+                        for i in range(qr2.num_nodes):
+                            val += self.temp[i] * PSI[I, i] * PSI[J, i]
+                        contrib[k] = val*vol
+                    k += 1
+        else:
+            sQR = <specialQuadRule>(self.distantQuadRulesPtr[panel])
+            qr2 = <doubleSimplexQuadratureRule>(sQR.qr)
+            if sQR.qrTransformed0 is not None:
+                qr0trans = sQR.qrTransformed0
+            else:
+                qr0 = qr2.rule1
+                qr0trans = transformQuadratureRule(qr0)
+                sQR.qrTransformed0 = qr0trans
+            if sQR.qrTransformed1 is not None:
+                qr1trans = sQR.qrTransformed1
+            else:
+                qr1 = qr2.rule2
+                qr1trans = transformQuadratureRule(qr1)
+                sQR.qrTransformed1 = qr1trans
+
+            numQuadNodes0 = qr0trans.num_nodes
+            numQuadNodes1 = qr1trans.num_nodes
+
+            vol = vol1*vol2
+            dofs_per_element = self.DoFMap.dofs_per_element
+
+            A1 = a_A1
+            b1 = a_b1
+            A2 = a_A2
+
+            self.kernel.interaction.startLoopSubSimplices_Simplex(simplex1, simplex2)
+            while self.kernel.interaction.nextSubSimplex_Simplex(A1, b1, &c1):
+                qr0trans.setAffineBaryTransform(A1, b1)
+                qr0trans.nodesInGlobalCoords(simplex1, self.x)
+                for i in range(qr0trans.num_nodes):
+                    self.kernel.interaction.startLoopSubSimplices_Node(self.x[i, :], simplex2)
+                    while self.kernel.interaction.nextSubSimplex_Node(A2, &c2):
+                        qr1trans.setLinearBaryTransform(A2)
+                        qr1trans.nodesInGlobalCoords(simplex2, self.y)
+                        for j in range(qr1trans.num_nodes):
+                            val = qr0trans.weights[i]*qr1trans.weights[j]*self.kernel.evalPtr(dim, &self.x[i, 0], &self.y[j, 0])
+                            val *= c1 * c2 * vol
+                            k = 0
+                            for I in range(2*dofs_per_element):
+                                if I < dofs_per_element:
+                                    PSI_I = self.getLocalShapeFunction(I).evalStrided(&qr0trans.nodes[0, i], numQuadNodes0)
+                                else:
+                                    PSI_I = -self.getLocalShapeFunction(I-dofs_per_element).evalStrided(&qr1trans.nodes[0, j], numQuadNodes1)
+                                for J in range(I, 2*dofs_per_element):
+                                    if mask & (1 << k):
+                                        if J < dofs_per_element:
+                                            PSI_J = self.getLocalShapeFunction(J).evalStrided(&qr0trans.nodes[0, i], numQuadNodes0)
+                                        else:
+                                            PSI_J = -self.getLocalShapeFunction(J-dofs_per_element).evalStrided(&qr1trans.nodes[0, j], numQuadNodes1)
+                                        contrib[k] += val * PSI_I*PSI_J
+                                    k += 1
+
 
 cdef class nonlocalLaplacian1D(nonlocalLaplacian):
     def __init__(self, Kernel kernel, meshBase mesh, DoFMap DoFMap, num_dofs=None, manifold_dim2=-1, **kwargs):
         super(nonlocalLaplacian1D, self).__init__(kernel, mesh, DoFMap, num_dofs, manifold_dim2, **kwargs)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t get_h_simplex(self, const REAL_t[:, ::1] simplex):
         cdef:
             REAL_t h2
         h2 = abs(simplex[1, 0]-simplex[0, 0])
         return h2
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t get_h_surface_simplex(self, const REAL_t[:, ::1] simplex):
         return 1.
 
     cdef INDEX_t getCellPairIdentifierSize(self):
         return 3
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void computeCellPairIdentifierBase(self, INDEX_t[::1] ID, INDEX_t * perm):
         # use h1, h2 and midpoint distance as identifier
         cdef:
@@ -544,9 +587,6 @@ cdef class nonlocalLaplacian2D(nonlocalLaplacian):
     def __init__(self, Kernel kernel, meshBase mesh, DoFMap DoFMap, num_dofs=None, manifold_dim2=-1, **kwargs):
         super(nonlocalLaplacian2D, self).__init__(kernel, mesh, DoFMap, num_dofs, manifold_dim2, **kwargs)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t get_h_simplex(self, const REAL_t[:, ::1] simplex):
         cdef:
             INDEX_t i, j
@@ -557,9 +597,6 @@ cdef class nonlocalLaplacian2D(nonlocalLaplacian):
                 hmax = max(hmax, h2)
         return sqrt(hmax)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t get_h_surface_simplex(self, const REAL_t[:, ::1] simplex):
         cdef:
             INDEX_t k
@@ -572,10 +609,6 @@ cdef class nonlocalLaplacian2D(nonlocalLaplacian):
     cdef INDEX_t getCellPairIdentifierSize(self):
         return 9
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cdef void computeCellPairIdentifierBase(self, INDEX_t[::1] ID, INDEX_t * perm):
         cdef:
             REAL_t d, d1, d2

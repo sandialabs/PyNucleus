@@ -13,4 +13,4 @@ TAG = np.int8
 ENCODE = np.int64
 REAL = np.float64
 COMPLEX = np.complex128
-BOOL = np.bool
+BOOL = np.bool_
