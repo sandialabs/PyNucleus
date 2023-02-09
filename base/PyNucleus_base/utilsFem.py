@@ -1482,6 +1482,7 @@ class propertyBuilder:
             self.cached_args = cached_args
             self.fun(*args)
         else:
+            dependencyLogger.debug('Skipping call to \'{}\''.format(self.fun.__name__))
             for prop in self.generatedProperties:
                 self.baseObj.setState(prop, VALID)
 
