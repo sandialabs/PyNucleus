@@ -103,7 +103,7 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
         indptr = np.zeros((data.shape[0]+1), dtype=INDEX)
         for i in range(data.shape[0]):
             for j in range(data.shape[1]):
-                if abs(data[i, j]) >= tolerance:
+                if abs(data[i, j]) > tolerance:
                     indptr[i+1] += 1
         for i in range(data.shape[0]):
             indptr[i+1] += indptr[i]
@@ -113,7 +113,7 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
         for i in range(data.shape[0]):
             k = 0
             for j in range(data.shape[1]):
-                if abs(data[i, j]) >= tolerance:
+                if abs(data[i, j]) > tolerance:
                     jj = indptr[i]+k
                     indices[jj] = j
                     values[jj] = data[i, j]

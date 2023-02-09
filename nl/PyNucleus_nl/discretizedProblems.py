@@ -184,17 +184,23 @@ class discretizedNonlocalProblem(problem):
         super().processCmdline(params)
 
     @generates(['hierarchy', 'bc', 'finalMesh', 'dm', 'dmBC', 'dmInterior', 'R_interior', 'P_interior', 'R_BC', 'P_BC'])
-    def buildHierarchy(self, mesh, kernel, rangedKernel, solverType, genKernel, dense, tag, boundaryCondition, domainIndicator, fluxIndicator, zeroExterior, noRef, eta, target_order, element):
+    def buildHierarchy(self, mesh, kernel, sArgs, rangedKernel, solverType, genKernel, dense, tag, boundaryCondition, domainIndicator, fluxIndicator, zeroExterior, noRef, eta, target_order, element):
         assert dense or (kernel.kernelType == FRACTIONAL), 'Hierarchical matrices are only implemented for fractional kernels'
         if rangedKernel is not None:
             hierarchy = self.directlyGetWithoutChecks('hierarchy')
             if hierarchy is not None:
+                newHierarchy = []
+                for lvl in range(len(hierarchy)):
+                    newHierarchy.append({})
+                    for key in hierarchy[lvl]:
+                        newHierarchy[lvl][key] = hierarchy[lvl][key]
+                newHierarchy[0]['sArgs'] = sArgs
+                hierarchy = newHierarchy
                 s = kernel.sValue
                 for lvl in range(len(hierarchy)):
                     if 'A' in hierarchy[lvl]:
                         hierarchy[lvl]['A'].set(s)
                 self.directlySetWithoutChecks('hierarchy', hierarchy)
-                # self.setState('solver', INVALID)
 
                 for prop in ['dm', 'dmBC', 'dmInterior', 'R_BC', 'P_BC', 'R_interior', 'P_interior', 'bc', 'finalMesh']:
                     setattr(self, prop, self.directlyGetWithoutChecks(prop))
