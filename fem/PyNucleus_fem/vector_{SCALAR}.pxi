@@ -599,7 +599,7 @@ cdef class {SCALAR_label_lc_}multi_fe_vector:
     def copy(self):
         cdef:
             {SCALAR_label_lc_}multi_fe_vector v
-        v = self.dm.empty()
+        v = self.dm.empty(self.numVectors)
         {SCALAR_label_lc_}assign_2d(v.data, self.data)
         return v
 

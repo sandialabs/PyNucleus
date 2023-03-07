@@ -16,16 +16,16 @@ class Stepper:
     """
     Solve
 
-    A(t, u_t) + B(t, u) = f(t)
+    f(t, u, u_t) = A(t, u_t) + B(t, u) - g(t) = 0
 
     mass:                  t, u  -> A(t, u)
     explicit:              t, u  -> B(t, u)
-    forcing:               t     -> f(t)
-    implicitSolverBuilder: t, dt -> solver for A(t, u)+dt*B(t, u)
+    forcing:               t     -> g(t)
+    implicitSolverBuilder: t, alpha, beta -> solver for alpha*A(t, u)+beta*B(t, u) = g
 
     """
 
-    def __init__(self, dm, mass, solverBuilder, forcing, explicit=None, dt=None, solverIsTimeDependent=False):
+    def __init__(self, dm, mass, solverBuilder, forcing, explicit=None, dt=None, solverIsTimeDependent=False, explicitIslinearAndTimeIndependent=False):
         self.dm = dm
         self.mass = mass
         self.solverBuilder = solverBuilder
@@ -33,54 +33,128 @@ class Stepper:
         self.explicit = explicit
         self.dt = dt
         self.solverIsTimeDependent = solverIsTimeDependent
+        self.explicitIslinearAndTimeIndependent = explicitIslinearAndTimeIndependent
 
     def step(self, t, dt, u):
         raise NotImplementedError()
 
-    def __call__(self, t, dt, u):
-        return self.step(t, dt, u)
+    def __call__(self, t, dt, u, forcingVector=None):
+        return self.step(t, dt, u, forcingVector)
+
+    def setRHS(self, t, dt, rhs):
+        raise NotImplementedError()
+
+    def residual(self, t, dt, ut, ut_plus_dt, residual, alpha=1., beta=1., forcingVector=None):
+        raise NotImplementedError()
+
+    def apply_jacobian(self, t, dt, ut, ut_plus_dt, residual, alpha=1., beta=1.):
+        raise NotImplementedError()
 
 
 class CrankNicolson(Stepper):
-    def __init__(self, dm, mass, solverBuilder, forcing, explicit=None, theta=0.5, dt=None, solverIsTimeDependent=False):
+    def __init__(self, dm, mass, solverBuilder, forcing, explicit=None, theta=0.5, dt=None, solverIsTimeDependent=False, explicitIslinearAndTimeIndependent=False):
         assert theta > 0 and theta <= 1.
         self.theta = theta
-        super(CrankNicolson, self).__init__(dm, mass, solverBuilder, forcing, explicit, dt, solverIsTimeDependent)
+        super(CrankNicolson, self).__init__(dm, mass, solverBuilder, forcing, explicit, dt, solverIsTimeDependent, explicitIslinearAndTimeIndependent)
         if self.theta < 1.:
             assert explicit is not None
-        if not self.solverIsTimeDependent:
-            assert self.dt is not None
-            self.solver = self.solverBuilder(0., self.theta*self.dt)
+        self.solver = None
         self.rhs = self.dm.zeros()
         self.rhs2 = self.dm.zeros()
 
-    def step(self, t, dt, u):
+    def getSolver(self, t, dt):
+        if not self.solverIsTimeDependent:
+            assert self.dt is not None
+            assert self.dt == dt
+            if self.solver is None:
+                self.solver = self.solverBuilder(0., 1./self.dt, self.theta)
+            return self.solver
+        else:
+            solver = self.solverBuilder(t+dt, 1./dt, self.theta)
+
+    def setRHS(self, t, dt, rhs):
+        self.forcing(t+dt, rhs)
+        if self.theta < 1.:
+            rhs *= self.theta
+            self.forcing(t, self.rhs2)
+            self.rhs2 *= (1.-self.theta)
+            rhs += self.rhs2
+
+    def step(self, t, dt, u, forcingVector=None):
         if dt is None:
             dt = self.dt
         assert dt is not None
         if not self.solverIsTimeDependent:
             assert dt == self.dt
-        self.forcing(t+dt, self.rhs)
-        if self.theta < 1.:
-            self.rhs *= self.theta
-            self.forcing(t, self.rhs2)
-            self.rhs2 *= (1.-self.theta)
-            self.rhs += self.rhs2
-        self.rhs *= dt
+        if forcingVector is not None:
+            assert forcingVector.shape[0] == self.rhs.shape[0]
+            self.rhs.assign(forcingVector)
+        else:
+            self.setRHS(t, dt, self.rhs)
         if self.theta < 1.:
             self.explicit(t, u, self.rhs2)
-            self.rhs2 *= -(1.-self.theta)*dt
+            self.rhs2 *= -(1.-self.theta)
             self.rhs += self.rhs2
         self.mass(t, u, self.rhs2)
+        self.rhs2 *= 1./dt
         self.rhs += self.rhs2
-        if not self.solverIsTimeDependent:
-            solver = self.solver
-        else:
-            solver = self.solverBuilder(t+dt, self.theta*dt)
+        solver = self.getSolver(t, dt)
         if isinstance(solver, iterative_solver):
             solver.setInitialGuess(u)
         solver(self.rhs, u)
         return t+dt
+
+    def residual(self, t, dt, ut, ut_plus_dt, residual, alpha=1., beta=1., forcingVector=None):
+        if abs(alpha/dt) > 0:
+            self.mass(t, ut, self.rhs)
+            self.mass(t+dt, ut_plus_dt, self.rhs2)
+            self.rhs *= -alpha/dt
+            self.rhs2 *= alpha/dt
+            residual.assign(self.rhs)
+            residual += self.rhs2
+        else:
+            residual.assign(0.)
+        if self.explicitIslinearAndTimeIndependent:
+            self.rhs = beta*(1-self.theta)*ut + beta*self.theta*ut_plus_dt
+            self.explicit(t, self.rhs, self.rhs2)
+            residual += self.rhs2
+        else:
+            if self.theta < 1:
+                self.explicit(t, ut, self.rhs)
+                self.rhs *= beta*(1-self.theta)
+                residual += self.rhs
+            self.explicit(t+dt, ut_plus_dt, self.rhs2)
+            self.rhs2 *= beta*self.theta
+            residual += self.rhs2
+        if forcingVector is not None:
+            assert forcingVector.shape[0] == self.rhs.shape[0]
+            self.rhs.assign(forcingVector)
+        else:
+            self.setRHS(t, dt, self.rhs)
+        residual -= self.rhs
+
+    def apply_jacobian(self, t, dt, ut, ut_plus_dt, residual, alpha=1., beta=1.):
+        if abs(alpha/dt) > 0:
+            self.mass(t, ut, self.rhs)
+            self.mass(t+dt, ut_plus_dt, self.rhs2)
+            self.rhs *= -alpha/dt
+            self.rhs2 *= alpha/dt
+            residual.assign(self.rhs)
+            residual += self.rhs2
+        else:
+            residual.assign(0.)
+        if self.explicitIslinearAndTimeIndependent:
+            self.rhs = beta*(1-self.theta)*ut + beta*self.theta*ut_plus_dt
+            self.explicit(t, self.rhs, self.rhs2)
+            residual += self.rhs2
+        else:
+            if self.theta < 1:
+                self.explicit(t, ut, self.rhs)
+                self.rhs *= beta*(1-self.theta)
+                residual += self.rhs
+            self.explicit(t+dt, ut_plus_dt, self.rhs2)
+            self.rhs2 *= beta*self.theta
+            residual += self.rhs2
 
 
 class ExplicitEuler(Stepper):

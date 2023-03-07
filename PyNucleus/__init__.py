@@ -22,6 +22,3 @@ for finder, name, ispkg in pkgutil.iter_modules():
         else:
             names = [name for name in module.__dict__ if not name.startswith('_')]
         locals().update({name: getattr(module, name) for name in names})
-
-from . import _version
-__version__ = _version.get_versions()['version']

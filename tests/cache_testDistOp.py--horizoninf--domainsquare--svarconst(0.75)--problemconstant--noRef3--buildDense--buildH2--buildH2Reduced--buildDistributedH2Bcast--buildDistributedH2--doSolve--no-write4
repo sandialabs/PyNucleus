@@ -1,0 +1,14 @@
+Timers: {}
+TimersH2: {}
+info: {}
+matvec errors:
+  '|(A_dense - A_distributed_bcast) * x|': 0.00029971842268656493
+  '|(A_dense - A_distributed_halo) * x|': 0.00029971842268656493
+  '|(A_dense - A_h2) * x |': 0.0002997184226865862
+  '|(A_dense - A_h2_reduced) * x|': 0.0002997184226865862
+  '|(A_h2 - A_distributed_bcast) * x|': 3.4947303616337217e-15
+  '|(A_h2 - A_distributed_halo) * x|': 3.494730361213269e-15
+  '|(A_h2 - A_h2_reduced) * x |': 5.421010862427522e-20
+solve:
+  residual norm: 3.205046217544268e-06
+stats: {}

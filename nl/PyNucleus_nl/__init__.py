@@ -41,11 +41,13 @@ from . operatorInterpolation import (admissibleSet,
                                      getChebyIntervalsAndNodes)
 from . nonlocalProblems import (fractionalLaplacianProblem,
                                 nonlocalPoissonProblem,
+                                transientFractionalProblem,
                                 fractionalOrderFactory,
                                 interactionFactory,
                                 kernelFactory,
                                 nonlocalMeshFactory)
-from . discretizedProblems import discretizedNonlocalProblem
+from . discretizedProblems import (discretizedNonlocalProblem,
+                                   discretizedTransientProblem)
 from . helpers import (getFracLapl,
                        fractionalLevel,
                        paramsForFractionalHierarchy,

@@ -9,7 +9,6 @@
 import os
 import importlib
 from setuptools import setup
-import versioneer
 from pathlib import Path
 
 requirements = ['numpy', 'cython']
@@ -34,12 +33,19 @@ for pkg, srcLocation in [
     except ImportError:
         requirements += ['{} @ {}'.format(fullPkgName, srcLocation)]
 
+version = '0.0.0'
+if Path('VERSION').exists():
+    with open('VERSION', 'r') as f:
+        for line in f.readlines():
+            if not line[0].isnumeric():
+                continue
+            version = line
+            break
 
 setup(name='PyNucleus',
+      version=version,
       packages=['PyNucleus'],
       data_files=[('drivers', [str(p) for p in Path('drivers').glob('*.py')])],
-      version=versioneer.get_version(),
-      cmdclass=versioneer.get_cmdclass(),
       description='A finite element code that specifically targets nonlocal operators.',
       long_description=''.join(open('README.rst').readlines()),
       long_description_content_type='text/x-rst',

@@ -294,12 +294,20 @@ class package:
                                               annotate=self.config['annotate'],
                                               nthreads=self.config['threads'])
         kwargs['name'] = self.name
-        try:
-            import versioneer
-            kwargs['version'] = versioneer.get_version()
-            # kwargs['cmdclass'] = versioneer.get_cmdclass()
-        except (ImportError, FileNotFoundError):
-            pass
+        version = '0.0.0'
+        possibleVersionFiles = [Path('../VERSION'),
+                                Path('VERSION')]
+        for versionFile in possibleVersionFiles:
+            if versionFile.exists():
+                with open(versionFile, 'r') as f:
+                    for line in f.readlines():
+                        if not line[0].isnumeric():
+                            continue
+                        version = line
+                        break
+                break
+
+        kwargs['version'] = version
         # kwargs['version'] = self.getGitDate()
 
         if self.namespace != '':
@@ -378,6 +386,3 @@ def fillTemplate(basedir, templates, replacements):
             print('Generating {}'.format(newFileName))
             with open(str(basedir/newFileName), 'w') as f:
                 f.write(newLines)
-
-from . import _version
-__version__ = _version.get_versions()['version']

@@ -299,6 +299,8 @@ class hierarchyManager(object):
                 self.connectors[h['connectorEnd']]['comm1'] = h['comm']
             if h['connectorStart'] is not None:
                 self.connectors[h['connectorStart']]['comm2'] = h['comm']
+            if k == 0 and h['connectorStart'] is not None and len(h['ranks']) > 1:
+                self.connectors[h['connectorStart']]['comm1'] = h['comm']
 
         for conn in sorted(self.connectors):
             c = self.connectors[conn]

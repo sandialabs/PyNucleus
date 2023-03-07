@@ -80,50 +80,16 @@ cdef class integrable1D(nonlocalLaplacian1D):
             self.addQuadRule(panel)
         return panel
 
-    cdef void addQuadRule(self, panelType panel):
-        cdef:
-            simplexQuadratureRule qr
-            doubleSimplexQuadratureRule qr2
-            REAL_t[:, ::1] PSI
-            INDEX_t I, k, i, j
-            shapeFunction sf
-        qr = simplexXiaoGimbutas(panel, self.dim)
-        qr2 = doubleSimplexQuadratureRule(qr, qr)
-        PSI = uninitialized((2*self.DoFMap.dofs_per_element,
-                             qr2.num_nodes), dtype=REAL)
-        # phi_i(x) - phi_i(y) = phi_i(x) for i = 0,1
-        for I in range(self.DoFMap.dofs_per_element):
-            sf = self.getLocalShapeFunction(I)
-            k = 0
-            for i in range(qr2.rule1.num_nodes):
-                for j in range(qr2.rule2.num_nodes):
-                    PSI[I, k] = sf(qr2.rule1.nodes[:, i])
-                    k += 1
-        # phi_i(x) - phi_i(y) = -phi_i(y) for i = 2,3
-        for I in range(self.DoFMap.dofs_per_element):
-            sf = self.getLocalShapeFunction(I)
-            k = 0
-            for i in range(qr2.rule1.num_nodes):
-                for j in range(qr2.rule2.num_nodes):
-                    PSI[I+self.DoFMap.dofs_per_element, k] = -sf(qr2.rule2.nodes[:, j])
-                    k += 1
-        sQR = specialQuadRule(qr2, PSI)
-        self.distantQuadRules[panel] = sQR
-        self.distantQuadRulesPtr[panel] = <void*>(self.distantQuadRules[panel])
-
-        if qr2.rule1.num_nodes > self.x.shape[0]:
-            self.x = uninitialized((qr2.rule1.num_nodes, self.dim), dtype=REAL)
-        if qr2.rule2.num_nodes > self.y.shape[0]:
-            self.y = uninitialized((qr2.rule2.num_nodes, self.dim), dtype=REAL)
-        if qr2.num_nodes > self.temp.shape[0]:
-            self.temp = uninitialized((qr2.num_nodes), dtype=REAL)
-
     cdef void getNearQuadRule(self, panelType panel):
         cdef:
             INDEX_t i
             REAL_t alpha = self.kernel.getSingularityValue()
             REAL_t eta0, eta1
             specialQuadRule sQR0, sQR1
+
+        if alpha == 0.:
+            self.getNonSingularNearQuadRule(panel)
+            return
 
         if panel == COMMON_EDGE:
             try:
@@ -282,7 +248,7 @@ cdef class integrable1D(nonlocalLaplacian1D):
             REAL_t[:, ::1] simplex1 = self.simplex1
             REAL_t[:, ::1] simplex2 = self.simplex2
 
-        if panel >= 1:
+        if panel >= 1 or alpha == 0.:
             self.eval_distant(contrib, panel, mask)
             return
 
@@ -436,50 +402,6 @@ cdef class integrable2D(nonlocalLaplacian2D):
             self.addQuadRule(panel)
         return panel
 
-    cdef void addQuadRule(self, panelType panel):
-        cdef:
-            simplexQuadratureRule qr0, qr1
-            doubleSimplexQuadratureRule qr2
-            specialQuadRule sQR
-            REAL_t[:, ::1] PSI
-            INDEX_t I, k, i, j
-            INDEX_t numQuadNodes0, numQuadNodes1, dofs_per_element
-            shapeFunction sf
-        qr0 = simplexXiaoGimbutas(panel, self.dim)
-        qr1 = qr0
-        qr2 = doubleSimplexQuadratureRule(qr0, qr1)
-        numQuadNodes0 = qr0.num_nodes
-        numQuadNodes1 = qr1.num_nodes
-        dofs_per_element = self.DoFMap.dofs_per_element
-        PSI = uninitialized((2*dofs_per_element,
-                             qr2.num_nodes), dtype=REAL)
-        # phi_i(x) - phi_i(y) = phi_i(x) for i = 0,1,2
-        for I in range(self.DoFMap.dofs_per_element):
-            sf = self.getLocalShapeFunction(I)
-            k = 0
-            for i in range(numQuadNodes0):
-                for j in range(numQuadNodes1):
-                    PSI[I, k] = sf(qr0.nodes[:, i])
-                    k += 1
-        # phi_i(x) - phi_i(y) = -phi_i(y) for i = 3,4,5
-        for I in range(self.DoFMap.dofs_per_element):
-            sf = self.getLocalShapeFunction(I)
-            k = 0
-            for i in range(numQuadNodes0):
-                for j in range(numQuadNodes1):
-                    PSI[I+dofs_per_element, k] = -sf(qr1.nodes[:, j])
-                    k += 1
-        sQR = specialQuadRule(qr2, PSI)
-        self.distantQuadRules[panel] = sQR
-        self.distantQuadRulesPtr[panel] = <void*>(self.distantQuadRules[panel])
-
-        if numQuadNodes0 > self.x.shape[0]:
-            self.x = uninitialized((numQuadNodes0, self.dim), dtype=REAL)
-        if numQuadNodes1 > self.y.shape[0]:
-            self.y = uninitialized((numQuadNodes1, self.dim), dtype=REAL)
-        if numQuadNodes0*numQuadNodes1 > self.temp.shape[0]:
-            self.temp = uninitialized((numQuadNodes0*numQuadNodes1), dtype=REAL)
-
     cdef void getNearQuadRule(self, panelType panel):
         cdef:
             INDEX_t i
@@ -488,6 +410,9 @@ cdef class integrable2D(nonlocalLaplacian2D):
             specialQuadRule sQR0, sQR1
             quadQuadratureRule qrId, qrEdge0, qrEdge1, qrVertex
             REAL_t[:, :, ::1] PSI_id, PSI_edge, PSI_vertex
+        if alpha == 0.:
+            self.getNonSingularNearQuadRule(panel)
+            return
         if panel == COMMON_FACE:
             try:
                 sQR0 = self.specialQuadRules[(alpha, panel, 0)]
@@ -649,7 +574,7 @@ cdef class integrable2D(nonlocalLaplacian2D):
             INDEX_t[::1] idx1, idx2, idx3, idx4
             REAL_t temp
 
-        if panel >= 1:
+        if panel >= 1 or alpha == 0.:
             self.eval_distant(contrib, panel, mask)
             return
 

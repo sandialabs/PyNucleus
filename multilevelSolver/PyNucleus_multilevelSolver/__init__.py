@@ -20,6 +20,3 @@ from . geometricMG import (writeToHDF, readFromHDF,
 from PyNucleus_base import solverFactory
 solverFactory.register('mg', multigrid, isMultilevelSolver=True)
 solverFactory.register('complex_mg', Complexmultigrid, isMultilevelSolver=True)
-
-from . import _version
-__version__ = _version.get_versions()['version']
