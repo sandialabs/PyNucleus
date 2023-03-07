@@ -90,7 +90,7 @@ cdef class {SCALAR_label}LinearOperator:
         except Exception as e:
             if isinstance(self, {SCALAR_label}LinearOperator) and isinstance(x, {SCALAR_label}LinearOperator):
                 return {SCALAR_label}Product_Linear_Operator(self, x)
-            elif isinstance(self, {SCALAR_label}LinearOperator) and isinstance(x, np.ndarray) and x.ndim == 2:
+            elif isinstance(self, {SCALAR_label}LinearOperator) and hasattr(x, 'ndim') and x.ndim == 2:
                 return self.dotMV(x)
             elif isinstance(self, {SCALAR_label}LinearOperator) and isinstance(x, (float, int, {SCALAR})):
                 return {SCALAR_label}Multiply_Linear_Operator(self, x)

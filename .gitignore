@@ -22,6 +22,8 @@ mprofile_*.dat
 **/config.pxi
 **/config.py
 /*/build/
+build/**
+spack-build*
 /*/dist/
 /base/PyNucleus_base/*.c
 /base/PyNucleus_base/myTypes.pxd

@@ -1,4 +1,0 @@
-
-include versioneer.py
-include PyNucleus/_version.py
-include drivers/*.py

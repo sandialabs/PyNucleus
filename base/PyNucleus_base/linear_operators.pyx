@@ -1283,7 +1283,7 @@ cdef class sumMultiplyOperator(LinearOperator):
         op = self.ops[0]
         op.matvec(x, y)
         scaleScalar(y, self.coeffs[0])
-        for i in range(1, len(self.ops)):
+        for i in range(1, self.coeffs.shape[0]):
             op = self.ops[i]
             op.matvec(x, self.z)
             assign3(y, y, 1.0, self.z, self.coeffs[i])
@@ -1298,7 +1298,7 @@ cdef class sumMultiplyOperator(LinearOperator):
         cdef:
             INDEX_t i
             LinearOperator op
-        for i in range(len(self.ops)):
+        for i in range(self.coeffs.shape[0]):
             op = self.ops[i]
             op.matvec(x, self.z)
             assign3(y, y, 1.0, self.z, self.coeffs[i])
@@ -1328,7 +1328,8 @@ cdef class interpolationOperator(sumMultiplyOperator):
     cdef:
         public REAL_t[::1] nodes
         public REAL_t[:, ::1] W, W_prime, W_2prime
-        public REAL_t left, right
+        public REAL_t left, right, val
+        public INDEX_t derivative
 
     def __init__(self, list ops, REAL_t[::1] nodes, REAL_t left, REAL_t right):
         cdef:
@@ -1339,6 +1340,8 @@ cdef class interpolationOperator(sumMultiplyOperator):
         self.nodes = nodes
         self.left = left
         self.right = right
+        self.val = np.nan
+        self.derivative = -1
 
         for i in range(self.nodes.shape[0]-1):
             assert self.nodes[i] < self.nodes[i+1]
@@ -1356,6 +1359,8 @@ cdef class interpolationOperator(sumMultiplyOperator):
             REAL_t[:, ::1] W_prime, W_2prime
         assert self.left <= val
         assert val <= self.right
+        self.val = val
+        self.derivative = derivative
 
         if derivative == 0:
             for i in range(numNodes):

@@ -1,3 +1,0 @@
-
-include versioneer.py
-include PyNucleus_packageTools/_version.py

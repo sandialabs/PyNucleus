@@ -99,6 +99,8 @@ cdef class nonlocalLaplacian(double_local_matrix_t):
         REAL_t[::1] temp, temp2
     cdef void getNearQuadRule(self, panelType panel)
     cdef inline shapeFunction getLocalShapeFunction(self, INDEX_t local_dof)
+    cdef void addQuadRule(self, panelType panel)
+    cdef void getNonSingularNearQuadRule(self, panelType panel)
     cdef void eval_distant(self, REAL_t[::1] contrib, panelType panel, MASK_t mask=*)
 
 

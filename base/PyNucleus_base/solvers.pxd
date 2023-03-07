@@ -46,6 +46,7 @@ cdef class lu_solver(solver):
         CSR_LinearOperator L, U
         REAL_t[::1] temp_mem
         object Ainv, lu
+        BOOL_t useTriangularSolveRoutines
 
 
 

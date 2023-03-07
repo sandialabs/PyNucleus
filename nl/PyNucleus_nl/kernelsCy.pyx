@@ -439,14 +439,14 @@ cdef class Kernel(twoPointFunction):
     def plot(self, x0=None):
         from matplotlib import ticker
         import matplotlib.pyplot as plt
+        if x0 is None:
+            x0 = np.zeros((self.dim), dtype=REAL)
         self.evalParams(x0, x0)
         if self.finiteHorizon:
             delta = self.horizonValue
         else:
             delta = 2.
         x = np.linspace(-1.1*delta, 1.1*delta, 201)
-        if x0 is None:
-            x0 = np.zeros((self.dim), dtype=REAL)
         if self.dim == 1:
             vals = np.zeros_like(x)
             for i in range(x.shape[0]):

@@ -879,7 +879,7 @@ dependencyLogger = logging.getLogger('Dependencies')
 
 
 class driver:
-    def __init__(self, comm=None, setCommExitHandler=True, masterRank=0, description=None, dependencyLoggerLevel=logging.INFO):
+    def __init__(self, comm=None, setCommExitHandler=True, masterRank=0, description=None):
         self.comm = comm
         self._identifier = ''
         self.processHook = []
@@ -891,7 +891,6 @@ class driver:
         self._timer = None
         self._figures = {}
         self._display_available = None
-        dependencyLogger.setLevel(dependencyLoggerLevel)
         if self.comm is not None and setCommExitHandler:
             exitHandler(self.comm)
         if self.isMaster:
@@ -906,6 +905,8 @@ class driver:
             io.add('displayConfig', False, help='Display configuration')
             io.add('displayRanks', False, help='Display MPI ranks in log')
             io.add('disableFileLog', False, help='Disable logging to file')
+            io.add('logDependencies', False, help='log dependencies')
+            io.add('disableTimeStamps', False, help='Disable time stamps in log')
             io.add('showTimers', True, help='Display timers')
             io.add('showMemory', False, help='Show memory info in timers')
             io.add('test', False, help='Run in test mode')
@@ -935,7 +936,8 @@ class driver:
         else:
             fileHandler = logging.FileHandler(filename, 'w')
         logging.getLogger().addHandler(fileHandler)
-        fileHandler.setFormatter(logging.Formatter('{asctime}  {name:40} {message}',
+        fmt = '{asctime}  {name:40} {message}'
+        fileHandler.setFormatter(logging.Formatter(fmt,
                                                    style='{',
                                                    datefmt="%Y-%m-%d %H:%M:%S"))
 
@@ -1071,14 +1073,22 @@ class driver:
         if self._identifier != '' and not self.params['disableFileLog']:
             self.setLogFile()
 
+        prefix = ''
         if params['displayRanks'] and self.comm is not None and self.comm.size > 1:
             prefix = '{}: '.format(self.comm.rank)
-            formatter = logging.Formatter(fmt=prefix+'{asctime}  {name:40} {message}',
-                                          style='{',
-                                          datefmt="%Y-%m-%d %H:%M:%S")
+        if not params['disableTimeStamps']:
+            fmt = prefix+'{asctime}  {name:40} {message}'
+        else:
+            fmt = prefix+'{name:40} {message}'
+        formatter = logging.Formatter(fmt=fmt,
+                                      style='{',
+                                      datefmt="%Y-%m-%d %H:%M:%S")
+        if self.isMaster:
             logging.getLogger().setLevel(logging.INFO)
-            for handler in logging.getLogger().handlers:
-                handler.setFormatter(formatter)
+        else:
+            logging.getLogger().setLevel(logging.WARN)
+        for handler in logging.getLogger().handlers:
+            handler.setFormatter(formatter)
         if params['displayConfig']:
             from pprint import pformat
             self.logger.info('\n'+pformat(params))
@@ -1087,6 +1097,10 @@ class driver:
             sysInfo = getSystemInfo(argv)
             if self.isMaster:
                 self.logger.info(sysInfo)
+        if params['logDependencies']:
+            dependencyLogger.setLevel(logging.DEBUG)
+        else:
+            dependencyLogger.setLevel(logging.INFO)
         return params
 
     def set(self, key, value):
@@ -1102,8 +1116,9 @@ class driver:
                 level = logging.INFO
             else:
                 level = logging.WARNING
+            fmt = '{asctime}  {name:40} {message}'
             logging.basicConfig(level=level,
-                                format='{asctime}  {name:40} {message}',
+                                format=fmt,
                                 style='{',
                                 datefmt="%Y-%m-%d %H:%M:%S")
             self._logger = logging.getLogger('__main__')
@@ -1451,6 +1466,7 @@ class propertyBuilder:
         self.requiredProperties = inspect.getfullargspec(self.fun).args[1:]
         self.generatedProperties = set()
         self.cached_args = {}
+        self.logLevel = logging.DEBUG
 
     def declareGeneratedProperty(self, prop):
         self.generatedProperties.add(prop)
@@ -1471,10 +1487,13 @@ class propertyBuilder:
                 cached_args[prop] = newValue
                 # TODO: keep hash?
                 try:
-                    if newValue != oldValue:
+                    if isinstance(newValue, np.ndarray):
+                        if (newValue != oldValue).any():
+                            needToBuild = True
+                    elif newValue != oldValue:
                         needToBuild = True
-                except:
-                    dependencyLogger.debug('Cannot compare values for property \'{}\', force call \'{}\''.format(prop, self.fun.__name__))
+                except Exception as e:
+                    dependencyLogger.log(logging.WARN, 'Cannot compare values {}, {} for property \'{}\', exception {}, force call \'{}\''.format(oldValue, newValue, prop, e, self.fun.__name__))
                     needToBuild = True
             except AttributeError:
                 raise AttributeError('Method \'{}\' has unsatisfied dependency on \'{}\''.format(self.fun.__name__, prop))
@@ -1482,7 +1501,7 @@ class propertyBuilder:
             self.cached_args = cached_args
             self.fun(*args)
         else:
-            dependencyLogger.debug('Skipping call to \'{}\''.format(self.fun.__name__))
+            dependencyLogger.log(self.logLevel, 'Skipping call to \'{}\''.format(self.fun.__name__))
             for prop in self.generatedProperties:
                 self.baseObj.setState(prop, VALID)
 
@@ -1525,12 +1544,26 @@ class classWithComputedDependencies:
         self.remoteGeneratedProperties = {}
         self.methodToBuilder = {}
 
-        clsNames = [cls.__name__ for cls in self.__class__.__bases__] + [self.__class__.__name__]
+        clsNames = []
+        classes = [self.__class__]
+        while len(classes) > 0:
+            newClasses = []
+            for cls in classes:
+                clsNames.append(cls.__name__)
+                for parent in cls.__bases__:
+                    if parent not in (classWithComputedDependencies, problem):
+                        newClasses.append(parent)
+            classes = newClasses
+
+        registeredGenerators = set()
         for clsName in clsNames:
             if clsName in generatorMethodsToProperties:
                 for clsMethod in generatorMethodsToProperties[clsName]:
                     methodName = clsMethod.__name__
                     if methodName in dir(self):
+                        if methodName in registeredGenerators:
+                            continue
+                        registeredGenerators.add(methodName)
                         method = getattr(self, methodName)
                         props = generatorMethodsToProperties[clsName][clsMethod]
                         self.addProperties(props, method)
@@ -1598,7 +1631,7 @@ class classWithComputedDependencies:
             state = self.getState(prop)
             if builder is not None:
                 if state == INVALID:
-                    dependencyLogger.debug('Calling \'{}\''.format(builder.baseName))
+                    dependencyLogger.log(builder.logLevel, 'Calling \'{}\''.format(builder.baseName))
                     builder()
                     assert self.getState(prop) == VALID, 'Calling \'{}\' did not result in \'{}\' being set.'.format(builder.baseName, prop)
             else:
@@ -1608,7 +1641,7 @@ class classWithComputedDependencies:
         def setter(self, value):
             # TODO: check whether we set from builder or not and don't allow setting generated properties directly
 
-            dependencyLogger.debug('Setting \'{}\''.format(prop))
+            dependencyLogger.log(logging.DEBUG, 'Setting \'{}\''.format(prop))
             self.invalidateDependencies(prop)
             if prop in self.remoteGeneratedProperties:
                 for obj in self.remoteGeneratedProperties[prop]:
@@ -1626,10 +1659,10 @@ class classWithComputedDependencies:
             for builder in self.requiredPropToBuilder[prop]:
                 for genProp in builder.generatedProperties:
                     if self.getState(genProp) == VALID:
-                        dependencyLogger.debug('Changing {}.{} => invalidating {}.{}'.format(self.__class__.__name__,
-                                                                                             prop,
-                                                                                             self.__class__.__name__,
-                                                                                             genProp))
+                        dependencyLogger.log(builder.logLevel, 'Changing {}.{} => invalidating {}.{}'.format(self.__class__.__name__,
+                                                                                                             prop,
+                                                                                                             self.__class__.__name__,
+                                                                                                             genProp))
                     self.setState(genProp, INVALID)
                     self.invalidateDependencies(genProp)
         if prop in self.remoteGeneratedProperties:
@@ -1711,6 +1744,20 @@ class classWithComputedDependencies:
                 pos=nx.nx_agraph.pygraphviz_layout(G, layout))
         plt.show()
 
+    def changeLogLevel(self, properties, logLevel):
+        for prop in properties:
+            try:
+                builder = self.generatedPropToBuilder[prop]
+                builder.logLevel = logLevel
+            except KeyError:
+                pass
+
+            try:
+                for builder in self.requiredPropToBuilder[prop]:
+                    builder.logLevel = logLevel
+            except KeyError:
+                pass
+
 
 class driverAddon:
     def __init__(self, driver):
@@ -1774,9 +1821,13 @@ class driverAddon:
     def processCmdline(self, params):
         pass
 
+    def getIdentifier(self, params):
+        return ''
+
     def process(self, params):
         self.processCmdline(params)
-        self.driver.setIdentifier(self.getIdentifier(params))
+        if self.driver.identifier == '':
+            self.driver.setIdentifier(self.getIdentifier(params))
 
 
 class problem(classWithComputedDependencies,
@@ -1788,6 +1839,7 @@ class problem(classWithComputedDependencies,
         try:
             self.driver.addGroup('input/output').add('showDependencyGraph', False,
                                                      help="Show dependency graph of problem classes.")
+            self.driver.addGroup('input/output').add('logProperties', '', help='log select properties')
         except argparse.ArgumentError:
             pass
 
@@ -1797,6 +1849,9 @@ class problem(classWithComputedDependencies,
             self.directlySetWithoutChecks(key, params[key])
         for key in self.flags:
             params[key] = getattr(self, key)
+        if params['logProperties'] != '':
+            propertiesToLog = params['logProperties'].split(',')
+            self.changeLogLevel(propertiesToLog, logging.INFO)
 
     def process(self, params):
         driverAddon.process(self, params)
@@ -1811,6 +1866,3 @@ class problem(classWithComputedDependencies,
         return str(type(self))
     #     lines = [(label, '{}', e) for label, e in self.__values__.items()]
     #     return columns(lines)
-
-    def getIdentifier(self, params):
-        return ''

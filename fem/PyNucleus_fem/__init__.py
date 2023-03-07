@@ -204,6 +204,3 @@ functionFactory.register('solCornerSingularity2D', solCornerSingularity2D)
 functionFactory.register('lookup', lookupFunction)
 functionFactory.register('shiftScaleFunctor', shiftScaleFunctor)
 functionFactory.register('componentVectorFunction', componentVectorFunction, aliases=['vector'])
-
-from . import _version
-__version__ = _version.get_versions()['version']

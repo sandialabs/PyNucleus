@@ -98,53 +98,6 @@ cdef class fractionalLaplacian1D_P1(nonlocalLaplacian1D):
     @cython.initializedcheck(False)
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    @cython.cdivision(True)
-    cdef void addQuadRule(self, panelType panel):
-        cdef:
-            simplexQuadratureRule qr
-            doubleSimplexQuadratureRule qr2
-            REAL_t[:, ::1] PSI
-            INDEX_t I, k, i, j
-            INDEX_t numQuadNodes0, numQuadNodes1, dofs_per_element
-            shapeFunction sf
-        qr = simplexXiaoGimbutas(panel, self.dim)
-        qr2 = doubleSimplexQuadratureRule(qr, qr)
-        numQuadNodes0 = qr2.rule1.num_nodes
-        numQuadNodes1 = qr2.rule2.num_nodes
-        dofs_per_element = self.DoFMap.dofs_per_element
-        PSI = uninitialized((2*dofs_per_element,
-                             qr2.num_nodes), dtype=REAL)
-        # phi_i(x) - phi_i(y) = phi_i(x) for i = 0,1
-        for I in range(dofs_per_element):
-            sf = self.getLocalShapeFunction(I)
-            k = 0
-            for i in range(numQuadNodes0):
-                for j in range(numQuadNodes1):
-                    PSI[I, k] = sf.evalStrided(&qr2.rule1.nodes[0, i], numQuadNodes0)
-                    k += 1
-        # phi_i(x) - phi_i(y) = -phi_i(y) for i = 2,3
-        for I in range(dofs_per_element):
-            sf = self.getLocalShapeFunction(I)
-            k = 0
-            for i in range(numQuadNodes0):
-                for j in range(numQuadNodes1):
-                    PSI[I+dofs_per_element, k] = -sf.evalStrided(&qr2.rule2.nodes[0, j], numQuadNodes1)
-                    k += 1
-        sQR = specialQuadRule(qr2, PSI)
-        self.distantQuadRules[panel] = sQR
-        self.distantQuadRulesPtr[panel] = <void*>(self.distantQuadRules[panel])
-
-        if qr2.rule1.num_nodes > self.x.shape[0]:
-            self.x = uninitialized((qr2.rule1.num_nodes, self.dim), dtype=REAL)
-        if qr2.rule2.num_nodes > self.y.shape[0]:
-            self.y = uninitialized((qr2.rule2.num_nodes, self.dim), dtype=REAL)
-        if qr2.num_nodes > self.temp.shape[0]:
-            self.temp = uninitialized((qr2.num_nodes), dtype=REAL)
-            self.temp2 = uninitialized_like(self.temp)
-
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void getNearQuadRule(self, panelType panel):
         cdef:
             INDEX_t i

@@ -7,24 +7,22 @@
 ###################################################################################
 
 
-import numpy as np
-from PyNucleus import driver, DIRICHLET, NEUMANN
-from PyNucleus.nl import (nonlocalPoissonProblem,
-                          discretizedNonlocalProblem)
+from mpi4py import MPI
+from PyNucleus import driver
+from PyNucleus.nl import (transientFractionalProblem,
+                          discretizedTransientProblem)
 
 ##################################################
 
-description = """Solves a nonlocal Poisson problem with finite horizon."""
-
-d = driver(description=description)
-p = nonlocalPoissonProblem(d)
-discrProblem = discretizedNonlocalProblem(d, p)
+d = driver(MPI.COMM_WORLD)
+p = transientFractionalProblem(d, useMulti=False)
+discrProblem = discretizedTransientProblem(d, p)
 
 d.declareFigure('solution')
 d.declareFigure('error')
 d.declareFigure('analyticSolution')
 
-d.process()
+d.process(override={'adaptive': None})
 
 ##################################################
 
@@ -34,8 +32,7 @@ mS = discrProblem.modelSolution
 
 vectors = d.addOutputGroup('vectors')
 vectors.add('u', mS.u)
-if mS.u_interp is not None:
-    vectors.add('uEx', mS.u_interp)
+# vectors.add('uInterior', mS.uInterior)
 
 meshes = d.addOutputGroup('meshes')
 meshes.add('fullMesh', discrProblem.finalMesh)
@@ -43,11 +40,11 @@ meshes.add('fullMesh', discrProblem.finalMesh)
 results = d.addOutputGroup('results')
 discrProblem.report(results)
 mS.reportSolve(results)
+results.log()
 
 errors = d.addOutputGroup('errors', tested=True)
 mS.reportErrors(errors)
-
-d.logger.info('\n'+str(results+errors))
+errors.log()
 
 ##################################################
 

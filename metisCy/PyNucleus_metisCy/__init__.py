@@ -84,6 +84,3 @@ from . metisCy import (OPTION_OBJTYPE,
                        OBJTYPE_CUT,
                        OBJTYPE_NODE,
                        OBJTYPE_VOL)
-
-from . import _version
-__version__ = _version.get_versions()['version']

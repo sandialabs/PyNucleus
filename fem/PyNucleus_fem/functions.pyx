@@ -606,7 +606,8 @@ cdef class rhsTestGrayScott2D_V(function):
 
 
 cdef class solFractional(function):
-    cdef REAL_t s, fac, radius2
+    cdef public REAL_t s
+    cdef REAL_t fac, radius2
     cdef INDEX_t dim
 
     def __init__(self, REAL_t s, INDEX_t dim, REAL_t radius=1.0):

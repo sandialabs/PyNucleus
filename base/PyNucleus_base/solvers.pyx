@@ -98,6 +98,7 @@ cdef class lu_solver(solver):
         cdef:
             INDEX_t i, j, explicitZeros, explicitZerosRow
             REAL_t[:, ::1] data
+            LinearOperator B = None
 
         if A is not None:
             self.A = A
@@ -106,35 +107,38 @@ cdef class lu_solver(solver):
                                    CSR_LinearOperator,
                                    Dense_LinearOperator)):
             if self.A.isSparse():
-                self.A = self.A.to_csr_linear_operator()
+                B = self.A.to_csr_linear_operator()
             else:
-                self.A = Dense_LinearOperator(np.ascontiguousarray(self.A.toarray()))
+                B = Dense_LinearOperator(np.ascontiguousarray(self.A.toarray()))
+        else:
+            B = self.A
         try_sparsification = False
         sparsificationThreshold = 0.9
-        if isinstance(self.A, Dense_LinearOperator) and try_sparsification:
+        if isinstance(B, Dense_LinearOperator) and try_sparsification:
             explicitZeros = 0
-            data = self.A.data
-            for i in range(self.A.num_rows):
+            data = B.data
+            for i in range(B.num_rows):
                 explicitZerosRow = 0
-                for j in range(self.A.num_columns):
+                for j in range(B.num_columns):
                     if data[i, j] == 0.:
                         explicitZerosRow += 1
                 explicitZeros += explicitZerosRow
-                if not (explicitZerosRow > sparsificationThreshold*self.A.num_columns):
+                if not (explicitZerosRow > sparsificationThreshold*B.num_columns):
                     break
-            if explicitZeros > sparsificationThreshold*self.A.num_rows*self.A.num_columns:
-                print('Converting dense to sparse matrix, since {}% of entries are zero.'.format(100.*explicitZeros/REAL(self.A.num_rows*self.A.num_columns)))
-                self.A = CSR_LinearOperator.from_dense(self.A)
-        if isinstance(self.A, (SSS_LinearOperator,
+            if explicitZeros > sparsificationThreshold*B.num_rows*B.num_columns:
+                print('Converting dense to sparse matrix, since {}% of entries are zero.'.format(100.*explicitZeros/REAL(B.num_rows*B.num_columns)))
+                B = CSR_LinearOperator.from_dense(B)
+        self.useTriangularSolveRoutines = False
+        if isinstance(B, (SSS_LinearOperator,
                                CSR_LinearOperator)):
             from scipy.sparse.linalg import splu
             try:
-                if isinstance(self.A, SSS_LinearOperator):
-                    Ainv = splu(self.A.to_csc())
+                if isinstance(B, SSS_LinearOperator):
+                    Ainv = splu(B.to_csc())
                 else:
-                    Ainv = splu(self.A.to_csr().tocsc())
+                    Ainv = splu(B.to_csr().tocsc())
             except RuntimeError:
-                print(self.A, np.array(self.A.data))
+                print(B, np.array(B.data))
                 raise
             try:
                 self.L = CSR_LinearOperator.from_csr(Ainv.L)
@@ -142,14 +146,15 @@ cdef class lu_solver(solver):
                 self.perm_r = Ainv.perm_r
                 self.perm_c = Ainv.perm_c
                 n = self.perm_c.shape[0]
+                self.useTriangularSolveRoutines = True
                 self.temp_mem = uninitialized((n), dtype=REAL)
             except AttributeError:
                 self.Ainv = Ainv
-        elif isinstance(self.A, Dense_LinearOperator):
+        elif isinstance(B, Dense_LinearOperator):
             from scipy.linalg import lu_factor
-            self.lu, self.perm = lu_factor(self.A.data)
+            self.lu, self.perm = lu_factor(B.data)
         else:
-            raise NotImplementedError('Cannot use operator of type "{}"'.format(type(self.A)))
+            raise NotImplementedError('Cannot use operator of type "{}"'.format(type(B)))
         self.initialized = True
 
     @cython.initializedcheck(False)
@@ -161,7 +166,7 @@ cdef class lu_solver(solver):
             INDEX_t[::1] perm_r, perm_c
             vector_t temp
         solver.solve(self, b, x)
-        if isinstance(self.A, (SSS_LinearOperator, CSR_LinearOperator)):
+        if self.useTriangularSolveRoutines:
             perm_r = self.perm_r
             perm_c = self.perm_c
             try:

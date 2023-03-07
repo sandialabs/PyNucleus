@@ -120,7 +120,7 @@ def getFracLapl(mesh, DoFMap, kernel=None, rangedOpParams={}, **kwargs):
     boundaryCondition = kwargs.get('boundaryCondition', 'Dirichlet')
     tag = kwargs.get('tag', None)
     zeroExterior = kwargs.get('zeroExterior', None)
-    dense = kwargs.get('dense', False)
+    matrixFormat = kwargs.get('matrixFormat', 'h2')
     diagonal = kwargs.get('diagonal', False)
     cached = kwargs.get('cached', False)
     trySparsification = kwargs.get('trySparsification', False)
@@ -205,12 +205,12 @@ def getFracLapl(mesh, DoFMap, kernel=None, rangedOpParams={}, **kwargs):
     else:
         base = mesh.vertices_as_array.min(axis=0)
         if diagonal:
-            sparseDense = 'diagonal'
-        elif dense:
-            sparseDense = 'dense'
+            prefix = 'diagonal'
+        elif matrixFormat.upper() == 'DENSE':
+            prefix = 'dense'
         else:
-            sparseDense = 'sparse'
-        filename = dataDir/'{}-{}-{}-{:.5}-{}-{}-{}-{}-{}-{}-{:.5}-{:.5}-{}.hdf5'.format(sparseDense, base, mesh.dim, mesh.diam, mesh.num_vertices, mesh.num_cells, kernel, tag, target_order, eta, mesh.h, mesh.hmin, boundaryCondition)
+            prefix = 'sparse'
+        filename = dataDir/'{}-{}-{}-{:.5}-{}-{}-{}-{}-{}-{}-{:.5}-{:.5}-{}.hdf5'.format(prefix, base, mesh.dim, mesh.diam, mesh.num_vertices, mesh.num_cells, kernel, tag, target_order, eta, mesh.h, mesh.hmin, boundaryCondition)
     A = None
     Pnear = None
     if ((isinstance(kernel, FractionalKernel) and (kernel.s.min == kernel.s.max == 1.)) or
@@ -237,7 +237,9 @@ def getFracLapl(mesh, DoFMap, kernel=None, rangedOpParams={}, **kwargs):
     else:
         params = {'target_order': target_order,
                   'eta': eta,
-                  'forceUnsymmetric': kwargs.get('forceUnsymmetric', False)}
+                  'forceUnsymmetric': kwargs.get('forceUnsymmetric', False),
+                  'assembleOnRoot': kwargs.get('assembleOnRoot', False),
+                  'localFarFieldIndexing': kwargs.get('localFarFieldIndexing', False)}
         if 'genKernel' in kwargs:
             params['genKernel'] = kwargs['genKernel']
         if kernel is None:
@@ -246,14 +248,20 @@ def getFracLapl(mesh, DoFMap, kernel=None, rangedOpParams={}, **kwargs):
         if diagonal:
             with timer('Assemble diagonal matrix {}, zeroExterior={}'.format(kernel, zeroExterior)):
                 A = builder.getDiagonal()
-        elif dense:
+        elif matrixFormat.upper() == 'SPARSE':
+            with timer('Assemble sparse matrix {}, zeroExterior={}'.format(kernel, zeroExterior)):
+                A = builder.getSparse()
+        elif matrixFormat.upper() == 'SPARSIFIED':
+            with timer('Assemble sparsified matrix {}, zeroExterior={}'.format(kernel, zeroExterior)):
+                A = builder.getDense(trySparsification=True)
+        elif matrixFormat.upper() == 'DENSE':
             with timer('Assemble dense matrix {}, zeroExterior={}'.format(kernel, zeroExterior)):
                 if cached:
                     A = builder.getDenseCached()
                 else:
                     A = builder.getDense(trySparsification=trySparsification)
         else:
-            with timer('Assemble sparse matrix {}, zeroExterior={}'.format(kernel, zeroExterior)):
+            with timer('Assemble H2 matrix {}, zeroExterior={}'.format(kernel, zeroExterior)):
                 if isinstance(horizon, constant):
                     A, Pnear = builder.getH2(returnNearField=True)
                 else:
@@ -309,6 +317,10 @@ class fractionalLevel(algebraicLevelBase):
             self.fullyAssembled = True
             with self.Timer('Assembled matrices'):
                 self.params.pop('mesh', None)
+                if self.comm is not None and self.comm.size > 1:
+                    self.params['assemblyComm'] = self.comm
+                    self.params['assembleOnRoot'] = False
+                    self.params['forceUnsymmetric'] = True
                 self.S = getFracLapl(mesh, DoFMap, **self.params)
                 self.A = self.S
                 # if not s.symmetric:
@@ -343,7 +355,7 @@ class fractionalLevel(algebraicLevelBase):
         return algebraicLevelBase.getKeys() + ['A', 'S', 'M']
 
 
-def paramsForFractionalHierarchy(noRef, global_params):
+def paramsForFractionalHierarchy(noRef, global_params, onRanks=range(1)):
 
     noRefCoarse = global_params.get('noRefCoarse', 0)
 
@@ -388,7 +400,7 @@ def paramsForFractionalHierarchy(noRef, global_params):
     else:
         hierarchies = [
             {'label': 'fine',
-             'ranks': set([0]),
+             'ranks': set(list(onRanks)),
              'connectorStart': 'input',
              'connectorEnd': None,
              'params': {'noRef': noRef,
@@ -607,7 +619,11 @@ class delayedNonlocalOp(delayedConstructionOperator):
         from copy import copy
         d = copy(self.kwargs)
         d.update(self.params)
-        A = self.dm.assembleNonlocal(self.kernel, **d)
+        if 'timer' in self.kwargs:
+            with self.kwargs['timer']('Assemble {} for {}'.format(d['matrixFormat'], self.kernel)):
+                A = self.dm.assembleNonlocal(self.kernel, **d)
+        else:
+            A = self.dm.assembleNonlocal(self.kernel, **d)
         return A
 
 
