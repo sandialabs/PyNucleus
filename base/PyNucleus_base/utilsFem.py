@@ -1188,9 +1188,9 @@ class driver:
                         if self.params['overwriteCache']:
                             failAfterOutput = True
                             self.params['yamlOutput'] = self.params['testCache']
-                            self.logger.info('No match\n' + str(pformat(diff)))
+                            self.logger.info('No match (observed, expected)\n' + str(pformat(diff)))
                         else:
-                            assert False, 'No match\n' + str(pformat(diff))
+                            assert False, 'No match (observed, expected)\n' + str(pformat(diff))
                     else:
                         self.logger.info('\nAll matched')
                 except FileNotFoundError:
