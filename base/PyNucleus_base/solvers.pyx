@@ -864,8 +864,9 @@ cdef class bicgstab_solver(krylov_solver):
             vector_t s2
             vector_t temp = self.temp
             vector_t temp2 = self.temp2
-            REAL_t kapppa, kappaNew, alpha, omega, beta, tt
+            REAL_t kappa, kappaNew, alpha, omega, beta, tt
             list residuals = []
+            REAL_t resNorm
             ipBase inner = self.inner
             normBase norm = self.norm
             REAL_t tol = self.tol
@@ -892,7 +893,8 @@ cdef class bicgstab_solver(krylov_solver):
                 p[i] = r0[i] = r[i]
 
         kappa = inner.eval(r, r0, False, True)
-        residuals.append(sqrt(kappa))
+        resNorm = sqrt(kappa)
+        residuals.append(resNorm)
         for k in range(maxiter):
             if precond is not None:
                 precond.matvec(p, p2)
@@ -908,10 +910,11 @@ cdef class bicgstab_solver(krylov_solver):
                 x[i] += alpha*p2[i] + omega*s2[i]
             assign3(r, s, 1.0, temp2, -omega)
             if use2norm:
-                residuals.append(norm.eval(r, False))
+                resNorm = norm.eval(r, False)
+                residuals.append(resNorm)
             else:
                 raise NotImplementedError()
-            if residuals[k+1] < tol:
+            if resNorm < tol:
                 self.residuals = residuals
                 return k
             kappaNew = inner.eval(r, r0, False, True)
