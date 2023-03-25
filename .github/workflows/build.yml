@@ -40,3 +40,17 @@ jobs:
       with:
         name: test-report
         path: index.html
+        
+    - name: HTML Preview
+      id: html_preview
+      uses: pavi2410/html-preview-action@v2
+      if: always()
+      with:
+        html_file: 'index.html'
+        
+    - name: Comment PR
+      uses: thollander/actions-comment-pull-request@v2
+      if: always()
+      with: 
+        message: |
+          ${{steps.html_preview.outputs.url}}
