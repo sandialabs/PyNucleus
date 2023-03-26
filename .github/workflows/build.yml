@@ -15,6 +15,7 @@ jobs:
     timeout-minutes: 180
     env:
       MPIEXEC_FLAGS: "--allow-run-as-root --oversubscribe"
+      PYNUCLEUS_BUILD_PARALLELISM: 2
 
     steps:
     - name: Check out repo
@@ -32,25 +33,20 @@ jobs:
       run: make install
 
     - name: Run tests
-      run: make tests
+      run: python3 -m pytest --junit-xml=test-results.xml tests/
 
     - name: Archive test results
       uses: actions/upload-artifact@v3
       if: always()
       with:
-        name: test-report
-        path: index.html
-        
-    - name: HTML Preview
-      id: html_preview
-      uses: pavi2410/html-preview-action@v2
+        name: Test results
+        path: test-results.xml
+
+    - name: Report test results
+      uses: dorny/test-reporter@v1
       if: always()
       with:
-        html_file: 'index.html'
-        
-    - name: Comment PR
-      uses: thollander/actions-comment-pull-request@v2
-      if: always()
-      with: 
-        message: |
-          ${{steps.html_preview.outputs.url}}
+        name: Test report
+        path: test-results.xml
+        reporter: java-junit
+        fail-on-error: true
