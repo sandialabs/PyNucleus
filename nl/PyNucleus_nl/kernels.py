@@ -10,8 +10,7 @@ import numpy as np
 from PyNucleus_base.myTypes import INDEX, REAL
 from PyNucleus_fem.functions import function, constant
 from PyNucleus_fem.mesh import meshNd
-from PyNucleus_fem.DoFMaps import DoFMap
-from . twoPointFunctions import constantTwoPoint
+from . twoPointFunctions import constantTwoPoint, inverseTwoPoint
 from . interactionDomains import (interactionDomain,
                                   fullSpace,
                                   ball1,
@@ -19,13 +18,14 @@ from . interactionDomains import (interactionDomain,
                                   ballInf)
 from . fractionalOrders import (fractionalOrderBase,
                                 constFractionalOrder,
+                                variableConstFractionalOrder,
                                 constantFractionalLaplacianScaling,
                                 variableFractionalLaplacianScaling,
                                 constantIntegrableScaling)
 from . kernelsCy import (Kernel,
                          FractionalKernel,
                          RangedFractionalKernel,
-                         FRACTIONAL, INDICATOR, PERIDYNAMIC, GAUSSIAN,
+                         FRACTIONAL,
                          getKernelEnum)
 from . operatorInterpolation import admissibleSet
 
@@ -105,7 +105,8 @@ def getFractionalKernel(dim,
                         scaling=None,
                         normalized=True,
                         piecewise=True,
-                        phi=None):
+                        phi=None,
+                        boundary=False):
     dim_ = _getDim(dim)
     sFun = _getFractionalOrder(s)
     horizonFun = _getHorizon(horizon)
@@ -123,7 +124,17 @@ def getFractionalKernel(dim,
                     scaling = variableFractionalLaplacianScaling(symmetric)
             else:
                 scaling = constantTwoPoint(0.5)
-        kernel = FractionalKernel(dim_, sFun, horizonFun, interaction, scaling, phi, piecewise=piecewise)
+            if boundary:
+                if isinstance(sFun, (constFractionalOrder,
+                                     variableConstFractionalOrder)):
+                    fac = constantTwoPoint(1/sFun.value)
+                else:
+                    fac = inverseTwoPoint(sFun)
+                if phi is not None:
+                    phi = fac*phi
+                else:
+                    phi = fac
+        kernel = FractionalKernel(dim_, sFun, horizonFun, interaction, scaling, phi, piecewise=piecewise, boundary=boundary)
     return kernel
 
 
@@ -159,10 +170,11 @@ def getKernel(dim,
               normalized=True,
               piecewise=True,
               phi=None,
-              kernel=FRACTIONAL):
+              kernel=FRACTIONAL,
+              boundary=False):
     kType = _getKernelType(kernel)
     if kType == FRACTIONAL:
-        return getFractionalKernel(dim, s, horizon, interaction, scaling, normalized, piecewise, phi)
+        return getFractionalKernel(dim, s, horizon, interaction, scaling, normalized, piecewise, phi, boundary)
     else:
         return getIntegrableKernel(dim,
                                    kernel=kType,

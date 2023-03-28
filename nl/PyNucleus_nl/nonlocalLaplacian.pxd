@@ -68,7 +68,7 @@ cdef class nonlocalBuilder:
     cdef inline double_local_matrix_t getLocalMatrixBoundaryZeroExterior(self, dict params, BOOL_t infHorizon)
     cpdef REAL_t getEntry(self, INDEX_t I, INDEX_t J)
     cpdef REAL_t getEntryCluster(self, INDEX_t I, INDEX_t J)
-    cpdef LinearOperator assembleClusters(self, list Pnear, bint forceUnsymmetric=*, LinearOperator Anear=*, dict jumps=*, str prefix=*, tree_node myRoot=*)
+    cpdef LinearOperator assembleClusters(self, list Pnear, bint forceUnsymmetric=*, LinearOperator Anear=*, dict jumps=*, str prefix=*, tree_node myRoot=*, BOOL_t doDistributedAssembly=*)
 
 
 cdef class nearFieldClusterPair:

@@ -1024,27 +1024,49 @@ cdef class DoFMap:
     def getPatchLookup(self):
         return self.getCellLookup()
 
-    def linearPart(self, fe_vector x):
+    def linearPart(self, x):
         cdef:
-            INDEX_t i, j, dof, dofP1
+            INDEX_t i, j, dof, dofP1, k
             DoFMap dm
             fe_vector y
             REAL_t[::1] yy
-        if isinstance(self, P1_DoFMap):
-            return x, self
-        dm = P1_DoFMap(self.mesh, self.tag)
-        y = dm.zeros(dtype=REAL)
-        yy = y
-        for i in range(self.mesh.num_cells):
-            for j in range(0, (self.dim+1)*self.dofs_per_vertex, self.dofs_per_vertex):
-                dofP1 = dm.cell2dof(i, j//self.dofs_per_vertex)
-                if dofP1 >= 0:
-                    dof = self.cell2dof(i, j)
-                    if dof >= 0:
-                        yy[dofP1] = x[dof]
-                    else:
-                        yy[dofP1] = 0.
-        return y, dm
+            REAL_t[:, ::1] yyy
+        if isinstance(x, fe_vector):
+            if isinstance(self, P1_DoFMap):
+                return x, self
+            dm = P1_DoFMap(self.mesh, self.tag)
+            y = dm.zeros(dtype=REAL)
+            yy = y
+            for i in range(self.mesh.num_cells):
+                for j in range(0, (self.dim+1)*self.dofs_per_vertex, self.dofs_per_vertex):
+                    dofP1 = dm.cell2dof(i, j//self.dofs_per_vertex)
+                    if dofP1 >= 0:
+                        dof = self.cell2dof(i, j)
+                        if dof >= 0:
+                            yy[dofP1] = x[dof]
+                        else:
+                            yy[dofP1] = 0.
+            return y, dm
+        elif isinstance(x, multi_fe_vector):
+            if isinstance(self, P1_DoFMap):
+                return x, self
+            dm = P1_DoFMap(self.mesh, self.tag)
+            y = dm.zeros(x.numVectors, dtype=REAL)
+            yyy = y
+            for i in range(self.mesh.num_cells):
+                for j in range(0, (self.dim+1)*self.dofs_per_vertex, self.dofs_per_vertex):
+                    dofP1 = dm.cell2dof(i, j//self.dofs_per_vertex)
+                    if dofP1 >= 0:
+                        dof = self.cell2dof(i, j)
+                        if dof >= 0:
+                            for k in range(y.numVectors):
+                                yyy[k, dofP1] = x[k, dof]
+                        else:
+                            for k in range(y.numVectors):
+                                yyy[k, dofP1] = 0.
+            return y, dm
+        else:
+            raise NotImplementedError(type(x))
 
     def getComplementDoFMap(self):
         from copy import deepcopy

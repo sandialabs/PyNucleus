@@ -19,20 +19,10 @@ from . levels import meshLevel, algebraicLevel
 from . hierarchies import EmptyHierarchy, hierarchy
 
 from PyNucleus_base import TimerManager
-from PyNucleus_fem import (simpleInterval, intervalWithInteraction,
-                           simpleSquare, simpleLshape,
-                           uniformSquare, crossSquare,
-                           squareWithInteractions,
-                           simpleBox, standardSimplex3D,
-                           simpleFicheraCube,
-                           circle,
-                           discWithInteraction,
-                           meshNd,
-                           boundaryLayer,
+from PyNucleus_fem import (boundaryLayer,
                            P0_DoFMap,
                            meshFactory)
 
-from PyNucleus_fem.meshCy import radialMeshTransformation
 from PyNucleus_fem.repartitioner import Repartitioner
 from PyNucleus_fem.meshOverlaps import meshOverlap, overlapManager, interfaceManager
 from PyNucleus_fem.mesh import INTERIOR_NONOVERLAPPING, INTERIOR, NO_BOUNDARY
@@ -50,8 +40,8 @@ class hierarchyConnector(object):
             self.hierarchy1.connectorEnd = self
         self.Timer = TimerManager(LOGGER,
                                   comm=self.global_comm,
-                                     # prefix=label
-        )
+                                  # prefix=label
+                                  )
         if self.comm1 is None and self.comm2 is not None:
             if self.global_comm.size == 1:
                 self.is_overlapping = True
@@ -175,7 +165,8 @@ class inputConnector(hierarchyConnector):
 
 
 class repartitionConnector(hierarchyConnector):
-    def __init__(self, global_comm, comm1, comm2, hierarchy1, partitionerType, partitionerParams, debugOverlaps=False, commType='standard', algebraicLevelType=algebraicLevel):
+    def __init__(self, global_comm, comm1, comm2, hierarchy1, partitionerType, partitionerParams,
+                 debugOverlaps=False, commType='standard', algebraicLevelType=algebraicLevel):
         super(repartitionConnector, self).__init__(global_comm, comm1, comm2, hierarchy1)
         self.partitionerType = partitionerType
         self.partitionerParams = partitionerParams
@@ -198,7 +189,7 @@ class repartitionConnector(hierarchyConnector):
                 rep = Repartitioner(subdomain, interfaces, self.global_comm, self.comm1, self.comm2)
 
                 self.repartitioner = rep
-                part = rep.getCellPartition(self.partitionerType, self.partitionerParams)
+                rep.getCellPartition(self.partitionerType, self.partitionerParams)
                 subdomainNew, self.OM, self.OMnew, iM = rep.getRepartitionedSubdomains()
 
                 if self.debugOverlaps and not self.is_overlapping:
@@ -257,7 +248,8 @@ class repartitionConnector(hierarchyConnector):
             with self.Timer('Building algebraic overlaps of type \'{}\' from \'{}\' to \'{}\' using Alltoallv'.format(self.commType, label1, self.label2)):
                 subdomain = self.hierarchy1.meshLevels[-1].mesh
                 dm = self.hierarchy1.algebraicLevels[-1].DoFMap
-                self.algOM = self.OM.getDoFs(subdomain, dm, overlapType=self.commType, allowInteriorBoundary=True, useRequests=self.commType == 'standard', splitManager=self.splitOM)
+                self.algOM = self.OM.getDoFs(subdomain, dm, overlapType=self.commType,
+                                             allowInteriorBoundary=True, useRequests=self.commType == 'standard', splitManager=self.splitOM)
                 if self.debugOverlaps and not self.is_overlapping:
                     self.algOM.check(subdomain, dm, 'algebraicOverlaps from \'{}\' to \'{}\''.format(label1, self.label2))
             self.global_comm.Barrier()
@@ -285,7 +277,8 @@ class repartitionConnector(hierarchyConnector):
             with self.Timer('Building algebraic overlaps of type \'{}\' from \'{}\' to \'{}\' using Alltoallv'.format(self.commType, label1, self.label2)):
                 subdomainNew = self.hierarchy2.meshLevels[0].mesh
                 dmNew = self.hierarchy2.algebraicLevels[0].DoFMap
-                self.algOMnew = self.OMnew.getDoFs(subdomainNew, dmNew, overlapType=self.commType, allowInteriorBoundary=True, useRequests=self.commType == 'standard', splitManager=self.splitOM)
+                self.algOMnew = self.OMnew.getDoFs(subdomainNew, dmNew, overlapType=self.commType,
+                                                   allowInteriorBoundary=True, useRequests=self.commType == 'standard', splitManager=self.splitOM)
                 if self.debugOverlaps and not self.is_overlapping:
                     self.algOMnew.check(subdomainNew, dmNew, 'algebraicOverlaps from \'{}\' to \'{}\''.format(label1, self.label2))
             self.global_comm.Barrier()
@@ -315,11 +308,13 @@ class repartitionConnector(hierarchyConnector):
                 subdomain = self.hierarchy1.meshLevels[-1].mesh
                 dm = self.hierarchy1.algebraicLevels[-1].DoFMap
                 assert dm.num_dofs > 0
-                self.algOM = self.OM.getDoFs(subdomain, dm, overlapType=self.commType, allowInteriorBoundary=True, useRequests=self.commType == 'standard', waitRequests=False)
+                self.algOM = self.OM.getDoFs(subdomain, dm, overlapType=self.commType,
+                                             allowInteriorBoundary=True, useRequests=self.commType == 'standard', waitRequests=False)
 
                 subdomainNew = self.hierarchy2.meshLevels[0].mesh
                 dmNew = self.hierarchy2.algebraicLevels[0].DoFMap
-                self.algOMnew = self.OMnew.getDoFs(subdomainNew, dmNew, overlapType=self.commType, allowInteriorBoundary=True, useRequests=self.commType == 'standard')
+                self.algOMnew = self.OMnew.getDoFs(subdomainNew, dmNew, overlapType=self.commType,
+                                                   allowInteriorBoundary=True, useRequests=self.commType == 'standard')
                 MPI.Request.Waitall(self.OM.requests)
                 self.OM.requests = []
 

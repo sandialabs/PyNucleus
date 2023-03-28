@@ -16,7 +16,7 @@ from pathlib import Path
 p = package('PyNucleus_fem')
 p.addOption('USE_METIS', 'use_metis', True, ['PyNucleus_metisCy'])
 
-p.loadConfig()
+p.loadConfig(extra_config={'annotate': True})
 p.addPackageInclude('PyNucleus_base')
 
 print('Generating templates')

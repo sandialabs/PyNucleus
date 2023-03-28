@@ -8,7 +8,6 @@
 
 import numpy as np
 cimport numpy as np
-cimport cython
 from libc.math cimport (sin, cos, sinh, cosh, tanh, sqrt, atan, atan2,
                         log, ceil,
                         fabs as abs, M_PI as pi, pow,
@@ -56,8 +55,6 @@ cdef class fractionalOrderBase(twoPointFunction):
         self.min = smin
         self.max = smax
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
         raise NotImplementedError()
 
@@ -79,8 +76,6 @@ cdef class constFractionalOrder(fractionalOrderBase):
     def __setstate__(self, state):
         constFractionalOrder.__init__(self, state)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
         return self.value
 
@@ -96,8 +91,6 @@ cdef class variableFractionalOrder(fractionalOrderBase):
         super(variableFractionalOrder, self).__init__(smin, smax, symmetric)
         self.c_params = malloc(NUM_FRAC_ORDER_PARAMS*OFFSET)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
         cdef:
             fun_t sFun = getFun(self.c_params, fSFUN)
@@ -116,6 +109,32 @@ cdef class variableFractionalOrder(fractionalOrderBase):
 
     def __add__(self, variableFractionalOrder other):
         return sumFractionalOrder(self, 1., other, 1.)
+
+
+cdef class extendedFunction(function):
+    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x):
+        pass
+
+
+cdef class singleVariableUnsymmetricFractionalOrder(variableFractionalOrder):
+    def __init__(self, extendedFunction sFun, REAL_t smin, REAL_t smax):
+        super(singleVariableUnsymmetricFractionalOrder, self).__init__(smin, smax, False)
+        self.sFun = sFun
+
+    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
+        return self.sFun.eval(x)
+
+    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
+        return self.sFun.evalPtr(dim, x)
+
+    def __repr__(self):
+        return '{}({})'.format(self.__class__.__name__, self.sFun)
+
+    def __getstate__(self):
+        return (self.sFun, self.min, self.max)
+
+    def __setstate__(self, state):
+        singleVariableUnsymmetricFractionalOrder.__init__(self, state[0], state[1], state[2])
 
 
 cdef REAL_t lambdaFractionalOrderFun(REAL_t *x, REAL_t *y, void *c_params):
@@ -288,97 +307,103 @@ cdef class leftRightFractionalOrder(variableFractionalOrder):
         return '{}(ll={},rr={},lr={},rl={},interface={},sym={})'.format(self.__class__.__name__, sll, srr, slr, srl, interface, self.symmetric)
 
 
-cdef REAL_t smoothedLeftRightFractionalOrderFun(REAL_t *x, REAL_t *y, void *c_params):
+cdef class smoothLeftRight(extendedFunction):
     cdef:
-        REAL_t sl = getREAL(c_params, fSL)
-        REAL_t sr = getREAL(c_params, fSR)
-        REAL_t r = getREAL(c_params, fR)
-        REAL_t slope, fac
-    if x[0] < -r:
-        return sl
-    elif x[0] > r:
-        return sr
-    slope = getREAL(c_params, fSLOPE)
-    fac = getREAL(c_params, fFAC)
-    return 0.5*(sl+sr)+0.5*(sr-sl)*atan(x[0]*slope) * fac
+        REAL_t sl, sr, r, slope, fac
 
-
-cdef class smoothedLeftRightFractionalOrder(variableFractionalOrder):
     def __init__(self, REAL_t sl, REAL_t sr, REAL_t r=0.1, REAL_t slope=200.):
-        super(smoothedLeftRightFractionalOrder, self).__init__(min(sl, sr), max(sl, sr), False)
-        fac = 1./atan(r*slope)
-        setFun(self.c_params, fSFUN, &smoothedLeftRightFractionalOrderFun)
-        setREAL(self.c_params, fSL, sl)
-        setREAL(self.c_params, fSR, sr)
-        setREAL(self.c_params, fR, r)
-        setREAL(self.c_params, fSLOPE, slope)
-        setREAL(self.c_params, fFAC, fac)
+        self.sl = sl
+        self.sr = sr
+        self.r = r
+        self.slope = slope
+        self.fac = 1./atan(r*slope)
 
-    def __getstate__(self):
-        sll = getREAL(self.c_params, fSL)
-        srr = getREAL(self.c_params, fSR)
-        r = getREAL(self.c_params, fR)
-        slope = getREAL(self.c_params, fSLOPE)
-        return (sll, srr, r, slope)
+    cdef REAL_t eval(self, REAL_t[::1] x):
+        if x[0] < -self.r:
+            return self.sl
+        elif x[0] > self.r:
+            return self.sr
+        return 0.5*(self.sl+self.sr)+0.5*(self.sr-self.sl)*atan(x[0]*self.slope) * self.fac
 
-    def __setstate__(self, state):
-        smoothedLeftRightFractionalOrder.__init__(self, state[0], state[1], state[2], state[3])
-
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
-        return smoothedLeftRightFractionalOrderFun(&x[0], &y[0], self.c_params)
+    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x):
+        if x[0] < -self.r:
+            return self.sl
+        elif x[0] > self.r:
+            return self.sr
+        return 0.5*(self.sl+self.sr)+0.5*(self.sr-self.sl)*atan(x[0]*self.slope) * self.fac
 
     def __repr__(self):
-        sl = getREAL(self.c_params, fSL)
-        sr = getREAL(self.c_params, fSR)
-        r = getREAL(self.c_params, fR)
-        slope = getREAL(self.c_params, fSLOPE)
-        return '{}(l={},r={},r={},slope={},sym={})'.format(self.__class__.__name__, sl, sr, r, slope, self.symmetric)
+        return '{}(sl={},sr={},r={},slope={})'.format(self.__class__.__name__, self.sl, self.sr, self.r, self.slope)
 
 
-cdef REAL_t linearLeftRightFractionalOrderFun(REAL_t *x, REAL_t *y, void *c_params):
+cdef class smoothStep(extendedFunction):
     cdef:
-        REAL_t sl = getREAL(c_params, fSL)
-        REAL_t sr = getREAL(c_params, fSR)
-        REAL_t r = getREAL(c_params, fR)
-        REAL_t slope
-    if x[0] < -r:
-        return sl
-    elif x[0] > r:
-        return sr
-    slope = getREAL(c_params, fSLOPE)
-    return sl + slope*(x[0]+r)
+        REAL_t sl, sr, r, slope, interface
 
+    def __init__(self, REAL_t sl, REAL_t sr, REAL_t r, REAL_t interface=0.):
+        self.sl = sl
+        self.sr = sr
+        self.r = r
+        self.slope = 0.5/r
+        self.interface = interface
 
-cdef class linearLeftRightFractionalOrder(variableFractionalOrder):
-    def __init__(self, INDEX_t dim, REAL_t sl, REAL_t sr, REAL_t r=0.1):
-        super(linearLeftRightFractionalOrder, self).__init__(min(sl, sr), max(sl, sr), False)
-        slope = (sr-sl)/(2.0*r)
-        setINDEX(self.c_params, fDIM, dim)
-        setFun(self.c_params, fSFUN, &linearLeftRightFractionalOrderFun)
-        setREAL(self.c_params, fSL, sl)
-        setREAL(self.c_params, fSR, sr)
-        setREAL(self.c_params, fR, r)
-        setREAL(self.c_params, fSLOPE, slope)
+    cdef REAL_t eval(self, REAL_t[::1] x):
+        if x[0] < self.interface-self.r:
+            return self.sl
+        elif x[0] > self.interface+self.r:
+            return self.sr
+        return self.sl + (self.sr-self.sl) * (3.0*pow((x[0]-self.interface)*self.slope+0.5, 2.0) - 2.0*pow((x[0]-self.interface)*self.slope+0.5, 3.0))
 
-    def __getstate__(self):
-        dim = getINDEX(self.c_params, fDIM)
-        sll = getREAL(self.c_params, fSL)
-        srr = getREAL(self.c_params, fSR)
-        r = getREAL(self.c_params, fR)
-        slope = getREAL(self.c_params, fSLOPE)
-        return (dim, sll, srr, r, slope)
-
-    def __setstate__(self, state):
-        linearLeftRightFractionalOrder.__init__(self, state[0], state[1], state[2], state[3], state[4])
+    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x):
+        if x[0] < self.interface-self.r:
+            return self.sl
+        elif x[0] > self.interface+self.r:
+            return self.sr
+        return self.sl + (self.sr-self.sl) * (3.0*pow((x[0]-self.interface)*self.slope+0.5, 2.0) - 2.0*pow((x[0]-self.interface)*self.slope+0.5, 3.0))
 
     def __repr__(self):
-        sl = getREAL(self.c_params, fSL)
-        sr = getREAL(self.c_params, fSR)
-        r = getREAL(self.c_params, fR)
-        slope = getREAL(self.c_params, fSLOPE)
-        return '{}(l={},r={},r={},slope={},sym={})'.format(self.__class__.__name__, sl, sr, r, slope, self.symmetric)
+        return '{}(sl={},sr={},r={},interface={})'.format(self.__class__.__name__, self.sl, self.sr, self.r, self.interface)
+
+
+cdef class linearStep(extendedFunction):
+    cdef:
+        REAL_t sl, sr, r, slope
+
+    def __init__(self, REAL_t sl, REAL_t sr, REAL_t r):
+        self.sl = sl
+        self.sr = sr
+        self.r = r
+        self.slope = 0.5*(sr-sl)/r
+
+    cdef REAL_t eval(self, REAL_t[::1] x):
+        if x[0] < -self.r:
+            return self.sl
+        elif x[0] > self.r:
+            return self.sr
+        return self.sl + self.slope*(x[0]+self.r)
+
+    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x):
+        if x[0] < -self.r:
+            return self.sl
+        elif x[0] > self.r:
+            return self.sr
+        return self.sl + self.slope*(x[0]+self.r)
+
+    def __repr__(self):
+        return '{}(sl={},sr={},r={})'.format(self.__class__.__name__, self.sl, self.sr, self.r)
+
+
+cdef class smoothedLeftRightFractionalOrder(singleVariableUnsymmetricFractionalOrder):
+    def __init__(self, REAL_t sl, REAL_t sr, REAL_t r=0.1, REAL_t slope=200., REAL_t interface=0.):
+        sFun = smoothStep(sl, sr, r, interface)
+        # sFun = smoothLeftRight(sl, sr, r, slope)
+        super(smoothedLeftRightFractionalOrder, self).__init__(sFun, min(sl, sr), max(sl, sr))
+
+
+cdef class linearLeftRightFractionalOrder(singleVariableUnsymmetricFractionalOrder):
+    def __init__(self, REAL_t sl, REAL_t sr, REAL_t r=0.1):
+        sFun = linearStep(sl, sr, r)
+        super(linearLeftRightFractionalOrder, self).__init__(sFun, min(sl, sr), max(sl, sr))
 
 
 cdef REAL_t innerOuterFractionalOrderFun(REAL_t *x, REAL_t *y, void *c_params):
@@ -457,8 +482,6 @@ cdef class sumFractionalOrder(variableFractionalOrder):
         self.s2 = s2
         self.fac2 = fac2
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
         return self.s1.eval(x, y) + self.s2.eval(x, y)
 
@@ -714,8 +737,6 @@ cdef class variableFractionalLaplacianScaling(parametrizedTwoPointFunction):
         parametrizedTwoPointFunction.setParams(self, params)
         self.dim = getINDEX(self.params, fKDIM)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
         cdef:
             REAL_t s = getREAL(self.params, fS)
@@ -734,8 +755,6 @@ cdef class variableFractionalLaplacianScaling(parametrizedTwoPointFunction):
         else:
             raise NotImplementedError()
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
         cdef:
             REAL_t s = getREAL(self.params, fS)
@@ -766,6 +785,9 @@ cdef class variableFractionalLaplacianScaling(parametrizedTwoPointFunction):
         scaling = variableFractionalLaplacianScalingWithDifferentHorizon(self.symmetric, horizonFun)
         return scaling
 
+    def __repr__(self):
+        return 'variableFractionalLaplacianScaling'
+
 
 ######################################################################
 
@@ -775,9 +797,6 @@ cdef class variableFractionalLaplacianScalingWithDifferentHorizon(variableFracti
         super(variableFractionalLaplacianScalingWithDifferentHorizon, self).__init__(symmetric)
         self.horizonFun = horizonFun
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
         cdef:
             void* params
@@ -792,9 +811,6 @@ cdef class variableFractionalLaplacianScalingWithDifferentHorizon(variableFracti
         self.setParams(params)
         return scalingValue
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
     cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
         cdef:
             void* params
@@ -809,3 +825,9 @@ cdef class variableFractionalLaplacianScalingWithDifferentHorizon(variableFracti
         scalingValue = variableFractionalLaplacianScaling.evalPtr(self, dim, x, y)
         self.setParams(params)
         return scalingValue
+
+    def __getstate__(self):
+        return (self.symmetric, self.horizonFun)
+
+    def __setstate__(self, state):
+        variableFractionalLaplacianScalingWithDifferentHorizon.__init__(self, state[0], state[1])

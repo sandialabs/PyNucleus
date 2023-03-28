@@ -121,9 +121,14 @@ def getFracLapl(mesh, DoFMap, kernel=None, rangedOpParams={}, **kwargs):
     tag = kwargs.get('tag', None)
     zeroExterior = kwargs.get('zeroExterior', None)
     matrixFormat = kwargs.get('matrixFormat', 'h2')
+    trySparsification = kwargs.get('trySparsification', False)
+    if 'dense' in kwargs:
+        if kwargs['dense']:
+            matrixFormat = 'dense'
+            if trySparsification:
+                matrixFormat = 'sparsified'
     diagonal = kwargs.get('diagonal', False)
     cached = kwargs.get('cached', False)
-    trySparsification = kwargs.get('trySparsification', False)
     logging = kwargs.get('logging', False)
     timer = kwargs.get('timer', None)
 
@@ -136,7 +141,7 @@ def getFracLapl(mesh, DoFMap, kernel=None, rangedOpParams={}, **kwargs):
     dataDir = kwargs.get('dataDir', 'DATA')
     doSave = kwargs.get('doSave', False)
     overrideFileName = kwargs.get('overrideFileName', None)
-    forceRebuild = kwargs.get('forceRebuild', False)
+    forceRebuild = kwargs.get('forceRebuild', True)
 
     if timer is None:
         timer = getLoggingTimer(LOGGER, comm=comm, rootOutput=True)
@@ -200,17 +205,21 @@ def getFracLapl(mesh, DoFMap, kernel=None, rangedOpParams={}, **kwargs):
     if tag is None or zeroExterior is None:
         tag, zeroExterior = processBC(tag, boundaryCondition, kernel)
 
-    if overrideFileName is not None:
-        filename = overrideFileName
-    else:
-        base = mesh.vertices_as_array.min(axis=0)
-        if diagonal:
-            prefix = 'diagonal'
-        elif matrixFormat.upper() == 'DENSE':
-            prefix = 'dense'
+    if doSave or not forceRebuild:
+        if overrideFileName is not None:
+            filename = overrideFileName
         else:
-            prefix = 'sparse'
-        filename = dataDir/'{}-{}-{}-{:.5}-{}-{}-{}-{}-{}-{}-{:.5}-{:.5}-{}.hdf5'.format(prefix, base, mesh.dim, mesh.diam, mesh.num_vertices, mesh.num_cells, kernel, tag, target_order, eta, mesh.h, mesh.hmin, boundaryCondition)
+            base = mesh.vertices_as_array.min(axis=0)
+            if diagonal:
+                prefix = 'diagonal'
+            elif matrixFormat.upper() == 'DENSE':
+                prefix = 'dense'
+            else:
+                prefix = 'sparse'
+            filename = dataDir/'{}-{}-{}-{:.5}-{}-{}-{}-{}-{}-{}-{:.5}-{:.5}-{}.hdf5'.format(prefix, base, mesh.dim, mesh.diam, mesh.num_vertices,
+                                                                                             mesh.num_cells, kernel, tag, target_order,
+                                                                                             eta, mesh.h, mesh.hmin, boundaryCondition)
+
     A = None
     Pnear = None
     if ((isinstance(kernel, FractionalKernel) and (kernel.s.min == kernel.s.max == 1.)) or
@@ -367,7 +376,7 @@ def paramsForFractionalHierarchy(noRef, global_params, onRanks=range(1)):
              'connectorEnd': 'breakUp',
              'params': {'noRef': noRefCoarse,
                         'assemble': 'dofmaps only'}
-            },
+             },
             {'label': 'fine',
              'ranks': set([0]),
              'connectorStart': 'breakUp',
@@ -384,8 +393,8 @@ def paramsForFractionalHierarchy(noRef, global_params, onRanks=range(1)):
                         'cached': global_params.get('cached', False),
                         'boundaryCondition': global_params.get('boundaryCondition', HOMOGENEOUS_DIRICHLET),
                         'logging': global_params.get('logging', False)
-             }
-            }]
+                        }
+             }]
         connectors = {}
         connectors['input'] = {'type': inputConnector,
                                'params': {'domain': global_params['domain'],
@@ -396,7 +405,7 @@ def paramsForFractionalHierarchy(noRef, global_params, onRanks=range(1)):
                                             'partitionerParams': global_params.get('coarsePartitionerParams', global_params.get('partitionerParams', {})),
                                             'debugOverlaps': global_params.get('debugOverlaps', False),
                                             'algebraicLevelType': fractionalLevel
-                                 }}
+                                            }}
     else:
         hierarchies = [
             {'label': 'fine',
@@ -416,8 +425,8 @@ def paramsForFractionalHierarchy(noRef, global_params, onRanks=range(1)):
                         'cached': global_params.get('cached', False),
                         'boundaryCondition': global_params.get('boundaryCondition', HOMOGENEOUS_DIRICHLET),
                         'logging': global_params.get('logging', False)
-             }
-            }]
+                        }
+             }]
         connectors = {}
         connectors['input'] = {'type': inputConnector,
                                'params': {'domain': global_params['domain'],
@@ -486,7 +495,7 @@ class DirichletCondition:
         # dirichletIndicatorVec = dmIndicator.interpolate(dirichletIndicator).toarray()
         # naturalCells = np.flatnonzero(dirichletIndicatorVec < 1e-9).astype(INDEX)
 
-        from PyNucleus_fem.splitting import meshSplitter, dofmapSplitter
+        from PyNucleus_fem.splitting import dofmapSplitter
         from PyNucleus_fem.DoFMaps import getSubMapRestrictionProlongation
 
         split = dofmapSplitter(self.fullDoFMap, {'Dirichlet': dirichletIndicator})
@@ -507,7 +516,6 @@ class DirichletCondition:
         # self.dirichletDoFMap = type(self.fullDoFMap)(self.fullMesh, dirichletIndicator)
         # self.dirichletR, self.dirichletP = getSubMapRestrictionProlongation(self.fullDoFMap, self.dirichletDoFMap)
 
-
         # import matplotlib.pyplot as plt
         # plt.figure()
         # self.dirichletDoFMap.plot()
@@ -517,7 +525,8 @@ class DirichletCondition:
         # # self.naturalMesh.plot(info=True)
         # plt.show()
 
-        assert self.fullDoFMap.num_dofs == self.naturalDoFMap.num_dofs+self.dirichletDoFMap.num_dofs, (self.fullDoFMap.num_dofs, self.naturalDoFMap.num_dofs, self.dirichletDoFMap.num_dofs)
+        assert self.fullDoFMap.num_dofs == self.naturalDoFMap.num_dofs+self.dirichletDoFMap.num_dofs, (self.fullDoFMap.num_dofs, self.naturalDoFMap.num_dofs,
+                                                                                                       self.dirichletDoFMap.num_dofs)
 
         self.naturalA = self.naturalR*(self.fullOp*self.naturalP)
 

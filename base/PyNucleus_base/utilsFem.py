@@ -6,7 +6,6 @@
 ###################################################################################
 
 
-from time import time
 import numpy as np
 import logging
 import os
@@ -237,7 +236,7 @@ class exitHandler(object):
         elif self.exception is not None:
             lines = traceback.format_exception(self.exc_type, self.exception,
                                                tb=self.exception.__traceback__)
-            msg = ''.join(['{}: {}'.format(self.comm.rank, l) for l in lines])
+            msg = ''.join(['{}: {}'.format(self.comm.rank, line) for line in lines])
             logging.error('\n'+msg)
             self.comm.Abort(1234)
 
@@ -378,7 +377,7 @@ def processDictForYaml(params):
                     paramsNew[key] = params[key].tolist()
                     for i in range(len(paramsNew[key])):
                         paramsNew[key][i] = float(paramsNew[key][i])
-                elif  params[key].ndim == 2:
+                elif params[key].ndim == 2:
                     paramsNew[key] = params[key].tolist()
                     for i in range(len(paramsNew[key])):
                         for j in range(len(paramsNew[key][i])):
@@ -413,7 +412,6 @@ KEY_VAL_FORMAT = '{:<54}{}'
 def getMPIinfo():
     from sys import modules
     if 'mpi4py.MPI' in modules:
-        from textwrap import dedent
         import mpi4py
         mpi4py.initialize = False
         from mpi4py import MPI
@@ -1354,7 +1352,7 @@ def diffDict(d1, d2, aTol, relTol):
 def runDriver(path, py, python=None, timeout=600, ranks=None, cacheDir='',
               overwriteCache=False,
               aTol=1e-12, relTol=1e-2, extra=None):
-    from subprocess import Popen, PIPE, STDOUT, TimeoutExpired
+    from subprocess import Popen, PIPE, TimeoutExpired
     import logging
     import os
     from pathlib import Path
@@ -1383,36 +1381,59 @@ def runDriver(path, py, python=None, timeout=600, ranks=None, cacheDir='',
     else:
         py += ['--skipPlots']
     assert (Path(path)/py[0]).exists(), 'Driver \"{}\" does not exist'.format(Path(path)/py[0])
-    if ranks is None:
-        ranks = 1
-    if python is None:
-        import sys
-        python = sys.executable
-    cmd = [python] + py
-    if 'MPIEXEC_FLAGS' in os.environ:
-        mpi_flags = str(os.environ['MPIEXEC_FLAGS'])
+    if ranks is not None and ranks > 1:
+        if python is None:
+            import sys
+            python = sys.executable
+        cmd = [python] + py
+        if 'MPIEXEC_FLAGS' in os.environ:
+            mpi_flags = str(os.environ['MPIEXEC_FLAGS'])
+        else:
+            mpi_flags = '--bind-to none'
+        cmd = ['mpiexec'] + mpi_flags.split(' ') + ['-n', str(ranks)]+cmd
+        logger.info('Launching "{}" from "{}"'.format(' '.join(cmd), path))
+        my_env = {}
+        for key in os.environ:
+            if key.find('OMPI') == -1:
+                my_env[key] = os.environ[key]
+        proc = Popen(cmd, cwd=path,
+                     stdout=PIPE, stderr=PIPE,
+                     universal_newlines=True,
+                     env=my_env)
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        except TimeoutExpired:
+            proc.kill()
+            raise
+        if len(stdout) > 0:
+            logger.info(stdout)
+        if len(stderr) > 0:
+            logger.error(stderr)
+        assert proc.returncode == 0, 'Return code {}'.format(proc.returncode)
     else:
-        mpi_flags = '--bind-to none'
-    cmd = ['mpiexec'] + mpi_flags.split(' ') + ['-n', str(ranks)]+cmd
-    logger.info('Launching "{}" from "{}"'.format(' '.join(cmd), path))
-    my_env = {}
-    for key in os.environ:
-        if key.find('OMPI') == -1:
-            my_env[key] = os.environ[key]
-    proc = Popen(cmd, cwd=path,
-                 stdout=PIPE, stderr=PIPE,
-                 universal_newlines=True,
-                 env=my_env)
-    try:
-        stdout, stderr = proc.communicate(timeout=timeout)
-    except TimeoutExpired:
-        proc.kill()
-        raise
-    if len(stdout) > 0:
-        logger.info(stdout)
-    if len(stderr) > 0:
-        logger.error(stderr)
-    assert proc.returncode == 0, stderr
+        if python is None:
+            import sys
+            python = sys.executable
+        cmd = [python] + py
+        logger.info('Launching "{}" from "{}"'.format(' '.join(cmd), path))
+        my_env = {}
+        for key in os.environ:
+            if key.find('OMPI') == -1:
+                my_env[key] = os.environ[key]
+        proc = Popen(cmd, cwd=path,
+                     stdout=PIPE, stderr=PIPE,
+                     universal_newlines=True,
+                     env=my_env)
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        except TimeoutExpired:
+            proc.kill()
+            raise
+        if len(stdout) > 0:
+            logger.info(stdout)
+        if len(stderr) > 0:
+            logger.error(stderr)
+        assert proc.returncode == 0, 'Return code {}'.format(proc.returncode)
     if extra is not None:
         from pytest_html import extras
         for img in plotDir.glob('*.png'):

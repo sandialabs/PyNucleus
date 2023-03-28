@@ -18,16 +18,16 @@ from PyNucleus_fem.DoFMaps cimport DoFMap
 from PyNucleus_fem.femCy cimport volume_t
 from PyNucleus_base.ip_norm cimport mydot
 from PyNucleus_fem.meshCy cimport (vectorProduct,
-                         volume0D,
-                         volume1D, volume1Dnew,
-                         volume1D_in_2D,
-                         volume2Dnew,
-                         volume3D, volume3Dnew)
+                                   volume0D,
+                                   volume1D, volume1Dnew,
+                                   volume1D_in_2D,
+                                   volume2Dnew,
+                                   volume3D, volume3Dnew)
 from . nonlocalLaplacianBase cimport (double_local_matrix_t,
-                                        nonlocalLaplacian1D,
-                                        nonlocalLaplacian2D,
-                                        panelType, MASK_t,
-                                        specialQuadRule)
+                                      nonlocalLaplacian1D,
+                                      nonlocalLaplacian2D,
+                                      panelType, MASK_t,
+                                      specialQuadRule)
 from . interactionDomains cimport CUT
 from . fractionalOrders cimport fractionalOrderBase
 from . kernelsCy cimport Kernel

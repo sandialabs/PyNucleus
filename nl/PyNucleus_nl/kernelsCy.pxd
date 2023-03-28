@@ -38,9 +38,12 @@ cdef class Kernel(twoPointFunction):
         kernel_fun_t kernelFun
         void *c_kernel_params
     cdef REAL_t getSingularityValue(self)
+    cdef void setSingularityValue(self, REAL_t singularity)
     cdef REAL_t getHorizonValue(self)
+    cdef void setHorizonValue(self, REAL_t horizon)
     cdef REAL_t getHorizonValue2(self)
     cdef REAL_t getScalingValue(self)
+    cdef void setScalingValue(self, REAL_t scaling)
     cdef void evalParams(self, REAL_t[::1] x, REAL_t[::1] y)
     cdef void evalParamsPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y)
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y)
@@ -50,7 +53,9 @@ cdef class FractionalKernel(Kernel):
     cdef:
         public fractionalOrderBase s
         public BOOL_t variableOrder
+        public BOOL_t boundary
     cdef REAL_t getsValue(self)
+    cdef void setsValue(self, REAL_t s)
 
 
 cdef class RangedFractionalKernel(FractionalKernel):

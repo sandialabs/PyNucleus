@@ -52,7 +52,8 @@ class Stepper:
 
 
 class CrankNicolson(Stepper):
-    def __init__(self, dm, mass, solverBuilder, forcing, explicit=None, theta=0.5, dt=None, solverIsTimeDependent=False, explicitIslinearAndTimeIndependent=False):
+    def __init__(self, dm, mass, solverBuilder, forcing, explicit=None, theta=0.5, dt=None,
+                 solverIsTimeDependent=False, explicitIslinearAndTimeIndependent=False):
         assert theta > 0 and theta <= 1.
         self.theta = theta
         super(CrankNicolson, self).__init__(dm, mass, solverBuilder, forcing, explicit, dt, solverIsTimeDependent, explicitIslinearAndTimeIndependent)
@@ -70,7 +71,7 @@ class CrankNicolson(Stepper):
                 self.solver = self.solverBuilder(0., 1./self.dt, self.theta)
             return self.solver
         else:
-            solver = self.solverBuilder(t+dt, 1./dt, self.theta)
+            return self.solverBuilder(t+dt, 1./dt, self.theta)
 
     def setRHS(self, t, dt, rhs):
         self.forcing(t+dt, rhs)
@@ -462,7 +463,7 @@ class ARS3(IMEX):
                           [0, 1-2*gamma, gamma]])
         bExpl = np.array([0, 1/2, 1/2])
         bImpl = np.array([0, 1/2, 1/2])
-        c = np.array([0,gamma, 1-gamma])
+        c = np.array([0, gamma, 1-gamma])
         IMEX.__init__(self, dm,
                       implicit, implicitSolve, explicit,
                       c, bExpl, bImpl, AExpl, AImpl,

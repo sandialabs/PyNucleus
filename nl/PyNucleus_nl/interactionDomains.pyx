@@ -6,7 +6,6 @@
 ###################################################################################
 
 
-# cython: initializedcheck=False, wraparound=False, boundscheck=False, cdivision=True
 import numpy as np
 cimport numpy as np
 from libc.math cimport sqrt, M_PI as pi, pow

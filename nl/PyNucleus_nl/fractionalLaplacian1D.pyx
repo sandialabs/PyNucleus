@@ -9,7 +9,6 @@
 from libc.math cimport (log, ceil, fabs as abs, pow)
 import numpy as np
 cimport numpy as np
-cimport cython
 
 from PyNucleus_base.myTypes import INDEX, REAL
 from PyNucleus_base import uninitialized, uninitialized_like
@@ -70,10 +69,6 @@ cdef class fractionalLaplacian1D_P1(nonlocalLaplacian1D):
             self.getNearQuadRule(COMMON_EDGE)
             self.getNearQuadRule(COMMON_VERTEX)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cdef panelType getQuadOrder(self,
                                 const REAL_t h1,
                                 const REAL_t h2,
@@ -95,9 +90,6 @@ cdef class fractionalLaplacian1D_P1(nonlocalLaplacian1D):
             self.addQuadRule(panel)
         return panel
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void getNearQuadRule(self, panelType panel):
         cdef:
             INDEX_t i
@@ -199,10 +191,6 @@ cdef class fractionalLaplacian1D_P1(nonlocalLaplacian1D):
                 'quad_order_diagonal:           {}\n'.format(self.quad_order_diagonal) +
                 'quad_order_off_diagonal:       {}\n'.format(list(self.distantQuadRules.keys())))
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef void eval(self,
                    REAL_t[::1] contrib,
                    panelType panel,
@@ -323,18 +311,14 @@ cdef class fractionalLaplacian1D_P1_boundary(fractionalLaplacian1DZeroExterior):
             quad_order_diagonal = max(np.ceil(((target_order+1.)*log(self.num_dofs*self.H0)+(2.*smax-1.)*abs(log(self.hmin/self.H0)))/0.8), 2)
         self.quad_order_diagonal = quad_order_diagonal
 
-        if not self.kernel.variableOrder:
-            self.getNearQuadRule(COMMON_VERTEX)
-
         self.x = uninitialized((0, self.dim), dtype=REAL)
         self.temp = uninitialized((0), dtype=REAL)
         self.temp2 = uninitialized((0), dtype=REAL)
         self.distantPHI = {}
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
+        if not self.kernel.variableOrder:
+            self.getNearQuadRule(COMMON_VERTEX)
+
     cdef panelType getQuadOrder(self,
                                 const REAL_t h1,
                                 const REAL_t h2,
@@ -409,6 +393,11 @@ cdef class fractionalLaplacian1D_P1_boundary(fractionalLaplacian1DZeroExterior):
 
                 sQR0 = specialQuadRule(qrVertex, PHI=PHI_vertex)
                 self.specialQuadRules[(s, panel)] = sQR0
+                if qrVertex.num_nodes > self.x.shape[0]:
+                    self.x = uninitialized((qrVertex.num_nodes, self.dim), dtype=REAL)
+                if qrVertex.num_nodes > self.temp.shape[0]:
+                    self.temp = uninitialized((qrVertex.num_nodes), dtype=REAL)
+                    self.temp2 = uninitialized((qrVertex.num_nodes), dtype=REAL)
             self.qrVertex = sQR0.qr
             self.PHI_vertex = sQR0.PHI
         else:
@@ -422,10 +411,6 @@ cdef class fractionalLaplacian1D_P1_boundary(fractionalLaplacian1DZeroExterior):
                 'quad_order_diagonal:           {}\n'.format(self.quad_order_diagonal) +
                 'quad_order_off_diagonal:       {}\n'.format(list(self.distantQuadRules.keys())))
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef void eval(self,
                    REAL_t[::1] contrib,
                    panelType panel,
@@ -438,8 +423,19 @@ cdef class fractionalLaplacian1D_P1_boundary(fractionalLaplacian1DZeroExterior):
             REAL_t[:, ::1] PHI
             REAL_t[:, ::1] simplex = self.simplex1
             REAL_t[:, ::1] simplex2 = self.simplex2
-            REAL_t s = self.kernel.sValue
-            REAL_t scaling = self.kernel.scalingValue
+
+        # Kernel:
+        #  \Gamma(x,y) = n \dot (x-y) * C(d,s) / (2s) / |x-y|^{d+2s}
+        # with inward normal n.
+        #
+        # Rewrite as
+        #  \Gamma(x,y) = [ n \dot (x-y)/|x-y| ] * [ C(d,s) / (2s) / |x-y|^{d-1+2s} ]
+        #
+        # In 1D:
+        #  n = (x-y)/|x-y|
+        # so
+        #  n \dot (x-y) / |x-y| = 1
+
         if panel == COMMON_VERTEX:
             # For s >= 0.5, we have also an exact expression
             # if s >= 0.5:
@@ -463,6 +459,8 @@ cdef class fractionalLaplacian1D_P1_boundary(fractionalLaplacian1DZeroExterior):
             #             s /= abs(simplex[1, 0]-simplex[0, 0])**(2.*s) * s
             #             contrib[k] = s*vol*scaling
             #             k += 1
+
+            # sort common vertex first
             if abs(simplex[0, 0]-simplex2[0, 0]) < 1e-12:
                 idx[0], idx[1] = 0, 1
             else:
@@ -473,21 +471,21 @@ cdef class fractionalLaplacian1D_P1_boundary(fractionalLaplacian1DZeroExterior):
                     val = 0.
                     for m in range(self.qrVertex.num_nodes):
                         val += self.PHI_vertex[idx[i], m]*self.PHI_vertex[idx[j], m]*self.qrVertex.weights[m]
-                    val /= abs(simplex[1, 0]-simplex[0, 0])**(2.*s) * s
-                    contrib[k] = val*vol*scaling
+                    val *= self.kernel.evalPtr(1, &simplex[idx[0], 0], &simplex[idx[1], 0])
+                    contrib[k] = val*vol
                     k += 1
         elif panel >= 1:
             qr = self.distantQuadRules[panel]
             PHI = self.distantPHI[panel]
             qr.nodesInGlobalCoords(simplex, self.x)
             for j in range(qr.num_nodes):
-                self.temp[j] = (1./abs(self.x[j, 0]-simplex2[0, 0])**(2.*s)) / s
+                self.temp[j] = self.kernel.evalPtr(1, &self.x[j, 0], &simplex2[0, 0])
             k = 0
             for i in range(2):
                 for j in range(i, 2):
                     for m in range(qr.num_nodes):
                         self.temp2[m] = self.temp[m]*PHI[i, m]*PHI[j, m]
-                    contrib[k] = scaling*qr.eval(self.temp2, vol)
+                    contrib[k] = qr.eval(self.temp2, vol)
                     k += 1
         else:
             raise NotImplementedError('Unknown panel type: {}'.format(panel))
@@ -495,26 +493,15 @@ cdef class fractionalLaplacian1D_P1_boundary(fractionalLaplacian1DZeroExterior):
 
 
 cdef class fractionalLaplacian1D_P0(nonlocalLaplacian1D):
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cdef panelType getQuadOrder(self,
                                 const REAL_t h1,
                                 const REAL_t h2,
                                 REAL_t d):
         return 1
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cdef void addQuadRule(self, panelType panel):
         pass
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void getNearQuadRule(self, panelType panel):
         pass
 
@@ -536,10 +523,6 @@ cdef class fractionalLaplacian1D_P0(nonlocalLaplacian1D):
                 'quad_order_diagonal:           {}\n'.format(self.quad_order_diagonal) +
                 'quad_order_off_diagonal:       {}\n'.format(list(self.distantQuadRules.keys())))
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef void eval(self,
                    REAL_t[::1] contrib,
                    panelType panel,
@@ -568,25 +551,15 @@ cdef class fractionalLaplacian1D_P0(nonlocalLaplacian1D):
 
 
 cdef class fractionalLaplacian1D_P0_boundary(fractionalLaplacian1DZeroExterior):
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cdef panelType getQuadOrder(self,
                                 const REAL_t h1,
                                 const REAL_t h2,
                                 REAL_t d):
         return 1
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void addQuadRule(self, panelType panel):
         pass
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void getNearQuadRule(self, panelType panel):
         pass
 
@@ -609,10 +582,6 @@ cdef class fractionalLaplacian1D_P0_boundary(fractionalLaplacian1DZeroExterior):
                 'quad_order_diagonal:           {}\n'.format(self.quad_order_diagonal) +
                 'quad_order_off_diagonal:       {}\n'.format(list(self.distantQuadRules.keys())))
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef void eval(self,
                    REAL_t[::1] contrib,
                    panelType panel,

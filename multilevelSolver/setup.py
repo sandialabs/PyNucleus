@@ -30,13 +30,13 @@ replacementGroups = [[('{SCALAR}', 'REAL'),
                       ('{SCALAR_label}', ''),
                       ('{SCALAR_label_lc}', ''),
                       ('{SCALAR_label_lc_}', '')],
-                      [('{SCALAR}', 'COMPLEX'),
-                       ('{SCALAR_label}', 'Complex'),
-                       ('{SCALAR_label_lc}', 'complex'),
-                       ('{SCALAR_label_lc_}', 'complex_'),
-                       # for some reason, complex cannot handle += etc
-                       ('\s([^\s]+\[[^\]]*\])\s([\*\+-])=', ' \\1 = \\1 \\2'),
-                       ('\s([^\s]+)\s([\*\+-])=', ' \\1 = \\1 \\2')]]
+                     [('{SCALAR}', 'COMPLEX'),
+                      ('{SCALAR_label}', 'Complex'),
+                      ('{SCALAR_label_lc}', 'complex'),
+                      ('{SCALAR_label_lc_}', 'complex_'),
+                      # for some reason, complex cannot handle += etc
+                      ('\s([^\s]+\[[^\]]*\])\s([\*\+-])=', ' \\1 = \\1 \\2'),
+                      ('\s([^\s]+)\s([\*\+-])=', ' \\1 = \\1 \\2')]]
 fillTemplate(Path(p.folder), templates, replacementGroups)
 
 p.addExtension("smoothers",

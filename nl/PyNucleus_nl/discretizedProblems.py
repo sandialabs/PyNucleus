@@ -9,7 +9,6 @@
 import numpy as np
 from PyNucleus_base import solverFactory
 from PyNucleus_base.utilsFem import (classWithComputedDependencies,
-                                     INVALID,
                                      problem,
                                      generates)
 from PyNucleus_base.ip_norm import (ip_distributed_nonoverlapping,
@@ -17,14 +16,14 @@ from PyNucleus_base.ip_norm import (ip_distributed_nonoverlapping,
 from PyNucleus_base.solvers import iterative_solver
 from PyNucleus_base.linear_operators import Dense_LinearOperator
 from PyNucleus_base.timestepping import CrankNicolson, ImplicitEuler
-from PyNucleus_fem import simplexXiaoGimbutas, indicatorFunctor, constant
+from PyNucleus_fem import simplexXiaoGimbutas, constant, functionFactory
 from PyNucleus_fem.DoFMaps import Product_DoFMap
 from PyNucleus_multilevelSolver import hierarchyManager
 from copy import copy
 from . helpers import (multilevelDirichletCondition,
                        paramsForFractionalHierarchy)
 from . kernelsCy import FRACTIONAL
-from . nonlocalProblems import (DIRICHLET, HOMOGENEOUS_DIRICHLET,
+from . nonlocalProblems import (DIRICHLET,
                                 NEUMANN, HOMOGENEOUS_NEUMANN,
                                 transientFractionalProblem)
 import logging
@@ -254,7 +253,7 @@ class transientModelSolution(classWithComputedDependencies):
         self.error = self.getSingleTimeStepSolution().error
 
     @generates('L2_error')
-    def computeL2error(self, u, analyticSolution, exactL2Squared):
+    def computeL2error(self, u, analyticSolution, exactL2Squared, timesVector):
         if exactL2Squared is not None:
             if u.dm == self.discretizedProblem.dmInterior:
                 M = self.discretizedProblem.massInterior
@@ -262,8 +261,7 @@ class transientModelSolution(classWithComputedDependencies):
                 M = self.discretizedProblem.mass
             else:
                 M = u.dm.assembleMass()
-            I = 0.
-            timesVector = self.timesVector
+            integral = 0.
             for k in range(timesVector.shape[0]):
                 if k == 0:
                     fac = timesVector[k+1]-timesVector[k]
@@ -273,20 +271,65 @@ class transientModelSolution(classWithComputedDependencies):
                     fac = timesVector[k+1]-timesVector[k-1]
                 t = timesVector[k]
                 z = u.dm.assembleRHS(analyticSolution(t))
-                I += fac*abs(exactL2Squared(t) - 2*z.inner(u[k]) + u[k].inner(M*u[k]))
-            self.L2_error = np.sqrt(I)
+                integral += fac*abs(exactL2Squared(t) - 2*z.inner(u[k]) + u[k].inner(M*u[k]))
+            self.L2_error = np.sqrt(integral)
         else:
             self.L2_error = None
 
+    @generates('final_L2_error')
+    def computeFinalL2error(self, u, analyticSolution, exactL2Squared, finalTime):
+        if exactL2Squared is not None:
+            if u.dm == self.discretizedProblem.dmInterior:
+                M = self.discretizedProblem.massInterior
+            elif u.dm == self.discretizedProblem.dm:
+                M = self.discretizedProblem.mass
+            else:
+                M = u.dm.assembleMass()
+            z = u.dm.assembleRHS(analyticSolution(finalTime))
+            numTimeSteps = u.numVectors-1
+            integral = abs(exactL2Squared(finalTime) - 2*z.inner(u[numTimeSteps]) + u[numTimeSteps].inner(M*u[numTimeSteps]))
+            self.final_L2_error = np.sqrt(integral)
+        else:
+            self.final_L2_error = None
+
+    @generates('L2_norm')
+    def computeL2norm(self, u, timesVector):
+        if u.dm == self.discretizedProblem.dmInterior:
+            M = self.discretizedProblem.massInterior
+        elif u.dm == self.discretizedProblem.dm:
+            M = self.discretizedProblem.mass
+        else:
+            M = u.dm.assembleMass()
+        integral = 0.
+        for k in range(timesVector.shape[0]):
+            if k == 0:
+                fac = timesVector[k+1]-timesVector[k]
+            elif k == timesVector.shape[0]-1:
+                fac = timesVector[k]-timesVector[k-1]
+            else:
+                fac = timesVector[k+1]-timesVector[k-1]
+            integral += fac*abs(u[k].inner(M*u[k]))
+        self.L2_norm = np.sqrt(integral)
+
     def plotSolution(self):
-        self.getSingleTimeStepSolution().plotSolution()
+        if self.u.dm.mesh.dim == 1:
+            import matplotlib.pyplot as plt
+            self.u.plot(yvals=self.timesVector)
+            ax = plt.gca()
+            ax.set_xlabel('$x$')
+            ax.set_ylabel('$t$')
+        else:
+            self.getSingleTimeStepSolution().plotSolution()
 
     def plotSolutionComponents(self):
         self.getSingleTimeStepSolution().plotSolutionComponents()
 
     def reportErrors(self, group):
+        group.add('L^2(0,T; L^2(Omega)) norm', self.L2_norm, rTol=3e-2, aTol=1e-8)
         if self.L2_error is not None:
-            group.add('L2 error', self.L2_error, rTol=3e-2, aTol=1e-8)
+            group.add('L^2(0,T; L^2(Omega)) error', self.L2_error, rTol=3e-2, aTol=1e-8)
+        if self.final_L2_error is not None:
+            group.add('L^2(Omega) error at t=finalTime', self.final_L2_error, rTol=3e-2, aTol=1e-8)
 
     def reportSolve(self, group):
         pass
@@ -299,7 +342,7 @@ class discretizedNonlocalProblem(problem):
         self.addRemote(self.continuumProblem)
 
     def setDriverArgs(self):
-        self.setDriverFlag('solverType', acceptedValues=['lu', 'mg', 'cg-mg', 'cg-jacobi'], help='solver for the linear system')
+        self.setDriverFlag('solverType', acceptedValues=['cg-mg', 'gmres-mg', 'lu', 'mg', 'cg-jacobi'], help='solver for the linear system')
         self.setDriverFlag('maxiter', 100, help='maximum number of iterations')
         self.setDriverFlag('tol', 1e-6, help='solver tolerance')
         self.setDriverFlag('genKernel', False)
@@ -314,7 +357,8 @@ class discretizedNonlocalProblem(problem):
         super().processCmdline(params)
 
     @generates(['hierarchy', 'bc', 'finalMesh', 'dm', 'dmBC', 'dmInterior', 'R_interior', 'P_interior', 'R_BC', 'P_BC'])
-    def buildHierarchy(self, mesh, kernel, sArgs, rangedKernel, solverType, genKernel, matrixFormat, tag, boundaryCondition, domainIndicator, fluxIndicator, zeroExterior, noRef, eta, target_order, element):
+    def buildHierarchy(self, mesh, kernel, sArgs, rangedKernel, solverType, genKernel, matrixFormat, tag, boundaryCondition, domainIndicator, fluxIndicator,
+                       zeroExterior, noRef, eta, target_order, element):
         assert matrixFormat != 'H2' or (kernel.kernelType == FRACTIONAL), 'Hierarchical matrices are only implemented for fractional kernels'
         if rangedKernel is not None:
             hierarchy = self.directlyGetWithoutChecks('hierarchy')
@@ -407,7 +451,7 @@ class discretizedNonlocalProblem(problem):
         self.A = hierarchy[-1]['A']
 
     @generates('b')
-    def buildRHS(self, rhs, dim, bc, dirichletData, boundaryCondition, solverType, dmInterior):
+    def buildRHS(self, rhs, dim, bc, dirichletData, boundaryCondition, solverType, dmInterior, hierarchy):
         self.b = dmInterior.assembleRHS(rhs, qr=simplexXiaoGimbutas(3, dim))
         if bc is not None:
             bc.setDirichletData(dirichletData)
@@ -417,14 +461,18 @@ class discretizedNonlocalProblem(problem):
         if boundaryCondition in (NEUMANN, HOMOGENEOUS_NEUMANN):
             assert bc is None
             if solverType.find('mg') >= 0:
-                bc.naturalLevels[0]['A'] = bc.naturalLevels[0]['A'] + Dense_LinearOperator.ones(*bc.naturalLevels[0]['A'].shape)
+                hierarchy[0]['A'] = hierarchy[0]['A'] + Dense_LinearOperator.ones(*hierarchy[0]['A'].shape)
+            else:
+                hierarchy[-1]['A'] = hierarchy[-1]['A'] + Dense_LinearOperator.ones(*hierarchy[-1]['A'].shape)
             const = dmInterior.ones()
             self.b -= self.b.inner(const)/const.inner(const)*const
 
     @generates('solver')
-    def buildSolver(self, solverType, tol, maxiter, hierarchy):
+    def buildSolver(self, solverType, tol, maxiter, hierarchy, kernel):
         from PyNucleus_base.solvers import iterative_solver
-        solver = solverFactory.build(solverType, hierarchy=hierarchy, setup=True)
+        if solverType[:2] == 'cg':
+            assert kernel.symmetric, 'CG solver requires a symmetric matrix'
+        solver = solverFactory.build(solverType, hierarchy=hierarchy)
         if isinstance(solver, iterative_solver):
             solver.tolerance = tol
             solver.maxIter = maxiter
@@ -432,6 +480,7 @@ class discretizedNonlocalProblem(problem):
             if comm is not None and comm.size > 1:
                 solver.setNormInner(norm_distributed_nonoverlapping(comm),
                                     ip_distributed_nonoverlapping(comm))
+        solver.setup()
         self.solver = solver
 
     @generates('modelSolution')
@@ -679,7 +728,8 @@ class discretizedTransientProblem(discretizedNonlocalProblem):
     #     return mS
 
     @generates('modelSolution')
-    def solve(self, numTimeSteps, dt, finalTime, timesVector, initialSolution, R_interior, stepper, dm, dmBC, dirichletData, P_interior, P_bc, b, exactL2Squared, analyticSolution):
+    def solve(self, numTimeSteps, dt, finalTime, timesVector, initialSolution, R_interior, stepper, dm, dmBC, dirichletData,
+              P_interior, P_bc, b, exactL2Squared, analyticSolution):
         with self.timer('solve {}'.format(self.__class__.__name__)):
             t = 0.
             u = dm.zeros(numTimeSteps+1)
@@ -698,13 +748,14 @@ class discretizedTransientProblem(discretizedNonlocalProblem):
                     if self._driver.isMaster:
                         self.mC.addFrame(u[i+1])
             assert abs(t - finalTime) < 1e-10, (t, finalTime)
-            if self.doMovie and (end == numTimeSteps) and self._driver.isMaster:
+            if self.doMovie and self._driver.isMaster:
                 self.mC.generateMovie()
 
         self.modelSolution = transientModelSolution(self,
                                                     u,
                                                     timesVector=timesVector,
                                                     dt=dt,
+                                                    finalTime=finalTime,
                                                     exactL2Squared=exactL2Squared,
                                                     analyticSolution=analyticSolution,
                                                     dirichletData=dirichletData)

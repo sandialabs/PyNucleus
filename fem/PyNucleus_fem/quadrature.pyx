@@ -241,11 +241,15 @@ cdef class transformQuadratureRule(simplexQuadratureRule):
 
 
 cdef class doubleSimplexQuadratureRule(quadratureRule):
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.initializedcheck(False)
     def __init__(self,
                  simplexQuadratureRule rule1,
                  simplexQuadratureRule rule2):
         cdef:
             INDEX_t i, j, k
+            REAL_t[::1] weights
 
         self.rule1 = rule1
         self.rule2 = rule2

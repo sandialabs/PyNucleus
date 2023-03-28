@@ -9,7 +9,7 @@
 
 import numpy as np
 from PyNucleus.base import REAL, driver, solverFactory
-from PyNucleus.base.ip_norm import ip_serial, norm_serial
+from PyNucleus.base.ip_norm import norm_serial
 from PyNucleus.fem import (simpleInterval, uniformSquare,
                            squareIndicator, P1_DoFMap,
                            constant, Lambda, NO_BOUNDARY, INTERIOR, PHYSICAL,
@@ -71,7 +71,7 @@ if d.domain == 'doubleInterval':
         forcing_left = np.pi**2 * d.coeff1 * sin
         forcing_right = -2*np.pi**2 * d.coeff2 * sin
         sol_jump = sol_2-sol_1
-        flux_jump = functionFactory('constant', -np.pi*d.coeff1 -2*np.pi*d.coeff2)
+        flux_jump = functionFactory('constant', -np.pi*d.coeff1 - 2*np.pi*d.coeff2)
         L2ex_left = 0.5
         L2ex_right = 3.+8/np.pi
         H10ex_left = np.pi**2 * d.coeff1 * 0.5
@@ -162,7 +162,8 @@ elif d.domain == 'doubleSquare':
         forcing_left = d.coeff1 * 2*5*np.pi**2 * sin2d
         forcing_right = -d.coeff2 * 2*np.pi**2 * sin
         sol_jump = -one
-        flux_jump = -2*np.pi*d.coeff1 * functionFactory('Lambda', lambda x: np.sin(2*np.pi*x[1])) - np.pi*d.coeff2 * functionFactory('Lambda', lambda x: np.sin(np.pi*x[1]))
+        flux_jump = (-2*np.pi*d.coeff1 * functionFactory('Lambda', lambda x: np.sin(2*np.pi*x[1]))
+                     - np.pi*d.coeff2 * functionFactory('Lambda', lambda x: np.sin(np.pi*x[1])))
         L2ex_left = 5.
         L2ex_right = 1.25 + 8./np.pi**2
         H10ex_left = np.pi**2 * d.coeff1 * 5
@@ -286,7 +287,8 @@ with d.timer('solve'):
 
                 residualNorm = norm(r)
                 k += 1
-            d.logger.info('Alternating Schwarz solver obtained residual norm {}/{} = {} after {} iterations'.format(residualNorm, residualNorm0, residualNorm/residualNorm0, k))
+            d.logger.info('Alternating Schwarz solver obtained residual norm {}/{} = {} after {} iterations'.format(residualNorm, residualNorm0,
+                                                                                                                    residualNorm/residualNorm0, k))
         else:
             u1.assign(1.)
             u2.assign(1.)

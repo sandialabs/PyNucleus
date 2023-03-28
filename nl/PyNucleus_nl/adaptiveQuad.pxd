@@ -45,6 +45,17 @@ cdef class fractionalLaplacian1D_P1_nonsymAutomaticQuadrature(nonlocalLaplacian1
         dict distantPHIx, distantPHIy
 
 
+cdef class fractionalLaplacian1D_boundary(nonlocalLaplacian1D):
+    pass
+
+
+cdef class fractionalLaplacian1D_P1_boundary_automaticQuadrature(fractionalLaplacian1D_boundary):
+    cdef:
+        REAL_t abstol, reltol
+        void *user_ptr
+        object integrand
+
+
 cdef class fractionalLaplacian2D_P1_automaticQuadrature(nonlocalLaplacian2D):
     cdef:
         REAL_t abstol, reltol
