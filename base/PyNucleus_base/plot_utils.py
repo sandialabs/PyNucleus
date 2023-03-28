@@ -148,9 +148,10 @@ def plot_for_poster(fun, fig_width=None, fig_height=None, ratio=None,
 
 def plotTriangle(x, y, fac, ax=None):
     if ax is None:
+        import matplotlib.pyplot as plt
         ax = plt.gca()
     dx = 0.8*(x[-2]-x[-1])
-    x1 =x[-1]+dx
+    x1 = x[-1]+dx
     y2 = y[-2]*(x[-1]/x1)**fac
 
     ax.plot([x[-1], x[-1], x1, x[-1]],
@@ -205,7 +206,7 @@ def tabulate(x, results, floatfmt=None, groups=False, **kwargs):
     s += ' & '.join(kwargs['headers']) + ltx_endl
     s += hline
     for i in range(d.shape[0]):
-        s += ' & '.join([floatfmt[j].format(d[i, j]) if d[i, j] is not None else ''  for j in range(d.shape[1])]) + ltx_endl
+        s += ' & '.join([floatfmt[j].format(d[i, j]) if d[i, j] is not None else '' for j in range(d.shape[1])]) + ltx_endl
     s += hline
     s += ' & '.join([myFmt(expected[j], floatfmt[j]) for j in range(len(expected))]) + ltx_endl
     s += '\\end{tabular}'+endl
@@ -216,7 +217,7 @@ def latexFormatRate(r, digits=2):
     import numpy as np
     if abs(r-1.0) < 1e-9:
         return ''
-    elif abs(r-np.around(r))<1e-9:
+    elif abs(r-np.around(r)) < 1e-9:
         return '^{{{}}}'.format(int(np.around(r)))
     else:
         return ('^{{{:.' + str(digits) + '}}}').format(r)

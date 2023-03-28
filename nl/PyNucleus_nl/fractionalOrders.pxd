@@ -23,6 +23,12 @@ cdef class constantFractionalLaplacianScaling(constantTwoPoint):
         REAL_t s, horizon
 
 
+cdef class constantFractionalLaplacianScalingBoundary(constantTwoPoint):
+    cdef:
+        INDEX_t dim
+        REAL_t s, horizon
+
+
 cdef class variableFractionalLaplacianScaling(parametrizedTwoPointFunction):
     cdef:
         INDEX_t dim
@@ -31,6 +37,17 @@ cdef class variableFractionalLaplacianScaling(parametrizedTwoPointFunction):
         REAL_t facInfinite, facFinite
         twoPointFunction phi
         BOOL_t normalized
+
+
+cdef class variableFractionalLaplacianScalingBoundary(parametrizedTwoPointFunction):
+    cdef:
+        INDEX_t dim
+        fractionalOrderBase sFun
+        function horizonFun
+        REAL_t facInfinite, facFinite
+        twoPointFunction phi
+        BOOL_t normalized
+
 
 cdef class variableFractionalLaplacianScalingWithDifferentHorizon(variableFractionalLaplacianScaling):
     pass
@@ -51,6 +68,15 @@ cdef class variableFractionalOrder(fractionalOrderBase):
         void *c_params
     cdef void setFractionalOrderFun(self, void* params)
 
+
+cdef class extendedFunction(function):
+    cdef REAL_t eval(self, REAL_t[::1])
+    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x)
+
+
+cdef class singleVariableUnsymmetricFractionalOrder(variableFractionalOrder):
+    cdef:
+        public extendedFunction sFun
 
 cdef class piecewiseConstantFractionalOrder(variableFractionalOrder):
     cdef:

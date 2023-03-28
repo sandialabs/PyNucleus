@@ -80,7 +80,6 @@ from . metisCy import (DBG_INFO,
                        DBG_MEMORY)
 
 # Types of objectives
-from . metisCy import (OPTION_OBJTYPE,
-                       OBJTYPE_CUT,
+from . metisCy import (OBJTYPE_CUT,
                        OBJTYPE_NODE,
                        OBJTYPE_VOL)

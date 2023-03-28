@@ -16,27 +16,38 @@ def getPath():
     return os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 
 
-@pytest.fixture(scope='module', params=['interval', 'square'])
-def domain(request):
+def idfunc(param):
+    S = [str(p) for p in param]
+    return '-'.join(S)
+
+
+@pytest.fixture(scope='module', params=[
+    ('interval', 'fractional', 'poly-Dirichlet', 'lu'),
+    ('interval', 'fractional', 'poly-Neumann', 'lu'),
+    ('interval', 'constant', 'poly-Dirichlet', 'lu'),
+    ('interval', 'constant', 'poly-Neumann', 'lu'),
+    ('interval', 'inverseDistance', 'poly-Dirichlet', 'lu'),
+    ('interval', 'inverseDistance', 'poly-Neumann', 'lu'),
+    ('square', 'fractional', 'poly-Dirichlet', 'cg-mg'),
+    ('square', 'fractional', 'poly-Neumann', 'cg-mg'),
+    ('square', 'constant', 'poly-Dirichlet', 'cg-mg'),
+    ('square', 'constant', 'poly-Neumann', 'cg-mg'),
+    ('square', 'inverseDistance', 'poly-Dirichlet', 'cg-mg'),
+    ('square', 'inverseDistance', 'poly-Neumann', 'cg-mg'),
+],
+                ids=idfunc)
+def runNonlocal_params(request):
     return request.param
 
 
-@pytest.fixture(scope='module', params=['fractional', 'constant', 'inverseDistance'])
-def kernel(request):
-    return request.param
-
-
-@pytest.fixture(scope='module', params=['poly-Dirichlet', 'poly-Neumann'])
-def problem(request):
-    return request.param
-
-
-def testNonlocal(domain, kernel, problem, extra):
+def testNonlocal(runNonlocal_params, extra):
+    domain, kernel, problem, solver = runNonlocal_params
     base = getPath()+'/../'
     py = ['runNonlocal.py',
           '--domain', domain,
           '--kernelType', kernel,
-          '--problem', problem]
+          '--problem', problem,
+          '--solver', solver]
     # if kernel != 'fractional':
     py += ['--matrixFormat', 'dense']
     path = base+'drivers'
@@ -47,20 +58,51 @@ def testNonlocal(domain, kernel, problem, extra):
 
 
 
-@pytest.fixture(scope='module', params=['constant', 'zeroFlux'])
-def fractional_1d_problem(request):
+@pytest.fixture(scope='module', params=[
+    ('interval', 'const(0.25)', 'constant', 'cg-mg'),
+    ('interval', 'const(0.25)', 'zeroFlux', 'lu'),
+    ('interval', 'const(0.25)', 'knownSolution', 'cg-jacobi'),
+    ('interval', 'const(0.75)', 'constant', 'lu'),
+    ('interval', 'const(0.75)', 'zeroFlux', 'cg-jacobi'),
+    ('interval', 'const(0.75)', 'knownSolution', 'cg-mg'),
+    ('interval', 'varconst(0.75)', 'constant', 'cg-jacobi'),
+    ('interval', 'varconst(0.75)', 'zeroFlux', 'cg-mg'),
+    ('interval', 'varconst(0.75)', 'knownSolution', 'lu'),
+    
+],
+                ids=idfunc)
+def runFractional_params(request):
     return request.param
 
 
-def testFractional(fractional_1d_problem, extra):
+def testFractional(runFractional_params, extra):
+    domain, s, problem, solver= runFractional_params
     base = getPath()+'/../'
     py = ['runFractional.py',
-          '--domain', 'interval',
-          '--problem', fractional_1d_problem]
+          '--domain', domain,
+          '--s', s,
+          '--problem', problem,
+          '--solver', solver]
+    if s.find('twoDomainNonSym') >= 0:
+        py.append('--genKernel')
     path = base+'drivers'
     cacheDir = getPath()+'/'
     runDriver(path, py, cacheDir=cacheDir, extra=extra)
 
+
+def testFractionalHeat(runFractional_params, extra):
+    domain, s, problem, solver= runFractional_params
+    base = getPath()+'/../'
+    py = ['runFractionalHeat.py',
+          '--domain', domain,
+          '--s', s,
+          '--problem', problem,
+          '--solver', solver]
+    if s.find('twoDomainNonSym') >= 0:
+        py.append('--genKernel')
+    path = base+'drivers'
+    cacheDir = getPath()+'/'
+    runDriver(path, py, cacheDir=cacheDir, extra=extra)
 
 
 def testVariableOrder(extra):
@@ -71,17 +113,24 @@ def testVariableOrder(extra):
     runDriver(path, py, cacheDir=cacheDir, extra=extra)
 
 
-@pytest.fixture(scope='module', params=['const(0.25)',
-                                        'const(0.75)',
-                                        'varconst(0.25)',
-                                        'varconst(0.75)',
-                                        'twoDomain(0.25,0.75,0.5,0.5)'])
-def fractionalOrder(request):
+@pytest.fixture(scope='module', params=[
+    ('interval', 'const(0.25)'),
+    ('interval', 'const(0.75)'),
+    ('interval', 'varconst(0.25)'),
+    ('interval', 'varconst(0.75)'),
+    ('square', 'const(0.25)'),
+    ('square', 'const(0.75)'),
+    ('square', 'varconst(0.25)'),
+    ('square', 'varconst(0.75)'),
+],
+                ids=idfunc)
+def runDistOp_params(request):
     return request.param
 
 
-def testMatvecs(domain, fractionalOrder, extra):
+def testMatvecs(runDistOp_params, extra):
     base = getPath()+'/../'
+    domain, fractionalOrder = runDistOp_params
     if domain == 'interval':
         noRef = 6
     elif domain == 'square':
@@ -101,6 +150,6 @@ def testMatvecs(domain, fractionalOrder, extra):
     py += ['--no-write']
     path = base+'drivers'
     cacheDir = getPath()+'/'
-    if problem == 'poly-Neumann' and domain == 'square':
-        return pytest.skip('not implemented')
     runDriver(path, py, ranks=4, cacheDir=cacheDir, extra=extra)
+
+

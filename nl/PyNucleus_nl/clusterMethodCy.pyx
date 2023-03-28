@@ -12,7 +12,6 @@ from libc.math cimport sqrt, sin, cos, atan2, M_PI as pi
 from itertools import product
 from scipy.special import gamma
 import numpy as np
-cimport cython
 from PyNucleus_base.linear_operators cimport (LinearOperator,
                                               CSR_LinearOperator,
                                               sparseGraph,
@@ -90,9 +89,6 @@ def getRefinementParams(meshBase mesh, Kernel kernel, dict params={}):
     return refParams
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef inline void merge_boxes(REAL_t[:, ::1] box1,
                              REAL_t[:, ::1] box2,
                              REAL_t[:, ::1] new_box):
@@ -102,9 +98,6 @@ cdef inline void merge_boxes(REAL_t[:, ::1] box1,
         new_box[i, 1] = max(box1[i, 1], box2[i, 1])
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef inline void merge_boxes2(REAL_t[:, ::1] box1,
                               REAL_t[:, :, ::1] box2,
                               INDEX_t dof,
@@ -115,9 +108,6 @@ cdef inline void merge_boxes2(REAL_t[:, ::1] box1,
         new_box[i, 1] = max(box1[i, 1], box2[dof, i, 1])
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef inline bint inBox(const REAL_t[:, ::1] box,
                        const REAL_t[::1] vector):
     cdef:
@@ -128,9 +118,6 @@ cdef inline bint inBox(const REAL_t[:, ::1] box,
     return t
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef inline REAL_t minDist2FromBox(const REAL_t[:, ::1] box,
                                      const REAL_t[::1] vector):
     cdef:
@@ -144,9 +131,6 @@ cdef inline REAL_t minDist2FromBox(const REAL_t[:, ::1] box,
     return d2min
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef inline tuple distsFromBox(const REAL_t[:, ::1] box,
                                const REAL_t[::1] vector):
     cdef:
@@ -164,10 +148,6 @@ cdef inline tuple distsFromBox(const REAL_t[:, ::1] box,
     return sqrt(d2min), sqrt(d2max)
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cdef inline bint distFromSimplex(const REAL_t[:, ::1] simplex,
                                  const REAL_t[::1] vector,
                                  const REAL_t radius):
@@ -197,9 +177,6 @@ cdef inline bint distFromSimplex(const REAL_t[:, ::1] simplex,
     return False
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef REAL_t distBoxes(REAL_t[:, ::1] box1, REAL_t[:, ::1] box2):
     cdef:
         REAL_t dist = 0., a2, b1
@@ -215,9 +192,6 @@ cdef REAL_t distBoxes(REAL_t[:, ::1] box1, REAL_t[:, ::1] box2):
     return sqrt(dist)
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef REAL_t maxDistBoxes(REAL_t[:, ::1] box1, REAL_t[:, ::1] box2):
     cdef:
         REAL_t dist = 0., a2, b1
@@ -232,9 +206,6 @@ cdef REAL_t maxDistBoxes(REAL_t[:, ::1] box1, REAL_t[:, ::1] box2):
         dist += max(a2-b1, 0)**2
     return sqrt(dist)
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef REAL_t diamBox(REAL_t[:, ::1] box):
     cdef:
         REAL_t d = 0.
@@ -379,9 +350,6 @@ cdef class tree_node:
         else:
             return len(self.children)
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     def refine(self,
                REAL_t[:, :, ::1] boxes,
                REAL_t[:, ::1] coords,
@@ -1023,9 +991,6 @@ cdef class tree_node:
         else:
             raise NotImplementedError(plotType)
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef void prepareTransferOperators(self, INDEX_t m, transferMatrixBuilder tMB=None):
         cdef:
             tree_node c
@@ -1046,9 +1011,6 @@ cdef class tree_node:
     def prepareTransferOperators_py(self, INDEX_t m):
         self.prepareTransferOperators(m)
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef void upwardPass(self, REAL_t[::1] x, INDEX_t componentNo=0, BOOL_t skip_leaves=False, BOOL_t local=False):
         cdef:
             INDEX_t i, dof = -1, k = 0
@@ -1087,9 +1049,6 @@ cdef class tree_node:
     def upwardPass_py(self, REAL_t[::1] x, INDEX_t componentNo=0, BOOL_t skip_leaves=False):
         self.upwardPass(x, componentNo, skip_leaves)
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef void resetCoefficientsDown(self):
         cdef:
             tree_node c
@@ -1101,9 +1060,6 @@ cdef class tree_node:
     def resetCoefficientsDown_py(self):
         self.resetCoefficientsDown()
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef void resetCoefficientsUp(self):
         cdef:
             tree_node c
@@ -1115,9 +1071,6 @@ cdef class tree_node:
     def resetCoefficientsUp_py(self):
         self.resetCoefficientsUp()
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef void downwardPass(self, REAL_t[::1] y, INDEX_t componentNo=0, BOOL_t local=False):
         cdef:
             INDEX_t i, dof = -1, k = 0
@@ -1151,10 +1104,6 @@ cdef class tree_node:
     def downwardPass_py(self, REAL_t[::1] y, INDEX_t componentNo=0):
         self.downwardPass(y, componentNo)
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
     def enterLeafValues(self,
                         meshBase mesh,
                         DoFMap DoFMap,
@@ -1286,10 +1235,6 @@ cdef class tree_node:
                             n.value[0, k, i] += transferOperator[i, j]*coeff[dof, j]
                     k += 1
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
     def enterLeafValuesGrad(self,
                             meshBase mesh,
                             DoFMap DoFMap,
@@ -1685,9 +1630,6 @@ cdef class tree_node:
         # setDoFsFromChildren(tree)
         return tree, nodes
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cpdef INDEX_t findCell(self, meshBase mesh, REAL_t[::1] vertex, REAL_t[:, ::1] simplex, REAL_t[::1] bary):
         cdef:
             tree_node c
@@ -1706,9 +1648,6 @@ cdef class tree_node:
                     break
             return cellNo
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cpdef set findCells(self, meshBase mesh, REAL_t[::1] vertex, REAL_t r, REAL_t[:, ::1] simplex):
         cdef:
             set cells = set()
@@ -1746,9 +1685,6 @@ cdef class tree_node:
         m += ']'
         return 'node({}, nd={})'.format(m, self.num_dofs)
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef void upwardPassMatrix(self, dict coefficientsUp):
         cdef:
             INDEX_t k, i, m, j
@@ -1810,9 +1746,6 @@ cdef class tree_node:
         return offset
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
 cdef tree_node readNode(list nodes, INDEX_t myId, parent, REAL_t[:, :, ::1] boxes, LinearOperator children, INDEX_t M, REAL_t[:, :, ::1] transferOperators):
     cdef:
         indexSet bA = arrayIndexSet()
@@ -1862,10 +1795,6 @@ cdef class transferMatrixBuilder:
         self.pit = productIterator(m, dim)
         self.pit2 = productIterator(m, dim)
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
     cdef void build(self,
                     REAL_t[:, ::1] boxP,
                     REAL_t[:, ::1] boxC,
@@ -1926,9 +1855,6 @@ cdef class farFieldClusterPair:
                 for dof2 in self.n2.dofs:
                     plt.gca().add_patch(patches.Rectangle((dof1-0.5, dof2-0.5), 1., 1., fill=True, alpha=0.5, facecolor=color))
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cpdef void apply(farFieldClusterPair self, REAL_t[::1] x, REAL_t[::1] y):
         gemv(self.kernelInterpolant, x, y, 1.)
 
@@ -1942,9 +1868,6 @@ cdef class productIterator:
         self.dim = dim
         self.idx = np.zeros((dim), dtype=INDEX)
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef void reset(self):
         cdef:
             INDEX_t i
@@ -1952,9 +1875,6 @@ cdef class productIterator:
             self.idx[i] = 0
         self.idx[self.dim-1] = -1
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef BOOL_t step(self):
         cdef:
             INDEX_t i
@@ -1970,9 +1890,6 @@ cdef class productIterator:
         return True
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def assembleFarFieldInteractions(FractionalKernel kernel, dict Pfar, INDEX_t m, DoFMap dm):
     cdef:
         INDEX_t lvl
@@ -1989,8 +1906,6 @@ def assembleFarFieldInteractions(FractionalKernel kernel, dict Pfar, INDEX_t m, 
         productIterator pit = productIterator(m, dim)
         BOOL_t kernel_variable = kernel.variable
 
-    if kernel.variable:
-        dofCoords = dm.getDoFCoordinates()
     eta = np.cos((2.0*np.arange(m, 0, -1)-1.0) / (2.0*m) * np.pi)
 
     x = uninitialized((kiSize, dim))
@@ -2010,20 +1925,11 @@ def assembleFarFieldInteractions(FractionalKernel kernel, dict Pfar, INDEX_t m, 
                     y[k, j] = (box2[j, 1]-box2[j, 0])*0.5 * eta_p + box2[j, 0]
                 k += 1
             cP.kernelInterpolant = uninitialized((kiSize, kiSize), dtype=REAL)
-            if kernel_variable:
-                it.setIndexSet(cP.n1.dofs)
-                it.step()
-                dof1 = it.i
-
-                it.setIndexSet(cP.n2.dofs)
-                it.step()
-                dof2 = it.i
-
-                kernel.evalParamsPtr(dim, &dofCoords[dof1, 0], &dofCoords[dof2, 0])
             for i in range(kiSize):
                 for j in range(kiSize):
-                    cP.kernelInterpolant[i, j] = -kernel.evalPtr(dim, &x[i, 0], &y[j, 0])
-                    cP.kernelInterpolant[i, j] += -kernel.evalPtr(dim, &y[j, 0], &x[i, 0])
+                    if kernel_variable:
+                        kernel.evalParamsPtr(dim, &x[i, 0], &y[j, 0])
+                    cP.kernelInterpolant[i, j] = -2.0*kernel.evalPtr(dim, &x[i, 0], &y[j, 0])
 
 
 cdef class H2Matrix(LinearOperator):
@@ -2054,9 +1960,6 @@ cdef class H2Matrix(LinearOperator):
     def isSparse(self):
         return False
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         REAL_t[::1] x,
                         REAL_t[::1] y) except -1:
@@ -2085,9 +1988,6 @@ cdef class H2Matrix(LinearOperator):
                     self.tree.downwardPass(y, componentNo)
         return 0
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec_no_overwrite(self,
                                      REAL_t[::1] x,
                                      REAL_t[::1] y) except -1:
@@ -2109,9 +2009,6 @@ cdef class H2Matrix(LinearOperator):
                 self.tree.downwardPass(y, componentNo)
         return 0
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec_submat(self,
                                REAL_t[::1] x,
                                REAL_t[::1] y,
@@ -2311,9 +2208,6 @@ cdef class H2Matrix(LinearOperator):
         else:
             return H2Matrix(tree, Pfar, Anear)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def toarray(self):
         cdef:
             INDEX_t minLvl, maxLvl, lvl, i, j, I, J, id
@@ -2442,9 +2336,6 @@ cdef class DistributedH2Matrix_globalData(LinearOperator):
         self.comm = comm
         super(DistributedH2Matrix_globalData, self).__init__(localMat.num_rows, localMat.num_columns)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         REAL_t[::1] x,
                         REAL_t[::1] y) except -1:
@@ -2495,9 +2386,6 @@ cdef class DistributedLinearOperator(LinearOperator):
     def __repr__(self):
         return '<Rank %d/%d, %s, %d local size>' % (self.comm.rank, self.comm.size, self.localMat, self.lcl_dm.num_dofs)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void setupNear(self):
         cdef:
             nearFieldClusterPair cP
@@ -2582,9 +2470,6 @@ cdef class DistributedLinearOperator(LinearOperator):
         self.localMat.num_rows = self.rowIdx.shape[0]
         self.localMat.num_columns = self.colIdx.shape[0]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void communicateNear(self, REAL_t[::1] src, REAL_t[::1] target):
         cdef:
             INDEX_t i
@@ -2598,9 +2483,6 @@ cdef class DistributedLinearOperator(LinearOperator):
         for i in range(self.near_remoteReceives.shape[0]):
             target[self.near_remoteReceives[i]] = self.near_dataReceives[i]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self, REAL_t[::1] x, REAL_t[::1] y) except -1:
         cdef:
             INDEX_t level
@@ -2613,9 +2495,6 @@ cdef class DistributedLinearOperator(LinearOperator):
         self.communicateNear(x, xTemp)
         localMat(xTemp, y)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cpdef tuple convert(self):
         cdef:
             dict gid_to_lid_rowmap
@@ -2715,9 +2594,6 @@ cdef class DistributedH2Matrix_localData(LinearOperator):
     def __repr__(self):
         return '<Rank %d/%d, %s, %d local size>' % (self.comm.rank, self.comm.size, self.localMat, self.lcl_dm.num_dofs)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void setupNear(self):
         cdef:
             nearFieldClusterPair cP
@@ -2802,9 +2678,6 @@ cdef class DistributedH2Matrix_localData(LinearOperator):
         self.localMat.Anear.num_rows = self.rowIdx.shape[0]
         self.localMat.Anear.num_columns = self.colIdx.shape[0]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void communicateNear(self, REAL_t[::1] src, REAL_t[::1] target):
         cdef:
             INDEX_t i
@@ -2818,9 +2691,6 @@ cdef class DistributedH2Matrix_localData(LinearOperator):
         for i in range(self.near_remoteReceives.shape[0]):
             target[self.near_remoteReceives[i]] = self.near_dataReceives[i]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void setupFar(self):
         cdef:
             INDEX_t lvl, remoteRank, k, off1, off2, p, id, j
@@ -2929,9 +2799,6 @@ cdef class DistributedH2Matrix_localData(LinearOperator):
         self.far_dataReceives = np.zeros((np.sum(dataCounterReceives)), dtype=REAL)
         self.far_dataSends = np.zeros((np.sum(dataCounterSends)), dtype=REAL)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void communicateFar(self):
         cdef:
             INDEX_t commSize = self.comm.size
@@ -2971,9 +2838,6 @@ cdef class DistributedH2Matrix_localData(LinearOperator):
                     n.coefficientsUp[j] = self.far_dataReceives[k+j]
                 k += lclSize
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self, REAL_t[::1] x, REAL_t[::1] y) except -1:
         cdef:
             INDEX_t level
@@ -2995,9 +2859,6 @@ cdef class DistributedH2Matrix_localData(LinearOperator):
                 clusterPair.apply(n2.coefficientsUp, n1.coefficientsDown)
         self.lclRoot.downwardPass(y, 0, local=True)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cpdef tuple convert(self):
         cdef:
             dict gid_to_lid_rowmap
@@ -3249,9 +3110,6 @@ cdef class DistributedH2Matrix_localData(LinearOperator):
 
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def getDoFBoxesAndCells(meshBase mesh, DoFMap DoFMap, comm=None):
     cdef:
         INDEX_t i, j, I, k, start, end, dim = mesh.dim, manifold_dim = mesh.manifold_dim
@@ -3310,9 +3168,6 @@ def getDoFBoxesAndCells(meshBase mesh, DoFMap DoFMap, comm=None):
     return np.array(boxes, copy=False), cells
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def getFractionalOrders(variableFractionalOrder s, meshBase mesh):
     cdef:
         REAL_t[:, ::1] centers
@@ -3337,9 +3192,6 @@ def getFractionalOrders(variableFractionalOrder s, meshBase mesh):
 
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cpdef BOOL_t getAdmissibleClusters(Kernel kernel,
                                    tree_node n1,
                                    tree_node n2,
@@ -3494,9 +3346,6 @@ def trimTree(tree_node tree, list Pnear, dict Pfar, comm, keep=[]):
     # print('after', used.getNumEntries(), tree.get_max_id(), tree.nodes)
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef void insertion_sort(REAL_t[::1] a, INDEX_t start, INDEX_t end):
     cdef:
         INDEX_t i, j
@@ -3584,10 +3433,6 @@ cdef class exactSphericalIntegral2D(function):
         self.bary = uninitialized(3)
         self.thetas = uninitialized(6)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cdef void findThetas(self, INDEX_t cellNo, REAL_t[::1] x):
         cdef:
             INDEX_t i
@@ -3630,10 +3475,6 @@ cdef class exactSphericalIntegral2D(function):
         if self.numThetas == 1:
             self.numThetas = 0
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cdef REAL_t eval(self, REAL_t[::1] x):
         cdef:
             REAL_t I = 0.

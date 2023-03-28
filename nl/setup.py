@@ -12,7 +12,11 @@ except ImportError as e:
     raise ImportError('\'PyNucleus_packageTools\' needs to be installed first.') from e
 
 p = package('PyNucleus_nl')
-p.loadConfig(extra_config={'annotate': True})
+p.loadConfig(extra_config={'annotate': True,
+                           'cythonDirectives': {'initializedcheck': False,
+                                                'boundscheck': False,
+                                                'cdivision': True,
+                                                'wraparound': False}})
 p.addPackageInclude('PyNucleus_base')
 p.addPackageInclude('PyNucleus_fem')
 p.addPackageInclude('PyNucleus_multilevelSolver')

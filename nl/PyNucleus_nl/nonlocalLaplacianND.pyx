@@ -6,7 +6,6 @@
 ###################################################################################
 
 
-# cython: initializedcheck=False, wraparound=False, boundscheck=False, cdivision=True
 from PyNucleus_base.myTypes import INDEX, REAL
 from PyNucleus_base import uninitialized, uninitialized_like
 from PyNucleus_fem.meshCy cimport meshBase
@@ -15,7 +14,6 @@ from PyNucleus_fem.DoFMaps cimport DoFMap, P1_DoFMap, P0_DoFMap, shapeFunction
 import numpy as np
 cimport numpy as np
 from libc.math cimport pow, sqrt, fabs as abs, log, ceil
-cimport cython
 from . nonlocalLaplacianBase import ALL
 
 include "config.pxi"

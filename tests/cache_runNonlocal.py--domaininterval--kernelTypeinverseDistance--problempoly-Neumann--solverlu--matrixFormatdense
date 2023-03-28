@@ -1,0 +1,9 @@
+Timers: {}
+errors:
+  L2 error interpolated: 5.940403435139302e-11
+  Linf error interpolated: 2.5560822347614476e-09
+  relative interpolated L2 error: 5.6864122550718795e-11
+  relative interpolated Linf error: 2.5560822347614476e-09
+meshes: {}
+results: {}
+vectors: {}

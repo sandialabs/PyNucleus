@@ -9,7 +9,6 @@
 from libc.math cimport (sqrt, log, ceil, fabs as abs, M_PI as pi, pow)
 import numpy as np
 cimport numpy as np
-cimport cython
 
 from PyNucleus_base.myTypes import INDEX, REAL
 from PyNucleus_base import uninitialized, uninitialized_like
@@ -55,9 +54,6 @@ cdef inline void setKernel(void *c_params, size_t pos, Kernel kernel):
     (<void**>(c_params+pos))[0] = <void*>kernel
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef REAL_t symIntegrandId1D(int n, REAL_t *xx, void *c_params):
     cdef:
         REAL_t* lx = xx
@@ -91,9 +87,6 @@ cdef REAL_t symIntegrandId1D(int n, REAL_t *xx, void *c_params):
     return psi1 * psi2 * kernel.evalPtr(n, &x, &y)
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef REAL_t symIntegrandVertex1D(int n, REAL_t *xx, void *c_params):
     cdef:
         REAL_t l1x = xx[0]
@@ -133,9 +126,6 @@ cdef REAL_t symIntegrandVertex1D(int n, REAL_t *xx, void *c_params):
     return psi1 * psi2 * kernel.evalPtr(n, &x, &y)
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef REAL_t symIntegrandDistant1D(int n, REAL_t *xx, void *c_params):
     cdef:
         REAL_t l1x = xx[0]
@@ -218,10 +208,6 @@ cdef class fractionalLaplacian1D_P1_automaticQuadrature(nonlocalLaplacian1D):
         self.reltol = reltol
         setKernel(self.user_ptr, fKERNEL, self.kernel)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cdef panelType getQuadOrder(self,
                                 const REAL_t h1,
                                 const REAL_t h2,
@@ -231,10 +217,6 @@ cdef class fractionalLaplacian1D_P1_automaticQuadrature(nonlocalLaplacian1D):
     cdef void getNearQuadRule(self, panelType panel):
         pass
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef void eval(self,
                    REAL_t[::1] contrib,
                    panelType panel,
@@ -319,9 +301,6 @@ cdef class fractionalLaplacian1D_P1_automaticQuadrature(nonlocalLaplacian1D):
             raise NotImplementedError('Unknown panel type: {}'.format(panel))
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef REAL_t nonsymIntegrandId(int n, REAL_t *xx, void *c_params):
     cdef:
         REAL_t l1x = xx[0]
@@ -360,10 +339,6 @@ cdef REAL_t nonsymIntegrandId(int n, REAL_t *xx, void *c_params):
     return (phi1x * kernel.evalPtr(n, &x, &y) - phi1y * kernel.evalPtr(n, &y, &x)) * psi2
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cdef REAL_t nonsymIntegrandVertex1(int n, REAL_t *xx, void *c_params):
     cdef:
         REAL_t l1x = xx[0]
@@ -407,10 +382,6 @@ cdef REAL_t nonsymIntegrandVertex1(int n, REAL_t *xx, void *c_params):
     return (phi1x * kernel.evalPtr(n, &x, &y) - phi1y * kernel.evalPtr(n, &y, &x)) * psi2
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cdef REAL_t nonsymIntegrandVertex2(int n, REAL_t *xx, void *c_params):
     assert n == 2
     cdef:
@@ -455,10 +426,6 @@ cdef REAL_t nonsymIntegrandVertex2(int n, REAL_t *xx, void *c_params):
     return (phi1x * kernel.evalPtr(n, &x, &y) - phi1y * kernel.evalPtr(n, &y, &x)) * psi2
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cdef REAL_t nonsymIntegrandDistant(int n, REAL_t *xx, void *c_params):
     cdef:
         REAL_t l1x = xx[0]
@@ -569,10 +536,6 @@ cdef class fractionalLaplacian1D_P1_nonsymAutomaticQuadrature(nonlocalLaplacian1
         self.distantPHIx = {}
         self.distantPHIy = {}
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cdef panelType getQuadOrder(self,
                                 const REAL_t h1,
                                 const REAL_t h2,
@@ -597,10 +560,6 @@ cdef class fractionalLaplacian1D_P1_nonsymAutomaticQuadrature(nonlocalLaplacian1
                 self.addQuadRule(panel)
             return panel
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cdef void addQuadRule(self, panelType panel):
         cdef:
             simplexQuadratureRule qr
@@ -648,10 +607,6 @@ cdef class fractionalLaplacian1D_P1_nonsymAutomaticQuadrature(nonlocalLaplacian1
     cdef void getNearQuadRule(self, panelType panel):
         pass
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef void eval(self,
                    REAL_t[::1] contrib,
                    panelType panel,
@@ -773,9 +728,144 @@ cdef class fractionalLaplacian1D_P1_nonsymAutomaticQuadrature(nonlocalLaplacian1
             raise NotImplementedError('Unknown panel type: {}'.format(panel))
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
+cdef REAL_t symIntegrand1D_boundary(int n, REAL_t *xx, void *c_params):
+    cdef:
+        REAL_t l1x = xx[0]
+        REAL_t l0x = 1.-l1x
+        REAL_t x
+        REAL_t y
+        INDEX_t i = getINDEX(c_params, fDOF1)
+        INDEX_t j = getINDEX(c_params, fDOF2)
+        # INDEX_t nr1 = getINDEX(c_params, fNR1)
+        # INDEX_t nc1 = getINDEX(c_params, fNC1)
+        # INDEX_t nr2 = getINDEX(c_params, fNR2)
+        # INDEX_t nc2 = getINDEX(c_params, fNC2)
+        REAL_t* simplex1 = getREALArray2D(c_params, fSIMPLEX1)
+        REAL_t* simplex2 = getREALArray2D(c_params, fSIMPLEX2)
+        REAL_t phi1, phi2
+        Kernel kernel = getKernel(c_params, fKERNEL)
+
+    if i == 0:
+        phi1 = l0x
+    else:
+        phi1 = l1x
+
+    if j == 0:
+        phi2 = l0x
+    else:
+        phi2 = l1x
+
+    x = l0x*simplex1[0]+l1x*simplex1[1]
+    y = simplex2[0]
+
+    return phi1 * phi2 * kernel.evalPtr(n, &x, &y)
+
+
+cdef class fractionalLaplacian1D_boundary(nonlocalLaplacian1D):
+    def __init__(self, Kernel kernel, meshBase mesh, DoFMap DoFMap, num_dofs=None, **kwargs):
+        manifold_dim2 = mesh.dim-1
+        super(fractionalLaplacian1D_boundary, self).__init__(kernel, mesh, DoFMap, num_dofs, manifold_dim2=manifold_dim2, **kwargs)
+        self.symmetricCells = False
+
+
+cdef class fractionalLaplacian1D_P1_boundary_automaticQuadrature(fractionalLaplacian1D_boundary):
+    def __init__(self,
+                 Kernel kernel,
+                 meshBase mesh,
+                 DoFMap DoFMap,
+                 num_dofs=None,
+                 abstol=1e-4,
+                 reltol=1e-4,
+                 target_order=None,
+                 **kwargs):
+        assert isinstance(DoFMap, P1_DoFMap)
+        super(fractionalLaplacian1D_P1_boundary_automaticQuadrature, self).__init__(kernel, mesh, DoFMap, num_dofs, **kwargs)
+
+        if target_order is None:
+            if isinstance(self.kernel, FractionalKernel):
+                smin, smax = self.kernel.s.min, self.kernel.s.max
+                # this is the desired local quadrature error
+                target_order = 2.-smin
+            else:
+                target_order = 5
+        self.target_order = target_order
+
+        self.user_ptr = malloc(NUM_INTEGRAND_PARAMS*INTEGRAND_OFFSET)
+        setINDEX(self.user_ptr, fNR1, 2)
+        setINDEX(self.user_ptr, fNC1, 1)
+        setINDEX(self.user_ptr, fNR2, 2)
+        setINDEX(self.user_ptr, fNC2, 1)
+        c_params = PyCapsule_New(self.user_ptr, NULL, NULL)
+        func_type = b"double (int, double *, void *)"
+        func_capsule = PyCapsule_New(<void*>symIntegrand1D_boundary, func_type, NULL)
+        self.integrand = LowLevelCallable(func_capsule, c_params, func_type)
+        self.abstol = abstol
+        self.reltol = reltol
+        setKernel(self.user_ptr, fKERNEL, self.kernel)
+
+    cdef panelType getQuadOrder(self,
+                                const REAL_t h1,
+                                const REAL_t h2,
+                                REAL_t d):
+        return DISTANT
+
+    cdef void getNearQuadRule(self, panelType panel):
+        pass
+
+    cdef void eval(self,
+                   REAL_t[::1] contrib,
+                   panelType panel,
+                   MASK_t mask=ALL):
+        cdef:
+            INDEX_t k, i, j, I, J, t = 0
+            REAL_t val, err, vol1 = self.vol1, vol2 = self.vol2
+            REAL_t[:, ::1] simplex1 = self.simplex1
+            REAL_t[:, ::1] simplex2 = self.simplex2
+            REAL_t horizon = self.kernel.getHorizonValue()
+
+        setREALArray2D(self.user_ptr, fSIMPLEX1, simplex1)
+        setREALArray2D(self.user_ptr, fSIMPLEX2, simplex2)
+
+        contrib[:] = 0.
+
+        if panel == COMMON_VERTEX:
+            for i in range(2):
+                if simplex1[i, 0] == simplex2[0, 0]:
+                    t = i
+                    break
+
+            # loop over all local DoFs
+            for I in range(2):
+                for J in range(I, 2):
+                    i = (t+I)%2
+                    j = (t+J)%2
+                    if j < i:
+                        i, j = j, i
+                    k = 2*i-(i*(i+1) >> 1) + j
+                    if mask & (1 << k):
+                        setINDEX(self.user_ptr, fDOF1, i)
+                        setINDEX(self.user_ptr, fDOF2, j)
+                        val, err = nquad(self.integrand,
+                                         ((0., 1.), ),
+                                         opts={'epsabs': self.abstol, 'epsrel': self.reltol, 'points': [simplex2[0, 0]]})
+                        contrib[k] = val*vol1*vol2
+        elif panel == DISTANT:
+            k = 0
+            for I in range(2):
+                for J in range(I, 2):
+                    if mask & (1 << k):
+                        setINDEX(self.user_ptr, fDOF1, I)
+                        setINDEX(self.user_ptr, fDOF2, J)
+                        val, err = nquad(self.integrand,
+                                         ((0., 1.), ),
+                                         opts={'epsabs': self.abstol, 'epsrel': self.reltol, 'points': [simplex2[0, 0]]})
+                        contrib[k] = val*vol1*vol2
+                    k += 1
+        else:
+            print(np.array(simplex1), np.array(simplex2))
+            raise NotImplementedError('Unknown panel type: {}'.format(panel))
+
+
 cdef REAL_t symIntegrandId2D(int n, REAL_t *xx, void *c_params):
     cdef:
         REAL_t* lx = xx
@@ -817,9 +907,6 @@ cdef REAL_t symIntegrandId2D(int n, REAL_t *xx, void *c_params):
     return psi1 * psi2 * kernel.evalPtr(n, x, y)
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef REAL_t symIntegrandVertex2D(int n, REAL_t *xx, void *c_params):
     cdef:
         REAL_t* lx = xx
@@ -865,9 +952,6 @@ cdef REAL_t symIntegrandVertex2D(int n, REAL_t *xx, void *c_params):
     return psi1 * psi2 * kernel.evalPtr(n, x, y)
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef REAL_t symIntegrandDistant2D(int n, REAL_t *xx, void *c_params):
     cdef:
         # REAL_t* lx = xx
@@ -953,10 +1037,6 @@ cdef class fractionalLaplacian2D_P1_automaticQuadrature(nonlocalLaplacian2D):
         self.reltol = reltol
         setKernel(self.user_ptr, fKERNEL, self.kernel)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cdef panelType getQuadOrder(self,
                                 const REAL_t h1,
                                 const REAL_t h2,
@@ -966,10 +1046,6 @@ cdef class fractionalLaplacian2D_P1_automaticQuadrature(nonlocalLaplacian2D):
     cdef void getNearQuadRule(self, panelType panel):
         pass
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef void eval(self,
                    REAL_t[::1] contrib,
                    panelType panel,

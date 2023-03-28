@@ -11,7 +11,7 @@ import numpy as np
 import mpi4py.rc
 mpi4py.rc.initialize = False
 from mpi4py import MPI
-from PyNucleus_fem.DoFMaps import P1_DoFMap, P2_DoFMap
+from PyNucleus_fem.DoFMaps import P1_DoFMap
 from PyNucleus_fem import str2DoFMap
 from PyNucleus_base.myTypes import REAL
 from PyNucleus_base.linear_operators import CSR_LinearOperator
@@ -22,14 +22,12 @@ from PyNucleus_base.ip_norm import (ip_serial, norm_serial,
                                     ip_distributed, norm_distributed,
                                     wrapRealInnerToComplex, wrapRealNormToComplex)
 from PyNucleus_fem import (assembleDrift,
-                 assembleMatrix,
-                 mass_0d_in_1d_sym_P1,
-                 mass_1d_in_2d_sym_P1,
-                 mass_1d_in_2d_sym_P2,
-                 DistributedLinearOperator,
-                 CSR_DistributedLinearOperator,
-                 function,
-                 DIRICHLET, NEUMANN, HOMOGENEOUS_DIRICHLET, HOMOGENEOUS_NEUMANN, boundaryConditions)
+                           assembleMatrix,
+                           DistributedLinearOperator,
+                           CSR_DistributedLinearOperator,
+                           function,
+                           DIRICHLET, NEUMANN, HOMOGENEOUS_DIRICHLET, HOMOGENEOUS_NEUMANN, boundaryConditions)
+from PyNucleus_fem.femCy import stiffness_1d_in_2d_sym_P1
 from PyNucleus_fem.mesh import (PHYSICAL, NO_BOUNDARY, INTERIOR_NONOVERLAPPING, INTERIOR)
 LOGGER = logging.getLogger(__name__)
 
@@ -152,7 +150,8 @@ class meshLevel(level):
         return newMeshLevel
 
     def copy(self):
-        newMeshLevel = meshLevel(self.mesh, self.params, self, self.interfaces, self.meshOverlaps, self.interiorBL, self.comm, self.label, self.meshInformationPolicy)
+        newMeshLevel = meshLevel(self.mesh, self.params, self, self.interfaces, self.meshOverlaps,
+                                 self.interiorBL, self.comm, self.label, self.meshInformationPolicy)
         return newMeshLevel
 
     def getIsDistributed(self):
@@ -262,7 +261,7 @@ class algebraicLevelBase(level):
                 if self.meshLevel.meshOverlaps is not None:
                     with self.Timer('Build algebraic overlaps of type \'{}\''.format(commType)):
                         self.algebraicOverlaps = self.meshLevel.meshOverlaps.getDoFs(self.meshLevel.mesh, self.DoFMap, commType,
-                                                                                 allowInteriorBoundary=self.params['interiorBC'] == 'homogeneousNeumann' or not self.isLastLevel)
+                                                                                     allowInteriorBoundary=self.params['interiorBC'] == 'homogeneousNeumann' or not self.isLastLevel)
                     if self.params['debugOverlaps']:
                         self.algebraicOverlaps.check(mesh=self.meshLevel.mesh,
                                                      dm=self.DoFMap,
@@ -303,7 +302,7 @@ class algebraicLevelBase(level):
             self.previousLevel.buildCoarserMatrices()
 
     def clean(self):
-        if not self.params['keepAllDoFMaps'] and not self.previousLevel is None:
+        if not self.params['keepAllDoFMaps'] and self.previousLevel is not None:
             self.DoFMap = None
 
     @classmethod
@@ -474,7 +473,7 @@ class algebraicLevel(algebraicLevelBase):
                     dmS.cells = surface.cells
                     if mesh.dim == 2:
                         dmS.dofs_per_element = 2
-                        self.surfaceStiffness = assembleMatrix(surface, dmS, stiffness_1d_in_2d_sym(), A=AS,
+                        self.surfaceStiffness = assembleMatrix(surface, dmS, stiffness_1d_in_2d_sym_P1(), A=AS,
                                                                sss_format=symmetric, reorder=reorder)
                     else:
                         raise NotImplementedError()

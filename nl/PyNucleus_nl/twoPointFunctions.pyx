@@ -8,7 +8,6 @@
 
 import numpy as np
 cimport numpy as np
-cimport cython
 from libc.math cimport sqrt, exp, atan
 from PyNucleus_base.myTypes import INDEX, REAL, ENCODE, BOOL
 
@@ -29,8 +28,6 @@ cdef class fixedTwoPointFunction(function):
         self.point = point
         self.fixedType = fixedType
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x):
         if self.fixedType == FIXED_X:
             return self.f(self.point, x)
@@ -47,8 +44,6 @@ cdef class twoPointFunction:
     def __call__(self, REAL_t[::1] x, REAL_t[::1] y):
         return self.eval(x, y)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
         raise NotImplementedError()
 
@@ -120,8 +115,6 @@ cdef class lambdaTwoPoint(twoPointFunction):
         super(lambdaTwoPoint, self).__init__(symmetric)
         self.fun = fun
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
         return self.fun(x, y)
 
@@ -147,8 +140,6 @@ cdef class productTwoPoint(twoPointFunction):
         self.f1 = f1
         self.f2 = f2
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
         return self.f1.eval(x, y)*self.f2.eval(x, y)
 
@@ -170,8 +161,6 @@ cdef class constantTwoPoint(twoPointFunction):
         super(constantTwoPoint, self).__init__(True)
         self.value = value
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
         return self.value
 
@@ -209,8 +198,6 @@ cdef class matrixTwoPoint(twoPointFunction):
     def __repr__(self):
         return '{}({},sym={})'.format(self.__class__.__name__, np.array(self.mat), self.symmetric)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
         cdef:
             INDEX_t dim = x.shape[0]
@@ -269,8 +256,6 @@ cdef class leftRightTwoPoint(twoPointFunction):
     def __repr__(self):
         return '{}(ll={},rr={},lr={},rl={},interface={},sym={})'.format(self.__class__.__name__, self.ll, self.rr, self.lr, self.rl, self.interface, self.symmetric)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
         if x[0] < self.interface:
             if y[0] < self.interface:
@@ -313,8 +298,6 @@ cdef class interfaceTwoPoint(twoPointFunction):
     def __repr__(self):
         return '{}(horizon1={},horizon2={},left={},interface={})'.format(self.__class__.__name__, self.horizon1, self.horizon2, self.left, self.interface)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
         return self.evalPtr(x.shape[0], &x[0], &y[0])
 
@@ -409,8 +392,6 @@ cdef class temperedTwoPoint(twoPointFunction):
     def __repr__(self):
         return '{}(lambda={})'.format(self.__class__.__name__, self.lambdaCoeff)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
         cdef:
             INDEX_t i
@@ -447,8 +428,6 @@ cdef class tensorTwoPoint(twoPointFunction):
     def __repr__(self):
         return '{}(i={},j={})'.format(self.__class__.__name__, self.i, self.j)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
         cdef:
             INDEX_t i
@@ -492,8 +471,6 @@ cdef class smoothedLeftRightTwoPoint(twoPointFunction):
     def __repr__(self):
         return '{}(vl={},vr={},r={},slope={})'.format(self.__class__.__name__, self.vl, self.vr, self.r, self.slope)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
         if x[0] < -self.r:
             return self.vl
@@ -524,8 +501,6 @@ cdef class unsymTwoPoint(twoPointFunction):
     def __repr__(self):
         return '{}(l={},r={})'.format(self.__class__.__name__, self.l, self.r)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
         if x[0] < y[0]:
             return self.l
@@ -550,6 +525,27 @@ cdef class parametrizedTwoPointFunction(twoPointFunction):
         return self.params
 
 
+cdef class inverseTwoPoint(twoPointFunction):
+    def __init__(self, twoPointFunction f):
+        super(inverseTwoPoint, self).__init__(f.symmetric)
+        self.f = f
+
+    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
+        return 1./self.f.eval(x, y)
+
+    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
+        return 1./self.f.evalPtr(dim, x, y)
+
+    def __repr__(self):
+        return '1/{}'.format(self.f)
+
+    def __getstate__(self):
+        return self.f
+
+    def __setstate__(self, state):
+        inverseTwoPoint.__init__(self, state)
+
+
 cdef class productParametrizedTwoPoint(parametrizedTwoPointFunction):
     def __init__(self, twoPointFunction f1, twoPointFunction f2):
         super(productParametrizedTwoPoint, self).__init__(f1.symmetric and f2.symmetric)
@@ -566,10 +562,11 @@ cdef class productParametrizedTwoPoint(parametrizedTwoPointFunction):
             f = self.f2
             f.setParams(params)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
         return self.f1.eval(x, y)*self.f2.eval(x, y)
+
+    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
+        return self.f1.evalPtr(dim, x, y)*self.f2.evalPtr(dim, x, y)
 
     def __repr__(self):
         return '{}*{}'.format(self.f1, self.f2)

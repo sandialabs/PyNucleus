@@ -6,7 +6,6 @@
 ###################################################################################
 
 
-# cython: initializedcheck=False, wraparound=False, boundscheck=False, cdivision=True
 import numpy as np
 cimport numpy as np
 from libc.math cimport (sin, cos, sinh, cosh, tanh, sqrt, atan2,
@@ -20,7 +19,7 @@ from . interactionDomains cimport CUT
 
 # With 64 bits, we can handle at most 5 DoFs per element.
 MASK = np.uint64
-ALL = MASK(-1)
+ALL = MASK(np.iinfo(MASK).max)
 include "panelTypes.pxi"
 
 cdef INDEX_t MAX_INT = np.iinfo(INDEX).max
@@ -488,6 +487,59 @@ cdef class nonlocalLaplacian(double_local_matrix_t):
         if numQuadNodes0*numQuadNodes1 > self.temp.shape[0]:
             self.temp = uninitialized((numQuadNodes0*numQuadNodes1), dtype=REAL)
 
+    cdef void addQuadRule_nonSym(self, panelType panel):
+        cdef:
+            simplexQuadratureRule qr0, qr1
+            doubleSimplexQuadratureRule qr2
+            specialQuadRule sQR
+            REAL_t[:, ::1] PSI
+            REAL_t[:, :, ::1] PHI
+            INDEX_t I, k, i, j
+            INDEX_t numQuadNodes0, numQuadNodes1, dofs_per_element
+            shapeFunction sf
+        qr0 = simplexXiaoGimbutas(panel, self.dim)
+        qr1 = qr0
+        qr2 = doubleSimplexQuadratureRule(qr0, qr1)
+        numQuadNodes0 = qr0.num_nodes
+        numQuadNodes1 = qr1.num_nodes
+        dofs_per_element = self.DoFMap.dofs_per_element
+        PSI = uninitialized((2*dofs_per_element,
+                             qr2.num_nodes), dtype=REAL)
+        PHI = uninitialized((2,
+                             2*dofs_per_element,
+                             qr2.num_nodes), dtype=REAL)
+        # phi_i(x) - phi_i(y) = phi_i(x)
+        for I in range(self.DoFMap.dofs_per_element):
+            sf = self.getLocalShapeFunction(I)
+            k = 0
+            for i in range(numQuadNodes0):
+                for j in range(numQuadNodes1):
+                    PSI[I, k] = sf(qr0.nodes[:, i])
+                    PHI[0, I, k] = sf(qr0.nodes[:, i])
+                    PHI[1, I, k] = 0.
+                    k += 1
+        # phi_i(x) - phi_i(y) = -phi_i(y)
+        for I in range(self.DoFMap.dofs_per_element):
+            sf = self.getLocalShapeFunction(I)
+            k = 0
+            for i in range(numQuadNodes0):
+                for j in range(numQuadNodes1):
+                    PSI[I+dofs_per_element, k] = -sf(qr1.nodes[:, j])
+                    PHI[0, I+dofs_per_element, k] = 0.
+                    PHI[1, I+dofs_per_element, k] = sf(qr1.nodes[:, j])
+                    k += 1
+        sQR = specialQuadRule(qr2, PSI, PHI3=PHI)
+        self.distantQuadRules[panel] = sQR
+        self.distantQuadRulesPtr[panel] = <void*>(self.distantQuadRules[panel])
+
+        if numQuadNodes0 > self.x.shape[0]:
+            self.x = uninitialized((numQuadNodes0, self.dim), dtype=REAL)
+        if numQuadNodes1 > self.y.shape[0]:
+            self.y = uninitialized((numQuadNodes1, self.dim), dtype=REAL)
+        if numQuadNodes0*numQuadNodes1 > self.temp.shape[0]:
+            self.temp = uninitialized((numQuadNodes0*numQuadNodes1), dtype=REAL)
+            self.temp2 = uninitialized((numQuadNodes0*numQuadNodes1), dtype=REAL)
+
     cdef void getNonSingularNearQuadRule(self, panelType panel):
         cdef:
             simplexQuadratureRule qr0, qr1
@@ -654,6 +706,70 @@ cdef class nonlocalLaplacian(double_local_matrix_t):
                                             PSI_J = -self.getLocalShapeFunction(J-dofs_per_element).evalStrided(&qr1trans.nodes[0, j], numQuadNodes1)
                                         contrib[k] += val * PSI_I*PSI_J
                                     k += 1
+
+    cdef void eval_distant_nonsym(self,
+                                  REAL_t[::1] contrib,
+                                  panelType panel,
+                                  MASK_t mask=ALL):
+        cdef:
+            INDEX_t k, i, j, I, J
+            REAL_t vol, val, vol1 = self.vol1, vol2 = self.vol2
+            doubleSimplexQuadratureRule qr2
+            REAL_t[:, ::1] PSI
+            REAL_t[:, :, ::1] PHI
+            REAL_t[:, ::1] simplex1 = self.simplex1
+            REAL_t[:, ::1] simplex2 = self.simplex2
+            INDEX_t dim = simplex1.shape[1]
+            BOOL_t cutElements = False
+            REAL_t w
+
+        if self.kernel.finiteHorizon:
+            # check if the horizon might cut the elements
+            if self.kernel.interaction.relPos == CUT:
+                cutElements = True
+            if self.kernel.complement:
+                cutElements = False
+                # TODO: cutElements should be set to True, but
+                #       need to figure out the element
+                #       transformation.
+
+        contrib[:] = 0.
+
+        if not cutElements:
+            vol = vol1*vol2
+            if panel < 0:
+                sQR = <specialQuadRule>(self.distantQuadRulesPtr[MAX_PANEL+panel])
+            else:
+                sQR = <specialQuadRule>(self.distantQuadRulesPtr[panel])
+            qr2 = <doubleSimplexQuadratureRule>(sQR.qr)
+            PSI = sQR.PSI
+            PHI = sQR.PHI3
+            qr2.rule1.nodesInGlobalCoords(simplex1, self.x)
+            qr2.rule2.nodesInGlobalCoords(simplex2, self.y)
+
+            k = 0
+            for i in range(qr2.rule1.num_nodes):
+                for j in range(qr2.rule2.num_nodes):
+                    w = qr2.weights[k]
+                    self.temp[k] = w * self.kernel.evalPtr(dim,
+                                                           &self.x[i, 0],
+                                                           &self.y[j, 0])
+                    self.temp2[k] = w * self.kernel.evalPtr(dim,
+                                                            &self.y[j, 0],
+                                                            &self.x[i, 0])
+                    k += 1
+
+            k = 0
+            for I in range(2*self.DoFMap.dofs_per_element):
+                for J in range(2*self.DoFMap.dofs_per_element):
+                    if mask & (1 << k):
+                        val = 0.
+                        for i in range(qr2.num_nodes):
+                            val += (self.temp[i] * PHI[0, I, i] - self.temp2[i] * PHI[1, I, i]) * PSI[J, i]
+                        contrib[k] = val*vol
+                    k += 1
+        else:
+            raise NotImplementedError()
 
 
 cdef class nonlocalLaplacian1D(nonlocalLaplacian):

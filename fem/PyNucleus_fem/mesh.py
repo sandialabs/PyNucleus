@@ -11,7 +11,6 @@ import mpi4py.rc
 mpi4py.rc.initialize = False
 from mpi4py import MPI
 import numpy as np
-import numpy.linalg as la
 from PyNucleus_base.factory import factory
 from PyNucleus_base.myTypes import INDEX, REAL, TAG
 from PyNucleus_base.linear_operators import sparseGraph
@@ -105,7 +104,7 @@ def pacman(h=0.1, **kwargs):
     numPointsPerUnitLength = int(np.ceil(1/h))
 
     domain = (circularSegment(center, 1., theta, 2*np.pi, numPointsPerUnitLength) +
-              line(bottom, center)+
+              line(bottom, center) +
               line(center, top))
 
     mesh = domain.mesh(max_volume=h**2, min_angle=30, **kwargs)
@@ -380,7 +379,9 @@ def squareWithInteractions(ax, ay, bx, by,
                 frame += (d+(0, y))
 
         if innerRadius > 0:
-            frame += transformationRestriction(circularSegment(center, innerRadius, 0, 2*np.pi, numPointsPerUnitLength), center-(innerRadius, innerRadius), center+(innerRadius, innerRadius))
+            frame += transformationRestriction(circularSegment(center, innerRadius, 0, 2*np.pi, numPointsPerUnitLength),
+                                               center-(innerRadius, innerRadius),
+                                               center+(innerRadius, innerRadius))
             mesh = frame.mesh(max_volume=h**2, min_angle=30, **kwargs)
         else:
             frame.holes.append(center)
@@ -527,10 +528,18 @@ def doubleSquareWithInteractions(ax=0., ay=0., bx=1., by=1., cx=2., cy=1.,
             d1 = (line(bottomMid, bottomRight)+(0, -horizon2) + circularSegment(bottomRight, horizon2, 1.5*np.pi, 2*np.pi, numPointsPerUnitLength))
             d2 = (line(bottomRight, topRight)+(horizon2, 0) + circularSegment(topRight, horizon2, 0, 0.5*np.pi, numPointsPerUnitLength))
             d3 = ((line(topRight, topMid)+(0, horizon2)) +
-                  transformationRestriction(circularSegment(topMid, horizon2, 0.5*np.pi, 0.5*np.pi+magicAngle, numPointsPerUnitLength), topMid+(-horizon2, horizon1+1e-9), topMid+(0, horizon2)) +
-                  transformationRestriction(circularSegment(topMid, horizon2, 0.5*np.pi + magicAngle, np.pi, numPointsPerUnitLength), topMid+(-horizon2, 0), topMid+(-magicLen-1e-9, horizon1)))
-            d4 = (transformationRestriction(circularSegment(bottomMid, horizon2, np.pi, np.pi + (0.5*np.pi-magicAngle), numPointsPerUnitLength), bottomMid+(-horizon2, -horizon1+1e-9), bottomMid+(-magicLen, 0)) +
-                  transformationRestriction(circularSegment(bottomMid, horizon2, np.pi + (0.5*np.pi-magicAngle), 1.5*np.pi, numPointsPerUnitLength), bottomMid+(-horizon2, -horizon2), bottomMid+(0, -horizon1-1e-9)))
+                  transformationRestriction(circularSegment(topMid, horizon2, 0.5*np.pi, 0.5*np.pi+magicAngle, numPointsPerUnitLength),
+                                            topMid+(-horizon2, horizon1+1e-9),
+                                            topMid+(0, horizon2)) +
+                  transformationRestriction(circularSegment(topMid, horizon2, 0.5*np.pi + magicAngle, np.pi, numPointsPerUnitLength),
+                                            topMid+(-horizon2, 0),
+                                            topMid+(-magicLen-1e-9, horizon1)))
+            d4 = (transformationRestriction(circularSegment(bottomMid, horizon2, np.pi, np.pi + (0.5*np.pi-magicAngle), numPointsPerUnitLength),
+                                            bottomMid+(-horizon2, -horizon1+1e-9),
+                                            bottomMid+(-magicLen, 0)) +
+                  transformationRestriction(circularSegment(bottomMid, horizon2, np.pi + (0.5*np.pi-magicAngle), 1.5*np.pi, numPointsPerUnitLength),
+                                            bottomMid+(-horizon2, -horizon2),
+                                            bottomMid+(0, -horizon1-1e-9)))
             outer = d1+d2+d3+d4
 
             # two right corners
@@ -581,8 +590,7 @@ def doubleSquareWithInteractionsCorners(ax=0., ay=0., bx=1., by=1., cx=2., cy=1.
                                         returnSketch=False,
                                         **kwargs):
     from PyNucleus.fem.meshConstruction import (line,
-                                                polygon,
-                                                transformationRestriction)
+                                                polygon)
     assert horizon2 >= horizon1
     assert horizon1 >= 0
     if h is None:
@@ -612,8 +620,6 @@ def doubleSquareWithInteractionsCorners(ax=0., ay=0., bx=1., by=1., cx=2., cy=1.
         numPointsPerUnitLength = int(np.ceil(1/(h*0.8**(k/2))))
 
         if horizon2 > 0:
-            magicAngle = 0.5*np.pi-np.arcsin(horizon1/horizon2)
-            magicLen = horizon2*np.cos(0.5*np.pi-magicAngle)
 
             # the four/six inner squares
             inner = polygon([bottomLeft, bottomMid-(horizon2, 0),
@@ -735,9 +741,9 @@ def discWithIslands(horizon=0., radius=1., islandOffCenter=0.35, islandDiam=0.5)
     assert islandOffCenter > islandDiam/2
     assert np.sqrt(2)*(islandOffCenter+islandDiam/2) < radius
     assert horizon >= 0.
-    c = circle((0,0), radius, num_points_per_unit_len=numPointsPerLength)
+    c = circle((0, 0), radius, num_points_per_unit_len=numPointsPerLength)
     if horizon > 0:
-        c += circle((0,0), radius+horizon, num_points_per_unit_len=numPointsPerLength)
+        c += circle((0, 0), radius+horizon, num_points_per_unit_len=numPointsPerLength)
     island = rectangle((-islandDiam/2, -islandDiam/2), (islandDiam/2, islandDiam/2))
     c += (island+(islandOffCenter, islandOffCenter))
     c += (island+(-islandOffCenter, islandOffCenter))
@@ -1008,11 +1014,9 @@ def circleWithInnerRadius(n, radius=2., innerRadius=1., returnFacets=False, **kw
 
 
 def gradedIntervals(intervals, h):
-    numIntervals = len(intervals)
 
     intervals = list(sorted(intervals, key=lambda int: int[0]))
 
-    intervalSizes = []
     Ms = np.zeros((2*len(intervals)), dtype=INDEX)
     for intNo, interval in enumerate(intervals):
         mu1 = interval[2]
@@ -1336,9 +1340,9 @@ def ball(radius=1., points=4, radial_subdiv=None, **kwargs):
     points         determines the number of points on the curve.
     radial_subdiv  determines the number of steps in the rotation.
     """
-    from meshpy.tet import MeshInfo, build, Options
+    from meshpy.tet import MeshInfo, build  # Options
     from meshpy.geometry import generate_surface_of_revolution, EXT_OPEN, GeometryBuilder
-    from meshpy.geometry import make_ball
+    # from meshpy.geometry import make_ball
 
     if radial_subdiv is None:
         radial_subdiv = 2*points+2
@@ -1585,7 +1589,7 @@ class meshNd(meshBase):
 
     def tagBoundaryVertices(self, tagFunc):
         boundaryVertexTags = uninitialized((self.boundaryVertices.shape[0]),
-                                      dtype=TAG)
+                                           dtype=TAG)
         for i, j in enumerate(self.boundaryVertices):
             v = self.vertices[j, :]
             boundaryVertexTags[i] = tagFunc(v)
@@ -1593,7 +1597,7 @@ class meshNd(meshBase):
 
     def replaceBoundaryVertexTags(self, tagFunc, tagsToReplace=set()):
         boundaryVertexTags = uninitialized((self.boundaryVertices.shape[0]),
-                                      dtype=TAG)
+                                           dtype=TAG)
         for i, j in enumerate(self.boundaryVertices):
             if self.boundaryVertexTags[i] in tagsToReplace:
                 v = self.vertices[j, :]
@@ -1633,7 +1637,7 @@ class meshNd(meshBase):
 
     def tagBoundaryEdges(self, tagFunc):
         boundaryEdgeTags = uninitialized(self.boundaryEdges.shape[0],
-                                    dtype=TAG)
+                                         dtype=TAG)
         for i in range(self.boundaryEdges.shape[0]):
             e = self.boundaryEdges[i, :]
             v0 = self.vertices[e[0]]
@@ -1643,7 +1647,7 @@ class meshNd(meshBase):
 
     def replaceBoundaryEdgeTags(self, tagFunc, tagsToReplace=set()):
         boundaryEdgeTags = uninitialized((self.boundaryEdges.shape[0]),
-                                    dtype=TAG)
+                                         dtype=TAG)
         for i in range(self.boundaryEdges.shape[0]):
             if self.boundaryEdgeTags[i] in tagsToReplace:
                 e = self.boundaryEdges[i, :]
@@ -1687,7 +1691,7 @@ class meshNd(meshBase):
 
     def tagBoundaryFaces(self, tagFunc):
         boundaryFaceTags = uninitialized(self.boundaryFaces.shape[0],
-                                    dtype=TAG)
+                                         dtype=TAG)
         for i in range(self.boundaryFaces.shape[0]):
             f = self.boundaryFaces[i, :]
             v0 = self.vertices[f[0]]
@@ -1796,7 +1800,6 @@ class meshNd(meshBase):
             labels = [labels]
         else:
             assert len(x) == len(labels)
-        sols = []
         point_data = {}
         for xx, label in zip(x, labels):
             sol = xx.linearPart()
@@ -2181,7 +2184,6 @@ class mesh1d(meshNd):
     def plotAlgebraicOverlapManager(self, DoFMap, overlap):
         from . algebraicOverlaps import algebraicOverlapManager
         assert isinstance(overlap, algebraicOverlapManager)
-        import matplotlib.pyplot as plt
         self.plot(boundary=True)
         x = np.zeros((DoFMap.num_dofs), dtype=REAL)
         for subdomainNo in overlap.overlaps:
@@ -2559,7 +2561,6 @@ class mesh2d(meshNd):
         from PyNucleus_base.linear_operators import CSR_LinearOperator
         import matplotlib.pyplot as plt
         assert isinstance(A, CSR_LinearOperator)
-        dof2vertex = {}
         for cellNo in range(self.num_cells):
             simplex = self.vertices[self.cells[cellNo, :], :]
             coords = dofmap.getNodalCoordinates_py(simplex)
@@ -2585,7 +2586,7 @@ class mesh2d(meshNd):
                                      c='g', lw=4)
 
     def sortVertices(self):
-        idx = np.argsort(self.vertices_as_array.view('d,d'), order=['f1','f0'], axis=0).flat[:self.vertices.shape[0]]
+        idx = np.argsort(self.vertices_as_array.view('d,d'), order=['f1', 'f0'], axis=0).flat[:self.vertices.shape[0]]
         self.reorderVertices(idx)
 
 
@@ -2611,7 +2612,7 @@ class mesh3d(meshNd):
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
         for i in range(self.cells.shape[0]):
-            for j,k in combinations(range(4), 2):
+            for j, k in combinations(range(4), 2):
                 u = self.vertices[self.cells[i, j], :]
                 v = self.vertices[self.cells[i, k], :]
                 ax.plot([u[0], v[0]], [u[1], v[1]], [u[2], v[2]], 'k')
@@ -2620,7 +2621,7 @@ class mesh3d(meshNd):
         import matplotlib.pyplot as plt
         from mpl_toolkits.mplot3d import Axes3D
         from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-        from matplotlib import rcParams
+        # from matplotlib import rcParams
         # from itertools import combinations
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
@@ -2862,7 +2863,7 @@ def stitchSubdomains(subdomains, overlapManagers, returnR=False, ncs=None):
 
         # find new indices after discarding of the known vertices
         globalIndicesSubdomain = uninitialized(subdomainNumVertices,
-                                          dtype=INDEX)
+                                               dtype=INDEX)
         globalIndicesSubdomain[nv] = np.arange(k, k+nv.sum())
 
         for j in np.compress(np.logical_not(nv),

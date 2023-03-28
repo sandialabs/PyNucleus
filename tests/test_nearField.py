@@ -24,7 +24,9 @@ from PyNucleus.nl.fractionalOrders import (constFractionalOrder,
                                            variableConstFractionalOrder,
                                            leftRightFractionalOrder,
                                            layersFractionalOrder,
-                                           lambdaFractionalOrder)
+                                           lambdaFractionalOrder,
+                                           smoothedLeftRightFractionalOrder,
+                                           singleVariableUnsymmetricFractionalOrder)
 from PyNucleus.base import driver
 from PyNucleus.nl.nonlocalProblems import nonlocalMeshFactory, HOMOGENEOUS_DIRICHLET
 import pytest
@@ -44,11 +46,14 @@ epsAbsH2 = {(1, np.inf): 5e-5,
 class test:
     __test__ = False
     params = {'target_order': 3}
+    piecewise = True
 
     @classmethod
     def setup_class(self):
 
-        kernel = getFractionalKernel(self.dim, self.s, self.horizon, normalized=self.normalized, phi=self.phi)
+        kernel = getFractionalKernel(self.dim, self.s, self.horizon, normalized=self.normalized, phi=self.phi, piecewise=self.piecewise)
+        print('\n##################################################')
+        print('Testing: {}'.format(kernel))
 
         if self.dim == 1:
             self.mesh, nI = nonlocalMeshFactory.build('interval', kernel, self.boundaryCondition)
@@ -84,22 +89,45 @@ class test:
 
         self.builder = nonlocalBuilder(self.mesh, self.dm, kernel, params=self.params, zeroExterior=self.zeroExterior)
 
-        if isinstance(self.s, variableConstFractionalOrder) and self.phi is None:
-            s = constFractionalOrder(self.s.value)
-            kernel = getFractionalKernel(self.dim, s, self.horizon, normalized=True)
-            self.constBuilder = nonlocalBuilder(self.mesh, self.dm, kernel, params=self.params, zeroExterior=self.zeroExterior)
-            self.baseA = self.constBuilder.getDense()
-            self.baseLabel = 'dense_const'
-        else:
-            self.baseA = self.builder.getDense()
-            self.baseLabel = 'dense_var'
+    def buildBaseA(self):
+        if not hasattr(self, '_baseA'):
+            if isinstance(self.s, variableConstFractionalOrder) and self.phi is None:
+                s = constFractionalOrder(self.s.value)
+                kernel = getFractionalKernel(self.dim, s, self.horizon, normalized=True)
+                self._constBuilder = nonlocalBuilder(self.mesh, self.dm, kernel, params=self.params, zeroExterior=self.zeroExterior)
+                self._baseA = self._constBuilder.getDense()
+                self._baseLabel = 'dense_const'
+            else:
+                self._baseA = self.builder.getDense()
+                self._baseLabel = 'dense_var'
+
+    @property
+    def baseA(self):
+        if not hasattr(self, '_baseA'):
+            self.buildBaseA()
+        return self._baseA
+
+    @property
+    def baseLabel(self):
+        if not hasattr(self, '_baseA'):
+            self.buildBaseA()
+        return self._baseLabel
+
+    @property
+    def constBuilder(self):
+        if not hasattr(self, '_baseA'):
+            self.buildBaseA()
+        return self._constBuilder
 
     def getPnear(self, maxLevels):
         boxes, cells = getDoFBoxesAndCells(self.mesh, self.dm)
         centers = uninitialized((self.dm.num_dofs, self.mesh.dim), dtype=REAL)
         for i in range(self.dm.num_dofs):
             centers[i, :] = boxes[i, :, :].mean(axis=1)
-        blocks, jumps = self.builder.getKernelBlocksAndJumps()
+        if self.builder.kernel.variable and not (self.builder.kernel.variableOrder and isinstance(self.builder.kernel.s, singleVariableUnsymmetricFractionalOrder)):
+            blocks, jumps = self.builder.getKernelBlocksAndJumps()
+        else:
+            blocks, jumps = {}, {}
         dofs = arrayIndexSet(np.arange(self.dm.num_dofs, dtype=INDEX))
         root = tree_node(None, dofs, boxes)
         if len(blocks) > 1:
@@ -132,7 +160,7 @@ class test:
                 diam += (n.box[i, 1]-n.box[i, 0])**2
             diam = np.sqrt(diam)
             if 2*diam > self.horizon.value:
-                print('Clusters of size {} to large for horizon {}'.format(diam, self.horizon.value))
+                print('Clusters of size {} too large for horizon {}'.format(diam, self.horizon.value))
                 return [], {}
         Pnear = []
         r = list(root.leaves())
@@ -156,6 +184,7 @@ class test:
             Pnear, _ = self.getPnear(maxLevels)
             if len(Pnear) > 0:
                 A_fix_near = self.builder.assembleClusters(Pnear)
+                print('number of cluster pairs: {}'.format(len(Pnear)))
                 self.compare("{}-cluster_const({})".format(self.baseLabel, maxLevels), self.baseA, A_fix_near)
         else:
             pytest.skip('Only works for variableConstFractionalOrder')
@@ -174,7 +203,7 @@ class test:
             print(self.s)
             self.constH2()
         elif self.dim == 2:
-            pytest.skip('Does not work in 2d, since mesh to small to get H2 matrix')
+            pytest.skip('Does not work in 2d, since mesh too small to get H2 matrix')
         else:
             pytest.skip('Only works for variableConstFractionalOrder in 1D')
 
@@ -335,6 +364,13 @@ class leftRight1DfiniteHorizon(test1D):
     __test__ = True
     s = leftRightFractionalOrder(0.25, 0.75)
     horizon = constant(1.0)
+
+
+class smoothedLeftRight1D(test1D):
+    __test__ = True
+    s = smoothedLeftRightFractionalOrder(0.25, 0.75)
+    params = {'target_order': 3, 'genKernel': True}
+    piecewise = False
 
 
 class const2D_025(test2D):

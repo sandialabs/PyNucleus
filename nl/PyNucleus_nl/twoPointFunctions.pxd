@@ -20,7 +20,7 @@ cdef class twoPointFunction:
 
 cdef class productTwoPoint(twoPointFunction):
     cdef:
-        twoPointFunction f1, f2
+        public twoPointFunction f1, f2
 
 
 cdef class constantTwoPoint(twoPointFunction):
@@ -70,4 +70,9 @@ cdef class parametrizedTwoPointFunction(twoPointFunction):
 
 cdef class productParametrizedTwoPoint(parametrizedTwoPointFunction):
     cdef:
-        twoPointFunction f1, f2
+        public twoPointFunction f1, f2
+
+
+cdef class inverseTwoPoint(twoPointFunction):
+    cdef:
+        twoPointFunction f

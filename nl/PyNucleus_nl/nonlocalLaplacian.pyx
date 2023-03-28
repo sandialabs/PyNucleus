@@ -9,7 +9,6 @@
 from libc.math cimport ceil
 import numpy as np
 cimport numpy as np
-cimport cython
 
 include "config.pxi"
 
@@ -43,6 +42,7 @@ from . fractionalOrders cimport (fractionalOrderBase,
                                  constFractionalOrder,
                                  piecewiseConstantFractionalOrder,
                                  variableFractionalOrder,
+                                 singleVariableUnsymmetricFractionalOrder,
                                  variableFractionalLaplacianScaling)
 from . kernels import getFractionalKernel
 
@@ -126,9 +126,6 @@ cdef class IndexManager:
         self.idxCellFlip = idxCellFlip
         self.cache = {}
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef inline void getDoFsElem(self, INDEX_t cellNo):
         cdef:
             INDEX_t p, dof
@@ -140,9 +137,6 @@ cdef class IndexManager:
                 if not self.myDofs.inSet(dof):
                     self.localDoFs[p] = -1
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef inline BOOL_t getDoFsElemElem(self, INDEX_t cellNo1, INDEX_t cellNo2):
         cdef:
             INDEX_t p, dof
@@ -157,9 +151,6 @@ cdef class IndexManager:
             canSkip = canSkip and dof < 0
         return canSkip
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef inline void addToMatrixElemSym(self, const REAL_t[::1] contrib, REAL_t fac):
         cdef:
             INDEX_t k, p, q, I, J
@@ -178,9 +169,21 @@ cdef class IndexManager:
             else:
                 k += self.dm.dofs_per_element-p
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
+    cdef inline void addToMatrixElem(self, const REAL_t[::1] contrib, REAL_t fac):
+        cdef:
+            INDEX_t k, p, q, I, J
+        k = 0
+        for p in range(self.dm.dofs_per_element):
+            I = self.localDoFs[p]
+            if I >= 0:
+                for q in range(self.dm.dofs_per_element):
+                    J = self.localDoFs[q]
+                    if J >= 0:
+                        self.A.addToEntry(I, J, fac*contrib[k])
+                    k += 1
+            else:
+                k += self.dm.dofs_per_element
+
     cdef inline void addToSparsityElemElemSym(self):
         # Add symmetric 'contrib' to elements i and j in symmetric fashion
         cdef:
@@ -200,9 +203,6 @@ cdef class IndexManager:
             else:
                 k += 2*self.dm.dofs_per_element-p
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef inline void addToMatrixElemElemSym(self, const REAL_t[::1] contrib, REAL_t fac):
         # Add symmetric 'contrib' to elements i and j in symmetric fashion
         cdef:
@@ -222,9 +222,6 @@ cdef class IndexManager:
             else:
                 k += 2*self.dm.dofs_per_element-p
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef inline void addToSparsityElemElem(self):
         # Add general 'contrib' to elements i and j
         cdef:
@@ -241,9 +238,6 @@ cdef class IndexManager:
             else:
                 k += 2*self.dm.dofs_per_element
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef inline void addToMatrixElemElem(self, const REAL_t[::1] contrib, REAL_t fac):
         # Add general 'contrib' to elements i and j
         cdef:
@@ -260,9 +254,6 @@ cdef class IndexManager:
             else:
                 k += 2*self.dm.dofs_per_element
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef tupleDictMASK buildMasksForClusters(self, list clusterList, bint symmetricCells, INDEX_t *startCluster):
         cdef:
             nearFieldClusterPair cluster = clusterList[0]
@@ -327,7 +318,7 @@ cdef class IndexManager:
                         if (cellMask1 == 0) or (cellMask2 == 0):
                             continue
                         cellPair[1] = cellNo2
-                        mask = self.getElemElemSymMask(cellMask1, cellMask2)
+                        mask = self.getElemElemMask(cellMask1, cellMask2)
                         # does a logical "and" if there already is an entry
                         masks.enterValue(cellPair, mask)
             else:
@@ -368,27 +359,21 @@ cdef class IndexManager:
 
         return masks
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    cdef inline MASK_t getElemSymEntryMask(self, INDEX_t cellNo1, INDEX_t I, INDEX_t J):
-        # Add symmetric 'contrib' to elements i and j in symmetric fashion
-        cdef:
-            INDEX_t p, q, K, L
-            MASK_t k = 1
-            MASK_t mask = 0
-        for p in range(self.dm.dofs_per_element):
-            K = self.dm.cell2dof(cellNo1, p)
-            for q in range(p, self.dm.dofs_per_element):
-                L = self.dm.cell2dof(cellNo1, q)
-                if (I == K and J == L) or (J == K and I == L):
-                    mask |= k
-                k = k << 1
-        return mask
+    # cdef inline MASK_t getElemSymEntryMask(self, INDEX_t cellNo1, INDEX_t I, INDEX_t J):
+    #     # Add symmetric 'contrib' to elements i and j in symmetric fashion
+    #     cdef:
+    #         INDEX_t p, q, K, L
+    #         MASK_t k = 1
+    #         MASK_t mask = 0
+    #     for p in range(self.dm.dofs_per_element):
+    #         K = self.dm.cell2dof(cellNo1, p)
+    #         for q in range(p, self.dm.dofs_per_element):
+    #             L = self.dm.cell2dof(cellNo1, q)
+    #             if (I == K and J == L) or (J == K and I == L):
+    #                 mask |= k
+    #             k = k << 1
+    #     return mask
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef inline MASK_t getElemElemSymMask(self, MASK_t mask_dofs1, MASK_t mask_dofs2):
         # Add symmetric 'contrib' to elements i and j in symmetric fashion
         cdef:
@@ -405,9 +390,22 @@ cdef class IndexManager:
                 k = k << (2*self.dm.dofs_per_element-p)
         return mask
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
+    cdef inline MASK_t getElemElemMask(self, MASK_t mask_dofs1, MASK_t mask_dofs2):
+        # Add symmetric 'contrib' to elements i and j in symmetric fashion
+        cdef:
+            INDEX_t p, q
+            MASK_t k = 1
+            MASK_t mask = 0
+        for p in range(2*self.dm.dofs_per_element):
+            if (mask_dofs1 & (1 << p)):
+                for q in range(2*self.dm.dofs_per_element):
+                    if (mask_dofs2 & (1 << q)):
+                        mask |= k
+                    k = k << 1
+            else:
+                k = k << (2*self.dm.dofs_per_element)
+        return mask
+
     cdef inline MASK_t getElemElemSymEntryMask(self, INDEX_t cellNo1, INDEX_t cellNo2, INDEX_t I, INDEX_t J):
         # Add symmetric 'contrib' to elements i and j in symmetric fashion
         cdef:
@@ -430,9 +428,6 @@ cdef class IndexManager:
                 k = k << 1
         return mask
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef inline void addToMatrixElemElemSymMasked(self, const REAL_t[::1] contrib, REAL_t fac, MASK_t mask):
         # Add symmetric 'contrib' to elements i and j in symmetric fashion
         cdef:
@@ -450,25 +445,19 @@ cdef class IndexManager:
                     self.A.addToEntry(J, I, fac*contrib[k])
                 k += 1
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef inline void addToMatrixElemElemMasked(self, const REAL_t[::1] contrib, REAL_t fac, MASK_t mask):
-        # Add symmetric 'contrib' to elements i and j in symmetric fashion
+        # Add unsymmetric 'contrib' to elements i and j in unsymmetric fashion
         cdef:
             INDEX_t k, p, q, I, J
         k = 0
         for p in range(2*self.dm.dofs_per_element):
             I = self.localDoFs[p]
             for q in range(2*self.dm.dofs_per_element):
-                J = self.localDoFs[q]
                 if mask & (1 << k):
+                    J = self.localDoFs[q]
                     self.A.addToEntry(I, J, fac*contrib[k])
                 k += 1
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void addToCache(self, REAL_t[::1] contrib, INDEX_t[::1] ID, INDEX_t perm, BOOL_t inv=False):
         cdef:
             intTuple hv = intTuple.create(ID)
@@ -476,9 +465,6 @@ cdef class IndexManager:
         self.permute(contrib, contribNew, perm, inv)
         self.cache[hv] = contribNew
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void permute(self, REAL_t[::1] contrib, REAL_t[::1] contribNew, INDEX_t perm, BOOL_t inv=False):
         cdef:
             INDEX_t K, p, q
@@ -540,9 +526,8 @@ cdef class IndexManager:
         return s
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
+# These functions are used by getEntry
+
 cdef inline MASK_t getElemSymMask(DoFMap DoFMap, INDEX_t cellNo1, INDEX_t I, INDEX_t J):
     # Add symmetric 'contrib' to elements i and j in symmetric fashion
     cdef:
@@ -559,9 +544,6 @@ cdef inline MASK_t getElemSymMask(DoFMap DoFMap, INDEX_t cellNo1, INDEX_t I, IND
     return mask
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef inline MASK_t getElemElemSymMask(DoFMap DoFMap, INDEX_t cellNo1, INDEX_t cellNo2, INDEX_t I, INDEX_t J):
     # Add symmetric 'contrib' to elements i and j in symmetric fashion
     cdef:
@@ -585,9 +567,6 @@ cdef inline MASK_t getElemElemSymMask(DoFMap DoFMap, INDEX_t cellNo1, INDEX_t ce
     return mask
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef inline REAL_t extractElemSymMasked(DoFMap DoFMap, const REAL_t[::1] contrib, REAL_t fac, MASK_t mask):
     # Add symmetric 'contrib' to elements i and j in symmetric fashion
     cdef:
@@ -602,9 +581,6 @@ cdef inline REAL_t extractElemSymMasked(DoFMap DoFMap, const REAL_t[::1] contrib
     return s
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef inline REAL_t extractElemElemSymMasked(DoFMap DoFMap, const REAL_t[::1] contrib, REAL_t fac, MASK_t mask):
     # Add symmetric 'contrib' to elements i and j in symmetric fashion
     cdef:
@@ -698,7 +674,7 @@ cdef class nonlocalBuilder:
 
     cdef inline double_local_matrix_t getLocalMatrix(self, dict params):
         cdef:
-            bint symmetric, genKernel, forceNonSym
+            BOOL_t symmetric, genKernel, forceNonSym, autoQuad
             fractionalOrderBase s
         target_order = params.get('target_order', None)
         genKernel = params.get('genKernel', False)
@@ -706,7 +682,7 @@ cdef class nonlocalBuilder:
         autoQuad = params.get('automaticQuadrature', False)
         symmetric = not forceNonSym and self.kernel.symmetric
         if genKernel:
-             LOGGER.warning('General kernel not implemented for boundary term')
+             LOGGER.warning('General kernel not implemented')
         elif isinstance(self.kernel, FractionalKernel):
             s = self.kernel.s
             assert ((s.min < 1.) and (s.max < 1.)) or ((s.min > 1.) and (s.max > 1.)), "smin={}, smax={} not supported".format(s.min, s.max)
@@ -775,10 +751,13 @@ cdef class nonlocalBuilder:
 
     cdef inline double_local_matrix_t getLocalMatrixBoundaryZeroExterior(self, dict params, BOOL_t infHorizon):
         cdef:
-            bint genKernel
+            BOOL_t genKernel, autoQuad
             fractionalOrderBase s
         target_order = params.get('target_order', None)
         genKernel = params.get('genKernel', False)
+        autoQuad = params.get('automaticQuadrature', False)
+        if genKernel:
+            autoQuad = True
         if isinstance(self.kernel, FractionalKernel):
             s = self.kernel.s
             assert ((s.min < 1.) and (s.max < 1.)) or ((s.min > 1.) and (s.max > 1.))
@@ -803,10 +782,14 @@ cdef class nonlocalBuilder:
             elif isinstance(self.dm, P1_DoFMap):
                 if self.mesh.dim == 1:
                     if s.min > 0. and s.max < 1.:
-                        local_matrix = fractionalLaplacian1D_P1_boundary(kernelInfHorizon,
-                                                                         mesh=self.mesh,
-                                                                         DoFMap=self.dm,
-                                                                         target_order=target_order)
+                        kernelBoundary = kernelInfHorizon.getBoundaryKernel()
+                        if autoQuad:
+                             raise NotImplementedError()
+                        else:
+                            local_matrix = fractionalLaplacian1D_P1_boundary(kernelBoundary,
+                                                                             mesh=self.mesh,
+                                                                             DoFMap=self.dm,
+                                                                             target_order=target_order)
                     
                     else:
                         raise NotImplementedError()
@@ -828,9 +811,6 @@ cdef class nonlocalBuilder:
             local_matrix = None
         return local_matrix
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def getSparse(self, BOOL_t returnNearField=False, str prefix=''):
         cdef:
             INDEX_t cellNo1, cellNo2
@@ -1066,9 +1046,6 @@ cdef class nonlocalBuilder:
             else:
                 return A
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def getDense(self, BOOL_t trySparsification=False):
         cdef:
             INDEX_t cellNo1, cellNo2
@@ -1256,9 +1233,6 @@ cdef class nonlocalBuilder:
         return A
 
     
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cpdef REAL_t getEntryCluster(self, INDEX_t I, INDEX_t J):
         cdef:
             tree_node n1, n2, n3
@@ -1320,9 +1294,6 @@ cdef class nonlocalBuilder:
         self.assembleClusters(clusters, Anear=A)
         return mat[0, 0]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cpdef REAL_t getEntry(self, INDEX_t I, INDEX_t J):
         cdef:
             INDEX_t cellNo1, cellNo2
@@ -1447,10 +1418,7 @@ cdef class nonlocalBuilder:
                         entry += extractElemSymMasked(dm, self.contribZeroExterior, 1., mask)
         return entry
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    cpdef LinearOperator assembleClusters(self, list Pnear, bint forceUnsymmetric=False, LinearOperator Anear=None, dict jumps={}, str prefix='', tree_node myRoot=None):
+    cpdef LinearOperator assembleClusters(self, list Pnear, bint forceUnsymmetric=False, LinearOperator Anear=None, dict jumps={}, str prefix='', tree_node myRoot=None, BOOL_t doDistributedAssembly=False):
         cdef:
             INDEX_t cellNo1, cellNo2, cellNo3
             REAL_t fac
@@ -1486,8 +1454,7 @@ cdef class nonlocalBuilder:
             useSymmetricMatrix = self.local_matrix.symmetricLocalMatrix and self.local_matrix.symmetricCells and not forceUnsymmetric
             with self.PLogger.Timer(prefix+'build near field sparsity pattern'):
                 # TODO: double check that this should not be
-                # if doDistributedAssembly:
-                if myRoot is not None:
+                if myRoot is not None and doDistributedAssembly:
                     Anear = getSparseNearField(self.dm, Pnear, symmetric=useSymmetricMatrix, myRoot=myRoot)
                 else:
                     Anear = getSparseNearField(self.dm, Pnear, symmetric=useSymmetricMatrix)
@@ -1541,7 +1508,7 @@ cdef class nonlocalBuilder:
                                 if useSymmetricCells:
                                     iM.addToMatrixElemElemSym(contrib, fac)
                                 else:
-                                    raise NotImplementedError()
+                                    iM.addToMatrixElemElem(contrib, fac)
             else:
                 # Pre-record all element x element contributions.
                 # This way, we only assembly over each element x element pair once.
@@ -1577,7 +1544,7 @@ cdef class nonlocalBuilder:
                                 if useSymmetricCells:
                                     iM.addToMatrixElemElemSymMasked(contrib, fac, mask)
                                 else:
-                                    raise NotImplementedError()
+                                    iM.addToMatrixElemElemMasked(contrib, fac, mask)
                         masks = None
                 if self.comm is not None and self.comm.size > 1:
                     counts = np.zeros((self.comm.size), dtype=INDEX)
@@ -1746,11 +1713,11 @@ cdef class nonlocalBuilder:
                                     panel = self.local_matrix_surface.getPanelType()
                                     if panel != IGNORED:
                                         self.local_matrix_surface.eval(contribZeroExterior, panel)
-                                        if self.local_matrix_surface.symmetricLocalMatrix:
-                                            iM.addToMatrixElemSym(contribZeroExterior, 1.)
-                                        else:
-                                            raise NotImplementedError()
-
+                                        # if self.local_matrix_surface.symmetricLocalMatrix:
+                                        iM.addToMatrixElemSym(contribZeroExterior, 1.)
+                                        # else:
+                                            # print('here', np.array(contribZeroExterior))
+                                            # iM.addToMatrixElem(contribZeroExterior, 1.)
                         # integrate all the jump interfaces
                         for hv in jumps:
                             decode_edge(hv, cellPair)
@@ -1791,7 +1758,7 @@ cdef class nonlocalBuilder:
                                         if self.local_matrix_surface.symmetricLocalMatrix:
                                             iM.addToMatrixElemSym(contribZeroExterior, fac)
                                         else:
-                                            raise NotImplementedError()
+                                            iM.addToMatrixElem(contribZeroExterior, fac)
                                 sValuePre = self.local_matrix_surface.kernel.sValue
 
                                 if self.mesh.dim == 1:
@@ -1818,7 +1785,7 @@ cdef class nonlocalBuilder:
                                         if self.local_matrix_surface.symmetricLocalMatrix:
                                             iM.addToMatrixElemSym(contribZeroExterior, fac)
                                         else:
-                                            raise NotImplementedError()
+                                            iM.addToMatrixElem(contribZeroExterior, fac)
                                 sValuePost = self.local_matrix_surface.kernel.sValue
                                 if abs(sValuePre-sValuePost) < 1e-9:
                                     print(np.array(self.local_matrix_surface.simplex2))
@@ -1850,13 +1817,13 @@ cdef class nonlocalBuilder:
                                     if self.local_matrix_zeroExterior.symmetricLocalMatrix:
                                         iM.addToMatrixElemSym(contribZeroExterior, -1.)
                                     else:
-                                        raise NotImplementedError()
+                                        iM.addToMatrixElem(contribZeroExterior, -1.)
                     elif not self.zeroExterior and self.kernel.finiteHorizon:
                         with self.PLogger.Timer(prefix+'zeroExterior'):
                             # Subtract the contribution for Omega x (\partial B_\delta(x))
                             assert isinstance(self.kernel.horizon, constant)
                             self.local_matrix_zeroExterior.center2 = uninitialized((self.mesh.dim), dtype=REAL)
-                            coeff = horizonSurfaceIntegral(self.local_matrix_zeroExterior, self.kernel.horizon.value)
+                            coeff = horizonSurfaceIntegral(self.local_matrix_zeroExterior.kernel, self.kernel.horizon.value)
                             qr = simplexXiaoGimbutas(2, self.mesh.dim)
                             if self.mesh.dim == 1:
                                 mass = mass_1d_sym_scalar_anisotropic(coeff, self.dm, qr)
@@ -2154,7 +2121,7 @@ cdef class nonlocalBuilder:
 
                     if self.comm.rank == 0:
                         weights = np.array(tempAnear.indptr)
-                        weights = weights[1:]-weights[:-1]
+                        weights = weights[1:]-weights[:weights.shape[0]-1]
                     else:
                         weights = None
                     self.comm.bcast(weights)
@@ -2184,7 +2151,7 @@ cdef class nonlocalBuilder:
             else:
                 myRoot = root
 
-            if self.kernel.variable:
+            if self.kernel.variable and not (self.kernel.variableOrder and isinstance(self.kernel.s, singleVariableUnsymmetricFractionalOrder)):
                 blocks, jumps = self.getKernelBlocksAndJumps()
                 if len(jumps) > 0:
                     my_id = root.get_max_id()+1
@@ -2200,7 +2167,7 @@ cdef class nonlocalBuilder:
                             if subDofs.getNumEntries() > 0:
                                 num_dofs += subDofs.getNumEntries()
                                 children.append(tree_node(n, subDofs, boxes, mixed_node=key == INTERFACE_DOF))
-                                children[-1].id = my_id
+                                children[len(children)-1].id = my_id
                                 my_id += 1
                         assert num_dofs == num_cluster_dofs, (num_dofs, num_cluster_dofs)
                         n.children = children
@@ -2491,7 +2458,7 @@ cdef class nonlocalBuilder:
         if lenPfar > 0:
             # get near field matrix
             with self.PLogger.Timer('near field'):
-                Anear = self.assembleClusters(Pnear, jumps=jumps, forceUnsymmetric=forceUnsymmetric, myRoot=myRoot)
+                Anear = self.assembleClusters(Pnear, jumps=jumps, forceUnsymmetric=forceUnsymmetric, myRoot=myRoot, doDistributedAssembly=doDistributedAssembly)
             if doDistributedAssembly and assembleOnRoot:
                 with self.PLogger.Timer('reduceNearOp'):
                     Anear = self.reduceNearOp(Anear, myRoot.get_dofs())
@@ -2559,26 +2526,27 @@ cdef class nonlocalBuilder:
 
 
 cdef class horizonSurfaceIntegral(function):
+    # x -> \int_{B_2(x, horizon)} kernel(x,y) dy
     cdef:
-        nonlocalLaplacian local_matrix
+        Kernel kernel
         REAL_t horizon
         REAL_t[:, ::1] quadNodes
-        REAL_t[::1] quadWeights
-        REAL_t inc
+        REAL_t[::1] quadWeights, y
 
-    def __init__(self, nonlocalLaplacian local_matrix, REAL_t horizon):
+    def __init__(self, Kernel kernel, REAL_t horizon):
         cdef:
             INDEX_t k, numQuadNodes
-        self.local_matrix = local_matrix
+            REAL_t inc
+        self.kernel = kernel
         self.horizon = horizon
-        if self.local_matrix.dim == 1:
+        if self.kernel.dim == 1:
             self.quadNodes = uninitialized((2, 1), dtype=REAL)
             self.quadWeights = uninitialized((2), dtype=REAL)
             self.quadNodes[0, 0] = self.horizon
             self.quadNodes[1, 0] = -self.horizon
             self.quadWeights[0] = 1.
             self.quadWeights[1] = 1.
-        elif self.local_matrix.dim == 2:
+        elif self.kernel.dim == 2:
             numQuadNodes = 10
             self.quadNodes = uninitialized((numQuadNodes, 2), dtype=REAL)
             self.quadWeights = uninitialized((numQuadNodes), dtype=REAL)
@@ -2589,25 +2557,21 @@ cdef class horizonSurfaceIntegral(function):
                 self.quadWeights[k] = inc*self.horizon
         else:
             raise NotImplementedError()
+        self.y = uninitialized((self.kernel.dim), dtype=REAL)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             REAL_t fac = 0.
             INDEX_t k, j
-            REAL_t s
-            INDEX_t dim = self.local_matrix.dim
-        for j in range(self.local_matrix.dim):
-            self.local_matrix.center1[j] = x[j]
-
+            REAL_t val
+            INDEX_t dim = self.kernel.dim
         for k in range(self.quadNodes.shape[0]):
-            for j in range(self.local_matrix.dim):
-                self.local_matrix.center2[j] = x[j]+self.quadNodes[k, j]
-            self.local_matrix.kernel.evalParams(self.local_matrix.center1,
-                                                self.local_matrix.center2)
-            s = self.local_matrix.kernel.sValue
-            fac -= self.local_matrix.kernel.scalingValue*pow(self.horizon, 1-dim-2*s)/s * self.quadWeights[k]
+            for j in range(dim):
+                self.y[j] = x[j]+self.quadNodes[k, j]
+            self.kernel.evalParams(x, self.y)
+            val = self.kernel.eval(x, self.y)
+            # val = self.kernel.scalingValue*pow(self.horizon, 1-dim-2*s)/s
+            fac -= val * self.quadWeights[k]
         return fac
 
 
@@ -2642,9 +2606,6 @@ cdef class horizonCorrected(TimeStepperLinearOperator):
         TimeStepperLinearOperator.__init__(self, self.Ainf, self.mass, 1.0)
         self.initialized = False
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def setKernel(self, Kernel kernel):
         cdef:
             REAL_t s, horizon, C, vol
@@ -2693,7 +2654,7 @@ cdef class horizonCorrected(TimeStepperLinearOperator):
             self.mass.setZero()
 
             builder.local_matrix_zeroExterior.center2 = uninitialized((self.mesh.dim), dtype=REAL)
-            coeff = horizonSurfaceIntegral(builder.local_matrix_zeroExterior, horizon)
+            coeff = horizonSurfaceIntegral(builder.local_matrix_zeroExterior.kernel, horizon)
             qr = simplexXiaoGimbutas(2, self.mesh.dim)
             if self.mesh.dim == 1:
                 if isinstance(self.dm, P1_DoFMap):
@@ -2782,18 +2743,12 @@ cdef class horizonCorrected(TimeStepperLinearOperator):
         self.facM = 1.
         self.initialized = True
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         REAL_t[::1] x,
                         REAL_t[::1] y) except -1:
         assert self.initialized
         return TimeStepperLinearOperator.matvec(self, x, y)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec_no_overwrite(self,
                                      REAL_t[::1] x,
                                      REAL_t[::1] y) except -1:
@@ -2815,9 +2770,6 @@ def assembleNonlocalOperator(meshBase mesh,
 
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef LinearOperator getSparseNearField(DoFMap DoFMap, list Pnear, bint symmetric=False, tree_node myRoot=None):
     cdef:
         sparsityPattern sP
@@ -2958,9 +2910,6 @@ cdef class SubMatrixAssemblyOperator(LinearOperator):
         for i in range(J.shape[0]):
             self.lookupJ[J[i]] = i
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void addToEntry(self, INDEX_t I, INDEX_t J, REAL_t val):
         cdef:
             INDEX_t i, j
@@ -2982,9 +2931,6 @@ cdef class FilteredAssemblyOperator(LinearOperator):
         self.dofs1 = dofs1
         self.dofs2 = dofs2
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef inline void addToEntry(self, INDEX_t I, INDEX_t J, REAL_t val):
         if self.dofs1.inSet(I) and self.dofs2.inSet(J):
             self.A.addToEntry(I, J, val)
@@ -3001,9 +2947,6 @@ cdef class LeftFilteredAssemblyOperator(LinearOperator):
     cdef void setFilter(self, indexSet dofs1):
         self.dofs1 = dofs1
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef inline void addToEntry(self, INDEX_t I, INDEX_t J, REAL_t val):
         if self.dofs1.inSet(I):
             self.A.addToEntry(I, J, val)
@@ -3024,9 +2967,6 @@ def assembleNearField(list Pnear,
     return A
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef INDEX_t[:, ::1] boundaryVertices(INDEX_t[:, ::1] cells, indexSet cellIds):
     cdef:
         INDEX_t c0, c1, i, k
@@ -3055,9 +2995,6 @@ cdef INDEX_t[:, ::1] boundaryVertices(INDEX_t[:, ::1] cells, indexSet cellIds):
     return bvertices_mem
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef INDEX_t[:, ::1] boundaryEdges(INDEX_t[:, ::1] cells, indexSet cellIds):
     cdef:
         INDEX_t c0, c1, c2, i, k

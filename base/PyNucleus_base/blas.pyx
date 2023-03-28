@@ -20,7 +20,10 @@ cdef:
 
 def uninitialized(*args, **kwargs):
     IF FILL_UNINITIALIZED:
-        kwargs['fill_value'] = NAN
+        if 'dtype' in kwargs and issubclass(kwargs['dtype'], np.integer):
+            kwargs['fill_value'] = np.iinfo(kwargs['dtype']).min
+        else:
+            kwargs['fill_value'] = NAN
         return np.full(*args, **kwargs)
     ELSE:
         return np.empty(*args, **kwargs)
@@ -28,7 +31,10 @@ def uninitialized(*args, **kwargs):
 
 def uninitialized_like(*args, **kwargs):
     IF FILL_UNINITIALIZED:
-        kwargs['fill_value'] = NAN
+        if 'dtype' in kwargs and issubclass(kwargs['dtype'], np.integer):
+            kwargs['fill_value'] = np.iinfo(kwargs['dtype']).min
+        else:
+            kwargs['fill_value'] = NAN
         return np.full_like(*args, **kwargs)
     ELSE:
         return np.empty_like(*args, **kwargs)

@@ -11,6 +11,7 @@ import multiprocessing
 import re
 from copy import copy
 from pathlib import Path
+from collections.abc import Mapping
 
 
 ###############################################################################
@@ -73,6 +74,16 @@ def compile_multithreaded(
 ###############################################################################
 
 
+def update(d, u):
+    d = d.copy()
+    for k, v in u.items():
+        if isinstance(v, Mapping):
+            d[k] = update(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d
+
+
 class package:
     def __init__(self, name, namespace=''):
         import multiprocessing
@@ -102,7 +113,7 @@ class package:
                          'compiler_c': 'detect',
                          'compiler_c++': 'detect',
                          'mpi': 'openmpi',
-                         'threads': multiprocessing.cpu_count()}
+                         'threads': 1}
         self.addOption('USE_OPENMP', 'useOpenMP', False)
         self.addOption(None, 'gitSHA', self.getGitSHA())
 
@@ -129,11 +140,15 @@ class package:
         if Path(filename).exists():
             import yaml
             config = yaml.load(open(filename, 'r'), Loader=yaml.FullLoader)
-            defaults.update(config)
-            self.config = defaults
+            self.config = update(defaults, config)
         else:
             self.config = defaults
-        self.config.update(extra_config)
+        self.config = update(self.config, extra_config)
+        if 'PYNUCLEUS_BUILD_PARALLELISM' in os.environ:
+            try:
+                self.config['threads'] = int(os.environ['PYNUCLEUS_BUILD_PARALLELISM'])
+            except:
+                pass
         self.configLoaded = True
 
     def loadConfig(self, filename=None, extra_config={}):

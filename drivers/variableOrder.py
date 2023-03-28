@@ -47,7 +47,7 @@ s2 = d.s2
 sol1 = sol2 = None
 smean = 0.5*(s1+s2)
 if d.domain == 'interval':
-    mesh = meshFactory.build(d.domain, noRef=10, a=-1, b=1)
+    mesh = meshFactory.build(d.domain, noRef=8, a=-1, b=1)
     if d.element == 'P0':
         assert s1 < 0.5 and s2 < 0.5
         sVals = [constFractionalOrder(s1),
@@ -64,11 +64,11 @@ if d.domain == 'interval':
             # constFractionalOrder(s2),
             # variableConstFractionalOrder(s1),
             # variableConstFractionalOrder(s2),
-            leftRightFractionalOrder(s1, s2, s1, s1),
-            leftRightFractionalOrder(s1, s2, smean, smean),
-            leftRightFractionalOrder(s1, s2, s2, s2),
+            # leftRightFractionalOrder(s1, s2, s1, s1),
+            # leftRightFractionalOrder(s1, s2, smean, smean),
+            # leftRightFractionalOrder(s1, s2, s2, s2),
             # sNonSym,
-            # smoothedLeftRightFractionalOrder(s1, s2, slope=200.),
+            smoothedLeftRightFractionalOrder(s1, s2, slope=200.),
             # smoothedLeftRightFractionalOrder(s1, s2, slope=1000.),
             # leftRightFractionalOrder(s1, s2, s1, (s1+s2)/2),
             # leftRightFractionalOrder(s1, s2, s2, (s1+s2)/2)
@@ -120,50 +120,55 @@ for s in sVals:
     b = dm.assembleRHS(rhs)
     err = None
     kernel = getFractionalKernel(mesh.dim, s, horizon)
-    builder = nonlocalBuilder(mesh, dm, kernel, comm=d.comm, logging=True,
-                              # params={'maxLevels': 3}
-                              # params={'eta': 0.9}
-                              )
-    for build, label, do in [(builder.getDense, 'dense', d.do_dense),
-                             (builder.getH2, 'H2', d.do_h2)]:
+
+    for label, do in [('dense', d.do_dense),
+                      ('dense_general', d.do_dense),
+                      ('H2', d.do_h2)]:
         if not do:
             continue
+        if label == 'dense_general' and kernel.symmetric:
+            continue
         with d.timer(label+' assemble '+str(s)):
-            A = build()
+            if label == 'dense':
+                A = dm.assembleNonlocal(kernel, matrixFormat='dense')
+            elif label == 'dense_general':
+                A = dm.assembleNonlocal(kernel, matrixFormat='dense', params={'genKernel': True})
+            elif label == 'H2':
+                A = dm.assembleNonlocal(kernel, matrixFormat='H2')
         import matplotlib.pyplot as plt
         # from fractionalLaplacian.clusterMethodCy import getFractionalOrders
-        if label == 'H2':
-            plt.figure()
-            A2 = builder.getDense()
-            plt.pcolormesh(np.log10(np.absolute(A.toarray()-A2.toarray())))
-            plt.colorbar()
-            if mesh.dim == 1:
-                plt.figure()
-                _, Pnear = builder.getH2(True)
+        # if label == 'H2':
+        #     plt.figure()
+        #     A2 = builder.getDense()
+        #     plt.pcolormesh(np.log10(np.absolute(A.toarray()-A2.toarray())))
+        #     plt.colorbar()
+        #     if mesh.dim == 1:
+        #         plt.figure()
+        #         _, Pnear = builder.getH2(True)
 
-                for c in Pnear:
-                    c.plot()
-                # cell_orders = []
-                # for c1 in c.n1.cells:
-                #     for c2 in c.n2.cells:
-                #         cell_orders.append(orders[c1, c2])
-                # box1 = c.n1.box
-                # box2 = c.n2.box
-                # plt.text(0.5*(box1[0, 0]+box1[0, 1]), 0.5*(box2[0, 0]+box2[0, 1]), '({},{})'.format(min(cell_orders), max(cell_orders)))
-                for lvl in A.Pfar:
-                    for c in A.Pfar[lvl]:
-                        c.plot(color='blue' if c.constantKernel else 'green')
-                    # cell_orders = []
-                    # for c1 in c.n1.cells:
-                    #     for c2 in c.n2.cells:
-                    #         cell_orders.append(orders[c1, c2])
-                    # box1 = c.n1.box
-                    # box2 = c.n2.box
-                    # plt.text(0.5*(box1[0, 0]+box1[0, 1]), 0.5*(box2[0, 0]+box2[0, 1]), '({},{})'.format(min(cell_orders), max(cell_orders)))
-            else:
-                plt.figure()
-                plt.spy(A.Anear.toarray())
-        d.logger.info(str(A))
+        #         for c in Pnear:
+        #             c.plot()
+        #         # cell_orders = []
+        #         # for c1 in c.n1.cells:
+        #         #     for c2 in c.n2.cells:
+        #         #         cell_orders.append(orders[c1, c2])
+        #         # box1 = c.n1.box
+        #         # box2 = c.n2.box
+        #         # plt.text(0.5*(box1[0, 0]+box1[0, 1]), 0.5*(box2[0, 0]+box2[0, 1]), '({},{})'.format(min(cell_orders), max(cell_orders)))
+        #         for lvl in A.Pfar:
+        #             for c in A.Pfar[lvl]:
+        #                 c.plot(color='blue' if c.constantKernel else 'green')
+        #             # cell_orders = []
+        #             # for c1 in c.n1.cells:
+        #             #     for c2 in c.n2.cells:
+        #             #         cell_orders.append(orders[c1, c2])
+        #             # box1 = c.n1.box
+        #             # box2 = c.n2.box
+        #             # plt.text(0.5*(box1[0, 0]+box1[0, 1]), 0.5*(box2[0, 0]+box2[0, 1]), '({},{})'.format(min(cell_orders), max(cell_orders)))
+        #     else:
+        #         plt.figure()
+        #         plt.spy(A.Anear.toarray())
+        # d.logger.info(str(A))
 
         with d.timer(label+' solve '+str(s)):
             solver = solverFactory.build(d.solver, A=A,
@@ -174,14 +179,14 @@ for s in sVals:
                 solver.setPreconditioner(Dinv, False)
             x = dm.zeros()
             numIter = solver(b, x)
-        if err is None:
-            err = x.copy()
-        else:
-            err -= x
-            pMerr.add(err, label=str(s))
-            M = dm.assembleMass()
-            L2err = np.sqrt(abs(inner(err, M*err)))
-            d.logger.info('L2 error: {}'.format(L2err))
+        # if err is None:
+        #     err = x.copy()
+        # else:
+        #     err -= x
+        #     pMerr.add(err, label=str(s))
+        #     M = dm.assembleMass()
+        #     L2err = np.sqrt(abs(inner(err, M*err)))
+        #     d.logger.info('L2 error: {}'.format(L2err))
         d.logger.info('{}: resNorm {} in {} iters, norm {}'.format(s, norm(A*x-b), numIter, norm(x)))
         if d.normalizePlot:
             x /= x[centerDoF]

@@ -103,6 +103,7 @@ def rhsFractional2D_nonPeriodic(s):
                                           {'n': 1, 'l': 5, 'angular_shift': np.pi/3.}])
 
 
+
 from . functions import (_rhsBoundaryLayer2D, _solBoundaryLayer2D,
                          _solCornerSingularity2D, rhsMotor,
                          rhsBoundarySingularity2D, solBoundarySingularity2D)
@@ -158,7 +159,6 @@ class vectorDoFMap:
         self.dmType = dmType
 
     def __call__(self, mesh, *args, **kwargs):
-        dim = mesh.dim
         scalarDM = self.dmType(mesh, *args, **kwargs)
         return Product_DoFMap(scalarDM, mesh.dim)
 

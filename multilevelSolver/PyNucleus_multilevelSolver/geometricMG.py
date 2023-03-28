@@ -31,8 +31,8 @@ def paramsForSerialMG(noRef, global_params):
                     'assemble': 'all',
                     'symmetric': symmetric,
                     'solver': 'Chol' if symmetric else 'LU'
-         }
-        }]
+                    }
+         }]
     connectors = {}
 
     return hierarchies, connectors
@@ -82,7 +82,7 @@ def paramsForMG(noRef, onRanks, global_params, dim, element, repartitionFactor=0
     while numCells[cg+1]*cells2dofsFactor < max_coarse_grid_size and cg < noRef-1:
         cg += 1
     cellsPerProc = numCells[-1]/numProcsAvail
-    numProcs = uninitialized((noRef+1),dtype=int)
+    numProcs = uninitialized((noRef+1), dtype=int)
     numProcs[-1] = numProcsAvail
     numProcs[:cg+1] = 1
     for i in range(noRef-1, cg, -1):
@@ -109,8 +109,8 @@ def paramsForMG(noRef, onRanks, global_params, dim, element, repartitionFactor=0
                     'element': element,
                     'solver': 'Chol' if symmetric else 'LU',
                     'solver_params': {}
-         }
-        }]
+                    }
+         }]
 
     lvl = cg+1
     hierarchies.append({'label': str(len(hierarchies)),
@@ -129,8 +129,8 @@ def paramsForMG(noRef, onRanks, global_params, dim, element, repartitionFactor=0
                                        'maxIter': 1,
                                        'tolerance': 0.,
                                    },
-                        }
-    })
+                                   }
+                        })
 
     lvl += 1
     while lvl < noRef:
@@ -153,9 +153,9 @@ def paramsForMG(noRef, onRanks, global_params, dim, element, repartitionFactor=0
                                                'maxIter': 1,
                                                'tolerance': 0.,
                                            },
-                                }
-            })
-        lvl +=1
+                                           }
+                                })
+        lvl += 1
 
     if 'tag' in global_params:
         for i in range(len(hierarchies)):

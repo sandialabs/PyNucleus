@@ -613,5 +613,5 @@ cdef class {SCALAR_label_lc_}multi_fe_vector:
     def __getattr__(self, name):
         return getattr(np.array(self.data, copy=False), name)
 
-    # def linearPart(self):
-    #     return self.dm.linearPart(self)[0]
+    def linearPart(self):
+        return self.dm.linearPart(self)[0]

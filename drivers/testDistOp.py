@@ -210,8 +210,8 @@ if d.buildSparseReduced:
 if d.buildDistributedH2Bcast:
     with d.timer('distributed, bcast build'):
         A_distributedH2Bcast = dm.assembleNonlocal(nPP.kernel, matrixFormat='H2', comm=d.comm,
-                                                 params={'assembleOnRoot': False,
-                                                         'forceUnsymmetric': True})
+                                                   params={'assembleOnRoot': False,
+                                                           'forceUnsymmetric': True})
     with d.timer('distributed, bcast matvec'):
         print('Distributed:     ', A_distributedH2Bcast)
         y_distributedH2Bcast = A_distributedH2Bcast*x
@@ -222,10 +222,10 @@ if d.buildDistributedH2:
     tm = TimerManager(d.logger, comm=d.comm, memoryProfiling=True, loggingSubTimers=True)
     with d.timer('distributed, halo build'):
         A_distributedH2 = dm.assembleNonlocal(nPP.kernel, matrixFormat='H2', comm=d.comm,
-                                                params={'assembleOnRoot': False,
-                                                        'forceUnsymmetric': True,
-                                                        'localFarFieldIndexing': True},
-                                                PLogger=tm.PLogger)
+                                              params={'assembleOnRoot': False,
+                                                      'forceUnsymmetric': True,
+                                                      'localFarFieldIndexing': True},
+                                              PLogger=tm.PLogger)
     t = d.addOutputGroup('TimersH2', timerOutputGroup(driver=d))
     tm.setOutputGroup(d.masterRank, t)
     t.log()
@@ -329,6 +329,7 @@ matvecErrors.log()
 
 ##################################################
 ##################################################
+
 
 
 if d.doSolve and (d.buildDistributedH2 or d.buildDistributedSparse):

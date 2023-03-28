@@ -53,6 +53,8 @@ cdef class lu_solver(solver):
 cdef class chol_solver(solver):
     cdef:
         object Ainv
+        REAL_t[::1] Lflat, temp
+        BOOL_t denseFactor
 
 
 cdef class ichol_solver(solver):
