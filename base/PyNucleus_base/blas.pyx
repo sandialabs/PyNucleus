@@ -20,7 +20,7 @@ cdef:
 
 def uninitialized(*args, **kwargs):
     IF FILL_UNINITIALIZED:
-        if 'dtype' in kwargs and issubclass(kwargs['dtype'], np.integer):
+        if 'dtype' in kwargs and np.issubdtype(kwargs['dtype'], np.integer):
             kwargs['fill_value'] = np.iinfo(kwargs['dtype']).min
         else:
             kwargs['fill_value'] = NAN
@@ -31,7 +31,7 @@ def uninitialized(*args, **kwargs):
 
 def uninitialized_like(*args, **kwargs):
     IF FILL_UNINITIALIZED:
-        if 'dtype' in kwargs and issubclass(kwargs['dtype'], np.integer):
+        if 'dtype' in kwargs and np.issubdtype(kwargs['dtype'], np.integer):
             kwargs['fill_value'] = np.iinfo(kwargs['dtype']).min
         else:
             kwargs['fill_value'] = NAN

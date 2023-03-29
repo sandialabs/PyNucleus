@@ -60,15 +60,15 @@ if d.domain == 'interval':
         sNonSym = leftRightFractionalOrder(s1, s2)
         sNonSym.symmetric = False
         sVals = [
-            # constFractionalOrder(s1),
-            # constFractionalOrder(s2),
-            # variableConstFractionalOrder(s1),
-            # variableConstFractionalOrder(s2),
-            # leftRightFractionalOrder(s1, s2, s1, s1),
-            # leftRightFractionalOrder(s1, s2, smean, smean),
-            # leftRightFractionalOrder(s1, s2, s2, s2),
+            constFractionalOrder(s1),
+            constFractionalOrder(s2),
+            variableConstFractionalOrder(s1),
+            variableConstFractionalOrder(s2),
+            leftRightFractionalOrder(s1, s2, s1, s1),
+            leftRightFractionalOrder(s1, s2, smean, smean),
+            leftRightFractionalOrder(s1, s2, s2, s2),
             # sNonSym,
-            smoothedLeftRightFractionalOrder(s1, s2, slope=200.),
+            
             # smoothedLeftRightFractionalOrder(s1, s2, slope=1000.),
             # leftRightFractionalOrder(s1, s2, s1, (s1+s2)/2),
             # leftRightFractionalOrder(s1, s2, s2, (s1+s2)/2)

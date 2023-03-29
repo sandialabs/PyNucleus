@@ -25,7 +25,7 @@ from PyNucleus.nl.fractionalOrders import (constFractionalOrder,
                                            leftRightFractionalOrder,
                                            layersFractionalOrder,
                                            lambdaFractionalOrder,
-                                           smoothedLeftRightFractionalOrder,
+                                           
                                            singleVariableUnsymmetricFractionalOrder)
 from PyNucleus.base import driver
 from PyNucleus.nl.nonlocalProblems import nonlocalMeshFactory, HOMOGENEOUS_DIRICHLET
@@ -381,11 +381,7 @@ class leftRight1DfiniteHorizon(test1D):
     horizon = constant(1.0)
 
 
-class smoothedLeftRight1D(test1D):
-    __test__ = True
-    s = smoothedLeftRightFractionalOrder(0.25, 0.75)
-    params = {'genKernel': True}
-    piecewise = False
+
 
 
 class const2D_025(test2D):
