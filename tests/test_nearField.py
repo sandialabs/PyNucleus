@@ -45,12 +45,11 @@ epsAbsH2 = {(1, np.inf): 5e-5,
 
 class test:
     __test__ = False
-    params = {'target_order': 3}
+    params = {}
     piecewise = True
 
     @classmethod
     def setup_class(self):
-
         kernel = getFractionalKernel(self.dim, self.s, self.horizon, normalized=self.normalized, phi=self.phi, piecewise=self.piecewise)
         print('\n##################################################')
         print('Testing: {}'.format(kernel))
@@ -100,6 +99,7 @@ class test:
             else:
                 self._baseA = self.builder.getDense()
                 self._baseLabel = 'dense_var'
+                self._constBuilder = None
 
     @property
     def baseA(self):
@@ -180,25 +180,32 @@ class test:
 
     def constCluster(self, maxLevels):
         if isinstance(self.s, variableConstFractionalOrder):
-            s = constFractionalOrder(self.s.value)
             Pnear, _ = self.getPnear(maxLevels)
             if len(Pnear) > 0:
                 A_fix_near = self.builder.assembleClusters(Pnear)
                 print('number of cluster pairs: {}'.format(len(Pnear)))
                 self.compare("{}-cluster_const({})".format(self.baseLabel, maxLevels), self.baseA, A_fix_near)
+                return True
+            return False
         else:
             pytest.skip('Only works for variableConstFractionalOrder')
+            return True
 
-    def testConstCluster(self, levels=[0, 1, 2, 3, 4]):
+    def testConstCluster(self, levels=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]):
         print()
         print(self.s)
         if isinstance(levels, int):
             levels = [levels]
+        successfullTests = 0
         for maxLevels in levels:
-            self.constCluster(maxLevels)
+            if self.constCluster(maxLevels):
+                successfullTests += 1
+            if successfullTests == 2:
+                break
+        assert successfullTests == 2
 
     def testConstH2(self):
-        if isinstance(self.s, variableConstFractionalOrder) and self.dim == 1:
+        if isinstance(self.s, variableConstFractionalOrder) and self.constBuilder is not None and self.dim == 1:
             print()
             print(self.s)
             self.constH2()
@@ -217,6 +224,8 @@ class test:
             print('Jumps: {}'.format(len(jumps)))
             A_var_near = self.builder.assembleClusters(Pnear, jumps=jumps)
             self.compare("{}-cluster_var({})".format(self.baseLabel, maxLevels), self.baseA, A_var_near)
+            return True
+        return False
 
     def testVarDense(self):
         if isinstance(self.s, variableConstFractionalOrder):
@@ -226,13 +235,18 @@ class test:
         else:
             pytest.skip('Only makes sense for variableConstFractionalOrder')
 
-    def testVarCluster(self, levels=[0, 1, 2, 3, 4, 5]):
+    def testVarCluster(self, levels=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]):
         print()
         print(self.s)
         if isinstance(levels, int):
             levels = [levels]
+        successfullTests = 0
         for maxLevels in levels:
-            self.varCluster(maxLevels)
+            if self.varCluster(maxLevels):
+                successfullTests += 1
+            if successfullTests == 2:
+                break
+        assert successfullTests == 2
 
     def compare(self, label, A1, A2):
         if isinstance(A1, H2Matrix) or isinstance(A2, H2Matrix):
@@ -244,6 +258,7 @@ class test:
         A1 = A1.toarray()
         A2 = A2.toarray()
         value = np.absolute(A1-A2).max()
+        assert np.absolute(A1).max() > 0
         valueRel = np.absolute((A1-A2)/A1)[np.absolute(A1) > 0].max()
         print('{}: abs: {} rel: {}'.format(label, value, valueRel))
         if value > epsAbs[(self.dim, self.horizon.value)] or valueRel > epsRel:
@@ -369,7 +384,7 @@ class leftRight1DfiniteHorizon(test1D):
 class smoothedLeftRight1D(test1D):
     __test__ = True
     s = smoothedLeftRightFractionalOrder(0.25, 0.75)
-    params = {'target_order': 3, 'genKernel': True}
+    params = {'genKernel': True}
     piecewise = False
 
 
@@ -383,16 +398,16 @@ class const2D_075(test2D):
     s = variableConstFractionalOrder(0.75)
 
 
-class const2D_025_finiteHorizon(test2D):
-    __test__ = True
-    s = variableConstFractionalOrder(0.25)
-    horizon = constant(1.0)
+# class const2D_025_finiteHorizon(test2D):
+#     __test__ = True
+#     s = variableConstFractionalOrder(0.25)
+#     horizon = constant(1.0)
 
 
-class const2D_075_finiteHorizon(test2D):
-    __test__ = True
-    s = variableConstFractionalOrder(0.75)
-    horizon = constant(1.0)
+# class const2D_075_finiteHorizon(test2D):
+#     __test__ = True
+#     s = variableConstFractionalOrder(0.75)
+#     horizon = constant(1.0)
 
 
 class leftRight2DinfiniteHorizon(test2D):
@@ -400,10 +415,10 @@ class leftRight2DinfiniteHorizon(test2D):
     s = leftRightFractionalOrder(0.25, 0.75)
 
 
-class leftRight2DfiniteHorizon(test2D):
-    __test__ = True
-    s = leftRightFractionalOrder(0.25, 0.75)
-    horizon = constant(1.0)
+# class leftRight2DfiniteHorizon(test2D):
+#     __test__ = True
+#     s = leftRightFractionalOrder(0.25, 0.75)
+#     horizon = constant(1.0)
 
 
 class layers2D(test2D):

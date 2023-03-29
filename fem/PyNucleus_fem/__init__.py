@@ -31,13 +31,11 @@ from . mesh import meshFactory as meshFactoryClass
 from . meshCy import radialMeshTransformation
 from . DoFMaps import (P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap,
                        Product_DoFMap,
-                       
                        str2DoFMap, str2DoFMapOrder, getAvailableDoFMaps,
                        lookupFunction)
 from . femCy import (assembleDrift,
                      assembleMassNonSym,
                      assembleSurfaceMass,
-                     
                      assembleMatrix,
                      assembleRHSfromFEfunction,
                      getSurfaceDoFMap)
@@ -103,7 +101,6 @@ def rhsFractional2D_nonPeriodic(s):
                                           {'n': 1, 'l': 5, 'angular_shift': np.pi/3.}])
 
 
-
 from . functions import (_rhsBoundaryLayer2D, _solBoundaryLayer2D,
                          _solCornerSingularity2D, rhsMotor,
                          rhsBoundarySingularity2D, solBoundarySingularity2D)
@@ -148,7 +145,6 @@ meshFactory.register('box', box, 3)
 meshFactory.register('simpleFicheraCube', simpleFicheraCube, 3, aliases=['fichera', 'ficheraCube'])
 meshFactory.register('standardSimplex2D', standardSimplex2D, 2)
 meshFactory.register('standardSimplex3D', standardSimplex3D, 3)
-
 
 
 from PyNucleus_base.factory import factory
