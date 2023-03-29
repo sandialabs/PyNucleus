@@ -23,7 +23,6 @@ def idfunc(param):
     return '-'.join(S)
 
 
-
 @pytest.fixture(scope='module', params=[
     (1, 'constant', 0.5, True),
     (1, 'constant', 0.5, False),
@@ -60,14 +59,14 @@ def testIntegrableKernel(integrableKernelParams):
             if dim == 1:
                 const = 3/horizonValue**3 * 0.5
             elif dim == 2:
-                const = 8./pi/horizonValue**4 *0.5
+                const = 8./pi/horizonValue**4 * 0.5
             else:
                 raise NotImplementedError()
         elif kernelType == 'inverseDistance':
             if dim == 1:
                 const = 2./horizonValue**2 * 0.5
             elif dim == 2:
-                const = 6./pi/horizonValue**3 *0.5
+                const = 6./pi/horizonValue**3 * 0.5
             else:
                 raise NotImplementedError()
         elif kernelType == 'Gaussian':
@@ -183,7 +182,6 @@ def testFractionalKernel(fractionalKernelParams):
                     const = 2.0**(2.0*sValue) * sValue * gamma(sValue+1.0)/pi/gamma(1.-sValue) * 0.5
         else:
             const = 0.5
-
 
         refInf = const/norm(x-y)**(dim+2*sValue)
         ref = refInf if (norm(x-y) < horizonValue) else 0.

@@ -57,7 +57,6 @@ def testNonlocal(runNonlocal_params, extra):
     runDriver(path, py, cacheDir=cacheDir, extra=extra)
 
 
-
 @pytest.fixture(scope='module', params=[
     ('interval', 'const(0.25)', 'constant', 'cg-mg'),
     ('interval', 'const(0.25)', 'zeroFlux', 'lu'),
@@ -76,7 +75,7 @@ def runFractional_params(request):
 
 
 def testFractional(runFractional_params, extra):
-    domain, s, problem, solver= runFractional_params
+    domain, s, problem, solver = runFractional_params
     base = getPath()+'/../'
     py = ['runFractional.py',
           '--domain', domain,
@@ -91,7 +90,7 @@ def testFractional(runFractional_params, extra):
 
 
 def testFractionalHeat(runFractional_params, extra):
-    domain, s, problem, solver= runFractional_params
+    domain, s, problem, solver = runFractional_params
     base = getPath()+'/../'
     py = ['runFractionalHeat.py',
           '--domain', domain,

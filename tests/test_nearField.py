@@ -13,7 +13,7 @@ import numpy as np
 from PyNucleus.base.myTypes import REAL, INDEX
 from PyNucleus.base import uninitialized
 from PyNucleus.base.tupleDict import arrayIndexSet
-from PyNucleus.fem import simpleInterval, uniformSquare, P0_DoFMap, P1_DoFMap, constant
+from PyNucleus.fem import P0_DoFMap, P1_DoFMap, constant
 from PyNucleus.nl import H2Matrix, nonlocalBuilder, getFractionalKernel
 from PyNucleus.nl.nonlocalLaplacian import nearFieldClusterPair
 from PyNucleus.nl.clusterMethodCy import (getDoFBoxesAndCells,
@@ -24,7 +24,6 @@ from PyNucleus.nl.fractionalOrders import (constFractionalOrder,
                                            variableConstFractionalOrder,
                                            leftRightFractionalOrder,
                                            layersFractionalOrder,
-                                           lambdaFractionalOrder,
                                            
                                            singleVariableUnsymmetricFractionalOrder)
 from PyNucleus.base import driver
@@ -56,18 +55,12 @@ class test:
 
         if self.dim == 1:
             self.mesh, nI = nonlocalMeshFactory.build('interval', kernel, self.boundaryCondition)
-            domainIndicator = nI['domain']
-            boundaryIndicator = nI['boundary']
-            interactionIndicator = nI['interaction']
             self.tag = nI['tag']
             self.zeroExterior = nI['zeroExterior']
             # noRef = 6
         elif self.dim == 2:
             self.mesh, nI = nonlocalMeshFactory.build('square', kernel, self.boundaryCondition)
             # noRef = 2
-        domainIndicator = nI['domain']
-        boundaryIndicator = nI['boundary']
-        interactionIndicator = nI['interaction']
         self.tag = nI['tag']
         self.zeroExterior = nI['zeroExterior']
 
@@ -124,7 +117,8 @@ class test:
         centers = uninitialized((self.dm.num_dofs, self.mesh.dim), dtype=REAL)
         for i in range(self.dm.num_dofs):
             centers[i, :] = boxes[i, :, :].mean(axis=1)
-        if self.builder.kernel.variable and not (self.builder.kernel.variableOrder and isinstance(self.builder.kernel.s, singleVariableUnsymmetricFractionalOrder)):
+        if self.builder.kernel.variable and not (self.builder.kernel.variableOrder and
+                                                 isinstance(self.builder.kernel.s, singleVariableUnsymmetricFractionalOrder)):
             blocks, jumps = self.builder.getKernelBlocksAndJumps()
         else:
             blocks, jumps = {}, {}
