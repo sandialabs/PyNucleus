@@ -17,9 +17,8 @@ from PyNucleus.nl.nonlocalLaplacian import (assembleNonlocalOperator,
 from PyNucleus.nl.clusterMethodCy import H2Matrix
 from PyNucleus.base.myTypes import REAL
 from scipy.special import gamma
-from PyNucleus.nl import constantTwoPoint, getFractionalKernel
+from PyNucleus.nl import getFractionalKernel
 from PyNucleus.nl.fractionalOrders import (constFractionalOrder,
-                                           constantFractionalLaplacianScaling,
                                            variableFractionalLaplacianScaling)
 import pytest
 import logging

@@ -7,16 +7,14 @@
 
 
 import numpy as np
-from PyNucleus.fem import intervalWithInteraction, squareWithInteractions, P1_DoFMap, Lambda, circle, constant
+from PyNucleus.fem import intervalWithInteraction, P1_DoFMap, Lambda, constant
 from PyNucleus.nl.fractionalOrders import (constFractionalOrder,
                                            leftRightFractionalOrder,
                                            variableConstFractionalOrder)
-from PyNucleus.nl.clusterMethodCy import H2Matrix
 from PyNucleus.nl.nonlocalLaplacian import nonlocalBuilder
 from PyNucleus.nl import getFractionalKernel
 from scipy.linalg import solve
 import pytest
-import matplotlib.pyplot as plt
 
 
 def idfunc(param):
@@ -199,7 +197,7 @@ def test_h2_finite(kernels):
     L2_denseCor = np.sqrt(abs(np.vdot(M*(x1-x2), x1-x2)))
     L2_H2Cor = np.sqrt(abs(np.vdot(M*(x1_h2-x2), x1_h2-x2)))
     L2_dense = np.sqrt(abs(np.vdot(M*x1, x1)))
-    L2_cor = np.sqrt(abs(np.vdot(M*x2, x2)))
+    # L2_cor = np.sqrt(abs(np.vdot(M*x2, x2)))
 
     # if not (L2/L2_1 < mesh2.h**(0.5+min(kernel1.s.min, 0.5))):
     print('L2 errDenseH2', L2_denseH2)
@@ -252,7 +250,7 @@ def test_h2_finite(kernels):
 
     L2_denseCor = np.sqrt(abs(np.vdot(M*(x3-x2), x3-x2)))
     L2_dense = np.sqrt(abs(np.vdot(M*x3, x3)))
-    L2_cor = np.sqrt(abs(np.vdot(M*x2, x2)))
+    # L2_cor = np.sqrt(abs(np.vdot(M*x2, x2)))
 
     print('L2 errDenseCor', L2_denseCor)
 
@@ -260,7 +258,6 @@ def test_h2_finite(kernels):
     # mesh3.plotFunction(x3, DoFMap=dm3, label='dense')
     # plt.legend()
     # plt.show()
-
 
     # if not (L2 < mesh2.h**(0.5+min(kernel2.s.value, 0.5))):
     #     mesh3.plotFunction(x3, DoFMap=dm3)
