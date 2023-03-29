@@ -9,7 +9,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+
+  linux:
 
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -47,16 +48,16 @@ jobs:
         path: /home/runner/.cache/ccache
         key: ccache
 
+    - name: Ccache report
+      if: always()
+      run: ccache -s
+
     - name: Run tests
       run: python3 -m pytest --junit-xml=test-results.xml tests/
 
     - name: Run flake8
       if: always()
       run: make flake8
-
-    - name: Ccache report
-      if: always()
-      run: ccache -s
 
     - name: Archive test results
       uses: actions/upload-artifact@v3
