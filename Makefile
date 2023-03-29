@@ -174,4 +174,8 @@ prereq:
 	$(PYTHON) -m pip install $(PIP_FLAGS) $(PIP_INSTALL_FLAGS) scikit-sparse
 
 prereq-extra:
-	$(PYTHON) -m pip install $(PIP_FLAGS) pytest pytest-html pytest-xdist Sphinx sphinxcontrib-programoutput
+	$(PYTHON) -m pip install $(PIP_FLAGS) pytest pytest-html pytest-xdist Sphinx sphinxcontrib-programoutput flake8 flake8-junit-report
+
+flake8:
+	$(PYTHON) -m flake8 --output-file=flake8.txt --exit-zero drivers packageTools base metisCy fem multilevelSolver nl tests
+	flake8_junit flake8.txt flake8.xml

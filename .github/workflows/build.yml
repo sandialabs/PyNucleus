@@ -35,6 +35,10 @@ jobs:
     - name: Run tests
       run: python3 -m pytest --junit-xml=test-results.xml tests/
 
+    - name: Run flake8
+      if: always()
+      run: make flake8
+
     - name: Archive test results
       uses: actions/upload-artifact@v3
       if: always()
@@ -50,3 +54,12 @@ jobs:
         path: test-results.xml
         reporter: java-junit
         fail-on-error: true
+
+    - name: Report flake8 results
+      uses: dorny/test-reporter@v1
+      if: always()
+      with:
+        name: Flake8 report
+        path: flake8.xml
+        reporter: java-junit
+        fail-on-error: false
