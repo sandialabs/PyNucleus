@@ -1,0 +1,20 @@
+
+[flake8]
+extend-ignore =
+    # E402: module level import not at top of file
+    E402,
+    # H301: one import per line
+    H301,
+    # H306: imports not in alphabetical order
+    H306,
+    # H404:: multi line docstring should start without a leading new line
+    H404,
+    # H405:: multi line docstring summary not separated with an empty line
+    H405
+    # W605: invalid escape sequence
+    W605
+per-file-ignores =
+    # imported but unused
+    __init__.py: F401
+exclude = .git,__pycache__,build,dist,.direnv
+max-line-length = 160

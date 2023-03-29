@@ -40,7 +40,7 @@ p.addOption('USE_BLAS', 'useBLAS', True)
 p.addOption('USE_MKL', 'useMKL', False)
 p.addOption('USE_CHOLMOD', 'use_cholmod', True, ['scikit-sparse'])
 p.addOption('USE_PYAMG', 'use_pyamg', False, ['pyamg'])
-
+p.addOption('USE_PYPARDISO', 'use_pypardiso', False, ['pypardiso'])
 p.addOption('MKL_LIBRARY', 'mklLibrary', 'mkl_rt')
 p.addOption('USE_MKL_TRISOLVE', 'useMKL_trisolve', False)
 p.addOption('FILL_UNINITIALIZED', 'fillUninitialized', True)

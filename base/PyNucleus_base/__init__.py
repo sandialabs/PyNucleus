@@ -46,7 +46,10 @@ from . config import use_pyamg
 if use_pyamg:
     from . solvers import pyamg_solver
     solverFactory.register('pyamg', pyamg_solver)
-
+from . config import use_pypardiso
+if use_pypardiso:
+    from . solvers import pardiso_lu_solver
+    solverFactory.register('pardiso_lu', pardiso_lu_solver)
 
 from . solvers import complex_lu_solver, complex_gmres_solver
 solverFactory.register('complex_lu', complex_lu_solver)
