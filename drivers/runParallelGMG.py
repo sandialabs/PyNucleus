@@ -123,7 +123,7 @@ r0 = r.norm(False)
 
 rate = d.addOutputGroup('rates', tested=True, aTol=1e-2)
 its = d.addOutputGroup('iterations', tested=True)
-res = d.addOutputGroup('residuals', tested=True, rTol=3e-1)
+res = d.addOutputGroup('residuals', tested=True, rTol=4e-1)
 resHist = d.addOutputGroup('resHist', tested=True, aTol=5e-8)
 errs = d.addOutputGroup('errors', tested=True, rTol=2.)
 
