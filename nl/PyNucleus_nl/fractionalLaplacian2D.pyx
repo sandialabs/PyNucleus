@@ -538,16 +538,18 @@ cdef class fractionalLaplacian2D_P1_boundary(fractionalLaplacian2DZeroExterior):
             doubleSimplexQuadratureRule qr2
             REAL_t[:, ::1] PHI
             INDEX_t i, j, k, l
+            shapeFunction sf
         qr0 = simplexXiaoGimbutas(panel, self.dim)
         qr1 = simplexDuffyTransformation(panel, self.dim, self.dim-1)
         qr2 = doubleSimplexQuadratureRule(qr0, qr1)
         self.distantQuadRules[panel] = qr2
         PHI = uninitialized((3, qr2.num_nodes), dtype=REAL)
         for i in range(3):
+            sf = self.getLocalShapeFunction(i)
             for j in range(qr2.rule1.num_nodes):
                 for k in range(qr2.rule2.num_nodes):
                     l = j*qr2.rule2.num_nodes+k
-                    PHI[i, l] = self.getLocalShapeFunction(i)(qr2.rule1.nodes[:, j])
+                    PHI[i, l] = sf(qr2.rule1.nodes[:, j])
         self.distantPHI[panel] = PHI
 
         if qr2.rule1.num_nodes > self.x.shape[0]:
@@ -563,6 +565,8 @@ cdef class fractionalLaplacian2D_P1_boundary(fractionalLaplacian2DZeroExterior):
             REAL_t s = self.kernel.sValue
             REAL_t eta0, eta1, eta2, x, y
             specialQuadRule sQR0, sQR1
+            REAL_t[:, :, ::1] PHI_edge, PHI_vertex
+            REAL_t[:, :, ::1] PSI_edge, PSI_vertex
         if panel == COMMON_EDGE:
             try:
                 sQR0 = self.specialQuadRules[(s, panel, 0)]
@@ -664,6 +668,9 @@ cdef class fractionalLaplacian2D_P1_boundary(fractionalLaplacian2DZeroExterior):
                 self.specialQuadRules[(s, panel, 0)] = sQR0
                 if qrEdge.num_nodes > self.temp.shape[0]:
                     self.temp = uninitialized((qrEdge.num_nodes), dtype=REAL)
+                if qrEdge.num_nodes > self.x.shape[0]:
+                    self.x = uninitialized((qrEdge.num_nodes, 2), dtype=REAL)
+                    self.y = uninitialized((qrEdge.num_nodes, 2), dtype=REAL)
             self.qrEdge = sQR0.qr
             self.PSI_edge = sQR0.PSI3
             self.PHI_edge = sQR0.PHI3
@@ -723,6 +730,12 @@ cdef class fractionalLaplacian2D_P1_boundary(fractionalLaplacian2DZeroExterior):
                     self.temp = uninitialized((qrVertex0.num_nodes), dtype=REAL)
                 if qrVertex1.num_nodes > self.temp.shape[0]:
                     self.temp = uninitialized((qrVertex1.num_nodes), dtype=REAL)
+                if qrVertex0.num_nodes > self.x.shape[0]:
+                    self.x = uninitialized((qrVertex0.num_nodes, 2), dtype=REAL)
+                    self.y = uninitialized((qrVertex0.num_nodes, 2), dtype=REAL)
+                if qrVertex1.num_nodes > self.x.shape[0]:
+                    self.x = uninitialized((qrVertex1.num_nodes, 2), dtype=REAL)
+                    self.y = uninitialized((qrVertex1.num_nodes, 2), dtype=REAL)
             self.qrVertex0 = sQR0.qr
             self.qrVertex1 = sQR1.qr
             self.PSI_vertex = sQR0.PSI3
@@ -743,17 +756,24 @@ cdef class fractionalLaplacian2D_P1_boundary(fractionalLaplacian2DZeroExterior):
                    panelType panel,
                    MASK_t mask=ALL):
         cdef:
-            REAL_t vol1 = self.vol1, vol2 = self.vol2, vol
+            REAL_t vol1 = self.vol1, vol2 = self.vol2, vol, val
             INDEX_t l, i, j, k, m, I, J
-            set K1, K2
             INDEX_t[::1] idx1 = self.idx1, idx2 = self.idx2
             doubleSimplexQuadratureRule qr2
             quadQuadratureRule qrVertex
             REAL_t[:, ::1] PHI
             REAL_t[:, ::1] simplex1 = self.simplex1
             REAL_t[:, ::1] simplex2 = self.simplex2
-            REAL_t s = self.kernel.sValue
-            REAL_t scaling = self.kernel.scalingValue
+            REAL_t normW
+
+        # Kernel:
+        #  \Gamma(x,y) = n \dot (x-y) * C(d,s) / (2s) / |x-y|^{d+2s}
+        # with inward normal n.
+        #
+        # Rewrite as
+        #  \Gamma(x,y) = [ n \dot (x-y)/|x-y| ] * [ C(d,s) / (2s) / |x-y|^{d-1+2s} ]
+
+        # n is independent of x and y
         self.n[0] = simplex2[1, 1] - simplex2[0, 1]
         self.n[1] = simplex2[0, 0] - simplex2[1, 0]
         # F is same as vol2
@@ -766,30 +786,40 @@ cdef class fractionalLaplacian2D_P1_boundary(fractionalLaplacian2DZeroExterior):
         if panel == COMMON_EDGE:
             # find reordering of cell and edge so that the singularity
             # is on the first edge of the cell
-            K1 = set()
+            k = 0
             for i in range(3):
                 for j in range(2):
                     if simplex1[i, 0] == simplex2[j, 0] and simplex1[i, 1] == simplex2[j, 1]:
-                        K1.add(i)
-            if K1 == set([0, 1]):
-                idx1[0], idx1[1], idx1[2] = 0, 1, 2
-            elif K1 == set([1, 2]):
-                idx1[0], idx1[1], idx1[2] = 1, 2, 0
-            elif K1 == set([2, 0]):
-                idx1[0], idx1[1], idx1[2] = 2, 0, 1
+                        idx1[k] = i
+                        k += 1
+                        break
+                        # K1.add(i)
+            if (idx1[0] == 0) and (idx1[1] == 2):
+                idx1[0] = 2
+                idx1[1] = 0
+                idx1[2] = 1
             else:
-                raise NotImplementedError("Something went wrong for COMMON_EDGE")
+                idx1[2] = (idx1[1]+1)%3
 
-            vol = -scaling*2.0*vol1*vol2/s
+            vol = -2.0*vol1*vol2
 
             # We need to calculate 3 integrals
             for l in range(3):
                 for i in range(self.qrEdge.num_nodes):
+                    normW = 0.
                     for j in range(2):
+                        self.x[i, j] = (simplex1[idx1[0], j]*self.PHI_edge[l, 0, i] +
+                                        simplex1[idx1[1], j]*self.PHI_edge[l, 1, i] +
+                                        simplex1[idx1[2], j]*self.PHI_edge[l, 2, i])
                         self.w[j] = (simplex1[idx1[0], j]*self.PSI_edge[l, 0, i] +
                                      simplex1[idx1[1], j]*self.PSI_edge[l, 1, i] +
                                      simplex1[idx1[2], j]*self.PSI_edge[l, 2, i])
-                    self.temp[i] = self.qrEdge.weights[i] * mydot(self.n, self.w) * pow(mydot(self.w, self.w), -1.-s)
+                        self.y[i, j] = self.x[i, j]+self.w[j]
+                        normW += self.w[j]**2
+                    normW = 1./sqrt(normW)
+                    for j in range(2):
+                        self.w[j] *= normW
+                    self.temp[i] = self.qrEdge.weights[i] * mydot(self.n, self.w) * self.kernel.evalPtr(2, &self.x[i, 0], &self.y[i, 0])
                 for I in range(3):
                     for J in range(I, 3):
                         val = 0.
@@ -804,8 +834,6 @@ cdef class fractionalLaplacian2D_P1_boundary(fractionalLaplacian2DZeroExterior):
                         k = 4*i-(i*(i+1))//2 + j-i
                         contrib[k] += val*vol
         elif panel == COMMON_VERTEX:
-            K1 = set()
-            K2 = set()
             i = 0
             j = 0
             while True:
@@ -828,7 +856,7 @@ cdef class fractionalLaplacian2D_P1_boundary(fractionalLaplacian2DZeroExterior):
             else:
                 idx2[0], idx2[1] = 1, 0
 
-            vol = -scaling*2.0*vol1*vol2/s
+            vol = -2.0*vol1*vol2
 
             for l in range(2):
                 if l == 0:
@@ -837,12 +865,21 @@ cdef class fractionalLaplacian2D_P1_boundary(fractionalLaplacian2DZeroExterior):
                     qrVertex = self.qrVertex1
 
                 for i in range(qrVertex.num_nodes):
+                    normW = 0.
                     for j in range(2):
+                        self.x[i, j] = (simplex1[idx1[0], j]*self.PHI_vertex[l, 0, i] +
+                                        simplex1[idx1[1], j]*self.PHI_vertex[l, 1, i] +
+                                        simplex1[idx1[2], j]*self.PHI_vertex[l, 2, i])
                         self.w[j] = (simplex1[idx1[0], j]*self.PSI_vertex[l, 0, i] +
                                      simplex1[idx1[1], j]*self.PSI_vertex[l, 1, i] +
                                      simplex1[idx1[2], j]*self.PSI_vertex[l, 2, i] +
                                      simplex2[idx2[1], j]*self.PSI_vertex[l, 3, i])
-                    self.temp[i] = qrVertex.weights[i] * mydot(self.n, self.w) * pow(mydot(self.w, self.w), -1.-s)
+                        self.y[i, j] = self.x[i, j]+self.w[j]
+                        normW += self.w[j]**2
+                    normW = 1./sqrt(normW)
+                    for j in range(2):
+                        self.w[j] *= normW
+                    self.temp[i] = qrVertex.weights[i] * mydot(self.n, self.w) * self.kernel.evalPtr(2, &self.x[i, 0], &self.y[i, 0])
                 for I in range(3):
                     for J in range(I, 3):
                         val = 0.
@@ -863,11 +900,16 @@ cdef class fractionalLaplacian2D_P1_boundary(fractionalLaplacian2DZeroExterior):
             qr2.rule2.nodesInGlobalCoords(simplex2, self.y)
             for k in range(qr2.rule1.num_nodes):
                 for m in range(qr2.rule2.num_nodes):
+                    normW = 0.
                     for j in range(2):
                         self.w[j] = self.y[m, j]-self.x[k, j]
+                        normW += self.w[j]**2
+                    normW = 1./sqrt(normW)
+                    for j in range(2):
+                        self.w[j] *= normW
                     i = k*qr2.rule2.num_nodes+m
-                    self.temp[i] = qr2.weights[i] * mydot(self.n, self.w) * pow(mydot(self.w, self.w), -1.-s)
-            vol = scaling*vol1*vol2/s
+                    self.temp[i] = qr2.weights[i] * mydot(self.n, self.w) * self.kernel.evalPtr(2, &self.x[k, 0], &self.y[m, 0])
+            vol = vol1*vol2
             k = 0
             for i in range(3):
                 for j in range(i, 3):

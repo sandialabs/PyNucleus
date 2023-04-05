@@ -307,6 +307,23 @@ cdef class leftRightFractionalOrder(variableFractionalOrder):
         return '{}(ll={},rr={},lr={},rl={},interface={},sym={})'.format(self.__class__.__name__, sll, srr, slr, srl, interface, self.symmetric)
 
 
+cdef class constantExtended(extendedFunction):
+    cdef:
+        REAL_t value
+
+    def __init__(self, REAL_t value):
+        self.value = value
+
+    cdef REAL_t eval(self, REAL_t[::1] x):
+        return self.value
+
+    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x):
+        return self.value
+
+    def __repr__(self):
+        return '{}'.format(self.value)
+
+
 cdef class smoothLeftRight(extendedFunction):
     cdef:
         REAL_t sl, sr, r, slope, fac
@@ -391,6 +408,12 @@ cdef class linearStep(extendedFunction):
 
     def __repr__(self):
         return '{}(sl={},sr={},r={})'.format(self.__class__.__name__, self.sl, self.sr, self.r)
+
+
+cdef class constantNonSymFractionalOrder(singleVariableUnsymmetricFractionalOrder):
+    def __init__(self, REAL_t s):
+        sFun = constantExtended(s)
+        super(constantNonSymFractionalOrder, self).__init__(sFun, s, s)
 
 
 cdef class smoothedLeftRightFractionalOrder(singleVariableUnsymmetricFractionalOrder):

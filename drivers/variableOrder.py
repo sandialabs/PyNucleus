@@ -16,13 +16,13 @@ from PyNucleus.fem import (str2DoFMap,
                            meshFactory,
                            functionFactory)
 from PyNucleus.fem.mesh import plotManager
-from PyNucleus.nl import (nonlocalBuilder,
-                          constFractionalOrder,
-                          variableConstFractionalOrder,
-                          leftRightFractionalOrder,
-                          smoothedLeftRightFractionalOrder,
-                          innerOuterFractionalOrder,
-                          getFractionalKernel)
+from PyNucleus.nl.fractionalOrders import (constFractionalOrder,
+                                           variableConstFractionalOrder,
+                                           leftRightFractionalOrder,
+                                           smoothedLeftRightFractionalOrder,
+                                           innerOuterFractionalOrder)
+from PyNucleus.nl.kernels import getFractionalKernel
+
 
 d = driver()
 d.add('domain', acceptedValues=['interval', 'square', 'circle'])

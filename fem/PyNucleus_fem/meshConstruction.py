@@ -8,7 +8,7 @@
 
 import numpy as np
 from PyNucleus_base import INDEX, REAL
-from . import mesh2d
+from . mesh import mesh2d
 from meshpy.triangle import MeshInfo, build
 from scipy.spatial import cKDTree
 import logging

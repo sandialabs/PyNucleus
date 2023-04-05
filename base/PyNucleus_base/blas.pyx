@@ -29,15 +29,15 @@ def uninitialized(*args, **kwargs):
         return np.empty(*args, **kwargs)
 
 
-def uninitialized_like(*args, **kwargs):
+def uninitialized_like(like, **kwargs):
     IF FILL_UNINITIALIZED:
-        if 'dtype' in kwargs and np.issubdtype(kwargs['dtype'], np.integer):
-            kwargs['fill_value'] = np.iinfo(kwargs['dtype']).min
+        if np.issubdtype(np.array(like, copy=False).dtype, np.integer):
+            kwargs['fill_value'] = np.iinfo(like.dtype).min
         else:
             kwargs['fill_value'] = NAN
-        return np.full_like(*args, **kwargs)
+        return np.full_like(like, **kwargs)
     ELSE:
-        return np.empty_like(*args, **kwargs)
+        return np.empty_like(like, **kwargs)
 
 
 @cython.initializedcheck(False)

@@ -9,11 +9,7 @@
 from warnings import filterwarnings
 filterwarnings("error", category=RuntimeWarning, module="importlib._bootstrap")
 
-from . utilsFem import (display_available, getLoggingTimer, TimerManager, roc,
-                        exitHandler,
-                        saveDictToHDF5, loadDictFromHDF5,
-                        getSystemInfo,
-                        columns, driver, problem, updateFromDefaults)
+from . utilsFem import driver, problem
 from . myTypes import REAL, INDEX, COMPLEX
 from . blas import uninitialized, uninitialized_like
 
@@ -54,3 +50,8 @@ if use_pypardiso:
 from . solvers import complex_lu_solver, complex_gmres_solver
 solverFactory.register('complex_lu', complex_lu_solver)
 solverFactory.register('complex_gmres', complex_gmres_solver)
+
+
+__all__ = [REAL, INDEX, COMPLEX,
+           solverFactory,
+           driver, problem]

@@ -403,7 +403,7 @@ cdef class rhsBoundarySingularity2D(function):
     @cython.boundscheck(False)
     cdef inline REAL_t eval(self, const REAL_t[::1] x):
         if x[0] > 0:
-            return self.alpha*(1.-self.alpha)*x[0]**(self.alpha-2.)
+            return self.alpha*(1.-self.alpha)*pow(x[0], self.alpha-2.)
         else:
             return 1000.
 
@@ -626,7 +626,7 @@ cdef class solFractional(function):
         for i in range(self.dim):
             r2 += x[i]**2
         if r2 <= self.radius2:
-            return self.fac*(1.-r2/self.radius2)**self.s
+            return self.fac*pow(1.-r2/self.radius2, self.s)
         else:
             return 0.
 

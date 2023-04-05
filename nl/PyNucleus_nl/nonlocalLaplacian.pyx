@@ -795,7 +795,8 @@ cdef class nonlocalBuilder:
                         raise NotImplementedError()
                 elif self.mesh.dim == 2:
                     if s.min > 0. and s.max < 1.:
-                        local_matrix = fractionalLaplacian2D_P1_boundary(kernelInfHorizon,
+                        kernelBoundary = kernelInfHorizon.getBoundaryKernel()
+                        local_matrix = fractionalLaplacian2D_P1_boundary(kernelBoundary,
                                                                          mesh=self.mesh,
                                                                          DoFMap=self.dm,
                                                                          target_order=target_order)

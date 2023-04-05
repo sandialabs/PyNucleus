@@ -84,7 +84,7 @@ cdef REAL_t symIntegrandId1D(int n, REAL_t *xx, void *c_params):
     x = l0x*simplex1[0]+l1x*simplex1[1]
     y = l0y*simplex1[0]+l1y*simplex1[1]
 
-    return psi1 * psi2 * kernel.evalPtr(n, &x, &y)
+    return psi1 * psi2 * kernel.evalPtr(1, &x, &y)
 
 
 cdef REAL_t symIntegrandVertex1D(int n, REAL_t *xx, void *c_params):
@@ -123,7 +123,7 @@ cdef REAL_t symIntegrandVertex1D(int n, REAL_t *xx, void *c_params):
     x = l0x*simplex1[0]+l1x*simplex1[1]
     y = l0y*simplex2[0]+l1y*simplex2[1]
 
-    return psi1 * psi2 * kernel.evalPtr(n, &x, &y)
+    return psi1 * psi2 * kernel.evalPtr(1, &x, &y)
 
 
 cdef REAL_t symIntegrandDistant1D(int n, REAL_t *xx, void *c_params):
@@ -166,7 +166,7 @@ cdef REAL_t symIntegrandDistant1D(int n, REAL_t *xx, void *c_params):
     x = l0x*simplex1[0]+l1x*simplex1[1]
     y = l0y*simplex2[0]+l1y*simplex2[1]
 
-    return psi1 * psi2 * kernel.evalPtr(n, &x, &y)
+    return psi1 * psi2 * kernel.evalPtr(1, &x, &y)
 
 
 cdef class fractionalLaplacian1D_P1_automaticQuadrature(nonlocalLaplacian1D):
@@ -336,7 +336,7 @@ cdef REAL_t nonsymIntegrandId(int n, REAL_t *xx, void *c_params):
     x = l0x*simplex1[0]+l1x*simplex1[1]
     y = l0y*simplex1[0]+l1y*simplex1[1]
 
-    return (phi1x * kernel.evalPtr(n, &x, &y) - phi1y * kernel.evalPtr(n, &y, &x)) * psi2
+    return (phi1x * kernel.evalPtr(1, &x, &y) - phi1y * kernel.evalPtr(1, &y, &x)) * psi2
 
 
 cdef REAL_t nonsymIntegrandVertex1(int n, REAL_t *xx, void *c_params):
@@ -379,7 +379,7 @@ cdef REAL_t nonsymIntegrandVertex1(int n, REAL_t *xx, void *c_params):
     x = l0x*simplex1[0]+l1x*simplex1[1]
     y = l0y*simplex2[0]+l1y*simplex2[1]
 
-    return (phi1x * kernel.evalPtr(n, &x, &y) - phi1y * kernel.evalPtr(n, &y, &x)) * psi2
+    return (phi1x * kernel.evalPtr(1, &x, &y) - phi1y * kernel.evalPtr(1, &y, &x)) * psi2
 
 
 cdef REAL_t nonsymIntegrandVertex2(int n, REAL_t *xx, void *c_params):
@@ -423,7 +423,7 @@ cdef REAL_t nonsymIntegrandVertex2(int n, REAL_t *xx, void *c_params):
     x = l0x*simplex1[0]+l1x*simplex1[1]
     y = l0y*simplex2[0]+l1y*simplex2[1]
 
-    return (phi1x * kernel.evalPtr(n, &x, &y) - phi1y * kernel.evalPtr(n, &y, &x)) * psi2
+    return (phi1x * kernel.evalPtr(1, &x, &y) - phi1y * kernel.evalPtr(1, &y, &x)) * psi2
 
 
 cdef REAL_t nonsymIntegrandDistant(int n, REAL_t *xx, void *c_params):
@@ -471,7 +471,7 @@ cdef REAL_t nonsymIntegrandDistant(int n, REAL_t *xx, void *c_params):
     x = l0x*simplex1[0]+l1x*simplex1[1]
     y = l0y*simplex2[0]+l1y*simplex2[1]
 
-    return (phi1x * kernel.evalPtr(n, &x, &y) - phi1y * kernel.evalPtr(n, &y, &x)) * psi2
+    return (phi1x * kernel.evalPtr(1, &x, &y) - phi1y * kernel.evalPtr(1, &y, &x)) * psi2
 
 
 cdef class fractionalLaplacian1D_P1_nonsymAutomaticQuadrature(nonlocalLaplacian1D):
@@ -758,7 +758,7 @@ cdef REAL_t symIntegrand1D_boundary(int n, REAL_t *xx, void *c_params):
     x = l0x*simplex1[0]+l1x*simplex1[1]
     y = simplex2[0]
 
-    return phi1 * phi2 * kernel.evalPtr(n, &x, &y)
+    return phi1 * phi2 * kernel.evalPtr(1, &x, &y)
 
 
 cdef class fractionalLaplacian1D_boundary(nonlocalLaplacian1D):
@@ -904,7 +904,7 @@ cdef REAL_t symIntegrandId2D(int n, REAL_t *xx, void *c_params):
     y[0] = l0y*simplex1[0]+l1y*simplex1[2]+l2y*simplex1[4]
     y[1] = l0y*simplex1[1]+l1y*simplex1[3]+l2y*simplex1[5]
 
-    return psi1 * psi2 * kernel.evalPtr(n, x, y)
+    return psi1 * psi2 * kernel.evalPtr(2, x, y)
 
 
 cdef REAL_t symIntegrandVertex2D(int n, REAL_t *xx, void *c_params):
@@ -949,7 +949,7 @@ cdef REAL_t symIntegrandVertex2D(int n, REAL_t *xx, void *c_params):
     y[0] = l0y*simplex2[0]+l1y*simplex2[2]+l2y*simplex2[4]
     y[1] = l0y*simplex2[1]+l1y*simplex2[3]+l2y*simplex2[5]
 
-    return psi1 * psi2 * kernel.evalPtr(n, x, y)
+    return psi1 * psi2 * kernel.evalPtr(2, x, y)
 
 
 cdef REAL_t symIntegrandDistant2D(int n, REAL_t *xx, void *c_params):
@@ -1006,7 +1006,7 @@ cdef REAL_t symIntegrandDistant2D(int n, REAL_t *xx, void *c_params):
     y[0] = l0y*simplex2[0]+l1y*simplex2[2]+l2y*simplex2[4]
     y[1] = l0y*simplex2[1]+l1y*simplex2[3]+l2y*simplex2[5]
 
-    return psi1 * psi2 * kernel.evalPtr(n, x, y)
+    return psi1 * psi2 * kernel.evalPtr(2, x, y)
 
 
 cdef class fractionalLaplacian2D_P1_automaticQuadrature(nonlocalLaplacian2D):
@@ -1106,7 +1106,8 @@ cdef class fractionalLaplacian2D_P1_automaticQuadrature(nonlocalLaplacian2D):
                         setINDEX(self.user_ptr, fDOF1, i)
                         setINDEX(self.user_ptr, fDOF2, j)
                         val, err = nquad(self.integrandVertex,
-                                         ((0., 1.), (0., 1.)),
+                                         ((0., 1.),
+                                          (0., 1.)),
                                          opts={'epsabs': self.abstol, 'epsrel': self.reltol})
                         contrib[k] = val*vol1*vol2
         elif panel == DISTANT:
@@ -1117,12 +1118,221 @@ cdef class fractionalLaplacian2D_P1_automaticQuadrature(nonlocalLaplacian2D):
                         setINDEX(self.user_ptr, fDOF1, I)
                         setINDEX(self.user_ptr, fDOF2, J)
                         val, err = nquad(self.integrandDistant,
-                                         (lambda  l2x, l1y, l2y: (0., l2x), (0., 1.), lambda l2y: (0., l2y), (0., 1.)),
+                                         (lambda  l2x, l1y, l2y: (0., 1.-l2x),
+                                          (0., 1.),
+                                          lambda l2y: (0., 1.-l2y),
+                                          (0., 1.)),
                                          opts=[{'epsabs': self.abstol, 'epsrel': self.reltol},
                                                {'epsabs': self.abstol, 'epsrel': self.reltol},
                                                {'epsabs': self.abstol, 'epsrel': self.reltol},
                                                {'epsabs': self.abstol, 'epsrel': self.reltol}])
                         contrib[k] = val*vol1*vol2*4.
+                    k += 1
+        else:
+            print(np.array(simplex1), np.array(simplex2))
+            raise NotImplementedError('Unknown panel type: {}'.format(panel))
+
+
+cdef REAL_t symIntegrand2D_boundary(int n, REAL_t *xx, void *c_params):
+    cdef:
+        REAL_t l1x = xx[0]
+        REAL_t l2x = xx[1]
+        REAL_t l1y = xx[2]
+        REAL_t l0x = 1.-l1x-l2x
+        REAL_t l0y = 1.-l1y
+        REAL_t x[2]
+        REAL_t y[2]
+        REAL_t w[2]
+        REAL_t normal[2]
+        INDEX_t i = getINDEX(c_params, fDOF1)
+        INDEX_t j = getINDEX(c_params, fDOF2)
+        # INDEX_t nr1 = getINDEX(c_params, fNR1)
+        # INDEX_t nc1 = getINDEX(c_params, fNC1)
+        # INDEX_t nr2 = getINDEX(c_params, fNR2)
+        # INDEX_t nc2 = getINDEX(c_params, fNC2)
+        REAL_t* simplex1 = getREALArray2D(c_params, fSIMPLEX1)
+        REAL_t* simplex2 = getREALArray2D(c_params, fSIMPLEX2)
+        REAL_t phi1, phi2, fac
+        Kernel kernel = getKernel(c_params, fKERNEL)
+
+    if i == 0:
+        phi1 = l0x
+    elif i == 1:
+        phi1 = l1x
+    else:
+        phi1 = l2x
+
+    if j == 0:
+        phi2 = l0x
+    elif j == 1:
+        phi2 = l1x
+    else:
+        phi2 = l2x
+
+    x[0] = l0x*simplex1[0]+l1x*simplex1[2]+l2x*simplex1[4]
+    x[1] = l0x*simplex1[1]+l1x*simplex1[3]+l2x*simplex1[5]
+    y[0] = l0y*simplex2[0]+l1y*simplex2[2]
+    y[1] = l0y*simplex2[1]+l1y*simplex2[3]
+    w[0] = y[0]-x[0]
+    w[1] = y[1]-x[1]
+    fac = 1./sqrt(w[0]*w[0] + w[1]*w[1])
+    w[0] *= fac
+    w[1] *= fac
+
+    normal[0] = simplex2[3] - simplex2[1]
+    normal[1] = simplex2[0] - simplex2[2]
+    fac = 1./sqrt(normal[0]*normal[0] + normal[1]*normal[1])
+    normal[0] *= fac
+    normal[1] *= fac
+
+
+    assert 0 <= l1x+l2x, (l1x, l2x)
+    assert l1x+l2x <= 1., (l1x, l2x)
+    assert 0 <= l1y, l1y
+    assert l1y <= 1., l1y
+
+
+    return phi1 * phi2 * (w[0]*normal[0] + w[1]*normal[1]) * kernel.evalPtr(2, &x[0], &y[0])
+
+
+cdef class fractionalLaplacian2D_boundary(nonlocalLaplacian2D):
+    def __init__(self, Kernel kernel, meshBase mesh, DoFMap DoFMap, num_dofs=None, **kwargs):
+        manifold_dim2 = mesh.dim-1
+        super(fractionalLaplacian2D_boundary, self).__init__(kernel, mesh, DoFMap, num_dofs, manifold_dim2=manifold_dim2, **kwargs)
+        self.symmetricCells = False
+
+
+cdef class fractionalLaplacian2D_P1_boundary_automaticQuadrature(fractionalLaplacian2D_boundary):
+    def __init__(self,
+                 Kernel kernel,
+                 meshBase mesh,
+                 DoFMap DoFMap,
+                 num_dofs=None,
+                 abstol=1e-4,
+                 reltol=1e-4,
+                 target_order=None,
+                 **kwargs):
+        assert isinstance(DoFMap, P1_DoFMap)
+        super(fractionalLaplacian2D_P1_boundary_automaticQuadrature, self).__init__(kernel, mesh, DoFMap, num_dofs, **kwargs)
+
+        if target_order is None:
+            if isinstance(self.kernel, FractionalKernel):
+                smin, smax = self.kernel.s.min, self.kernel.s.max
+                # this is the desired local quadrature error
+                target_order = 1.
+            else:
+                target_order = 5
+        self.target_order = target_order
+
+        self.user_ptr = malloc(NUM_INTEGRAND_PARAMS*INTEGRAND_OFFSET)
+        setINDEX(self.user_ptr, fNR1, 3)
+        setINDEX(self.user_ptr, fNC1, 2)
+        setINDEX(self.user_ptr, fNR2, 3)
+        setINDEX(self.user_ptr, fNC2, 2)
+        c_params = PyCapsule_New(self.user_ptr, NULL, NULL)
+        func_type = b"double (int, double *, void *)"
+        func_capsule = PyCapsule_New(<void*>symIntegrand2D_boundary, func_type, NULL)
+        self.integrand = LowLevelCallable(func_capsule, c_params, func_type)
+        self.abstol = abstol
+        self.reltol = reltol
+        setKernel(self.user_ptr, fKERNEL, self.kernel)
+
+    cdef panelType getQuadOrder(self,
+                                const REAL_t h1,
+                                const REAL_t h2,
+                                REAL_t d):
+        return DISTANT
+
+    cdef void getNearQuadRule(self, panelType panel):
+        pass
+
+    cdef void eval(self,
+                   REAL_t[::1] contrib,
+                   panelType panel,
+                   MASK_t mask=ALL):
+        cdef:
+            INDEX_t k, i, j, I, J, t = 0
+            REAL_t val, err, vol1 = self.vol1, vol2 = self.vol2
+            REAL_t[:, ::1] simplex1 = self.simplex1
+            REAL_t[:, ::1] simplex2 = self.simplex2
+            REAL_t horizon = self.kernel.getHorizonValue()
+
+        setREALArray2D(self.user_ptr, fSIMPLEX1, simplex1)
+        setREALArray2D(self.user_ptr, fSIMPLEX2, simplex2)
+
+        contrib[:] = 0.
+
+        if panel == COMMON_EDGE:
+            pass
+            # for i in range(3):
+            #     for j in range(2):
+            #         if (simplex1[i, 0] == simplex2[j, 0]) and (simplex1[i, 1] == simplex2[j, 1]):
+            #             t = i
+            #             break
+
+            # loop over all local DoFs
+            for I in range(3):
+                for J in range(I, 3):
+                    # i = (t+I)%3
+                    # j = (t+J)%3
+                    # if j < i:
+                    #     i, j = j, i
+                    # k = 3*i-(i*(i+1) >> 1) + j
+                    i = I
+                    j = J
+                    k = 3*i-(i*(i+1) >> 1) + j
+                    if mask & (1 << k):
+                        setINDEX(self.user_ptr, fDOF1, i)
+                        setINDEX(self.user_ptr, fDOF2, j)
+                        val, err = nquad(self.integrand,
+                                         (lambda  l2x, l1y: (0., 1.-l2x),
+                                          (0., 1.),
+                                          (0., 1.)),
+                                         opts=[{'epsabs': self.abstol, 'epsrel': self.reltol},
+                                               {'epsabs': self.abstol, 'epsrel': self.reltol},
+                                               {'epsabs': self.abstol, 'epsrel': self.reltol}])
+                        contrib[k] = val*vol1*vol2*2.0
+        elif panel == COMMON_VERTEX:
+            for i in range(3):
+                for j in range(2):
+                    if (simplex1[i, 0] == simplex2[j, 0]) and (simplex1[i, 1] == simplex2[j, 1]):
+                        t = i
+                        break
+
+            # loop over all local DoFs
+            for I in range(3):
+                for J in range(I, 3):
+                    i = (t+I)%3
+                    j = (t+J)%3
+                    if j < i:
+                        i, j = j, i
+                    k = 3*i-(i*(i+1) >> 1) + j
+                    if mask & (1 << k):
+                        setINDEX(self.user_ptr, fDOF1, i)
+                        setINDEX(self.user_ptr, fDOF2, j)
+                        val, err = nquad(self.integrand,
+                                         (lambda  l2x, l1y: (0., 1.-l2x),
+                                          (0., 1.),
+                                          (0., 1.)),
+                                         opts=[{'epsabs': self.abstol, 'epsrel': self.reltol},
+                                               {'epsabs': self.abstol, 'epsrel': self.reltol},
+                                               {'epsabs': self.abstol, 'epsrel': self.reltol}])
+                        contrib[k] = val*vol1*vol2*2.0
+        elif panel == DISTANT:
+            k = 0
+            for I in range(3):
+                for J in range(I, 3):
+                    if mask & (1 << k):
+                        setINDEX(self.user_ptr, fDOF1, I)
+                        setINDEX(self.user_ptr, fDOF2, J)
+                        val, err = nquad(self.integrand,
+                                         (lambda  l2x, l1y: (0., 1.-l2x),
+                                          (0., 1.),
+                                          (0., 1.)),
+                                         opts=[{'epsabs': self.abstol, 'epsrel': self.reltol},
+                                               {'epsabs': self.abstol, 'epsrel': self.reltol},
+                                               {'epsabs': self.abstol, 'epsrel': self.reltol}])
+                        contrib[k] = val*vol1*vol2*2.0
                     k += 1
         else:
             print(np.array(simplex1), np.array(simplex2))

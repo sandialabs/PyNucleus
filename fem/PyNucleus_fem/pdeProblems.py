@@ -52,12 +52,10 @@ class diffusionProblem(problem):
 
     @problem.generates(['dim', 'diffusivity', 'reaction', 'rhsFun', 'exactSolution', 'L2ex', 'H10ex', 'boundaryCond'])
     def processProblem(self, domain, problem, noRef, element, symmetric, reorder):
-        from . import (rhsFunSin1D, rhsFunSin2D, rhsFunSin3D,
-                       solSin1D, solSin2D, solSin3D,
-                       cos2D, rhsCos2D,
-                       rhsFichera, solFichera,
-                       constant, Lambda,
-                       meshFactory)
+        from . functions import constant, Lambda
+        from . factories import (meshFactory, rhsFunSin1D,
+                                 rhsFunSin2D, rhsFunSin3D, solSin1D, solSin2D, solSin3D, cos2D,
+                                 rhsCos2D, rhsFichera, solFichera,)
         self.diffusivity = None
         self.reaction = None
         self.dim = meshFactory.getDim(domain)

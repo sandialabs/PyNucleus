@@ -36,7 +36,7 @@ include "SSS_LinearOperator_COMPLEX.pxi"
 include "DiagonalLinearOperator_REAL.pxi"
 include "DiagonalLinearOperator_COMPLEX.pxi"
 
-cdef ENCODE_t MAX_VAL = (<ENCODE_t>2)**(<ENCODE_t>31)
+cdef ENCODE_t MAX_VAL = pow(<ENCODE_t>2, <ENCODE_t>31)
 
 include "IJOperator_REAL.pxi"
 include "IJOperator_COMPLEX.pxi"

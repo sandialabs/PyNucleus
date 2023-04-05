@@ -11,8 +11,8 @@ from __future__ import division, print_function
 from mpi4py import MPI
 import numpy as np
 from PyNucleus.base import driver, solverFactory
-from PyNucleus.fem import (accumulate2global,
-                           diffusionProblem)
+from PyNucleus.fem import diffusionProblem
+from PyNucleus.fem.mesh import accumulate2global
 from PyNucleus.multilevelSolver import (V, FMG_V,
                                         hierarchyManager,
                                         inputConnector,

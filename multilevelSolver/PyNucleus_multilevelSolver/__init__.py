@@ -6,17 +6,16 @@
 ###################################################################################
 
 
-from . levels import meshLevel, algebraicLevel
 from . hierarchies import EmptyHierarchy, hierarchy, hierarchyManager
 from . connectors import (inputConnector, repartitionConnector,
                           
                           )
-from . multigrid import multigrid, Complexmultigrid, V, W, FMG_V, FMG_W
-
-from . geometricMG import (writeToHDF, readFromHDF,
-                           paramsForMG, paramsForSerialMG)
-
+from . multigrid import V, W, FMG_V, FMG_W
+from . geometricMG import paramsForMG, paramsForSerialMG
 
 from PyNucleus_base import solverFactory
+from . multigrid import multigrid, Complexmultigrid
+
 solverFactory.register('mg', multigrid, isMultilevelSolver=True)
 solverFactory.register('complex_mg', Complexmultigrid, isMultilevelSolver=True)
+

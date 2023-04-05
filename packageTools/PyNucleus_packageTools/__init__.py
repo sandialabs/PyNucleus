@@ -294,8 +294,9 @@ class package:
 
         from sys import platform
         if platform == 'darwin':
+            import warnings
             warnings.warn('Multithreaded builds currently do not work on MacOS. Falling back to serial build.')
-            self.config['threads'] = 1
+            self.config['threads'] = 0
 
         if self.config['threads'] > 1:
             build_ext.build_extensions = build_extensions_multithreaded
