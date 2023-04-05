@@ -6,16 +6,17 @@
 ###################################################################################
 
 
-from PyNucleus_base import INDEX, getLoggingTimer
+from PyNucleus_base import INDEX
+from PyNucleus_base.utilsFem import getLoggingTimer
 from PyNucleus_base.linear_operators import (LinearOperator,
                                              multiIntervalInterpolationOperator,
                                              delayedConstructionOperator)
 from PyNucleus_fem import (HOMOGENEOUS_DIRICHLET,
                            HOMOGENEOUS_NEUMANN,
                            NORM)
-from PyNucleus_fem import (P0_DoFMap, getSubmesh,
-                           constant, Lambda)
-from PyNucleus_fem.DoFMaps import getSubMapRestrictionProlongation
+from PyNucleus_fem.meshCy import getSubmesh
+from PyNucleus_fem.functions import constant, Lambda
+from PyNucleus_fem.DoFMaps import P0_DoFMap, getSubMapRestrictionProlongation
 from PyNucleus_multilevelSolver import hierarchyManager
 from PyNucleus_multilevelSolver.levels import (algebraicLevelBase,
                                                SPARSITY_PATTERN,
@@ -565,7 +566,7 @@ class multilevelDirichletCondition(DirichletCondition):
         self.setupHierarchy()
 
     def setupCoarseOps(self, mesh, dm):
-        from PyNucleus_fem import constant
+        from PyNucleus_fem.functions import constant
 
         dmIndicator = P0_DoFMap(mesh)
         dirichletIndicator = constant(1.)-self.domainIndicator-self.fluxIndicator

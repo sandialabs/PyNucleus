@@ -11,9 +11,8 @@ import numpy as np
 from PyNucleus_base import INDEX
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t
 from . meshCy cimport meshBase
-from . import P0_DoFMap
-from . DoFMaps cimport DoFMap
-from . import getSubmesh
+from . DoFMaps cimport DoFMap, P0_DoFMap
+from . meshCy import getSubmesh
 from . functions cimport function
 from . DoFMaps import (getSubMapRestrictionProlongation,
                        getSubMapRestrictionProlongation2)
@@ -188,7 +187,6 @@ class dofmapSplitter:
 
     def getSubMap(self, label):
         from copy import deepcopy
-        from . import function
         if label not in self.submaps:
             self.submaps[label] = deepcopy(self.dm)
             if isinstance(self.indicators[label], function):

@@ -1410,7 +1410,7 @@ def runDriver(path, py, python=None, timeout=600, ranks=None, cacheDir='',
         logger.info(stdout)
     if len(stderr) > 0:
         logger.error(stderr)
-    assert proc.returncode == 0, stderr
+    assert proc.returncode == 0, (stdout, stderr)
     if extra is not None:
         from pytest_html import extras
         for img in plotDir.glob('*.png'):

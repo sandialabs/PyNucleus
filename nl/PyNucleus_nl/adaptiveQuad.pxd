@@ -64,3 +64,14 @@ cdef class fractionalLaplacian2D_P1_automaticQuadrature(nonlocalLaplacian2D):
         object integrandEdge
         object integrandVertex
         object integrandDistant
+
+
+cdef class fractionalLaplacian2D_boundary(nonlocalLaplacian2D):
+    pass
+
+
+cdef class fractionalLaplacian2D_P1_boundary_automaticQuadrature(fractionalLaplacian2D_boundary):
+    cdef:
+        REAL_t abstol, reltol
+        void *user_ptr
+        object integrand

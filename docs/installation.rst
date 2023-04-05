@@ -1,7 +1,38 @@
 
 
-Prerequisites
-=============
+Possible ways to install and use PyNucleus
+==================================
+
+* Spack install,
+* manual install,
+* Docker container.
+
+Spack install
+-------------
+
+In order to install Spack itself, follow the instructions at https://github.com/spack/spack.
+
+Install PyNucleus and all its dependencies with the command
+
+.. code-block:: shell
+
+   spack install py-pynucleus
+
+To then load PyNucleus
+
+.. code-block:: shell
+
+   spack load py-pynucleus
+
+The examples can be found in the install directory. In order to get there:
+
+.. code-block:: shell
+
+   spack cd -i py-pynucleus
+
+
+Manual installation
+-------------------
 
 In order to install PyNucleus, you will need
 
@@ -12,16 +43,21 @@ In order to install PyNucleus, you will need
 * SuiteSparse,
 * make.
 
-On Debian, Ubuntu etc, the required dependecies can be installed with
+On Debian, Ubuntu etc, the required dependencies can be installed with
 
 .. code-block:: shell
 
    sudo apt-get install python3 mpi-default-bin mpi-default-dev libmetis-dev libparmetis-dev libsuitesparse-dev
 
-Installation
-============
+On MacOS the required dependencies can be installed with
 
-PyNucleus is installed via
+.. code-block:: shell
+
+   brew install python open-mpi
+   brew tap brewsci/num
+   brew install brewsci-metis brewsci-parmetis brewsci-suite-sparse
+
+After cloning the source code, PyNucleus is installed via
 
 .. code-block:: shell
 
@@ -56,9 +92,9 @@ PyNucleus depends on other Python packages that will be installed automatically:
 
 
 Docker container
-================
+----------------
 
-A Docker container that contains all the required dependecies can be built as well:
+A Docker container that contains all the required dependencies can be built as well:
 
 .. code-block:: shell
 

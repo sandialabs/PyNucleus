@@ -10,12 +10,12 @@
 import numpy as np
 from PyNucleus.base import REAL, driver, solverFactory
 from PyNucleus.base.ip_norm import norm_serial
-from PyNucleus.fem import (simpleInterval, uniformSquare,
-                           squareIndicator, P1_DoFMap,
-                           constant, Lambda, NO_BOUNDARY, INTERIOR, PHYSICAL,
-                           functionFactory,
-                           getSurfaceDoFMap)
-from PyNucleus.fem.DoFMaps import fe_vector
+from PyNucleus.fem.mesh import simpleInterval, uniformSquare
+from PyNucleus.fem.DoFMaps import P1_DoFMap, fe_vector
+from PyNucleus.fem import functionFactory
+from PyNucleus.fem.femCy import getSurfaceDoFMap
+from PyNucleus.fem.functions import squareIndicator, constant, Lambda
+from PyNucleus.fem import NO_BOUNDARY, INTERIOR, PHYSICAL
 from PyNucleus.fem.splitting import meshSplitter, dofmapSplitter
 
 

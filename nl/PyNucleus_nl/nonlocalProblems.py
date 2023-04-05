@@ -10,27 +10,26 @@ import numpy as np
 from PyNucleus_base import REAL
 from PyNucleus_base.factory import factory
 from PyNucleus_base.utilsFem import problem, generates
-from PyNucleus_fem import (simpleInterval, intervalWithInteraction,
-                           uniformSquare, squareWithInteractions,
-                           discWithInteraction,
-                           gradedDiscWithInteraction,
-                           double_graded_interval,
-                           double_graded_interval_with_interaction,
-                           discWithIslands,
-                           meshFactoryClass, PHYSICAL, NO_BOUNDARY,
-                           Lambda, constant,
-                           indicatorFunctor, squareIndicator, radialIndicator,
-                           P1_DoFMap,
-                           str2DoFMapOrder,
-                           solFractional1D, rhsFractional1D,
-                           solFractional, rhsFractional2D,
-                           rhsFractional2D_nonPeriodic,
-                           
-                           functionFactory,
+from PyNucleus_fem.mesh import (simpleInterval, intervalWithInteraction,
+                                uniformSquare, squareWithInteractions,
+                                discWithInteraction,
+                                gradedDiscWithInteraction,
+                                double_graded_interval,
+                                double_graded_interval_with_interaction,
+                                discWithIslands,
+                                twinDisc)
+from PyNucleus_fem.functions import (Lambda, constant,
+                                     indicatorFunctor, squareIndicator, radialIndicator,
+                                     solFractional1D, rhsFractional1D,
+                                     solFractional, rhsFractional2D)
+from PyNucleus_fem.DoFMaps import P1_DoFMap, str2DoFMapOrder
+from PyNucleus_fem.mesh import meshFactory as meshFactoryClass
+from PyNucleus_fem import (PHYSICAL, NO_BOUNDARY,
                            DIRICHLET, HOMOGENEOUS_DIRICHLET,
                            NEUMANN, HOMOGENEOUS_NEUMANN,
                            NORM)
-from PyNucleus_fem.mesh import twinDisc
+from PyNucleus_fem.factories import functionFactory, rhsFractional2D_nonPeriodic
+
 from scipy.special import gamma as Gamma, binom
 from . twoPointFunctions import (constantTwoPoint,
                                  temperedTwoPoint,
@@ -46,6 +45,7 @@ from . fractionalOrders import (constFractionalOrder,
                                 variableConstFractionalOrder,
                                 leftRightFractionalOrder,
                                 smoothedLeftRightFractionalOrder,
+                                constantNonSymFractionalOrder,
                                 innerOuterFractionalOrder,
                                 islandsFractionalOrder,
                                 layersFractionalOrder)
@@ -64,6 +64,7 @@ fractionalOrderFactory.register('constant', constFractionalOrder, aliases=['cons
 fractionalOrderFactory.register('varConst', variableConstFractionalOrder, aliases=['constVar'])
 fractionalOrderFactory.register('leftRight', leftRightFractionalOrder, aliases=['twoDomain'])
 fractionalOrderFactory.register('smoothedLeftRight', smoothedLeftRightFractionalOrder, params={'r': 0.1, 'slope': 200.}, aliases=['twoDomainNonSym'])
+fractionalOrderFactory.register('constantNonSym', constantNonSymFractionalOrder)
 fractionalOrderFactory.register('innerOuter', innerOuterFractionalOrder)
 fractionalOrderFactory.register('islands', islandsFractionalOrder, params={'r': 0.1, 'r2': 0.6})
 fractionalOrderFactory.register('layers', layersFractionalOrder)
@@ -241,6 +242,7 @@ class nonlocalBaseProblem(problem):
         self.setDriverFlag('kernelType', acceptedValues=['fractional', 'constant', 'inverseDistance', 'gaussian', 'local'], help='type of kernel', group=p)
         self.addParametrizedArg('const', [float])
         self.addParametrizedArg('varconst', [float])
+        self.addParametrizedArg('constantNonSym', [float])
         self.addParametrizedArg('leftRight', [float, float, float, float])
         self.addParametrizedArg('twoDomain', [float, float, float, float])
         self.addParametrizedArg('twoDomainNonSym', [float, float])
@@ -248,7 +250,7 @@ class nonlocalBaseProblem(problem):
         self.addParametrizedArg('islands', [float, float])
         self.addParametrizedArg('islands4', [float, float, float, float])
         self.addParametrizedArg('tempered', [float])
-        self.setDriverFlag('s', 'const(0.4)', argInterpreter=self.argInterpreter(['const', 'varconst', 'twoDomain', 'twoDomainNonSym',
+        self.setDriverFlag('s', 'const(0.4)', argInterpreter=self.argInterpreter(['const', 'varconst', 'constantNonSym', 'twoDomain', 'twoDomainNonSym',
                                                                                   'layers', 'islands', 'islands4']), help='fractional order', group=p)
         self.setDriverFlag('horizon', 0.2, help='interaction horizon', group=p)
         self.addParametrizedArg('ellipse', [float, float])
@@ -263,7 +265,7 @@ class nonlocalBaseProblem(problem):
         dim = nonlocalMeshFactory.getDim(params['domain'])
         if params['kernelType'] == 'fractional':
             s = params['s']
-            for sName in ['const', 'varconst', 'leftRight', 'twoDomain', 'twoDomainNonSym', 'islands']:
+            for sName in ['const', 'varconst', 'constantNonSym', 'leftRight', 'twoDomain', 'twoDomainNonSym', 'islands']:
                 if self.parametrizedArg(sName).match(s):
                     sType = sName
                     sArgs = self.parametrizedArg(sName).interpret(s)

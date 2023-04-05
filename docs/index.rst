@@ -32,7 +32,7 @@ Features
 * Nonlocal kernels:
 
   * Finite and infinite horizon
-  * Singularities: fractional, peridynamic, constant kernel
+  * Singularities: fractional, peridynamic, constant, Gaussian kernel
   * spatially variable kernels: variable fractional order and variable coefficients
 
 * Nonlocal assembly (1D and 2D) into dense, sparse and hierarchical matrices
@@ -76,7 +76,9 @@ Examples
 Funding
 -------
 
-PyNucleus' development is funded through the MATNIP project (PI: Marta D'Elia) of the LDRD program at Sandia National Laboratories.
+PyNucleus' development is funded through the FOMSI project (PI: Christian Glusa, FY23-FY25) of the LDRD program at Sandia National Laboratories.
+
+PyNucleus' development was previously funded through the MATNIP project (PI: Marta D'Elia, FY20-22).
 
 .. image:: ../data/matnip.png
    :height: 100px

@@ -13,8 +13,8 @@ import logging
 import numpy as np
 from copy import deepcopy
 from PyNucleus_base.myTypes import REAL
-from PyNucleus_base import TimerManager, updateFromDefaults
-from PyNucleus_fem import boundaryLayer
+from PyNucleus_base.utilsFem import TimerManager, updateFromDefaults
+from PyNucleus_fem.boundaryLayerCy import boundaryLayer
 from PyNucleus_fem.algebraicOverlaps import multilevelAlgebraicOverlapManager
 from . levels import meshLevel, algebraicLevel
 from . levels import (DELETE_MESH, KEEP_MESH,

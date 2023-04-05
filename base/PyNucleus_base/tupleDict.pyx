@@ -108,7 +108,7 @@ cdef class indexSetIterator:
             raise StopIteration
 
 
-cdef inline int compareIndices(const void *pa, const void *pb) nogil:
+cdef inline int compareIndices(const void *pa, const void *pb) noexcept nogil:
     cdef:
         INDEX_t a = (<INDEX_t *> pa)[0]
         INDEX_t b = (<INDEX_t *> pb)[0]

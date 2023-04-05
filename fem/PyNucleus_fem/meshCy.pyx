@@ -103,12 +103,12 @@ cdef class gradedMeshTransformer(meshTransformer):
                 x1 = 1-(1-r1/self.radius)**(1/self.mu)
                 x2 = 1-(1-r2/self.radius)**(1/self.mu)
                 x3 = 0.5*x1+0.5*x2
-                r = self.radius*(1-(1-x3)**self.mu)
+                r = self.radius*(1-pow(1-x3, self.mu))
             else:
                 x1 = 1-(1-r1/self.radius)**(1/self.mu2)
                 x2 = 1-(1-r2/self.radius)**(1/self.mu2)
                 x3 = 0.5*x1+0.5*x2
-                r = self.radius*(1-(1-x3)**self.mu2)
+                r = self.radius*(1-pow(1-x3, self.mu2))
             for i in range(dim):
                 mesh.vertices[vertexNo, i] *= r/r3
 
@@ -154,7 +154,7 @@ cdef class gradedHypercubeTransformer(meshTransformer):
             for i in range(mesh.dim):
                 v0 = (boundMax[i]*(mesh.vertices[e[0], i]-boundMin[i]))**self.invFactor[i]
                 v1 = (boundMax[i]*(mesh.vertices[e[1], i]-boundMin[i]))**self.invFactor[i]
-                mesh.vertices[j, i] = boundMin[i] + boundMaxInv[i]*(0.5*v0 + 0.5*v1)**self.factor[i]
+                mesh.vertices[j, i] = boundMin[i] + boundMaxInv[i]*pow(0.5*v0 + 0.5*v1, self.factor[i])
 
 
 cdef class multiIntervalMeshTransformer(meshTransformer):
@@ -744,7 +744,7 @@ cdef class meshBase:
 
 # Encoding, decoding and sorting of edges
 
-cdef ENCODE_t MAX_VAL_EDGE = (<ENCODE_t>2)**(<ENCODE_t>31)
+cdef ENCODE_t MAX_VAL_EDGE = pow(<ENCODE_t>2, <ENCODE_t>31)
 
 
 @cython.boundscheck(False)
@@ -944,7 +944,7 @@ def refineCy1D(const REAL_t[:, ::1] vertices,
 #     return new_vertices_mem, new_cells_mem, lookup
 
 
-cdef inline int compareEdges(const void *pa, const void *pb) nogil:
+cdef inline int compareEdges(const void *pa, const void *pb) noexcept nogil:
     cdef:
         INDEX_t *a
         INDEX_t *b

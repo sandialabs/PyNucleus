@@ -7,12 +7,14 @@
 
 
 import numpy as np
-from PyNucleus.fem import intervalWithInteraction, P1_DoFMap, Lambda, constant
+from PyNucleus.fem.mesh import intervalWithInteraction
+from PyNucleus.fem.DoFMaps import P1_DoFMap
+from PyNucleus.fem.functions import Lambda, constant
 from PyNucleus.nl.fractionalOrders import (constFractionalOrder,
                                            leftRightFractionalOrder,
                                            variableConstFractionalOrder)
 from PyNucleus.nl.nonlocalLaplacian import nonlocalBuilder
-from PyNucleus.nl import getFractionalKernel
+from PyNucleus.nl.kernels import getFractionalKernel
 from scipy.linalg import solve
 import pytest
 

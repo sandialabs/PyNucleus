@@ -11,7 +11,7 @@ from PyNucleus_nl import fractionalOrderFactory, kernelFactory
 from PyNucleus_nl.fractionalOrders import (constFractionalOrder,
                                            variableConstFractionalOrder,
                                            smoothedLeftRightFractionalOrder)
-from PyNucleus_fem import constant
+from PyNucleus_fem.functions import constant
 from scipy.special import gamma, erf
 from numpy import pi, exp, sqrt
 from numpy.linalg import norm

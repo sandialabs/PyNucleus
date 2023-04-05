@@ -16,7 +16,7 @@ from PyNucleus import (dofmapFactory,
                        DIRICHLET,
                        NEUMANN,
                        HOMOGENEOUS_NEUMANN)
-from PyNucleus.fem import plotManager
+from PyNucleus.fem.mesh import plotManager
 from PyNucleus.base.utilsFem import TimerManager, timerOutputGroup
 from PyNucleus.nl import nonlocalPoissonProblem, FRACTIONAL
 import numpy as np

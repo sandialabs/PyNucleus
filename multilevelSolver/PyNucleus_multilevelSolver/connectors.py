@@ -17,11 +17,10 @@ from PyNucleus_base.myTypes import REAL, INDEX, TAG
 from PyNucleus_base import uninitialized
 from . levels import meshLevel, algebraicLevel
 from . hierarchies import EmptyHierarchy, hierarchy
-
-from PyNucleus_base import TimerManager
-from PyNucleus_fem import (boundaryLayer,
-                           P0_DoFMap,
-                           meshFactory)
+from PyNucleus_base.utilsFem import TimerManager
+from PyNucleus_fem.boundaryLayerCy import boundaryLayer
+from PyNucleus_fem.DoFMaps import P0_DoFMap
+from PyNucleus_fem.factories import meshFactory
 
 from PyNucleus_fem.repartitioner import Repartitioner
 from PyNucleus_fem.meshOverlaps import meshOverlap, overlapManager, interfaceManager

@@ -16,7 +16,9 @@ from PyNucleus_base.ip_norm import (ip_distributed_nonoverlapping,
 from PyNucleus_base.solvers import iterative_solver
 from PyNucleus_base.linear_operators import Dense_LinearOperator
 from PyNucleus_base.timestepping import CrankNicolson, ImplicitEuler
-from PyNucleus_fem import simplexXiaoGimbutas, constant, functionFactory
+from PyNucleus_fem.factories import functionFactory
+from PyNucleus_fem.functions import constant
+from PyNucleus_fem.quadrature import simplexXiaoGimbutas
 from PyNucleus_fem.DoFMaps import Product_DoFMap
 from PyNucleus_multilevelSolver import hierarchyManager
 from copy import copy

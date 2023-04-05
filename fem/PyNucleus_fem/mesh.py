@@ -1994,20 +1994,33 @@ class mesh1d(meshNd):
             num_colors = len(tags)
             colors = {tag: cm(i/num_colors) for i, tag in enumerate(tags)}
             for i, c in enumerate(self.cells):
-                midpoint = (self.vertices_as_array[c[0]]
-                            + self.vertices_as_array[c[1]])/2
-                plt.text(midpoint[0], 0, str(i), style='italic')
+                midpoint = (self.vertices_as_array[c[0], :]
+                            + self.vertices_as_array[c[1], :])/2
+                if midpoint.shape[0] == 1:
+                    plt.text(midpoint[0], 0, str(i), style='italic')
+                else:
+                    plt.text(midpoint[0], midpoint[1], str(i), style='italic')
             for i, v in enumerate(self.vertices_as_array):
-                plt.text(v, 0, i)
+                if v.shape[0] == 1:
+                    plt.text(v, 0, i)
+                else:
+                    plt.text(v[0], v[1], i)
             for vno, tag in zip(self.boundaryVertices,
                                 self.boundaryVertexTags):
                 v = self.vertices_as_array[vno, :]
-                plt.text(v[0], 0, tag, horizontalalignment='right',
-                         verticalalignment='top', color=colors[tag])
+                if v.shape[0] == 1:
+                    plt.text(v[0], 0, tag, horizontalalignment='right',
+                             verticalalignment='top', color=colors[tag])
+                else:
+                    plt.text(v[0], v[1], tag, horizontalalignment='right',
+                             verticalalignment='top', color=colors[tag])
             for i, (e, tag) in enumerate(zip(self.boundaryEdges,
                                              self.boundaryEdgeTags)):
-                v = (self.vertices_as_array[e[0]]+self.vertices_as_array[e[1]])/2
-                plt.text(v[0], 0, tag, color=colors[tag])
+                v = (self.vertices_as_array[e[0], :]+self.vertices_as_array[e[1], :])/2
+                if v.shape[0] == 1:
+                    plt.text(v[0], 0, tag, color=colors[tag])
+                else:
+                    plt.text(v[0], v[1], tag, color=colors[tag])
 
     def plotPrepocess(self, x, DoFMap):
         from . DoFMaps import P0_DoFMap

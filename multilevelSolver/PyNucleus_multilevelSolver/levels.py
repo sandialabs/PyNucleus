@@ -17,16 +17,17 @@ from PyNucleus_base.myTypes import REAL
 from PyNucleus_base.linear_operators import CSR_LinearOperator
 from PyNucleus_base.linear_operators import SSS_LinearOperator
 from . restrictionProlongation import buildRestrictionProlongation
-from PyNucleus_base import TimerManager
+from PyNucleus_base.utilsFem import TimerManager
 from PyNucleus_base.ip_norm import (ip_serial, norm_serial,
                                     ip_distributed, norm_distributed,
                                     wrapRealInnerToComplex, wrapRealNormToComplex)
-from PyNucleus_fem import (assembleDrift,
-                           assembleMatrix,
-                           DistributedLinearOperator,
-                           CSR_DistributedLinearOperator,
-                           function,
-                           DIRICHLET, NEUMANN, HOMOGENEOUS_DIRICHLET, HOMOGENEOUS_NEUMANN, boundaryConditions)
+from PyNucleus_fem.femCy import assembleMatrix
+from PyNucleus_fem.functions import function
+from PyNucleus_fem.distributed_operators import (DistributedLinearOperator,
+                                                 CSR_DistributedLinearOperator)
+from PyNucleus_fem import (DIRICHLET, NEUMANN,
+                           HOMOGENEOUS_DIRICHLET, HOMOGENEOUS_NEUMANN,
+                           boundaryConditions)
 from PyNucleus_fem.femCy import stiffness_1d_in_2d_sym_P1
 from PyNucleus_fem.mesh import (PHYSICAL, NO_BOUNDARY, INTERIOR_NONOVERLAPPING, INTERIOR)
 LOGGER = logging.getLogger(__name__)
@@ -382,9 +383,7 @@ class algebraicLevel(algebraicLevelBase):
                     self.M = DoFMap.assembleMass(sss_format=symmetric,
                                                  reorder=reorder)
                 if driftCoeff is not None:
-                    self.D = assembleDrift(mesh,
-                                           DoFMap,
-                                           driftCoeff)
+                    self.D = DoFMap.assembleDrift(driftCoeff)
                 if buildNeumann:
                     self.neumannA = self.DoFMapNeumann.assembleStiffness(sss_format=symmetric,
                                                                          reorder=reorder,
@@ -418,7 +417,7 @@ class algebraicLevel(algebraicLevelBase):
                         surface = mesh.get_surface_mesh(INTERIOR)
                     else:
                         surface = mesh.get_surface_mesh(INTERIOR_NONOVERLAPPING)
-                    from PyNucleus_fem import assembleSurfaceMass
+                    from PyNucleus_fem.femCy import assembleSurfaceMass
                     self.surface_mass = assembleSurfaceMass(mesh, surface,
                                                             self.DoFMap,
                                                             sss_format=symmetric,
