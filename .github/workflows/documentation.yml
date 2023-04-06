@@ -1,0 +1,68 @@
+
+name: Documentation
+
+on:
+  workflow_dispatch:
+
+jobs:
+
+  linux:
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      MPIEXEC_FLAGS: "--allow-run-as-root --oversubscribe"
+      PYNUCLEUS_BUILD_PARALLELISM: 2
+
+    steps:
+    - name: Check out repo
+      uses: actions/checkout@v3
+
+    - name: Pull ccache cache
+      id: ccache-restore
+      uses: actions/cache/restore@v3
+      with:
+        path: /home/runner/.cache/ccache
+        key: ccache
+
+    - name: Install Ubuntu packages
+      run: |
+        sudo apt-get update
+        sudo apt-get install python3 mpi-default-bin mpi-default-dev libmetis-dev libparmetis-dev libsuitesparse-dev ccache
+
+    - name: Install Python dependencies
+      run: make prereq && make prereq-extra
+
+    - name: Install
+      run: make dev
+
+    - name: Remove ccache cache
+      if: ${{ steps.ccache-restore.outputs.cache-hit }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh extension install actions/gh-actions-cache
+        gh actions-cache delete ccache --confirm
+      continue-on-error: true
+
+    - name: Push ccache cache
+      uses: actions/cache/save@v3
+      with:
+        path: /home/runner/.cache/ccache
+        key: ccache
+
+    - name: Build documentation
+      run: make docs
+
+    - name: Upload documentation
+      run: |
+        git clone git@github.com:sandialabs/PyNucleus.git release-docs
+        pushd release-docs
+        git checkout gh-pages
+        popd
+        cp -r docs/build/* release-docs/
+        pushd release-docs
+        git add .
+        git commit -m "Update documentation"
+        # git push
