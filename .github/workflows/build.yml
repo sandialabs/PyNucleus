@@ -11,6 +11,9 @@ on:
 jobs:
 
   linux:
+    strategy:
+      matrix:
+        py-version: ['3.8', '3.9', '3.10']
 
     runs-on: ubuntu-latest
     timeout-minutes: 180
@@ -20,27 +23,38 @@ jobs:
 
     steps:
     - name: Check out repo
+      if: always()
       uses: actions/checkout@v3
 
     - name: Pull ccache cache
+      if: always()
       id: ccache-restore
       uses: actions/cache/restore@v3
       with:
         path: /home/runner/.cache/ccache
-        key: ccache
+        key: ccache-${{ matrix.py-version }}
+
+    - uses: actions/setup-python@v4
+      if: always()
+      with:
+        python-version: ${{ matrix.py-version }}
 
     - name: Install Ubuntu packages
+      if: always()
       run: |
         sudo apt-get update
-        sudo apt-get install python3 mpi-default-bin mpi-default-dev libmetis-dev libparmetis-dev libsuitesparse-dev ccache
+        sudo apt-get install mpi-default-bin mpi-default-dev libmetis-dev libparmetis-dev libsuitesparse-dev ccache
 
     - name: Get ccache config dir
+      if: always()
       run: ccache --show-config
 
     - name: Install Python dependencies
+      if: always()
       run: make prereq && make prereq-extra
 
     - name: Install
+      if: always()
       run: make install
 
     - name: Remove ccache cache
@@ -50,39 +64,43 @@ jobs:
         GH_TOKEN: ${{ github.token }}
       run: |
         gh extension install actions/gh-actions-cache
-        gh actions-cache delete ccache --confirm
+        gh actions-cache delete ccache-${{ matrix.py-version }} --confirm
       continue-on-error: true
 
     - name: Push ccache cache
+      if: always()
       uses: actions/cache/save@v3
       with:
         path: /home/runner/.cache/ccache
-        key: ccache
+        key: ccache-${{ matrix.py-version }}
 
     - name: Ccache report
       if: always()
       run: ccache -s
 
     - name: Run tests
-      run: python3 -m pytest --junit-xml=test-results.xml tests/
+      if: always()
+      run: python3 -m pytest --junit-xml=test-results-${{ matrix.py-version }}.xml tests/
 
     - name: Run flake8
       if: always()
-      run: make flake8
+      run: |
+        make flake8
+        mv flake8.xml flake8-${{ matrix.py-version }}.xml
 
     - name: Archive test results
       uses: actions/upload-artifact@v3
       if: always()
       with:
         name: Test results
-        path: test-results.xml
+        path: test-results-${{ matrix.py-version }}.xml
 
     - name: Report test results
       uses: dorny/test-reporter@v1
       if: always()
       with:
-        name: Test report
-        path: test-results.xml
+        name: Test report (Python ${{ matrix.py-version }})
+        path: test-results-${{ matrix.py-version }}.xml
         reporter: java-junit
         fail-on-error: true
 
@@ -90,7 +108,7 @@ jobs:
       uses: dorny/test-reporter@v1
       if: always()
       with:
-        name: Flake8 report
-        path: flake8.xml
+        name: Flake8 report (Python ${{ matrix.py-version }})
+        path: flake8-${{ matrix.py-version }}.xml
         reporter: java-junit
         fail-on-error: false
