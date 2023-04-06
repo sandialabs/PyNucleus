@@ -40,4 +40,4 @@ p.addExtension("parmetisCy",
                libraries=["parmetis", "metis"])
 
 p.setup(description="Cython wrapper for METIS.",
-        install_requires=['cython', 'numpy'])
+        install_requires=['Cython>=0.29.32', 'numpy'])

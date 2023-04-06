@@ -51,5 +51,5 @@ p.addExtension("coarseSolvers",
 
 
 p.setup(description="An implementation of geometric multigrid",
-        install_requires=['cython', 'mpi4py>=2.0.0', 'numpy', 'scipy',
+        install_requires=['Cython>=0.29.32', 'mpi4py>=2.0.0', 'numpy', 'scipy',
                           'tabulate', 'PyNucleus_fem', 'PyNucleus_metisCy'])

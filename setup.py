@@ -11,7 +11,7 @@ import importlib
 from setuptools import setup
 from pathlib import Path
 
-requirements = ['numpy', 'cython']
+requirements = ['numpy', 'Cython>=0.29.32']
 
 # We do this dance, so that we can install everything in editable mode
 # as well. Otherwise installing PyNucleus in editable mode replaces
