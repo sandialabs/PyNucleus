@@ -3,7 +3,7 @@
 Welcome to PyNucleus' documentation!
 =====================================
 
-PyNucleus is a finite element code that specifically targets nonlocal operators of the form
+`PyNucleus <https://github.com/sandialabs/PyNucleus>` is a finite element code that specifically targets nonlocal operators of the form
 
 .. math::
 
