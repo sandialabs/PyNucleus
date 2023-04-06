@@ -45,6 +45,6 @@ p.addExtension("nonlocalLaplacianND",
                sources=[p.folder+"nonlocalLaplacianND.pyx"])
 
 p.setup(description="Nonlocal operator assembly",
-        install_requires=['cython', 'numpy', 'scipy',
+        install_requires=['Cython>=0.29.32', 'numpy', 'scipy',
                           'mpi4py>=2.0.0',
                           'PyNucleus_base', 'PyNucleus_fem', 'PyNucleus_multilevelSolver'])
