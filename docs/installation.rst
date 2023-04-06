@@ -3,8 +3,8 @@
 Possible ways to install and use PyNucleus
 ==========================================
 
-* Spack install,
-* manual install,
+* Spack installation,
+* manual installation,
 * Docker container.
 
 Spack install
@@ -57,7 +57,7 @@ On MacOS the required dependencies can be installed with
    brew tap brewsci/num
    brew install brewsci-metis brewsci-parmetis brewsci-suite-sparse
 
-After cloning the source code, PyNucleus is installed via
+After cloning the source code from https://github.com/sandialabs/PyNucleus, PyNucleus is installed via
 
 .. code-block:: shell
 
