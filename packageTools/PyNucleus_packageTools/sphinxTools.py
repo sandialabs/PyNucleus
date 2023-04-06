@@ -32,8 +32,10 @@ class codeRegion:
         sys.stdout = self._stdout
 
         caller = getframeinfo(stack()[1][0])
-
-        self.endLine = caller.lineno
+        if isinstance(caller, tuple):
+            self.endLine = caller.lineno
+        else:
+            self.endLine = caller.positions.end_lineno
         if self.codeTarget != '':
             with open(caller.filename, 'r') as f:
                 lines = f.readlines()
@@ -71,7 +73,7 @@ class codeRegionManager:
         if self.finalTarget == '' and self.codeTarget != '':
             with open(self.codeTarget, 'w') as f:
                 f.write('#!/usr/bin/env python3\n')
-                
+
 
     def add(self, label, onlyIfFinal=False):
         if self.finalTarget == label:

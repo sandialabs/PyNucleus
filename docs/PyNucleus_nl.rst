@@ -40,12 +40,6 @@ PyNucleus.nl.fractionalOrders module
 .. automodule:: PyNucleus_nl.fractionalOrders
 
 
-PyNucleus.nl.integral\_problems module
----------------------------------------
-
-.. automodule:: PyNucleus_nl.integral_problems
-
-
 PyNucleus.nl.interactionDomains module
 ---------------------------------------
 

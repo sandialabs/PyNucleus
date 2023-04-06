@@ -1,7 +1,7 @@
 
 
 Possible ways to install and use PyNucleus
-==================================
+==========================================
 
 * Spack install,
 * manual install,

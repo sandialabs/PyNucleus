@@ -72,12 +72,6 @@ PyNucleus.base.plot.utils module
 .. automodule:: PyNucleus_base.plot_utils
 
 
-PyNucleus.base.setupUtils module
----------------------------------
-
-.. automodule:: PyNucleus_base.setupUtils
-
-
 PyNucleus.base.solver.factory module
 --------------------------------------
 
