@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 DEF DISTANT = 0
 DEF COMMON_VERTEX = -1
 DEF COMMON_EDGE = -2

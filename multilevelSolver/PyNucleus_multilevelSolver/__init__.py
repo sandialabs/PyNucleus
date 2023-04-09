@@ -5,10 +5,8 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from . hierarchies import EmptyHierarchy, hierarchy, hierarchyManager
 from . connectors import (inputConnector, repartitionConnector,
-                          
                           )
 from . multigrid import V, W, FMG_V, FMG_W
 from . geometricMG import paramsForMG, paramsForSerialMG

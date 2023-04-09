@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from numpy cimport int8_t, int32_t, int64_t, float64_t, complex128_t, npy_bool
 
 ctypedef int32_t INDEX_t

@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 # requires memory_profiler package
 # run with  mprof run ./driver.py
 # plot with mprof plot [logfile]

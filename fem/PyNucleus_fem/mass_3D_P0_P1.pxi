@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 cdef class mass_3d_nonsym_P0_P1(mass_3d):
     @cython.initializedcheck(False)
     @cython.boundscheck(False)

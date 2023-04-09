@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from . myTypes cimport INDEX_t, REAL_t, COMPLEX_t, BOOL_t
 
 include "SchurComplement_decl_REAL.pxi"

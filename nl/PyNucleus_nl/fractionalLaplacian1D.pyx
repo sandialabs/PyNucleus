@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from libc.math cimport (log, ceil, fabs as abs, pow)
 import numpy as np
 cimport numpy as np
@@ -497,7 +496,6 @@ cdef class fractionalLaplacian1D_P1_boundary(fractionalLaplacian1DZeroExterior):
                     k += 1
         else:
             raise NotImplementedError('Unknown panel type: {}'.format(panel))
-
 
 
 cdef class fractionalLaplacian1D_P0(nonlocalLaplacian1D):

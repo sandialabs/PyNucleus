@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 import numpy as np
 from PyNucleus.base import INDEX
 from PyNucleus.base.tupleDict import arrayIndexSet, bitArray

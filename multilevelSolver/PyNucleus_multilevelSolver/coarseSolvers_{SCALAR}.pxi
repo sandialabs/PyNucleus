@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 import mpi4py.rc
 mpi4py.rc.initialize = False
 from mpi4py import MPI
@@ -20,7 +19,6 @@ from PyNucleus_base.performanceLogger cimport PLogger, FakePLogger
 from PyNucleus_base.linear_operators cimport {SCALAR_label}LinearOperator
 from PyNucleus_base import solverFactory
 from PyNucleus_fem.meshOverlaps import overlapManager
-
 from time import sleep
 from sys import stdout
 include "config.pxi"
@@ -72,7 +70,6 @@ cdef class {SCALAR_label}coarseSolver({SCALAR_label_lc_}iterative_solver):
             self.x = uninitialized((localSize), dtype={SCALAR})
             self.rhs = uninitialized((localSize), dtype={SCALAR})
             self.intraLevelCoarse = hierarchy.algebraicLevels[-1].algebraicOverlaps
-        
         else:
             self.inCG = False
 
@@ -83,7 +80,6 @@ cdef class {SCALAR_label}coarseSolver({SCALAR_label_lc_}iterative_solver):
             self.intraLevelFine = hierarchy.connectorEnd.hierarchy2.algebraicLevels[0].algebraicOverlaps
             self.subset_commFine = hierarchy.connectorEnd.comm2
             {SCALAR_label_lc_}iterative_solver.__init__(self, num_rows=hierarchy.connectorEnd.hierarchy2.algebraicLevels[0].DoFMap.num_dofs)
-        
         else:
             self.inSubdomain = False
             {SCALAR_label_lc_}iterative_solver.__init__(self, num_rows=0)

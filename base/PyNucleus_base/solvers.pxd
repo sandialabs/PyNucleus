@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from . myTypes cimport INDEX_t, REAL_t, COMPLEX_t, BOOL_t
 from . linear_operators cimport (LinearOperator,
                                  ComplexLinearOperator,
@@ -47,7 +46,6 @@ cdef class lu_solver(solver):
         REAL_t[::1] temp_mem
         object Ainv, lu
         BOOL_t useTriangularSolveRoutines
-
 
 
 cdef class chol_solver(solver):

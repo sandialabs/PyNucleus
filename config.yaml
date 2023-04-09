@@ -1,4 +1,3 @@
-
 # MPI wrapper that should be used for C ('detect' -> attempt to auto detect an option)
 compiler_c: detect
 

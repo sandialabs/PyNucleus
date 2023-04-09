@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from PyNucleus_base.myTypes import INDEX, REAL
 from PyNucleus_base import uninitialized, uninitialized_like
 from PyNucleus_fem.meshCy cimport meshBase
@@ -19,7 +18,6 @@ include "config.pxi"
 include "panelTypes.pxi"
 
 cdef INDEX_t MAX_INT = np.iinfo(INDEX).max
-
 
 
 cdef class integrable1D(nonlocalLaplacian1D):

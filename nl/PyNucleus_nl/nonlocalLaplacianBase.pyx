@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 import numpy as np
 cimport numpy as np
 from libc.math cimport (sin, cos, sinh, cosh, tanh, sqrt, atan2,

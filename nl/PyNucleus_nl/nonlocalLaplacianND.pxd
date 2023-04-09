@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, ENCODE_t, BOOL_t
 from PyNucleus_fem.quadrature cimport (simplexQuadratureRule,
                              transformQuadratureRule,
@@ -13,7 +12,6 @@ from PyNucleus_fem.quadrature cimport (simplexQuadratureRule,
                              quadQuadratureRule,
                              doubleSimplexQuadratureRule, GaussJacobi,
                              simplexDuffyTransformation, simplexXiaoGimbutas)
-
 from PyNucleus_fem.DoFMaps cimport DoFMap
 from PyNucleus_fem.femCy cimport volume_t
 from PyNucleus_base.ip_norm cimport mydot
@@ -33,7 +31,6 @@ from . fractionalOrders cimport fractionalOrderBase
 from . kernelsCy cimport Kernel
 
 include "config.pxi"
-
 
 
 cdef class integrable1D(nonlocalLaplacian1D):

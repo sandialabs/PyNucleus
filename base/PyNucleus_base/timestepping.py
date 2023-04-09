@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from . solvers import iterative_solver
 from . myTypes import REAL
 from . blas import uninitialized

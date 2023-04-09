@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from libc.math cimport (sin, cos, sinh, cosh, tanh, sqrt, atan2, pow)
 import numpy as np
 cimport numpy as np
@@ -32,7 +31,6 @@ from PyNucleus_base.linear_operators cimport (LinearOperator,
                                                SSS_LinearOperator)
 from PyNucleus_base.sparsityPattern cimport sparsityPattern
 from . DoFMaps cimport (P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap,
-
                         DoFMap,
                         vectorShapeFunction,
                         fe_vector, complex_fe_vector,
@@ -40,7 +38,6 @@ from . DoFMaps cimport (P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap,
 from . quadrature cimport simplexQuadratureRule, Gauss1D, Gauss2D, Gauss3D, simplexXiaoGimbutas
 from . functions cimport function, complexFunction, vectorFunction, matrixFunction
 from . simplexMapper cimport simplexMapper
-
 
 
 cdef class local_matrix_t:
@@ -1593,7 +1590,6 @@ include "stiffness_2D_P3.pxi"
 include "stiffness_3D_P3.pxi"
 
 
-
 def assembleMass(DoFMap dm,
                  vector_t boundary_data=None,
                  vector_t rhs_contribution=None,
@@ -1647,7 +1643,6 @@ def assembleMass(DoFMap dm,
                     local_matrix = mass_3d_sym_P3()
                 else:
                     raise NotImplementedError()
-
             else:
                 raise NotImplementedError(dm)
         else:
@@ -1980,7 +1975,6 @@ def assembleStiffness(DoFMap dm,
                                         end_idx,
                                         cellIndices=cellIndices,
                                         symLocalMatrix=True)
-
 
 
 
@@ -2784,7 +2778,6 @@ def assembleRHSgrad(FUNCTION_t fun, DoFMap dm,
     else:
         raise NotImplementedError()
     return dataVec
-
 
 
 cdef class multi_function:

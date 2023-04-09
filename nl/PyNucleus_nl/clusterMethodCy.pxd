@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 cimport numpy as np
 from mpi4py cimport MPI
 from PyNucleus_fem.quadrature cimport (simplexDuffyTransformation,

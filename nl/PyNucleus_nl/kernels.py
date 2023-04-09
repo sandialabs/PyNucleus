@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 import numpy as np
 from PyNucleus_base.myTypes import INDEX, REAL
 from PyNucleus_fem.functions import function, constant

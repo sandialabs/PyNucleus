@@ -6,7 +6,6 @@
 ###################################################################################
 
 
-
 class codeRegion:
     def __init__(self, mgr, label, isFinalTarget, codeTarget=''):
         self.mgr = mgr
@@ -73,7 +72,6 @@ class codeRegionManager:
         if self.finalTarget == '' and self.codeTarget != '':
             with open(self.codeTarget, 'w') as f:
                 f.write('#!/usr/bin/env python3\n')
-
 
     def add(self, label, onlyIfFinal=False):
         if self.finalTarget == label:

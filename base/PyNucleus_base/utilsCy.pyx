@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from __future__ import division
 import numpy as np
 cimport numpy as np
@@ -34,7 +33,6 @@ def UniformOnUnitSphere(dim, samples=1, norm=normSeq):
         vec = np.random.normal(size=shape)
         vec = vec/norm(vec)
     return vec
-
 
 
 import mpi4py

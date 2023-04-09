@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, BOOL_t
 from PyNucleus_base.linear_operators cimport LinearOperator, CSR_LinearOperator
 from . algebraicOverlaps cimport algebraicOverlapManager

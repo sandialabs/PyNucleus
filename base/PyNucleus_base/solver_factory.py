@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 import warnings
 from . linear_operators import ComplexLinearOperator
 from . factory import factory

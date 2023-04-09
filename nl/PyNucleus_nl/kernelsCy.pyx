@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from libc.stdlib cimport malloc
 from libc.math cimport (sin, cos, sinh, cosh, tanh, sqrt, atan, atan2,
                         log, ceil,

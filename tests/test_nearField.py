@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 # Compare dense matrix and near field assembly with cluster pairs covering all matrix blocks
 
 from mpi4py import MPI
@@ -22,12 +21,10 @@ from PyNucleus.nl.clusterMethodCy import (H2Matrix,
                                           getDoFBoxesAndCells,
                                           tree_node,
                                           getRefinementParams)
-
 from PyNucleus.nl.fractionalOrders import (constFractionalOrder,
                                            variableConstFractionalOrder,
                                            leftRightFractionalOrder,
                                            layersFractionalOrder,
-                                           
                                            singleVariableUnsymmetricFractionalOrder)
 from PyNucleus.base import driver
 from PyNucleus.nl.nonlocalProblems import nonlocalMeshFactory, HOMOGENEOUS_DIRICHLET
@@ -380,7 +377,6 @@ class leftRight1DfiniteHorizon(test1D):
 
 
 
-
 class const2D_025(test2D):
     __test__ = True
     s = variableConstFractionalOrder(0.25)
@@ -422,7 +418,6 @@ class layers2D(test2D):
         for j in range(t.shape[0]):
             s[i, j] = 0.5*(t[i]+t[j])
     s = layersFractionalOrder(2, np.linspace(-1., 1., s.shape[0]+1, dtype=REAL), s)
-
 
 
 if __name__ == '__main__':

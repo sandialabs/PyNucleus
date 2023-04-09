@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 cdef class {SCALAR_label}IJOperator({SCALAR_label}LinearOperator):
     def __init__(self, INDEX_t numRows, INDEX_t numCols):
         super({SCALAR_label}IJOperator, self).__init__(numRows, numCols)

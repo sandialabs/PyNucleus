@@ -6,7 +6,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from mpi4py import MPI
 import numpy as np
 from PyNucleus.base import COMPLEX, driver, solverFactory

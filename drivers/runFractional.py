@@ -6,7 +6,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from mpi4py import MPI
 from PyNucleus import driver
 from PyNucleus.nl import (fractionalLaplacianProblem,

@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 import mpi4py.rc
 mpi4py.rc.initialize = False
 from mpi4py cimport MPI
@@ -42,7 +41,6 @@ cdef class synchronousConvergenceCriterion(convergenceCriterion):
     cdef BOOL_t eval(self, REAL_t[::1] residualVec, BOOL_t asynchronous=*)
     cdef REAL_t getGlobalResidual(self)
     cdef void updateClients(self, BOOL_t converged)
-
 
 
 ######################################################################

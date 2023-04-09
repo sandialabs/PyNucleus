@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from __future__ import division
 import mpi4py.rc
 mpi4py.rc.initialize = False
@@ -66,7 +65,6 @@ class meshFactory(factory):
     def build(self, name, noRef=0, hTarget=None, surface=False, **kwargs):
         if isinstance(name, meshNd):
             return name
-        
         mesh = super(meshFactory, self).build(name, **kwargs)
         if surface:
             mesh = mesh.get_surface_mesh()
@@ -83,7 +81,6 @@ class meshFactory(factory):
             assert hTarget > 0
             while mesh.h > hTarget:
                 mesh = mesh.refine()
-        
         return mesh
 
     def getDim(self, name):

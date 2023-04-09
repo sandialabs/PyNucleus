@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 cdef class {SCALAR_label}SSS_LinearOperator({SCALAR_label}LinearOperator):
     """
     Sparse symmetric matrix that saves the lower triangular part.

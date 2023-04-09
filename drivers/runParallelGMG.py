@@ -6,7 +6,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from __future__ import division, print_function
 from mpi4py import MPI
 import numpy as np
@@ -16,7 +15,6 @@ from PyNucleus.fem.mesh import accumulate2global
 from PyNucleus.multilevelSolver import (V, FMG_V,
                                         hierarchyManager,
                                         inputConnector,
-                                        
                                         paramsForMG)
 
 d = driver(MPI.COMM_WORLD)
@@ -55,7 +53,7 @@ params = d.process()
 
 with d.timer('setup levels'):
     if d.doPCoarsen and d.element != 'P1':
-         raise NotImplementedError()
+        raise NotImplementedError()
     else:
         hierarchies, connectors = paramsForMG(p.noRef,
                                               range(d.comm.size),
@@ -222,7 +220,6 @@ if d.doFMGPGMRES:
     resHist.add('FMG-PGMRES', residuals)
 
 d.comm.Barrier()
-
 
 
 if p.L2ex:

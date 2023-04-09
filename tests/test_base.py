@@ -5,9 +5,7 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from drivers_base import *
-
 from tupleDict import *
 from bitArray import *
 from drift import *

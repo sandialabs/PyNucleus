@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from __future__ import division
 import numpy as np
 from PyNucleus_base.myTypes import INDEX

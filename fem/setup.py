@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 try:
     from PyNucleus_packageTools import package
 except ImportError as e:
@@ -15,7 +14,6 @@ from pathlib import Path
 
 p = package('PyNucleus_fem')
 p.addOption('USE_METIS', 'use_metis', True, ['PyNucleus_metisCy'])
-
 p.loadConfig(extra_config={'annotate': True})
 p.addPackageInclude('PyNucleus_base')
 
@@ -43,7 +41,6 @@ fillTemplate(Path(p.folder), templates, replacementGroups)
 
 p.addExtension("meshCy",
                sources=[p.folder+"meshCy.pyx"])
-
 p.addExtension("meshPartitioning",
                sources=[p.folder+"meshPartitioning.pyx"])
 p.addExtension("functions",

@@ -6,7 +6,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from mpi4py import MPI
 from PyNucleus.base import driver
 from PyNucleus import (dofmapFactory,
@@ -20,7 +19,6 @@ from PyNucleus.fem.mesh import plotManager
 from PyNucleus.base.utilsFem import TimerManager, timerOutputGroup
 from PyNucleus.nl import nonlocalPoissonProblem, FRACTIONAL
 import numpy as np
-
 
 
 ##################################################
@@ -41,7 +39,6 @@ d.add('buildDistributedSparse', False, help='Assemble sparse matrix on global co
 d.add('doSolve', False)
 d.add('numApplies', 1)
 d.add('horizonToMeshSize', -1.)
-
 
 d.declareFigure('solution')
 
@@ -329,7 +326,6 @@ matvecErrors.log()
 
 ##################################################
 ##################################################
-
 
 
 if d.doSolve and (d.buildDistributedH2 or d.buildDistributedSparse):

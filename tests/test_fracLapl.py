@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from __future__ import division
 import numpy as np
 import numpy.linalg
@@ -13,7 +12,6 @@ from PyNucleus.fem.mesh import simpleInterval, circle
 from PyNucleus.fem.DoFMaps import P1_DoFMap, P2_DoFMap
 from PyNucleus.fem.functions import constant
 from PyNucleus.nl.nonlocalLaplacian import (assembleNonlocalOperator,
-                                            
                                             nonlocalBuilder)
 from PyNucleus.nl.clusterMethodCy import H2Matrix
 from PyNucleus.base.myTypes import REAL
@@ -41,7 +39,7 @@ def fracLapl(dim, s, errBnd, refinements, element, genKernel=False, cached=False
     elif element == 'P2':
         dm = P2_DoFMap(mesh, tag=0)
     if cached:
-         raise NotImplementedError()
+        raise NotImplementedError()
     else:
         A = assembleNonlocalOperator(mesh, dm, s, genKernel=genKernel).data
     fun = constant(1.)
@@ -62,11 +60,9 @@ def fracLapl(dim, s, errBnd, refinements, element, genKernel=False, cached=False
 @pytest.fixture(scope='module',
                 params=[(1, constFractionalOrder(0.3), 'P1', 0.15),
                         (1, constFractionalOrder(0.7), 'P1', 0.1),
-                        
                         (2, constFractionalOrder(0.3), 'P1', 0.5),
                         (2, constFractionalOrder(0.7), 'P1', 0.35)],
                 ids=['1-P1-0.3', '1-P1-0.7',
-                     
                      '2-P1-0.3', '2-P1-0.7'])
 def setupExact(request):
     return request.param
@@ -79,7 +75,6 @@ def testFracLapl(setupExact):
     else:
         refinements = 2
     fracLapl(dim, s, errBnd, refinements, element)
-
 
 
 ######################################################################
@@ -226,7 +221,6 @@ def idfunc(param):
 @pytest.fixture(scope='module',
                 params=[(1, constFractionalOrder(0.3), 1e-4, 'P1'),
                         (1, constFractionalOrder(0.7), 1e-2, 'P1'),
-                        
                         (2, constFractionalOrder(0.3), 1.2e-4, 'P1'),
                         (2, constFractionalOrder(0.7), 1e-2, 'P1')],
                 ids=idfunc)

@@ -6,7 +6,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 import numpy as np
 from PyNucleus import driver, DIRICHLET, NEUMANN
 from PyNucleus.nl import (nonlocalPoissonProblem,

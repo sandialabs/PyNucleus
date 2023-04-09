@@ -6,7 +6,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from __future__ import division
 import mpi4py.MPI as MPI
 import numpy as np
@@ -16,7 +15,6 @@ from PyNucleus.multilevelSolver import (V, FMG_V,
                                         hierarchyManager,
                                         inputConnector,
                                         paramsForSerialMG)
-
 
 comm = MPI.COMM_WORLD
 assert comm.size == 1
@@ -55,7 +53,7 @@ with d.timer('setup levels'):
         mesh = hM[FINE].meshLevels[-1].mesh
         DoFMap = hM[FINE].algebraicLevels[-1].DoFMap
     else:
-         raise NotImplementedError()
+        raise NotImplementedError()
 
 if d.element == 'P1':
     tol = 0.5*mesh.h**2

@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, COMPLEX_t
 from PyNucleus_base.ip_norm cimport mydot

@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 cdef class scalar_coefficient_stiffness_2d_sym_P2(stiffness_quadrature_matrix):
     def __init__(self, function diffusivity, simplexQuadratureRule qr=None):
         self.dim = 2

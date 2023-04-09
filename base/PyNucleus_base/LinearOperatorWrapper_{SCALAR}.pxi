@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 cdef class {SCALAR_label}LinearOperator_wrapper({SCALAR_label}LinearOperator):
     def __init__(self, INDEX_t num_rows, INDEX_t num_columns, matvec, {SCALAR}_t[::1] diagonal=None):
         super({SCALAR_label}LinearOperator_wrapper, self).__init__(num_rows, num_columns)
