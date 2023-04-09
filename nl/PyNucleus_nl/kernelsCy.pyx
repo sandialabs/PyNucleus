@@ -254,6 +254,8 @@ cdef REAL_t updateAndEvalFractional(REAL_t *x, REAL_t *y, void *c_params):
 
 
 cdef class Kernel(twoPointFunction):
+    """A kernel functions that can be used to define a nonlocal operator."""
+
     def __init__(self, INDEX_t dim, kernelType kType, function horizon, interactionDomain interaction, twoPointFunction scaling, twoPointFunction phi, BOOL_t piecewise=True):
         cdef:
             parametrizedTwoPointFunction parametrizedScaling
@@ -356,6 +358,7 @@ cdef class Kernel(twoPointFunction):
 
     @property
     def singularityValue(self):
+        "The order of the singularity."
         return getREAL(self.c_kernel_params, fSINGULARITY)
 
     @singularityValue.setter
@@ -370,6 +373,7 @@ cdef class Kernel(twoPointFunction):
 
     @property
     def horizonValue(self):
+        "The value of the interaction horizon."
         return sqrt(getREAL(self.c_kernel_params, fHORIZON2))
 
     @horizonValue.setter
@@ -395,6 +399,7 @@ cdef class Kernel(twoPointFunction):
 
     @property
     def scalingValue(self):
+        "The value of the scaling factor."
         return getREAL(self.c_kernel_params, fSCALING)
 
     @scalingValue.setter
@@ -417,6 +422,7 @@ cdef class Kernel(twoPointFunction):
                 self.scalingValue = self.scaling.eval(x, y)
 
     def evalParams_py(self, REAL_t[::1] x, REAL_t[::1] y):
+        "Evaluate the kernel parameters."
         if self.piecewise:
             self.evalParams(x, y)
         else:
@@ -446,6 +452,7 @@ cdef class Kernel(twoPointFunction):
         return self.kernelFun(x, y, self.c_kernel_params)
 
     def __call__(self, REAL_t[::1] x, REAL_t[::1] y, BOOL_t callEvalParams=True):
+        "Evaluate the kernel."
         if self.piecewise and callEvalParams:
             self.evalParams(x, y)
         return self.kernelFun(&x[0], &y[0], self.c_kernel_params)
@@ -467,6 +474,7 @@ cdef class Kernel(twoPointFunction):
         return newKernel
 
     def getComplementKernel(self):
+        "Get the complement kernel."
         raise NotImplementedError()
         from . kernels import getKernel
         newKernel = getKernel(dim=self.dim, kernel=self.kernelType, horizon=self.horizon, interaction=self.interaction.getComplement(), scaling=self.scaling, piecewise=self.piecewise)
@@ -490,6 +498,7 @@ cdef class Kernel(twoPointFunction):
         Kernel.__init__(self, state[0], state[1], state[2], state[3], state[4], state[5], state[6])
 
     def plot(self, x0=None):
+        "Plot the kernel function."
         from matplotlib import ticker
         import matplotlib.pyplot as plt
         if x0 is None:
@@ -540,6 +549,8 @@ cdef class Kernel(twoPointFunction):
 
 
 cdef class FractionalKernel(Kernel):
+    """A kernel functions that can be used to define a fractional operator."""
+
     def __init__(self, INDEX_t dim, fractionalOrderBase s, function horizon, interactionDomain interaction, twoPointFunction scaling, twoPointFunction phi=None, BOOL_t piecewise=True, BOOL_t boundary=False):
         super(FractionalKernel, self).__init__(dim, FRACTIONAL, horizon, interaction, scaling, phi, piecewise)
 
@@ -637,6 +648,7 @@ cdef class FractionalKernel(Kernel):
 
     @property
     def sValue(self):
+        "The value of the fractional order"
         return getREAL(self.c_kernel_params, fS)
 
     @sValue.setter
@@ -735,6 +747,7 @@ cdef class FractionalKernel(Kernel):
         return newKernel
 
     def getBoundaryKernel(self):
+        "Get the boundary kernel. This is the kernel that corresponds to the elimination of a subdomain via Gauss theorem."
         from copy import deepcopy
         s = deepcopy(self.s)
         if not self.variableOrder:
@@ -889,5 +902,3 @@ cdef class RangedVariableFractionalKernel(FractionalKernel):
 
     def __repr__(self):
         return 'ranged '+super(RangedVariableFractionalKernel, self).__repr__()
-
-

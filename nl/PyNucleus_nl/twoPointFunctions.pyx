@@ -5,6 +5,9 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
+"""
+Defines the base class for functions of two spatial variables, e.g. kernels, fractional orders and normalizations.
+"""
 
 import numpy as np
 cimport numpy as np

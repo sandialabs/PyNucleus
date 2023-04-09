@@ -6,6 +6,14 @@
 ###################################################################################
 
 
+"""
+This module allows to assemble nonlocal operators.
+
+It defines kernel functions, fractional orders, interaction domains and normalization constants.
+
+It allows to assemble nonlocal operators as dense, sparse of H^2 matrices.
+"""
+
 from . kernelsCy import (Kernel,
                          FractionalKernel,
                          RangedFractionalKernel,

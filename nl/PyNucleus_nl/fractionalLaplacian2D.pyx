@@ -35,6 +35,14 @@ cdef class fractionalLaplacian2DZeroExterior(nonlocalLaplacian2D):
 
 
 cdef class fractionalLaplacian2D_P1(nonlocalLaplacian2D):
+    """The local matrix
+
+    .. math::
+
+       \\int_{K_1}\\int_{K_2} (u(x)-u(y)) (v(x)-v(y)) \\gamma(x,y) dy dx
+
+    for the 2D fractional Laplacian on P1 elements.
+    """
     def __init__(self,
                  FractionalKernel kernel,
                  meshBase mesh,
@@ -920,5 +928,3 @@ cdef class fractionalLaplacian2D_P1_boundary(fractionalLaplacian2DZeroExterior):
                     k += 1
         else:
             raise NotImplementedError('Panel type unknown: {}.'.format(panel))
-
-
