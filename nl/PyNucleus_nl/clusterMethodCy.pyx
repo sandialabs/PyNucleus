@@ -1172,7 +1172,7 @@ cdef class tree_node:
                     for j in range(order):
                         for l in range(dim):
                             xi[j, l] = (boxes[I, l, 1]-boxes[I, l, 0])*0.5 * (eta[j]+1.0) + boxes[I, l, 0]
-                    # loop over interpolating ploynomial basis
+                    # loop over interpolating polynomial basis
                     r = 0
                     pit.reset()
                     while pit.step():
@@ -1294,7 +1294,7 @@ cdef class tree_node:
                     for j in range(order):
                         for l in range(dim):
                             xi[j, l] = (box[l, 1]-box[l, 0])*0.5 * (eta[j]+1.0) + box[l, 0]
-                    # loop over interpolating ploynomial basis
+                    # loop over interpolating polynomial basis
                     r = 0
                     for idx in product(*([range(order)]*dim)):
                         # evaluation of the idx-Chebyshev polynomial

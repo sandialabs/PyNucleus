@@ -814,8 +814,8 @@ cdef class DoFMap:
 
         :param matrixFormat: The matrix format for the assembly. Valid
             values are `dense`, `diagonal`, `sparsified`, `sparse`,
-            `H2` and `H2corrected`. `H2` assembles into a hierachical
-            matrix format. `H2corrected` also assembles a hierachical
+            `H2` and `H2corrected`. `H2` assembles into a hierarchical
+            matrix format. `H2corrected` also assembles a hierarchical
             matrix for an infinite horizon kernel and a correction
             term. `diagonal` returns the matrix diagonal. Both
             `sparsified` and `sparse` return a sparse matrix, but the
