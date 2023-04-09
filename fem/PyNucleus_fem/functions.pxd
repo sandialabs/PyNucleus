@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from PyNucleus_base.myTypes cimport REAL_t, INDEX_t, COMPLEX_t, BOOL_t
 from numpy cimport uint8_t
 

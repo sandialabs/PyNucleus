@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 import numpy as np
 from PyNucleus.fem.mesh import intervalWithInteraction
 from PyNucleus.fem.DoFMaps import P1_DoFMap
@@ -32,7 +31,6 @@ def idfunc(param):
                         (1, constFractionalOrder(0.25), 1.0, 2.5, False),
                         (1, constFractionalOrder(0.75), 1.0, 2.5, False),
                         (1, variableConstFractionalOrder(0.75), 0.5, 1.0, False),
-                        
                         ],
                 ids=idfunc)
 def kernels(request):

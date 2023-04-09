@@ -6,7 +6,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 import matplotlib.pyplot as plt
 from numpy import sqrt
 

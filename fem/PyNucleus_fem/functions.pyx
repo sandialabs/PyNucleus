@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from libc.math cimport (sin, cos, sinh, cosh, tanh, sqrt, atan2,
                         M_PI as pi, pow, exp, floor, log2)
 import numpy as np

@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from PyNucleus.base.utilsFem import runDriver
 import os
 import inspect
@@ -67,7 +66,6 @@ def testNonlocal(runNonlocal_params, extra):
     ('interval', 'varconst(0.75)', 'constant', 'cg-jacobi'),
     ('interval', 'varconst(0.75)', 'zeroFlux', 'cg-mg'),
     ('interval', 'varconst(0.75)', 'knownSolution', 'lu'),
-    
 ],
                 ids=idfunc)
 def runFractional_params(request):

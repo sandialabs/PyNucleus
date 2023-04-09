@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from libc.math cimport ceil
 import numpy as np
 cimport numpy as np
@@ -45,7 +44,6 @@ from . fractionalOrders cimport (fractionalOrderBase,
                                  singleVariableUnsymmetricFractionalOrder,
                                  variableFractionalLaplacianScaling)
 from . kernels import getFractionalKernel
-
 from . clusterMethodCy import (assembleFarFieldInteractions,
                                getDoFBoxesAndCells,
                                getFractionalOrders,
@@ -519,7 +517,6 @@ cdef class IndexManager:
                 contribNew[K] = contrib[k]
                 K += 1
 
-
     def __repr__(self):
         s = ''
         s += 'Cache size: {}'.format(len(self.cache))
@@ -682,7 +679,7 @@ cdef class nonlocalBuilder:
         autoQuad = params.get('automaticQuadrature', False)
         symmetric = not forceNonSym and self.kernel.symmetric
         if genKernel:
-             LOGGER.warning('General kernel not implemented')
+            LOGGER.warning('General kernel not implemented')
         elif isinstance(self.kernel, FractionalKernel):
             s = self.kernel.s
             assert ((s.min < 1.) and (s.max < 1.)) or ((s.min > 1.) and (s.max > 1.)), "smin={}, smax={} not supported".format(s.min, s.max)
@@ -703,22 +700,21 @@ cdef class nonlocalBuilder:
                     if s.min > 0. and s.max < 1.:
                         if symmetric:
                             if autoQuad:
-                                 raise NotImplementedError()
+                                raise NotImplementedError()
                             else:
                                 local_matrix = fractionalLaplacian1D_P1(self.kernel,
                                                                         mesh=self.mesh,
                                                                         DoFMap=self.dm,
                                                                         target_order=target_order)
                         else:
-                             raise NotImplementedError()
-
+                            raise NotImplementedError()
                     else:
                         raise NotImplementedError(self.kernel)
                 elif self.mesh.dim == 2:
                     if s.min > 0. and s.max < 1.:
                         if symmetric:
                             if autoQuad:
-                                 raise NotImplementedError()
+                                raise NotImplementedError()
                             else:
                                 local_matrix = fractionalLaplacian2D_P1(self.kernel,
                                                                         mesh=self.mesh,
@@ -726,12 +722,10 @@ cdef class nonlocalBuilder:
                                                                         target_order=target_order)
                         else:
                             raise NotImplementedError(self.kernel)
-
                     else:
                         raise NotImplementedError()
                 else:
                     raise NotImplementedError()
-
             else:
                 raise NotImplementedError()
         else:
@@ -784,13 +778,12 @@ cdef class nonlocalBuilder:
                     if s.min > 0. and s.max < 1.:
                         kernelBoundary = kernelInfHorizon.getBoundaryKernel()
                         if autoQuad:
-                             raise NotImplementedError()
+                            raise NotImplementedError()
                         else:
                             local_matrix = fractionalLaplacian1D_P1_boundary(kernelBoundary,
                                                                              mesh=self.mesh,
                                                                              DoFMap=self.dm,
                                                                              target_order=target_order)
-
                     else:
                         raise NotImplementedError()
                 elif self.mesh.dim == 2:
@@ -800,12 +793,10 @@ cdef class nonlocalBuilder:
                                                                          mesh=self.mesh,
                                                                          DoFMap=self.dm,
                                                                          target_order=target_order)
-
                     else:
                         raise NotImplementedError()
                 else:
                     raise NotImplementedError()
-
             else:
                 raise NotImplementedError()
         else:
@@ -1232,7 +1223,6 @@ cdef class nonlocalBuilder:
             else:
                 LOGGER.warning('Not converting dense to sparse matrix, since only {}% of entries are zero.'.format(100.*ratio))
         return A
-
 
     cpdef REAL_t getEntryCluster(self, INDEX_t I, INDEX_t J):
         cdef:
@@ -2768,7 +2758,6 @@ def assembleNonlocalOperator(meshBase mesh,
     kernel = getFractionalKernel(mesh.dim, s, horizon)
     builder = nonlocalBuilder(mesh, DoFMap, kernel, params, zeroExterior, comm, **kwargs)
     return builder.getDense()
-
 
 
 cdef LinearOperator getSparseNearField(DoFMap DoFMap, list Pnear, bint symmetric=False, tree_node myRoot=None):

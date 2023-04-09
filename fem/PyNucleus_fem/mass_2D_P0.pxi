@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 cdef class mass_2d_sym_P0(mass_2d):
     @cython.initializedcheck(False)
     @cython.boundscheck(False)

@@ -5,6 +5,5 @@
 // If you want to use this code, please refer to the README.rst and LICENSE files. //
 /////////////////////////////////////////////////////////////////////////////////////
 
-
 typedef int32_t INDEX_t;
 typedef double REAL_t;

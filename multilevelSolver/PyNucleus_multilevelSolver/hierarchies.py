@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 import mpi4py.rc
 mpi4py.rc.initialize = False
 from mpi4py import MPI
@@ -144,8 +143,7 @@ class hierarchy:
         if self.algebraicLevels[-1].algebraicOverlaps is not None:
             with self.Timer("Build multilevel overlaps"):
                 if False:
-                    raise NotImplementedError()
-                
+                   raise NotImplementedError()
                 else:
                     multLvlAlgOvManager = multilevelAlgebraicOverlapManager(self.comm)
                     for lvl in range(len(self.algebraicLevels)):
@@ -256,7 +254,6 @@ class hierarchy:
         h.algebraicLevels = self.algebraicLevels[:numLevels+1]
         h.multilevelAlgebraicOverlapManager = self.multilevelAlgebraicOverlapManager
         return h
-
 
 
 class hierarchyManager(object):

@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 try:
     from PyNucleus_packageTools import package
 except ImportError as e:
@@ -40,7 +39,6 @@ p.addExtension("fractionalOrders",
                sources=[p.folder+"fractionalOrders.pyx"])
 p.addExtension("clusterMethodCy",
                sources=[p.folder+"clusterMethodCy.pyx"])
-
 p.addExtension("nonlocalLaplacianND",
                sources=[p.folder+"nonlocalLaplacianND.pyx"])
 

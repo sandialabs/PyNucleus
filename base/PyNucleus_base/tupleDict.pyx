@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 import numpy as np
 from libc.stdlib cimport malloc, realloc, free
 from libc.stdlib cimport qsort

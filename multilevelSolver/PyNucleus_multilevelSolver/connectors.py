@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from __future__ import print_function
 import mpi4py.rc
 mpi4py.rc.initialize = False
@@ -21,7 +20,6 @@ from PyNucleus_base.utilsFem import TimerManager
 from PyNucleus_fem.boundaryLayerCy import boundaryLayer
 from PyNucleus_fem.DoFMaps import P0_DoFMap
 from PyNucleus_fem.factories import meshFactory
-
 from PyNucleus_fem.repartitioner import Repartitioner
 from PyNucleus_fem.meshOverlaps import meshOverlap, overlapManager, interfaceManager
 from PyNucleus_fem.mesh import INTERIOR_NONOVERLAPPING, INTERIOR, NO_BOUNDARY
@@ -154,7 +152,7 @@ class inputConnector(hierarchyConnector):
             else:
                 startLevelNo = 0
             if self.useMultiMesh:
-                 raise NotImplementedError()
+                raise NotImplementedError()
             else:
                 level = meshLevel(mesh, params['params'], label=params['label'], comm=params['comm'], startLevelNo=startLevelNo)
                 level.setAlgebraicLevelType(self.algebraicLevelType)
@@ -172,7 +170,6 @@ class repartitionConnector(hierarchyConnector):
         self.debugOverlaps = debugOverlaps
         self.commType = commType
         self.splitOM = None
-        
         self.algebraicLevelType = algebraicLevelType
 
     def getNewHierarchy(self, params):

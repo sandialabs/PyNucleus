@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from pathlib import Path
 try:
     from PyNucleus_packageTools import package
@@ -15,7 +14,6 @@ from PyNucleus_packageTools import fillTemplate
 
 
 p = package('PyNucleus_multilevelSolver')
-
 p.loadConfig()
 p.addPackageInclude('PyNucleus_base')
 p.addPackageInclude('PyNucleus_fem')
@@ -45,10 +43,8 @@ p.addExtension("restrictionProlongation",
                sources=[p.folder+"restrictionProlongation.pyx"])
 p.addExtension("multigrid",
                sources=[p.folder+"multigrid.pyx"])
-
 p.addExtension("coarseSolvers",
                sources=[p.folder+"coarseSolvers.pyx"])
-
 
 p.setup(description="An implementation of geometric multigrid",
         install_requires=['Cython>=0.29.32', 'mpi4py>=2.0.0', 'numpy', 'scipy',

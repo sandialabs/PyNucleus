@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 import numpy as np
 from PyNucleus_base.factory import factory
 from . functions import (simpleAnisotropy, simpleAnisotropy2, inclusions, inclusionsHong,
@@ -129,7 +128,6 @@ dofmapFactory.register('P3c', P3_DoFMap, aliases=['P3'])
 for dmType, dmName in [(P0_DoFMap, 'P0d'), (P1_DoFMap, 'P1c'), (P2_DoFMap, 'P2c'), (P3_DoFMap, 'P3c')]:
     dmNameShort = dmName[:-1]
     dofmapFactory.register('vector'+dmName, vectorDoFMap(dmType), aliases=['vector'+dmNameShort, 'vector-'+dmNameShort, 'vector '+dmNameShort])
-
 
 
 # meshes

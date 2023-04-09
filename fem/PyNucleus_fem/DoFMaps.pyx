@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 import numpy as np
 cimport numpy as np
 cimport cython
@@ -822,9 +821,7 @@ cdef class DoFMap:
             assembly routines are different.
 
         """
-
         try:
-
             from PyNucleus_nl.kernelsCy import RangedFractionalKernel
 
             if isinstance(kernel, RangedFractionalKernel):
@@ -852,7 +849,6 @@ cdef class DoFMap:
                         intervalOps.append(delayedNonlocalOp(self, gamma, matrixFormat=matrixFormat, dm2=dm2, **kwargs))
                     ops.append(intervalOps)
                 return multiIntervalInterpolationOperator(intervals, nodes, ops)
-
             else:
                 from PyNucleus_nl import nonlocalBuilder
 
@@ -2180,7 +2176,6 @@ cdef class P3_DoFMap(DoFMap):
 
 
 
-
 def str2DoFMap(element):
     if element == 'P0':
         return P0_DoFMap
@@ -2190,14 +2185,12 @@ def str2DoFMap(element):
         return P2_DoFMap
     elif element == 'P3':
         return P3_DoFMap
-
     else:
         raise NotImplementedError('Unknown DoFMap: {}'.format(element))
 
 
 def getAvailableDoFMaps():
     return ['P0', 'P1', 'P2', 'P3',
-
             ]
 
 
@@ -2210,7 +2203,6 @@ def str2DoFMapOrder(element):
         return 2
     elif element in ('P3', 3, '3'):
         return 3
-
     else:
         raise NotImplementedError('Unknown DoFMap: {}'.format(element))
 

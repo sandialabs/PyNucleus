@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from PyNucleus_base.myTypes cimport INDEX_t, {SCALAR}_t, BOOL_t
 from PyNucleus_base.solvers cimport {SCALAR_label_lc_}solver, {SCALAR_label_lc_}iterative_solver
 

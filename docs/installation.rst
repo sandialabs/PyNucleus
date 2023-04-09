@@ -1,5 +1,4 @@
 
-
 Possible ways to install and use PyNucleus
 ==========================================
 

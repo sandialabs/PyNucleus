@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 import numpy as np
 cimport numpy as np
 cimport cython
@@ -397,7 +396,6 @@ cdef class gaussSeidelSmoother(smoother):
                                                             'forward' if self.presmoother_forwardSweep else 'backward',
                                                             self.postsmoothingSteps,
                                                             'forward' if self.postsmoother_forwardSweep else 'backward',)
-
 
 cdef class iluPreconditioner(preconditioner):
     def __init__(self,

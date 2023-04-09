@@ -6,7 +6,6 @@
 ###################################################################################
 
 
-
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, BOOL_t
 from . twoPointFunctions cimport parametrizedTwoPointFunction
 

@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from . blas cimport updateScaled
 from . solvers cimport solver
 from . linear_operators cimport {SCALAR_label}LinearOperator

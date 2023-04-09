@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 cdef class {SCALAR_label}smoother:
     def __init__(self, {SCALAR_label}LinearOperator A):
         self._A = A

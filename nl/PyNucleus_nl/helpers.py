@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from PyNucleus_base import INDEX
 from PyNucleus_base.utilsFem import getLoggingTimer
 from PyNucleus_base.linear_operators import (LinearOperator,

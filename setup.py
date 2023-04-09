@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 import os
 import importlib
 from setuptools import setup
@@ -19,12 +18,12 @@ requirements = ['numpy', 'Cython>=0.29.32']
 lclDir = os.getcwd().replace('\\', '/')
 for pkg, srcLocation in [
         # These are just in the same git repo.
-         ('packageTools', 'file://localhost/{lclDir}/packageTools'.format(lclDir=lclDir)),
+        ('packageTools', 'file://localhost/{lclDir}/packageTools'.format(lclDir=lclDir)),
         ('base', 'file://localhost/{lclDir}/base'.format(lclDir=lclDir)),
         ('metisCy', 'file://localhost/{lclDir}/metisCy'.format(lclDir=lclDir)),
         ('fem', 'file://localhost/{lclDir}/fem'.format(lclDir=lclDir)),
         ('multilevelSolver', 'file://localhost/{lclDir}/multilevelSolver'.format(lclDir=lclDir)),
-         ('nl', 'file://localhost/{lclDir}/nl'.format(lclDir=lclDir)),
+        ('nl', 'file://localhost/{lclDir}/nl'.format(lclDir=lclDir)),
 ]:
     fullPkgName = 'PyNucleus_'+pkg
     try:

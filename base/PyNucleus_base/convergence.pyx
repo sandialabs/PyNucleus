@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from . myTypes import INDEX, REAL
 from . ip_norm cimport ip_serial
 from libc.math cimport sqrt
@@ -78,7 +77,6 @@ cdef class synchronousConvergenceCriterion(convergenceCriterion):
     cdef void updateClients(self, BOOL_t converged):
         if self.hasClient and self.comm.rank == 0:
             self.clientComm.isend(converged, dest=self.clientRank, tag=200)
-
 
 ######################################################################
 # convergence master (needed if coarse grid is on separate communicator)

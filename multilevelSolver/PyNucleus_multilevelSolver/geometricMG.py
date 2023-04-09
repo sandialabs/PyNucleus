@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from __future__ import division
 import logging
 import numpy as np
@@ -173,7 +172,6 @@ def paramsForMG(noRef, onRanks, global_params, dim, element, repartitionFactor=0
         hierarchies[i]['connectorStart'] = label
 
     return hierarchies, connectors
-
 
 
 def writeToHDF(filename, levels, mesh):

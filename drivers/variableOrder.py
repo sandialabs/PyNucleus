@@ -6,7 +6,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 import numpy as np
 from numpy.linalg import norm as npnorm
 from PyNucleus.base.ip_norm import ip_serial, norm_serial
@@ -68,7 +67,6 @@ if d.domain == 'interval':
             leftRightFractionalOrder(s1, s2, smean, smean),
             leftRightFractionalOrder(s1, s2, s2, s2),
             # sNonSym,
-            
             # smoothedLeftRightFractionalOrder(s1, s2, slope=1000.),
             # leftRightFractionalOrder(s1, s2, s1, (s1+s2)/2),
             # leftRightFractionalOrder(s1, s2, s2, (s1+s2)/2)

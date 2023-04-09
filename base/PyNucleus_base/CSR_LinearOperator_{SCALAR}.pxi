@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
     def __init__(self,
                  INDEX_t[::1] indices,

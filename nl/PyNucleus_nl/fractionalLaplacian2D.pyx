@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from libc.math cimport (sqrt, log, ceil, fabs as abs, pow)
 import numpy as np
 cimport numpy as np

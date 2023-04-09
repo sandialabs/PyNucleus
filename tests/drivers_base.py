@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from mpi4py import MPI
 from PyNucleus.base.utilsFem import runDriver
 import os
@@ -60,7 +59,6 @@ def testParallelGMG(ranks, domain, element, symmetric, extra):
     runDriver(path, py, ranks=ranks, cacheDir=cacheDir, relTol=3e-2, extra=extra)
 
 
-
 ################################################################################
 # multigrid for Helmholtz
 
@@ -70,7 +68,6 @@ def testHelmholtz(ranks, domain, extra):
     path = base+'drivers'
     cacheDir = getPath()+'/'
     runDriver(path, py, ranks=ranks, cacheDir=cacheDir, extra=extra)
-
 
 
 ################################################################################

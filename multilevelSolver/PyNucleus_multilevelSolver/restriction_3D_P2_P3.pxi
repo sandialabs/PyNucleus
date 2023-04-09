@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 #@cython.initializedcheck(False)
 #@cython.boundscheck(False)
 #@cython.wraparound(False)

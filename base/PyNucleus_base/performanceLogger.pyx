@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from timeit import default_timer as time
 from collections import OrderedDict
 from . memProfile import memRegionsAreEnabled as memRegionsAreEnabledPy

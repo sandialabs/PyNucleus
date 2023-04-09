@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 def latexOptions(fig_width=None, fig_height=None, ratio=None,
                  fontsize=10, otherMPL=None):
     import numpy as np

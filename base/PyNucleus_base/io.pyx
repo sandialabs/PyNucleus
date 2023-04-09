@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 import numpy as np
 from scipy.io import mmwrite
 from . linear_operators cimport IJOperator, CSR_LinearOperator

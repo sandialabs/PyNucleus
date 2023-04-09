@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, ENCODE_t, BOOL_t
 from PyNucleus_fem.quadrature cimport (simplexQuadratureRule, quadQuadratureRule,
                              doubleSimplexQuadratureRule, GaussJacobi,
@@ -38,7 +37,6 @@ cdef class fractionalLaplacian1D_P1(nonlocalLaplacian1D):
 
 cdef class fractionalLaplacian1D_P1_boundary(fractionalLaplacian1DZeroExterior):
     pass
-
 
 
 cdef class fractionalLaplacian1D_P0(nonlocalLaplacian1D):

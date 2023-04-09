@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 cdef class tupleDict{VALUE}:
     def __init__(self,
                  INDEX_t num_dofs,

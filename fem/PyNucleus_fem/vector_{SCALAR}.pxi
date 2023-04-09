@@ -6,7 +6,6 @@
 ###################################################################################
 
 
-
 cdef class {SCALAR_label_lc_}fe_vector:
     def __init__(self, {SCALAR}_t[::1] data, DoFMap dm):
         self.data = data

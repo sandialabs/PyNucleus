@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from shutil import copy
 from pathlib import Path
 from distutils.errors import CompileError
@@ -167,5 +166,4 @@ p.addExtension("io",
 
 p.setup(description="Helper functions for PyNucleus.",
         install_requires=['numpy', 'scipy', 'Cython>=0.29.32', 'mpi4py>=2.0.0', 'matplotlib', 'tabulate', 'h5py', 'pyyaml', 'psutil'],
-
         )

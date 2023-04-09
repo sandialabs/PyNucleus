@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from PyNucleus_base.myTypes cimport REAL_t, COMPLEX_t, INDEX_t, BOOL_t
 from PyNucleus_base.ip_norm cimport ipBase, normBase, complexipBase, complexNormBase
 from . meshCy cimport meshBase, vertices_t, cells_t
@@ -63,7 +62,6 @@ cdef class P0_DoFMap(DoFMap):
 
 cdef class P3_DoFMap(DoFMap):
     pass
-
 
 
 cdef class shapeFunction:

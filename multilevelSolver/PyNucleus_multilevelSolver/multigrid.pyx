@@ -5,6 +5,5 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 include "multigrid_REAL.pxi"
 include "multigrid_COMPLEX.pxi"

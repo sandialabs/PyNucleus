@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 import numpy as np
 from PyNucleus_base import REAL
 from PyNucleus_base.factory import factory
@@ -29,7 +28,6 @@ from PyNucleus_fem import (PHYSICAL, NO_BOUNDARY,
                            NEUMANN, HOMOGENEOUS_NEUMANN,
                            NORM)
 from PyNucleus_fem.factories import functionFactory, rhsFractional2D_nonPeriodic
-
 from scipy.special import gamma as Gamma, binom
 from . twoPointFunctions import (constantTwoPoint,
                                  temperedTwoPoint,
@@ -51,11 +49,9 @@ from . fractionalOrders import (constFractionalOrder,
                                 layersFractionalOrder)
 from . kernelsCy import (getKernelEnum,
                          FRACTIONAL, INDICATOR, PERIDYNAMIC, GAUSSIAN,
-                         
                          )
 from . kernels import (getFractionalKernel,
                        getIntegrableKernel,
-                       
                        getKernel)
 
 
@@ -82,7 +78,6 @@ kernelFactory.register('inverseDistance', getIntegrableKernel, params={'kernel':
 kernelFactory.register('gaussian', getIntegrableKernel, params={'kernel': GAUSSIAN})
 
 
-
 class nonlocalMeshFactoryClass(factory):
     def __init__(self):
         super(nonlocalMeshFactoryClass, self).__init__()
@@ -100,7 +95,6 @@ class nonlocalMeshFactoryClass(factory):
         skipMesh = False
         if 'skipMesh' in kwargs:
             skipMesh = kwargs.pop('skipMesh')
-        
 
         domainIndicator, boundaryIndicator, interactionIndicator = super(nonlocalMeshFactoryClass, self).build(name, **kwargs)
 
@@ -157,7 +151,6 @@ class nonlocalMeshFactoryClass(factory):
                 mesh = mesh.refine()
                 dmTest = P1_DoFMap(mesh, tag)
 
-            
         nonlocalInfo = {'domain': domainIndicator,
                         'boundary': boundaryIndicator,
                         'interaction': interactionIndicator,
@@ -1169,7 +1162,6 @@ class transientFractionalProblem(fractionalLaplacianProblem):
         group.add('finalTime', self.finalTime)
 
 
-
 class brusselatorProblem(problem):
     """
     Fractional order Brusselator system:
@@ -1267,7 +1259,6 @@ class brusselatorProblem(problem):
                 def initial_V(x):
                     return np.random.rand() / self.eta
 
-        
 
         self.initial_U = functionFactory('Lambda', initial_U)
         self.initial_V = functionFactory('Lambda', initial_V)

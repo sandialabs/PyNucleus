@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX, BOOL
 from PyNucleus_base import uninitialized
 from PyNucleus_base.blas cimport uninitializedREAL

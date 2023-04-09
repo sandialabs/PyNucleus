@@ -1,4 +1,3 @@
-
 # VERSION:        0.1
 # DESCRIPTION:    Dockerized PyNucleus build
 # AUTHOR:         Christian Glusa
@@ -38,9 +37,7 @@ ENV LD_LIBRARY_PATH /usr/local/lib
 
 RUN echo "alias ls='ls --color=auto -FN'" >> /root/.bashrc
 
-
 RUN /sbin/ldconfig
-
 
 
 # copy code to container and build

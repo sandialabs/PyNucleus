@@ -1,5 +1,4 @@
 
-
 Example 1 - A simple PDE problem
 ================================
 

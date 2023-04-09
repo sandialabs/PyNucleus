@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 cimport numpy as np
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, ENCODE_t, BOOL_t
 from PyNucleus_fem.quadrature cimport (simplexQuadratureRule, quadratureRule,

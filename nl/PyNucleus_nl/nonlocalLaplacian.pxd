@@ -5,7 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, ENCODE_t, BOOL_t
 from PyNucleus_base.tupleDict cimport tupleDictMASK, indexSet, indexSetIterator, arrayIndexSet, unsortedArrayIndexSet, arrayIndexSetIterator
 from PyNucleus_fem.quadrature cimport (simplexQuadratureRule, quadQuadratureRule,
@@ -24,15 +23,12 @@ from . nonlocalLaplacianBase cimport (double_local_matrix_t,
                                         MASK_t)
 from . fractionalLaplacian1D cimport (fractionalLaplacian1D_P1,
                                       fractionalLaplacian1D_P1_boundary,
-                                      
                                       fractionalLaplacian1D_P0,
                                       fractionalLaplacian1D_P0_boundary)
 from . fractionalLaplacian2D cimport (fractionalLaplacian2D_P1,
                                       fractionalLaplacian2D_P1_boundary,
-                                      
                                       )
 from . nonlocalLaplacianND cimport integrable1D, integrable2D
-
 
 import mpi4py.rc
 mpi4py.rc.initialize = False
