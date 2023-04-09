@@ -728,7 +728,7 @@ cdef class integrable2D(nonlocalLaplacian2D):
                 idx2[0], idx2[1], idx2[2] = 2, 0, 1
             idx3[0], idx3[1], idx3[2], idx3[3], idx3[4] = idx1[0], idx1[1], idx1[2], 3+idx2[1], 3+idx2[2]
 
-            # factor 4. comes from inverse sqare of volume of standard simplex
+            # factor 4. comes from inverse square of volume of standard simplex
             vol = scaling*4.0*vol1*vol2
 
             # two different integrals

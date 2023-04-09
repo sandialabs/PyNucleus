@@ -519,7 +519,7 @@ cdef class IndexManager:
                 contribNew[K] = contrib[k]
                 K += 1
 
-    
+
     def __repr__(self):
         s = ''
         s += 'Cache size: {}'.format(len(self.cache))
@@ -711,7 +711,7 @@ cdef class nonlocalBuilder:
                                                                         target_order=target_order)
                         else:
                              raise NotImplementedError()
-                    
+
                     else:
                         raise NotImplementedError(self.kernel)
                 elif self.mesh.dim == 2:
@@ -726,12 +726,12 @@ cdef class nonlocalBuilder:
                                                                         target_order=target_order)
                         else:
                             raise NotImplementedError(self.kernel)
-                    
+
                     else:
                         raise NotImplementedError()
                 else:
                     raise NotImplementedError()
-            
+
             else:
                 raise NotImplementedError()
         else:
@@ -790,7 +790,7 @@ cdef class nonlocalBuilder:
                                                                              mesh=self.mesh,
                                                                              DoFMap=self.dm,
                                                                              target_order=target_order)
-                    
+
                     else:
                         raise NotImplementedError()
                 elif self.mesh.dim == 2:
@@ -800,12 +800,12 @@ cdef class nonlocalBuilder:
                                                                          mesh=self.mesh,
                                                                          DoFMap=self.dm,
                                                                          target_order=target_order)
-                    
+
                     else:
                         raise NotImplementedError()
                 else:
                     raise NotImplementedError()
-            
+
             else:
                 raise NotImplementedError()
         else:
@@ -1233,7 +1233,7 @@ cdef class nonlocalBuilder:
                 LOGGER.warning('Not converting dense to sparse matrix, since only {}% of entries are zero.'.format(100.*ratio))
         return A
 
-    
+
     cpdef REAL_t getEntryCluster(self, INDEX_t I, INDEX_t J):
         cdef:
             tree_node n1, n2, n3
@@ -1480,7 +1480,7 @@ cdef class nonlocalBuilder:
             #  C(d,s) \int_D \int_D (u(x)-u(y)) (v(x)-v(y)) /|x-y|^{d+2s}
             # where
             #  D = (supp u) \cup (supp v).,
-            # We only update unknows that are in the cluster pair.
+            # We only update unknowns that are in the cluster pair.
 
             if not use_masks:
                 # This loop does the correct thing, but we are wasting a lot of
@@ -1561,7 +1561,7 @@ cdef class nonlocalBuilder:
                     # where
                     #  D = (supp u) \cap (supp v) \subset E,
                     #  E = \partial((supp u) \cup (supp v)).
-                    # We only update unknows that are in the cluster pair.
+                    # We only update unknowns that are in the cluster pair.
 
                     iM = IndexManager(self.dm, Anear_filtered)
 
@@ -1669,7 +1669,7 @@ cdef class nonlocalBuilder:
                 # where
                 #  D = (supp u) \cap (supp v) \subset E,
                 #  E = Omega \ ((supp u) \cup (supp v)).
-                # We only update unknows that are in the cluster pair.
+                # We only update unknowns that are in the cluster pair.
                 with self.PLogger.Timer(prefix+'cluster exterior'):
                     iM = IndexManager(self.dm, Anear_filtered)
 

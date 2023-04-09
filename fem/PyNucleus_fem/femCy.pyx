@@ -32,7 +32,7 @@ from PyNucleus_base.linear_operators cimport (LinearOperator,
                                                SSS_LinearOperator)
 from PyNucleus_base.sparsityPattern cimport sparsityPattern
 from . DoFMaps cimport (P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap,
-                        
+
                         DoFMap,
                         vectorShapeFunction,
                         fe_vector, complex_fe_vector,
@@ -829,7 +829,7 @@ cdef class drift_1d_P1(drift_1d):
         cdef:
             REAL_t fac = 0.5
 
-        # coeff \cdot \grad\lambda_i should be scaled by 1/vol, but that get's killed by the factor vol of the integration
+        # coeff \cdot \grad\lambda_i should be scaled by 1/vol, but that gets killed by the factor vol of the integration
         coeffProducts1D(simplex, 1.0, self.coeff, self.innerProducts, self.temp)
 
         contrib[0] = self.innerProducts[0]*fac
@@ -889,7 +889,7 @@ cdef class drift_2d_P1(drift_2d):
         cdef:
             REAL_t fac = 1./3.
 
-        # coeff \cdot \grad\lambda_i should be scaled by 1/vol, but that get's killed by the factor vol of the integration
+        # coeff \cdot \grad\lambda_i should be scaled by 1/vol, but that gets killed by the factor vol of the integration
         coeffProducts2D(simplex, 1.0, self.coeff, self.innerProducts, self.temp)
 
         contrib[0] = self.innerProducts[0]*fac
@@ -1647,7 +1647,7 @@ def assembleMass(DoFMap dm,
                     local_matrix = mass_3d_sym_P3()
                 else:
                     raise NotImplementedError()
-            
+
             else:
                 raise NotImplementedError(dm)
         else:
