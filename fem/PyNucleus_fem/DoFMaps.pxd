@@ -17,27 +17,27 @@ include "vector_decl_COMPLEX.pxi"
 
 cdef class DoFMap:
     cdef:
-        public meshBase mesh
-        readonly INDEX_t dim
+        public meshBase mesh  #: The underlying mesh
+        readonly INDEX_t dim  #: The spatial dimension of the underlying mesh
         BOOL_t reordered
-        public list localShapeFunctions
-        public REAL_t[:, ::1] nodes
+        public list localShapeFunctions  #: List of local shape functions
+        public REAL_t[:, ::1] nodes  #: The barycentric coordinates of the DoFs
         public REAL_t[:, ::1] dof_dual
-        public INDEX_t num_dofs
-        public INDEX_t num_boundary_dofs
-        public INDEX_t[:, ::1] dofs
-        public INDEX_t polynomialOrder
+        public INDEX_t num_dofs  #: The number of DoFs of the finite element space
+        public INDEX_t num_boundary_dofs  #: The number of boundary DoFs of the finite element space
+        public INDEX_t[:, ::1] dofs  #: Array with the mapping from cells to DoFs
+        public INDEX_t polynomialOrder  #: The polynomial order of the finite element space
         public list tag
         public function tagFunction
-        public INDEX_t dofs_per_vertex
-        public INDEX_t dofs_per_edge
-        public INDEX_t dofs_per_face
-        public INDEX_t dofs_per_cell
-        public INDEX_t dofs_per_element
-        public ipBase inner
-        public normBase norm
-        public complexipBase complex_inner
-        public complexNormBase complex_norm
+        public INDEX_t dofs_per_vertex  #: The number of degrees of freedom per vertex
+        public INDEX_t dofs_per_edge  #: The number of degrees of freedom per edge
+        public INDEX_t dofs_per_face  #: The number of degrees of freedom per face
+        public INDEX_t dofs_per_cell  #: The number of degrees of freedom per cell
+        public INDEX_t dofs_per_element  #: The total number of degrees of freedom per element
+        public ipBase inner  #: The inner product of the finite element space
+        public normBase norm  #: The norm of the finite element space
+        public complexipBase complex_inner  #: The complex inner product of the finite element space
+        public complexNormBase complex_norm  #: The complex norm of the finite element space
     cdef INDEX_t cell2dof(self,
                           const INDEX_t cellNo,
                           const INDEX_t perCellNo)

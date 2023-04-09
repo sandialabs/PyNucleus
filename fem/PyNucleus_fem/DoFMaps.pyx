@@ -69,6 +69,13 @@ include "vector_COMPLEX.pxi"
 
 
 cdef class DoFMap:
+    """A class to store the mapping from mesh elements to degrees of freedom (DoFs).
+
+    Degrees of freedom are split into two types. The interior DoFs
+    that are used to support the finite element space and boundary
+    DoFs that correspond to essential boundary conditions.
+    """
+
     @cython.boundscheck(False)
     @cython.initializedcheck(False)
     @cython.wraparound(False)
@@ -366,12 +373,15 @@ cdef class DoFMap:
     cdef INDEX_t cell2dof(self,
                           const INDEX_t cellNo,
                           const INDEX_t perCellNo):
+        """Return the global DoF index corresponding to the cell number and the local DoF index."""
         return self.dofs[cellNo, perCellNo]
 
     def cell2dof_py(self, INDEX_t cellNo, INDEX_t perCellNo):
+        """Return the global DoF index corresponding to the cell number and the local DoF index."""
         return self.cell2dof(cellNo, perCellNo)
 
     cpdef void reorder(self, const INDEX_t[::1] perm):
+        """Reorder the DoFs according to the given permutation."""
         cdef INDEX_t i, j, dof
         for i in range(self.dofs.shape[0]):
             for j in range(self.dofs.shape[1]):
@@ -386,6 +396,7 @@ cdef class DoFMap:
                              INDEX_t start_idx=-1, INDEX_t end_idx=-1,
                              BOOL_t symmetric=False,
                              BOOL_t reorder=False):
+        """Build a sparsity pattern for the given mesh cells."""
         cdef:
             INDEX_t i, j, k, I, J, jj
             INDEX_t num_dofs = self.num_dofs
@@ -481,6 +492,7 @@ cdef class DoFMap:
                                          DoFMap dmOther,
                                          INDEX_t start_idx=-1,
                                          INDEX_t end_idx=-1):
+        "Build a non-symmetric sparsity pattern."
         cdef:
             INDEX_t i, j, k, I, J
             INDEX_t num_dofs = self.num_dofs
@@ -520,6 +532,7 @@ cdef class DoFMap:
     @cython.initializedcheck(False)
     @cython.wraparound(False)
     def interpolate(self, fun):
+        "Interpolate a function into the finite element space."
         cdef:
             function real_fun
             vectorFunction real_vec_fun
@@ -579,6 +592,7 @@ cdef class DoFMap:
             return real_vec
 
     def getDoFCoordinates(self):
+        "Get the coordinate vector of the DoFs."
         from . functions import coordinate
         coords = uninitialized((self.num_dofs, self.mesh.dim), dtype=REAL)
         for i in range(self.mesh.dim):
@@ -586,6 +600,7 @@ cdef class DoFMap:
         return coords
 
     def project(self, function, DoFMap=None, simplexQuadratureRule qr=None):
+        "Project a function into the finite element space."
         from . femCy import assembleRHSfromFEfunction
         from scipy.sparse.linalg import spsolve
         if isinstance(function, np.ndarray):
@@ -607,11 +622,29 @@ cdef class DoFMap:
                      INDEX_t[::1] cellIndices=None,
                      DoFMap dm2=None,
                      coefficient=None):
-        """Assemble
+        """Assemble the mass matrix
 
         .. math::
 
-           \int_D u(x) coefficient(x) v(x) dx
+           \int_D u(x) \\texttt{coefficient}(x) v(x) dx
+
+        :param sss_format: sss_format is a Boolean parameter that
+            specifies whether the assembled mass matrix should be
+            in the Symmetric Sparse Skyline (SSS) format. If
+            sss_format is True, the matrix will be stored in the SSS
+            format, which is a memory-efficient way of storing
+            symmetric matrices. Defaults to False (optional).
+
+        :param reorder: The reorder parameter is a boolean value that
+            determines whether or not to reorder the degrees of
+            freedom (DoFs) before assembling the mass matrix.
+            Reordering can improve the efficiency of the matrix
+            assembly and subsequent computations by reducing the
+            number of non-zero entries in the matrix and improving
+            cache locality, defaults to False (optional).
+
+        :param coefficient: Weighting of the mass matrix. If not
+            provided it is assumed to be one.
 
         """
         if not isinstance(self, Product_DoFMap):
@@ -666,7 +699,9 @@ cdef class DoFMap:
 
         .. math::
 
-           \int_D (coeff(x) \cdot \nabla u(x)) v(x) dx
+           \\int_D (\\texttt{coeff}(x) \\cdot \\nabla u(x)) v(x) dx
+
+        :param coeff: the vector-valued advection term
 
         """
         from . femCy import assembleDrift
@@ -687,11 +722,31 @@ cdef class DoFMap:
                           diffusivity=None,
                           INDEX_t[::1] cellIndices=None,
                           DoFMap dm2=None):
-        """Assemble
+        """This function assembles the stiffness matrix for a given
+        diffusivity function:
 
         .. math::
 
-           \int_D \nabla u(x) \cdot diffusivity(x) \nabla v(x) dx
+           \\int_D \\nabla u(x) \\cdot \\texttt{diffusivity}(x) \\nabla v(x) dx
+
+        :param sss_format: sss_format is a Boolean parameter that
+            specifies whether the assembled stiffness matrix should be
+            in the Symmetric Sparse Skyline (SSS) format. If
+            sss_format is True, the matrix will be stored in the SSS
+            format, which is a memory-efficient way of storing
+            symmetric matrices. Defaults to False (optional).
+
+        :param reorder: The reorder parameter is a boolean value that
+            determines whether or not to reorder the degrees of
+            freedom (DoFs) before assembling the stiffness matrix.
+            Reordering can improve the efficiency of the matrix
+            assembly and subsequent computations by reducing the
+            number of non-zero entries in the matrix and improving
+            cache locality, defaults to False (optional)
+
+        :param diffusivity: Diffusivity is a property of a material
+            that describes how easily it allows particles or heat to
+            move through it. Assumed to be one if not specified.
 
         """
         from . femCy import assembleStiffness
@@ -709,11 +764,16 @@ cdef class DoFMap:
     def assembleRHS(self,
                     fun,
                     simplexQuadratureRule qr=None):
-        """Assemble
+        """Assemble the right-hand side vector
 
         .. math::
 
-           \int_D fun(x) v(x) dx
+           \\int_D \\texttt{fun}(x) v(x) dx
+
+        :param fun: the right-hand side function
+
+        :param qr: the quadrature rule for the integration. If not
+            specified a sensible default is used.
 
         """
         from . femCy import assembleRHS, assembleRHScomplex
@@ -726,11 +786,18 @@ cdef class DoFMap:
                         fun,
                         vectorFunction coeff,
                         simplexQuadratureRule qr=None):
-        """Assemble
+        """Assemble the right-hand side vector
 
         .. math::
 
-           \int_D fun(x) (coeff(x) \cdot \nabla v(x)) dx
+           \\int_D \\texttt{fun}(x) (\\texttt{coeff}(x) \\cdot \\nabla v(x)) dx
+
+        :param fun: the right-hand side function
+
+        :param coeff: a vector function
+
+        :param qr: the quadrature rule for the integration. If not
+            specified a sensible default is used.
 
         """
         from . femCy import assembleRHSgrad
@@ -741,7 +808,7 @@ cdef class DoFMap:
 
         .. math::
 
-           \int_D (u(x)-u(y)) \gamma(x, y) dy
+           \\int_D (u(x)-u(y)) \\gamma(x, y) dy
 
         :param kernel: The kernel function :math:`\gamma`
 
@@ -755,9 +822,9 @@ cdef class DoFMap:
             assembly routines are different.
 
         """
-        
+
         try:
-            
+
             from PyNucleus_nl.kernelsCy import RangedFractionalKernel
 
             if isinstance(kernel, RangedFractionalKernel):
@@ -785,7 +852,7 @@ cdef class DoFMap:
                         intervalOps.append(delayedNonlocalOp(self, gamma, matrixFormat=matrixFormat, dm2=dm2, **kwargs))
                     ops.append(intervalOps)
                 return multiIntervalInterpolationOperator(intervals, nodes, ops)
-            
+
             else:
                 from PyNucleus_nl import nonlocalBuilder
 
@@ -817,9 +884,11 @@ cdef class DoFMap:
 
         .. math::
 
-           \int_D sigma[u](x) : \epsilon[v](x) dx
-           \epsilon[u] = (\nabla u + (\nabla u)^T) / 2
-           \sigma[u]   = \lambda \nabla \cdot u I + 2\mu \epsilon[u]
+           \\int_D \\sigma[u](x) : \\epsilon[v](x) dx
+
+           \\epsilon[u] = (\\nabla u + (\\nabla u)^T) / 2
+
+           \\sigma[u]   = \\lambda \\nabla \\cdot u I + 2\\mu \\epsilon[u]
 
         """
         from . femCy import (assembleMatrix,
@@ -903,6 +972,7 @@ cdef class DoFMap:
         return coords
 
     def zeros(self, INDEX_t numVecs=1, BOOL_t collection=False, dtype=REAL):
+        "Return a zero finite element coefficient vector."
         if numVecs == 1:
             if dtype == REAL:
                 return fe_vector(np.zeros((self.num_dofs), dtype=REAL), self)
@@ -922,6 +992,7 @@ cdef class DoFMap:
                     return np.zeros((numVecs, self.num_dofs), dtype=dtype)
 
     def ones(self, INDEX_t numVecs=1, BOOL_t collection=False, dtype=REAL):
+        "Return the finite element coefficient vector corresponding to the constant function."
         if numVecs == 1:
             if dtype == REAL:
                 return fe_vector(np.ones((self.num_dofs), dtype=REAL), self)
@@ -941,6 +1012,7 @@ cdef class DoFMap:
                     return np.ones((numVecs, self.num_dofs), dtype=dtype)
 
     def full(self, REAL_t fill_value, INDEX_t numVecs=1, BOOL_t collection=False, dtype=REAL):
+        "Return a finite element coefficient vector filled with fill_value."
         if numVecs == 1:
             if dtype == REAL:
                 return fe_vector(np.full((self.num_dofs), fill_value=fill_value, dtype=REAL), self)
@@ -960,6 +1032,7 @@ cdef class DoFMap:
                     return np.full((numVecs, self.num_dofs), fill_value=fill_value, dtype=dtype)
 
     def empty(self, INDEX_t numVecs=1, BOOL_t collection=False, dtype=REAL):
+        "Return an uninitialized finite element coefficient vector."
         if numVecs == 1:
             if dtype == REAL:
                 return fe_vector(uninitialized((self.num_dofs), dtype=REAL), self)
@@ -979,6 +1052,7 @@ cdef class DoFMap:
                     return uninitialized((numVecs, self.num_dofs), dtype=dtype)
 
     def fromArray(self, data):
+        "Build a finite element coefficient vector from a numpy array."
         assert data.shape[0] == self.num_dofs, (data.shape[0], self.num_dofs)
         if data.dtype == COMPLEX:
             return complex_fe_vector(data, self)
@@ -1025,6 +1099,7 @@ cdef class DoFMap:
         return self.getCellLookup()
 
     def linearPart(self, x):
+        "Return the linear part of the finite element function."
         cdef:
             INDEX_t i, j, dof, dofP1, k
             DoFMap dm
@@ -1069,6 +1144,7 @@ cdef class DoFMap:
             raise NotImplementedError(type(x))
 
     def getComplementDoFMap(self):
+        "Return the complement DoFMap which has DoFs and natural boundary conditions swapped."
         from copy import deepcopy
         cdef:
             bdm = deepcopy(self)
@@ -1084,6 +1160,7 @@ cdef class DoFMap:
         return bdm
 
     def augmentWithZero(self, const REAL_t[::1] x):
+        "Augment the finite element function with zeros on the boundary."
         cdef:
             DoFMap dm = type(self)(self.mesh, tag=MAX_INT)
             fe_vector y = dm.empty(dtype=REAL)
@@ -1102,6 +1179,7 @@ cdef class DoFMap:
     def augmentWithBoundaryData(self,
                                 const REAL_t[::1] x,
                                 const REAL_t[::1] boundaryData):
+        "Augment the finite element function with boundary data."
         cdef:
             DoFMap dm
             fe_vector y
@@ -1342,6 +1420,7 @@ cdef class DoFMap:
         return newDM
 
     def plot(self, *args, **kwargs):
+        "Plot the DoF mapping."
         self.mesh.plotDoFMap(self, *args, **kwargs)
 
     def sort(self):
@@ -1366,6 +1445,7 @@ cdef class DoFMap:
         self.reorder(invIdx)
 
     def HDF5write(self, node):
+        "Write the DoF mapping to an HDF5 file node."
         COMPRESSION = 'gzip'
         node.attrs['type'] = 'DoFMap'
         node.create_group('mesh')
@@ -1397,6 +1477,7 @@ cdef class DoFMap:
 
     @staticmethod
     def HDF5read(node):
+        "Read the DoF mapping from an HDF5 file node."
         from . mesh import meshNd
         mesh = meshNd.HDF5read(node['mesh'])
         if node.attrs['element'] == 'P0':
@@ -1426,10 +1507,12 @@ cdef class DoFMap:
                                                                   self.num_boundary_dofs)
 
     def set_ip_norm(self, ipBase inner, normBase norm):
+        "Set the inner product and norm that finite element functions derived from this DoFMap will use."
         self.inner = inner
         self.norm = norm
 
     def set_complex_ip_norm(self, complexipBase inner, complexNormBase norm):
+        "Set the inner product and norm that complex-valued finite element functions derived from this DoFMap will use."
         self.complex_inner = inner
         self.complex_norm = norm
 
@@ -1576,6 +1659,8 @@ cdef class globalShapeFunction(function):
 
 
 cdef class shapeFunction:
+    """A class to represent a finite element shape function."""
+
     def __init__(self):
         self.bary = uninitialized((4), dtype=REAL)
 
@@ -1617,6 +1702,8 @@ cdef class shapeFunction:
 
 
 cdef class vectorShapeFunction:
+    """A class to represent a vector-valued finite element shape function."""
+
     def __init__(self, INDEX_t dim, BOOL_t needsGradients):
         self.dim = dim
         self.cell = uninitialized((dim+1), dtype=INDEX)
@@ -1652,6 +1739,8 @@ cdef class vectorShapeFunction:
 
 
 cdef class shapeFunctionP0(shapeFunction):
+    """A class to represent the shape functions of a discontinuous piecewise constant finite element space."""
+
     def __call__(self, lam):
         return 1.
 
@@ -1667,6 +1756,8 @@ cdef class shapeFunctionP0(shapeFunction):
 
 
 cdef class P0_DoFMap(DoFMap):
+    """Degree of freedom mapping for a piecewise constant finite element space."""
+
     def __init__(self, meshBase mesh, tag=None,
                  INDEX_t skipCellsAfter=-1):
         self.polynomialOrder = 0
@@ -1731,6 +1822,7 @@ cdef class P0_DoFMap(DoFMap):
 
 
 cdef class shapeFunctionP1(shapeFunction):
+    """A class to represent the shape functions of a continuuous piecewise linear finite element space."""
     cdef:
         INDEX_t vertexNo
 
@@ -1759,6 +1851,8 @@ cdef class shapeFunctionP1(shapeFunction):
 
 
 cdef class P1_DoFMap(DoFMap):
+    """Degree of freedom mapping for a continuous piecewise linear finite element space."""
+
     def __init__(self, meshBase mesh, tag=None,
                  INDEX_t skipCellsAfter=-1):
         self.polynomialOrder = 1
@@ -1810,6 +1904,8 @@ cdef class P1_DoFMap(DoFMap):
 
 
 cdef class shapeFunctionP2_vertex(shapeFunction):
+    """A class to represent the vertex shape functions of a continuuous piecewise quadratic finite element space."""
+
     cdef:
         INDEX_t vertexNo
 
@@ -1833,6 +1929,7 @@ cdef class shapeFunctionP2_vertex(shapeFunction):
 
 
 cdef class shapeFunctionP2_edge(shapeFunction):
+    """A class to represent the edge shape functions of a continuuous piecewise quadratic finite element space."""
     cdef:
         INDEX_t vertexNo1, vertexNo2
 
@@ -1858,6 +1955,8 @@ cdef class shapeFunctionP2_edge(shapeFunction):
 
 
 cdef class P2_DoFMap(DoFMap):
+    """Degree of freedom mapping for a continuous piecewise quadratic finite element space."""
+
     def __init__(self, meshBase mesh, tag=None,
                  INDEX_t skipCellsAfter=-1):
         self.polynomialOrder = 2
@@ -1912,6 +2011,8 @@ cdef class P2_DoFMap(DoFMap):
 
 
 cdef class shapeFunctionP3_vertex(shapeFunction):
+    """A class to represent the vertex shape functions of a continuuous piecewise cubic finite element space."""
+
     cdef:
         INDEX_t vertexNo
 
@@ -1935,6 +2036,8 @@ cdef class shapeFunctionP3_vertex(shapeFunction):
 
 
 cdef class shapeFunctionP3_edge(shapeFunction):
+    """A class to represent the edge shape functions of a continuuous piecewise cubic finite element space."""
+
     cdef:
         INDEX_t vertexNo1, vertexNo2
 
@@ -1960,6 +2063,8 @@ cdef class shapeFunctionP3_edge(shapeFunction):
 
 
 cdef class shapeFunctionP3_face(shapeFunction):
+    """A class to represent the face shape functions of a continuuous piecewise cubic finite element space."""
+
     cdef:
         INDEX_t vertexNo1, vertexNo2, vertexNo3
 
@@ -1987,6 +2092,8 @@ cdef class shapeFunctionP3_face(shapeFunction):
 
 
 cdef class P3_DoFMap(DoFMap):
+    """Degree of freedom mapping for a continuous piecewise cubic finite element space."""
+
     def __init__(self, meshBase mesh, tag=None,
                  INDEX_t skipCellsAfter=-1):
         self.polynomialOrder = 3
@@ -2083,14 +2190,14 @@ def str2DoFMap(element):
         return P2_DoFMap
     elif element == 'P3':
         return P3_DoFMap
-    
+
     else:
         raise NotImplementedError('Unknown DoFMap: {}'.format(element))
 
 
 def getAvailableDoFMaps():
     return ['P0', 'P1', 'P2', 'P3',
-            
+
             ]
 
 
@@ -2103,7 +2210,7 @@ def str2DoFMapOrder(element):
         return 2
     elif element in ('P3', 3, '3'):
         return 3
-    
+
     else:
         raise NotImplementedError('Unknown DoFMap: {}'.format(element))
 

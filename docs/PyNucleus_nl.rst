@@ -90,12 +90,6 @@ PyNucleus.nl.twoPointFunctions module
 .. automodule:: PyNucleus_nl.twoPointFunctions
 
 
-PyNucleus.nl.twoPointFunctions module
---------------------------------------
-
-.. automodule:: PyNucleus_nl.twoPointFunctions
-
-
 Module contents
 ---------------
 
