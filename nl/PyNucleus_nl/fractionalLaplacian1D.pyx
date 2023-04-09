@@ -33,6 +33,14 @@ cdef class fractionalLaplacian1DZeroExterior(nonlocalLaplacian1D):
 
 
 cdef class fractionalLaplacian1D_P1(nonlocalLaplacian1D):
+    """The local matrix
+
+    .. math::
+
+       \\int_{K_1}\\int_{K_2} (u(x)-u(y)) (v(x)-v(y)) \\gamma(x,y) dy dx
+
+    for the 1D fractional Laplacian on P1 elements.
+    """
     def __init__(self,
                  FractionalKernel kernel,
                  meshBase mesh,

@@ -5,6 +5,7 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
+"""Defines different types of interaction domains."""
 
 import numpy as np
 cimport numpy as np
@@ -21,6 +22,8 @@ cdef REAL_t inf = np.inf
 
 
 cdef class interactionDomain(parametrizedTwoPointFunction):
+    """Base class for all interaction domains."""
+
     def __init__(self, BOOL_t isComplement):
         super(interactionDomain, self).__init__(True)
         self.complement = isComplement
@@ -622,6 +625,8 @@ cdef class interactionDomain(parametrizedTwoPointFunction):
 
 
 cdef class fullSpace(interactionDomain):
+    """Full space interaction domain, i.e. infinite interaction horizon."""
+
     def __init__(self):
         super(fullSpace, self).__init__(False)
 
@@ -640,6 +645,7 @@ cdef class fullSpace(interactionDomain):
 
 
 cdef class ball2(interactionDomain):
+    """l2 ball interaction domain"""
     def __init__(self):
         super(ball2, self).__init__(False)
 
@@ -750,6 +756,8 @@ cdef class ball2(interactionDomain):
 
 
 cdef class ballInf(interactionDomain):
+    """l-inf ball interaction domain"""
+
     def __init__(self):
         super(ballInf, self).__init__(False)
 
@@ -1063,6 +1071,7 @@ cdef class linearTransformInteraction(interactionDomain):
 
 
 cdef class ellipse(linearTransformInteraction):
+    """Ellipse interaction domain"""
     def __init__(self, REAL_t[:, ::1] A):
         base = ball2()
         super(ellipse, self).__init__(base, A)
@@ -1077,6 +1086,7 @@ cdef class ellipse(linearTransformInteraction):
 
 
 cdef class ball1(linearTransformInteraction):
+    "l1 ball interaction domain"
     def __init__(self):
         base = ballInf()
         t = 0.5
