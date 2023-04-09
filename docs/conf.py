@@ -67,7 +67,7 @@ exclude_patterns = ['build', 'Thumbs.db', '.DS_Store']
 html_theme = 'bizstyle'
 
 html_theme_options = {
-    'sidebarwidth': '300px'
+    'sidebarwidth': '400px'
 }
 
 
