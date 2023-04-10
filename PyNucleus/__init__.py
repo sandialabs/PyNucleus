@@ -19,3 +19,5 @@ for finder, name, ispkg in pkgutil.iter_modules():
         subpackages[importName] = module
         names = [name for name in module.__dict__ if not name.startswith('_')]
         locals().update({name: getattr(module, name) for name in names})
+        if hasattr(module, '__all__'):
+            __all__ += module.__all__

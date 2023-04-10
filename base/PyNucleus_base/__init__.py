@@ -51,6 +51,6 @@ solverFactory.register('complex_lu', complex_lu_solver)
 solverFactory.register('complex_gmres', complex_gmres_solver)
 
 
-__all__ = [REAL, INDEX, COMPLEX,
-           solverFactory,
-           driver, problem]
+__all__ = ['REAL', 'INDEX', 'COMPLEX',
+           'solverFactory',
+           'driver', 'problem']
