@@ -8,7 +8,6 @@
 from libc.stdlib cimport malloc, realloc, free
 import numpy as np
 cimport numpy as np
-cimport cython
 from . myTypes import INDEX, REAL
 from . blas import uninitialized
 
@@ -27,9 +26,6 @@ cdef class sparsityPattern:
         for i in range(num_dofs):
             self.indexL[i] = <INDEX_t *>malloc(self.initial_length*sizeof(INDEX_t))
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     cdef inline BOOL_t findIndex(self, INDEX_t I, INDEX_t J):
         cdef:
             uint16_t m, low, high, mid
@@ -65,9 +61,6 @@ cdef class sparsityPattern:
             self.index = low
             return True
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     cdef inline void add(self, INDEX_t I, INDEX_t J):
         cdef:
             INDEX_t m, n
@@ -87,9 +80,6 @@ cdef class sparsityPattern:
             self.counts[I] += 1
             self.nnz += 1
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     cdef freeze(self):
         cdef:
             INDEX_t i, j, k, nnz

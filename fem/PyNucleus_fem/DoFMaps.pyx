@@ -7,7 +7,6 @@
 
 import numpy as np
 cimport numpy as np
-cimport cython
 from libc.math cimport isnan
 from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX, BOOL
 from cpython cimport Py_buffer
@@ -34,18 +33,10 @@ from PyNucleus_base.sparseGraph import cuthill_mckee
 cdef INDEX_t MAX_INT = np.iinfo(INDEX).max
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cdef inline REAL_t evalP0(REAL_t[:, ::1] simplex, REAL_t[::1] uloc, REAL_t[::1] x):
     return uloc[0]
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cdef inline REAL_t evalP12D(REAL_t[:, ::1] simplex, REAL_t[::1] uloc, REAL_t[::1] x):
     cdef:
         REAL_t vol, l3, res, l
@@ -75,9 +66,6 @@ cdef class DoFMap:
     DoFs that correspond to essential boundary conditions.
     """
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     def __init__(self,
                  meshBase mesh,
                  INDEX_t dofs_per_vertex,
@@ -366,9 +354,6 @@ cdef class DoFMap:
         self.num_dofs = dofNew
         self.num_boundary_dofs = -dofNewBoundary-1
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t cell2dof(self,
                           const INDEX_t cellNo,
                           const INDEX_t perCellNo):
@@ -388,9 +373,6 @@ cdef class DoFMap:
                 if dof >= 0:
                     self.dofs[i, j] = perm[dof]
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     def buildSparsityPattern(self, const cells_t cells,
                              INDEX_t start_idx=-1, INDEX_t end_idx=-1,
                              BOOL_t symmetric=False,
@@ -483,9 +465,6 @@ cdef class DoFMap:
         A.sort_indices()
         return A
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     def buildNonSymmetricSparsityPattern(self,
                                          const cells_t cells,
                                          DoFMap dmOther,
@@ -527,9 +506,6 @@ cdef class DoFMap:
         A.sort_indices()
         return A
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     def interpolate(self, fun):
         "Interpolate a function into the finite element space."
         cdef:
@@ -947,9 +923,6 @@ cdef class DoFMap:
         self.localShapeFunctions = state[11]
         self.nodes = state[12]
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     cdef void getNodalCoordinates(self, REAL_t[:, ::1] cell, REAL_t[:, ::1] coords):
         cdef:
             INDEX_t numCoords = self.nodes.shape[0]
@@ -1232,9 +1205,6 @@ cdef class DoFMap:
         R_bc.num_columns = dm.num_dofs
         return dm, R, R_bc
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     def getBoundaryData(self, function boundaryFunction):
         cdef:
             REAL_t[::1] data = uninitialized((self.num_boundary_dofs), dtype=REAL)
@@ -1287,9 +1257,6 @@ cdef class DoFMap:
                             data[-dof-1] = boundaryFunction.eval(vertex)
         return np.array(data, copy=False)
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cpdef void getVertexDoFs(self, INDEX_t[:, ::1] v2d):
         cdef:
             INDEX_t vertices_per_element
@@ -1619,8 +1586,6 @@ cdef class globalShapeFunction(function):
         self.bary = uninitialized((4), dtype=REAL)
         self.dm = dm
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x):
         cdef:
             INDEX_t dim = self.simplices.shape[2], dofNo, k, j
@@ -1663,21 +1628,12 @@ cdef class shapeFunction:
     def __call__(self, lam):
         return self.eval(np.array(lam))
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, const REAL_t[::1] lam):
         pass
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t evalStrided(self, const REAL_t* lam, INDEX_t stride):
         raise NotImplementedError()
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t evalGlobal(self, REAL_t[:, ::1] simplex, REAL_t[::1] x):
         if simplex.shape[1] == 1:
             getBarycentricCoords1D(simplex, x, self.bary)
@@ -1716,15 +1672,9 @@ cdef class vectorShapeFunction:
         self.eval(np.array(lam), np.array(gradLam), value)
         return value
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef void eval(self, const REAL_t[::1] lam, const REAL_t[:, ::1] gradLam, REAL_t[::1] value):
         pass
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef void evalGlobal(self, const REAL_t[:, ::1] simplex, const REAL_t[::1] x, REAL_t[::1] value):
         raise NotImplementedError()
 
@@ -1740,13 +1690,9 @@ cdef class shapeFunctionP0(shapeFunction):
     def __call__(self, lam):
         return 1.
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, const REAL_t[::1] lam):
         return 1.
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t evalStrided(self, const REAL_t* lam, INDEX_t stride):
         return 1.
 
@@ -1828,13 +1774,9 @@ cdef class shapeFunctionP1(shapeFunction):
     def __call__(self, lam):
         return lam[self.vertexNo]
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, const REAL_t[::1] lam):
         return lam[self.vertexNo]
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t evalStrided(self, const REAL_t* lam, INDEX_t stride):
         return lam[self.vertexNo*stride]
 
@@ -1882,9 +1824,6 @@ cdef class P1_DoFMap(DoFMap):
         return 'P1 DoFMap with {} DoFs and {} boundary DoFs.'.format(self.num_dofs,
                                                                      self.num_boundary_dofs)
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     def getValuesAtVertices(self, REAL_t[::1] u):
         cdef:
             INDEX_t cellNo, dofNo, dof, vertex
@@ -1911,8 +1850,6 @@ cdef class shapeFunctionP2_vertex(shapeFunction):
     def __call__(self, lam):
         return lam[self.vertexNo]*(2.*lam[self.vertexNo]-1.)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, const REAL_t[::1] lam):
         return lam[self.vertexNo]*(2.*lam[self.vertexNo]-1.)
 
@@ -1936,8 +1873,6 @@ cdef class shapeFunctionP2_edge(shapeFunction):
     def __call__(self, lam):
         return 4.*lam[self.vertexNo1]*lam[self.vertexNo2]
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, const REAL_t[::1] lam):
         return 4.*lam[self.vertexNo1]*lam[self.vertexNo2]
 
@@ -2018,8 +1953,6 @@ cdef class shapeFunctionP3_vertex(shapeFunction):
     def __call__(self, lam):
         return 4.5*lam[self.vertexNo]*(lam[self.vertexNo]-1./3.)*(lam[self.vertexNo]-2./3.)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, const REAL_t[::1] lam):
         return 4.5*lam[self.vertexNo]*(lam[self.vertexNo]-1./3.)*(lam[self.vertexNo]-2./3.)
 
@@ -2044,8 +1977,6 @@ cdef class shapeFunctionP3_edge(shapeFunction):
     def __call__(self, lam):
         return 13.5*lam[self.vertexNo1]*lam[self.vertexNo2]*(lam[self.vertexNo1]-1./3.)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, const REAL_t[::1] lam):
         return 13.5*lam[self.vertexNo1]*lam[self.vertexNo2]*(lam[self.vertexNo1]-1./3.)
 
@@ -2072,8 +2003,6 @@ cdef class shapeFunctionP3_face(shapeFunction):
     def __call__(self, lam):
         return 27.*lam[self.vertexNo1]*lam[self.vertexNo2]*lam[self.vertexNo3]
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, const REAL_t[::1] lam):
         return 27.*lam[self.vertexNo1]*lam[self.vertexNo2]*lam[self.vertexNo3]
 
@@ -2369,8 +2298,6 @@ cdef class lookupFunction(function):
         else:
             self.cellFinder = cF
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t eval(self, REAL_t[::1] x):
         cdef:
             shapeFunction shapeFun
@@ -2402,8 +2329,6 @@ cdef class elementSizeFunction(function):
         else:
             self.cellFinder = cF
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t eval(self, REAL_t[::1] x):
         cdef:
             INDEX_t cellNo
@@ -2436,8 +2361,6 @@ cdef class productSpaceShapeFunction(vectorShapeFunction):
                 value[i] = 0.
         return value
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef void eval(self, const REAL_t[::1] lam, const REAL_t[:, ::1] gradLam, REAL_t[::1] value):
         cdef:
             INDEX_t i

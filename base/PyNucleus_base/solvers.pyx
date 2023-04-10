@@ -7,7 +7,6 @@
 
 import numpy as np
 cimport numpy as np
-cimport cython
 from libc.math cimport sqrt
 from . myTypes import INDEX, REAL, COMPLEX
 from . blas cimport assign, assignScaled, assign3, update, updateScaled, mydot, gemvF
@@ -36,15 +35,9 @@ cdef class solver:
     cpdef void setup(self, LinearOperator A=None):
         raise NotImplementedError()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def __call__(self, vector_t b, vector_t x):
         return self.solve(b, x)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef int solve(self, vector_t b, vector_t x) except -1:
         assert self.initialized, 'Solver not initialized, need to call \'solver.setup\' first.'
         assert b.shape[0] == self.num_rows, \
@@ -67,9 +60,6 @@ cdef class preconditioner(LinearOperator):
         self.solOp = solOp
         self.ctxAttrs = ctxAttrs
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         vector_t x,
                         vector_t y) except -1:
@@ -156,9 +146,6 @@ cdef class lu_solver(solver):
             raise NotImplementedError('Cannot use operator of type "{}"'.format(type(B)))
         self.initialized = True
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef int solve(self, vector_t b, vector_t x) except -1:
         cdef:
             INDEX_t i, n
@@ -248,9 +235,6 @@ IF USE_PYPARDISO:
                 raise NotImplementedError('Cannot use operator of type "{}"'.format(type(self.A)))
             self.initialized = True
 
-        @cython.initializedcheck(False)
-        @cython.boundscheck(False)
-        @cython.wraparound(False)
         cdef int solve(self, vector_t b, vector_t x) except -1:
             cdef:
                 REAL_t[::1] temp
@@ -325,9 +309,6 @@ cdef class chol_solver(solver):
                 raise NotImplementedError("Cholmod not available, install \"scikit-sparse\".")
         self.initialized = True
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef int solve(self, vector_t b, vector_t x) except -1:
         cdef:
             INDEX_t i, j, k
@@ -389,9 +370,6 @@ cdef class ichol_solver(solver):
                 self.diagonal[i] = 1./self.diagonal[i]
         self.initialized = True
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef int solve(self, vector_t b, vector_t x) except -1:
         solver.solve(self, b, x)
         self.temp[:] = 0.0
@@ -431,9 +409,6 @@ cdef class ilu_solver(solver):
         self.perm_c = Clu.perm_c
         self.initialized = True
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef int solve(self, vector_t b, vector_t x) except -1:
         solver.solve(self, b, x)
         cdef:
@@ -465,9 +440,6 @@ cdef class jacobi_solver(solver):
         self.invD = invDiagonal(self.A)
         self.initialized = True
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef int solve(self, vector_t b, vector_t x) except -1:
         solver.solve(self, b, x)
         self.invD.matvec(b, x)
@@ -513,9 +485,6 @@ cdef class iterative_solver(solver):
             assert self.A is not None, 'A not set'
         self.r = uninitialized((self.num_rows), dtype=REAL)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef int solve(self, vector_t b, vector_t x) except -1:
         cdef:
             REAL_t res
@@ -555,9 +524,6 @@ cdef class krylov_solver(iterative_solver):
         self.prec = prec
         self.isLeftPrec = left
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef int solve(self, vector_t b, vector_t x) except -1:
         iterative_solver.solve(self, b, x)
         if not self.relativeTolerance:
@@ -599,10 +565,6 @@ cdef class cg_solver(krylov_solver):
         krylov_solver.setPreconditioner(self, prec, left)
         self.precTemporaryMemory = uninitialized(self.num_rows, dtype=REAL)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cdef int solve(self, vector_t b, vector_t x) except -1:
         krylov_solver.solve(self, b, x)
 
@@ -743,10 +705,6 @@ cdef class gmres_solver(krylov_solver):
     cpdef void setPreconditioner(self, LinearOperator prec, BOOL_t left=True):
         krylov_solver.setPreconditioner(self, prec, left)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cdef int solve(self, vector_t b, vector_t x) except -1:
         krylov_solver.solve(self, b, x)
 
@@ -958,10 +916,6 @@ cdef class bicgstab_solver(krylov_solver):
         self.p2 = uninitialized(self.num_rows, dtype=REAL)
         self.s2 = uninitialized(self.num_rows, dtype=REAL)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cdef int solve(self, vector_t b, vector_t x) except -1:
         krylov_solver.solve(self, b, x)
 
@@ -1106,15 +1060,9 @@ cdef class complex_solver:
     cpdef void setup(self, ComplexLinearOperator A=None):
         raise NotImplementedError()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def __call__(self, complex_vector_t b, complex_vector_t x):
         return self.solve(b, x)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef int solve(self, complex_vector_t b, complex_vector_t x) except -1:
         assert self.initialized, 'Solver not initialized, need to call \'solver.setup\' first.'
         assert b.shape[0] == self.num_rows, \
@@ -1134,9 +1082,6 @@ cdef class complex_preconditioner(ComplexLinearOperator):
         self.solOp = solOp
         self.ctxAttrs = ctxAttrs
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         complex_vector_t x,
                         complex_vector_t y) except -1:
@@ -1182,9 +1127,6 @@ cdef class complex_lu_solver(complex_solver):
             raise NotImplementedError('Cannot use operator of type "{}"'.format(type(self.A)))
         self.initialized = True
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef int solve(self, complex_vector_t b, complex_vector_t x) except -1:
         cdef:
             INDEX_t i, n
@@ -1260,9 +1202,6 @@ cdef class complex_iterative_solver(complex_solver):
             assert self.A is not None, 'A not set'
         self.r = uninitialized((self.num_rows), dtype=COMPLEX)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef int solve(self, complex_vector_t b, complex_vector_t x) except -1:
         cdef:
             REAL_t res
@@ -1302,9 +1241,6 @@ cdef class complex_krylov_solver(complex_iterative_solver):
         self.prec = prec
         self.isLeftPrec = left
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef int solve(self, complex_vector_t b, complex_vector_t x) except -1:
         complex_iterative_solver.solve(self, b, x)
         if not self.relativeTolerance:
@@ -1357,10 +1293,6 @@ cdef class complex_gmres_solver(complex_krylov_solver):
     cpdef void setPreconditioner(self, ComplexLinearOperator prec, BOOL_t left=True):
         complex_krylov_solver.setPreconditioner(self, prec, left)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cdef int solve(self, complex_vector_t b, complex_vector_t x) except -1:
         complex_krylov_solver.solve(self, b, x)
 

@@ -20,18 +20,12 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
         self.NoThreads = NoThreads
         self.indices_sorted = False
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec({SCALAR_label}CSR_LinearOperator self,
                         {SCALAR}_t[::1] x,
                         {SCALAR}_t[::1] y) except -1:
         spmv(self.indptr, self.indices, self.data, x, y)
         return 0
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void _residual({SCALAR_label}CSR_LinearOperator self,
                         {SCALAR}_t[::1] x,
                         {SCALAR}_t[::1] rhs,
@@ -42,18 +36,12 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
         else:
             spres(self.indptr, self.indices, self.data, x, rhs, result)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec_no_overwrite({SCALAR_label}CSR_LinearOperator self,
                                      {SCALAR}_t[::1] x,
                                      {SCALAR}_t[::1] y) except -1:
         spmv(self.indptr, self.indices, self.data, x, y, overwrite=False)
         return 0
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec_multi({SCALAR_label}CSR_LinearOperator self,
                               {SCALAR}_t[:, ::1] x,
                               {SCALAR}_t[:, ::1] y) except -1:
@@ -128,9 +116,6 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
     def toarray(self):
         return self.to_csr().toarray()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void setEntry({SCALAR_label}CSR_LinearOperator self, INDEX_t I, INDEX_t J, {SCALAR}_t val):
         cdef:
             INDEX_t i, low, mid, high
@@ -152,9 +137,6 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
                     high = mid
             self.data[low] = val
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void addToEntry({SCALAR_label}CSR_LinearOperator self, INDEX_t I, INDEX_t J, {SCALAR}_t val):
         cdef:
             INDEX_t i, low, mid, high
@@ -177,9 +159,6 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
                     high = mid
             self.data[low] += val
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef {SCALAR}_t getEntry({SCALAR_label}CSR_LinearOperator self, INDEX_t I, INDEX_t J):
         cdef:
             INDEX_t i, low, mid, high
@@ -200,9 +179,6 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
                     high = mid
             return self.data[low]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def to_sss(self):
         cdef:
             np.ndarray[INDEX_t, ndim=1] indptr_mem = np.zeros((self.num_rows+1),
@@ -258,7 +234,7 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
     diagonal = property(fget=get_diagonal)
 
     def getnnz(self):
-        return self.indptr[-1]
+        return self.indptr[self.indptr.shape[0]-1]
 
     nnz = property(fget=getnnz)
 
@@ -464,9 +440,6 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
         return blockA
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef BOOL_t sort_indices{SCALAR_label}(INDEX_t[::1] indptr,
                        INDEX_t[::1] indices,
                        {SCALAR}_t[::1] data):

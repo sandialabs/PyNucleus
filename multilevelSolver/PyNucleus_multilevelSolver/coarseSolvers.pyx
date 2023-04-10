@@ -10,7 +10,6 @@ mpi4py.rc.initialize = False
 from mpi4py import MPI
 import numpy as np
 cimport numpy as np
-cimport cython
 import logging
 from PyNucleus_base.myTypes import INDEX, REAL, BOOL
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, BOOL_t

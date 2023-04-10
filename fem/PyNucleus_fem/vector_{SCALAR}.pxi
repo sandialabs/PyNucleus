@@ -307,9 +307,6 @@ cdef class {SCALAR_label_lc_}fe_vector:
         return self.dm.augmentWithBoundaryData(self, boundaryData)
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef void {SCALAR_label_lc_}assign_2d({SCALAR}_t[:, ::1] y, const {SCALAR}_t[:, ::1] x):
     cdef:
         INDEX_t i, j
@@ -318,9 +315,6 @@ cdef void {SCALAR_label_lc_}assign_2d({SCALAR}_t[:, ::1] y, const {SCALAR}_t[:, 
             y[i, j] = x[i, j]
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef void {SCALAR_label_lc_}assignScaled_2d({SCALAR}_t[:, ::1] y, const {SCALAR}_t[:, ::1] x, {SCALAR}_t alpha):
     cdef:
         INDEX_t i, j
@@ -329,9 +323,6 @@ cdef void {SCALAR_label_lc_}assignScaled_2d({SCALAR}_t[:, ::1] y, const {SCALAR}
             y[i, j] = alpha*x[i, j]
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef void {SCALAR_label_lc_}assign3_2d({SCALAR}_t[:, ::1] z, const {SCALAR}_t[:, ::1] x, {SCALAR}_t alpha, const {SCALAR}_t[:, ::1] y, {SCALAR}_t beta):
     cdef:
         INDEX_t i, j
@@ -477,9 +468,6 @@ cdef class {SCALAR_label_lc_}multi_fe_vector:
                 {SCALAR_label_lc_}assignScaled_2d(v2.data, v1.data, alpha)
                 return v2
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def scale(self, {SCALAR}_t[::1] other):
         cdef:
             INDEX_t i, j
@@ -490,9 +478,6 @@ cdef class {SCALAR_label_lc_}multi_fe_vector:
             for j in range(self.data.shape[1]):
                 self.data[i, j] *= alpha
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def scaledUpdate(self, {SCALAR}_t[::1] other, {SCALAR}_t[::1] scaling):
         cdef:
             INDEX_t i, j

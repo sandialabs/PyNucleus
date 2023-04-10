@@ -7,7 +7,6 @@
 
 import numpy as np
 cimport numpy as np
-cimport cython
 from . myTypes import INDEX, REAL, COMPLEX
 from . blas cimport gemv
 from . blas import uninitialized
@@ -41,9 +40,6 @@ include "IJOperator_REAL.pxi"
 include "IJOperator_COMPLEX.pxi"
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def transpose(S, inplace=True):
     cdef:
         INDEX_t i, j, c, temp
@@ -137,9 +133,6 @@ cdef class Triple_Product_Linear_Operator(LinearOperator):
         else:
             self.temporaryMemory2 = uninitialized((self.A.num_columns), dtype=REAL)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         REAL_t[::1] x,
                         REAL_t[::1] y) except -1:
@@ -159,9 +152,6 @@ cdef class split_CSR_LinearOperator(LinearOperator):
         self.A1 = A1
         self.A2 = A2
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         REAL_t[::1] x,
                         REAL_t[::1] y) except -1:
@@ -249,7 +239,7 @@ cdef class sparseGraph(LinearOperator):
         self.shape = (self.num_rows, self.num_columns)
 
     def getnnz(self):
-        return self.indptr[-1]
+        return self.indptr[self.indptr.shape[0]-1]
 
     nnz = property(fget=getnnz)
 
@@ -267,7 +257,7 @@ cdef class sparseGraph(LinearOperator):
         """
         cdef:
             INDEX_t i, nnz, s, p, q
-        nnz = self.indptr[-1]
+        nnz = self.indptr[self.indptr.shape[0]-1]
         for i in range(self.indptr.shape[0]-1):
             s = self.indptr[i]
             if s ==  nnz:
@@ -384,9 +374,6 @@ cdef class restrictionOp(sparseGraph):
                                             num_rows, num_columns)
         self.NoThreads = NoThreads
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef INDEX_t matvec(self, REAL_t[::1] x, REAL_t[::1] y) except -1:
         cdef:
             INDEX_t i, j
@@ -445,9 +432,6 @@ cdef class prolongationOp(sparseGraph):
         super(prolongationOp, self).__init__(indices, indptr, num_rows, num_columns)
         self.NoThreads = NoThreads
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef INDEX_t matvec(self, REAL_t[::1] x, REAL_t[::1] y) except -1:
         cdef:
             INDEX_t i, j
@@ -504,9 +488,6 @@ cdef class prolongationOp(sparseGraph):
 ######################################################################
 # Matrix restriction R*A*R.T for restrictionOp R
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef inline REAL_t getEntry_restr(INDEX_t i,
                                     INDEX_t j,
                                     INDEX_t[::1] R_indptr,
@@ -568,9 +549,6 @@ cdef inline REAL_t getEntry_restr(INDEX_t i,
     return sum
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef inline REAL_t getEntryFromD_restr(INDEX_t i,
                                          INDEX_t j,
                                          INDEX_t[::1] R_indptr,
@@ -612,9 +590,6 @@ cdef inline REAL_t getEntryFromD_restr(INDEX_t i,
     return sum
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def multiply_restr(restrictionOp R, LinearOperator A, LinearOperator Ac):
     cdef:
         INDEX_t i, jj, j, kk, k, mm1, m1, mm2, m2
@@ -678,9 +653,6 @@ def multiply_restr(restrictionOp R, LinearOperator A, LinearOperator Ac):
 ######################################################################
 # Matrix restriction R*A*R.T for CSR matrix R
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef inline REAL_t getEntry(const INDEX_t i,
                               const INDEX_t j,
                               const INDEX_t[::1] R_indptr,
@@ -717,9 +689,6 @@ cdef inline REAL_t getEntry(const INDEX_t i,
     return sum
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef inline REAL_t getEntryFromD(const INDEX_t i,
                                    const INDEX_t j,
                                    const INDEX_t[::1] R_indptr,
@@ -750,9 +719,6 @@ cdef inline REAL_t getEntryFromD(const INDEX_t i,
     return sum
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def multiply2(CSR_LinearOperator P, LinearOperator A, LinearOperator Ac):
     cdef:
         INDEX_t k, ll, l, ii, i, jj, j
@@ -798,9 +764,6 @@ def multiply2(CSR_LinearOperator P, LinearOperator A, LinearOperator Ac):
                     Ac.addToEntry(i, j, pki*akl*plj)
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def multiply(CSR_LinearOperator R, LinearOperator A, LinearOperator Ac):
     cdef:
         INDEX_t i, jj, j
@@ -889,9 +852,6 @@ cdef class blockOperator(LinearOperator):
         self.subblocks = subblocks
         self.temp = uninitialized((self.num_rows), dtype=REAL)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         REAL_t[::1] x,
                         REAL_t[::1] y) except -1:
@@ -945,9 +905,6 @@ cdef class nullOperator(LinearOperator):
     def __init__(self, INDEX_t num_rows, INDEX_t num_columns):
         super(nullOperator, self).__init__(num_rows, num_columns)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         REAL_t[::1] x,
                         REAL_t[::1] y) except -1:
@@ -957,9 +914,6 @@ cdef class nullOperator(LinearOperator):
             y[i] = 0.
         return 0
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec_no_overwrite(self,
                                      REAL_t[::1] x,
                                      REAL_t[::1] y) except -1:
@@ -979,9 +933,6 @@ cdef class identityOperator(LinearOperator):
         super(identityOperator, self).__init__(num_rows, num_rows)
         self.alpha = alpha
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         REAL_t[::1] x,
                         REAL_t[::1] y) except -1:
@@ -991,9 +942,6 @@ cdef class identityOperator(LinearOperator):
             y[i] = self.alpha*x[i]
         return 0
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec_no_overwrite(self,
                                      REAL_t[::1] x,
                                      REAL_t[::1] y) except -1:
@@ -1036,9 +984,6 @@ cdef class blockLowerInverse(blockOperator):
                 assert isinstance(self.subblocks[i][j], nullOperator)
         self.diagonalInverses = diagonalInverses
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         REAL_t[::1] x,
                         REAL_t[::1] y) except -1:
@@ -1072,9 +1017,6 @@ cdef class blockUpperInverse(blockOperator):
                 assert isinstance(self.subblocks[i][j], nullOperator)
         self.diagonalInverses = diagonalInverses
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         REAL_t[::1] x,
                         REAL_t[::1] y) except -1:
@@ -1104,9 +1046,6 @@ cdef class wrapRealToComplex(ComplexLinearOperator):
         self.temporaryMemory = uninitialized((A.num_columns), dtype=REAL)
         self.temporaryMemory2 = uninitialized((A.num_rows), dtype=REAL)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         COMPLEX_t[::1] x,
                         COMPLEX_t[::1] y) except -1:
@@ -1139,9 +1078,6 @@ cdef class wrapRealToComplexCSR(ComplexLinearOperator):
         super(wrapRealToComplexCSR, self).__init__(A.num_rows, A.num_columns)
         self.realA = A
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         COMPLEX_t[::1] x,
                         COMPLEX_t[::1] y) except -1:
@@ -1182,9 +1118,6 @@ cdef class HelmholtzShiftOperator(ComplexLinearOperator):
         for i in range(self.num_rows):
             self._diagonal[i] = d1[i] + shift*d2[i]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         COMPLEX_t[::1] x,
                         COMPLEX_t[::1] y) except -1:
@@ -1238,9 +1171,6 @@ cdef class debugOperator(LinearOperator):
         self.A = A
         self.name = name
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         REAL_t[::1] x,
                         REAL_t[::1] y) except -1:
@@ -1270,9 +1200,6 @@ cdef class sumMultiplyOperator(LinearOperator):
         self.coeffs = coeffs
         self.z = uninitialized((self.ops[0].shape[0]), dtype=REAL)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         REAL_t[::1] x,
                         REAL_t[::1] y) except -1:
@@ -1288,9 +1215,6 @@ cdef class sumMultiplyOperator(LinearOperator):
             assign3(y, y, 1.0, self.z, self.coeffs[i])
         return 0
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec_no_overwrite(self,
                                      REAL_t[::1] x,
                                      REAL_t[::1] y) except -1:
@@ -1466,9 +1390,6 @@ cdef class multiIntervalInterpolationOperator(LinearOperator):
         else:
             assert False
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         REAL_t[::1] x,
                         REAL_t[::1] y) except -1:
@@ -1533,9 +1454,6 @@ cdef class delayedConstructionOperator(LinearOperator):
             self.isConstructed = True
             return 0
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         REAL_t[::1] x,
                         REAL_t[::1] y) except -1:

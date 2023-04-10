@@ -12,10 +12,6 @@ cdef class scalar_coefficient_stiffness_2d_sym_P1(stiffness_quadrature_matrix):
             qr = simplexXiaoGimbutas(1, 2)
         super(scalar_coefficient_stiffness_2d_sym_P1, self).__init__(diffusivity, qr)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef inline void eval(scalar_coefficient_stiffness_2d_sym_P1 self,
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):

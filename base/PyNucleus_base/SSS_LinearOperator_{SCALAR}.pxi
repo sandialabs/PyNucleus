@@ -25,9 +25,6 @@ cdef class {SCALAR_label}SSS_LinearOperator({SCALAR_label}LinearOperator):
         self.indices_sorted = False
         self.NoThreads = NoThreads
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec({SCALAR_label}SSS_LinearOperator self,
                         {SCALAR}_t[::1] x,
                         {SCALAR}_t[::1] y) except -1:
@@ -55,9 +52,6 @@ cdef class {SCALAR_label}SSS_LinearOperator({SCALAR_label}LinearOperator):
                 y[i] += temp
         return 0
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec_no_overwrite({SCALAR_label}SSS_LinearOperator self,
                                      {SCALAR}_t[::1] x,
                                      {SCALAR}_t[::1] y) except -1:
@@ -73,9 +67,6 @@ cdef class {SCALAR_label}SSS_LinearOperator({SCALAR_label}LinearOperator):
             y[i] += temp
         return 0
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void setEntry({SCALAR_label}SSS_LinearOperator self, INDEX_t I, INDEX_t J, {SCALAR}_t val):
         cdef:
             INDEX_t i, low, mid, high
@@ -102,9 +93,6 @@ cdef class {SCALAR_label}SSS_LinearOperator({SCALAR_label}LinearOperator):
                         high = mid
                 self.data[low] = val
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void addToEntry({SCALAR_label}SSS_LinearOperator self, INDEX_t I, INDEX_t J, {SCALAR}_t val):
         cdef:
             INDEX_t i, low, mid, high
@@ -132,9 +120,6 @@ cdef class {SCALAR_label}SSS_LinearOperator({SCALAR_label}LinearOperator):
                         high = mid
                 self.data[low] += val
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef {SCALAR}_t getEntry({SCALAR_label}SSS_LinearOperator self, INDEX_t I, INDEX_t J):
         cdef:
             INDEX_t low, high, i
@@ -164,9 +149,6 @@ cdef class {SCALAR_label}SSS_LinearOperator({SCALAR_label}LinearOperator):
     def isSparse(self):
         return True
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def to_csr(self):
         cdef:
             np.ndarray[INDEX_t, ndim=1] indptr_mem = np.zeros((self.num_rows+1),
@@ -209,9 +191,6 @@ cdef class {SCALAR_label}SSS_LinearOperator({SCALAR_label}LinearOperator):
         return csr_matrix((data_mem, indices_mem, indptr_mem),
                           shape=self.shape)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def to_lower_csc(self):
         cdef:
             np.ndarray[INDEX_t, ndim=1] indptr_mem = np.zeros((self.num_rows+1),
@@ -261,7 +240,7 @@ cdef class {SCALAR_label}SSS_LinearOperator({SCALAR_label}LinearOperator):
                           shape=self.shape)
 
     def getnnz(self):
-        return self.indptr[-1]+self.num_rows
+        return self.indptr[self.indptr.shape[0]-1]+self.num_rows
 
     nnz = property(fget=getnnz)
 

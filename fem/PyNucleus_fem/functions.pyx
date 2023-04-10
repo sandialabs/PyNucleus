@@ -9,7 +9,6 @@ from libc.math cimport (sin, cos, sinh, cosh, tanh, sqrt, atan2,
                         M_PI as pi, pow, exp, floor, log2)
 import numpy as np
 cimport numpy as np
-cimport cython
 
 from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX, ENCODE
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, COMPLEX_t, ENCODE_t
@@ -23,8 +22,6 @@ cdef class function:
     def __call__(self, REAL_t[::1] x):
         return self.eval(x)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x):
         pass
 
@@ -85,8 +82,6 @@ cdef class sumFunction(function):
         self.f2 = f2
         self.fac2 = fac2
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x):
         return self.fac1*self.f1.eval(x)+self.fac2*self.f2.eval(x)
 
@@ -103,8 +98,6 @@ cdef class mulFunction(function):
         self.f = f
         self.fac = fac
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x):
         return self.fac*self.f.eval(x)
 
@@ -120,8 +113,6 @@ cdef class prodFunction(function):
         self.f1 = f1
         self.f2 = f2
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x):
         return self.f1.eval(x)*self.f2.eval(x)
 
@@ -142,8 +133,6 @@ cdef class _memoized_sin:
         self.hit = 0
         self.miss = 0
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t x):
         cdef REAL_t val
         try:
@@ -178,8 +167,6 @@ cdef class constant(function):
     def __init__(self, REAL_t value):
         self.value = value
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return self.value
 
@@ -196,8 +183,6 @@ cdef class monomial(function):
         self.exponent = exponent
         self.factor = factor
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             INDEX_t i
@@ -207,6 +192,8 @@ cdef class monomial(function):
         return s
 
     def __repr__(self):
+        cdef:
+            INDEX_t i
         s = ''
         for i in range(self.exponent.shape[0]):
             if self.exponent[i] != 0.:
@@ -223,8 +210,6 @@ cdef class monomial(function):
 
 
 cdef class _rhsFunSin1D(function):
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return pi**2.0*sin(pi*x[0])
 
@@ -236,8 +221,6 @@ cdef class _solSin1D(function):
     def __init__(self, INDEX_t k=1):
         self.k = k*pi
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return sin(self.k*x[0])
 
@@ -249,8 +232,6 @@ cdef class _cos1D(function):
     def __init__(self, INDEX_t k=1):
         self.k = k*pi
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return cos(self.k*x[0])
 
@@ -264,29 +245,21 @@ cdef class _rhsFunSin2D(function):
         self.l = l*pi
         self.fac = self.k**2 + self.l**2
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return self.fac * sin(self.k*x[0])*sin(self.l*x[1])
 
 
 cdef class _cos2D(function):
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return cos(pi*x[0])*cos(pi*x[1])
 
 
 cdef class _rhsCos2D(function):
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return 2.0*pi**2*cos(pi*x[0])*cos(pi*x[1])
 
 
 cdef class _grad_cos2d_n(function):
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         if x[0] == 1.0:
             return -sin(1.0)*cos(x[1])
@@ -302,22 +275,16 @@ cdef class _solSin2D(function):
         self.k = k*pi
         self.l = l*pi
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return sin(self.k*x[0])*sin(self.l*x[1])
 
 
 cdef class _rhsFunSin3D(function):
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return 3.0*pi**2.0*sin(pi*x[0])*sin(pi*x[1])*sin(pi*x[2])
 
 
 cdef class _rhsFunSin3D_memoized(function):
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return 3.0*pi**2.0*memoized_sin.eval(pi*x[0])*memoized_sin.eval(pi*x[1])*memoized_sin.eval(pi*x[2])
 
@@ -331,8 +298,6 @@ cdef class _solSin3D(function):
         self.l = l*pi
         self.m = m*pi
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return sin(self.k*x[0])*sin(self.l*x[1])*sin(self.m*x[2])
 
@@ -345,8 +310,6 @@ cdef class _rhsBoundaryLayer2D(function):
         self.radius = radius
         self.c = c
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             REAL_t r, z
@@ -363,8 +326,6 @@ cdef class _solBoundaryLayer2D(function):
         self.radius = radius
         self.c = c
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             REAL_t r, z
@@ -379,8 +340,6 @@ cdef class _solCornerSingularity2D(function):
     def __init__(self):
         self.twoThirds = 2.0/3.0
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, const REAL_t[::1] x):
         cdef:
             REAL_t y0, y1, theta
@@ -398,8 +357,6 @@ cdef class rhsBoundarySingularity2D(function):
     def __init__(self, REAL_t alpha):
         self.alpha = alpha
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, const REAL_t[::1] x):
         if x[0] > 0:
             return self.alpha*(1.-self.alpha)*pow(x[0], self.alpha-2.)
@@ -413,22 +370,16 @@ cdef class solBoundarySingularity2D(function):
     def __init__(self, REAL_t alpha):
         self.alpha = alpha
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, const REAL_t[::1] x):
         return x[0]**self.alpha
 
 
 cdef class _rhsFichera(function):
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return -0.75*pow((x[0]-1.0)**2.0+(x[1]-1.0)**2.0+(x[2]-1.0)**2.0, -0.75)
 
 
 cdef class _solFichera(function):
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return pow((x[0]-1.0)**2.0+(x[1]-1.0)**2.0+(x[2]-1.0)**2.0, 0.25)
 
@@ -440,8 +391,6 @@ cdef class rhsFunCos1DHeat(function):
         function.__init__(self)
         self.t = t
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return (cos(self.t)+pi**2.0*sin(self.t))*cos(pi*x[0])
 
@@ -454,8 +403,6 @@ cdef class rhsFunSource1D(function):
         self.a = a
         self.b = b
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return (self.a <= x[0]) and (x[0] < self.b)
 
@@ -467,8 +414,6 @@ cdef class solCos1DHeat(function):
         function.__init__(self)
         self.t = t
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return sin(self.t)*cos(pi*x[0])
 
@@ -480,8 +425,6 @@ cdef class rhsFunCos2DHeat(function):
         function.__init__(self)
         self.t = t
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return (cos(self.t)+2.0*pi**2.0*sin(self.t))*cos(pi*x[0])*cos(pi*x[1])
 
@@ -494,8 +437,6 @@ cdef class rhsFunCos2DNonlinear(function):
         self.t = t
         self.k = k
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return ((cos(self.t) +
                  2.0*pi**2.0*sin(self.t))*cos(pi*x[0])*cos(pi*x[1]) -
@@ -510,8 +451,6 @@ cdef class rhsFunCos2DNonlinear_U(function):
         self.t = t
         self.k = k
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return ((cos(self.t) +
                  2.0*pi**2.0*sin(self.t))*cos(pi*x[0])*cos(pi*x[1]) +
@@ -527,8 +466,6 @@ cdef class rhsFunCos2DNonlinear_V(function):
         self.t = t
         self.k = k
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return ((-sin(self.t) +
                  2.0*pi**2.0*cos(self.t))*cos(pi*x[0])*cos(pi*x[1]) +
@@ -543,8 +480,6 @@ cdef class solCos2DHeat(function):
         function.__init__(self)
         self.t = t
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return sin(self.t)*cos(pi*x[0])*cos(pi*x[1])
 
@@ -558,8 +493,6 @@ cdef class rhsFunSource2D(function):
         self.a = a
         self.r2 = r**2
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return (x[0]-self.a[0])**2+(x[1]-self.a[1])**2 < self.r2
 
@@ -575,8 +508,6 @@ cdef class rhsTestGrayScott2D_U(function):
         self.Dv = Dv
         self.t = t
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef REAL_t u, v
         u = sin(self.t)*cos(pi*x[0])*cos(pi*x[1])
@@ -595,8 +526,6 @@ cdef class rhsTestGrayScott2D_V(function):
         self.Dv = Dv
         self.t = t
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef REAL_t u, v
         u = sin(self.t)*cos(pi*x[0])*cos(pi*x[1])
@@ -617,8 +546,6 @@ cdef class solFractional(function):
         self.radius2 = radius**2
         self.fac = self.radius2**s * 2.**(-2.*s)*gamma(dim/2.)/gamma((dim+2.*s)/2.)/gamma(1.+s)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef REAL_t r2 = 0.
         cdef INDEX_t i
@@ -646,8 +573,6 @@ cdef class rhsFractional1D(function):
         self.n = n
         self.fac = 2.**(2.*s)*gamma(0.5+s+n)*gamma(1.+s+n)/gamma(1.+n)/gamma(0.5+n)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef REAL_t r2 = 0.
         r2 = x[0]**2
@@ -667,8 +592,6 @@ cdef class solFractional1D(function):
         self.s = s
         self.n = n
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef REAL_t r2 = 0.
         r2 = x[0]**2
@@ -695,8 +618,6 @@ cdef class rhsFractional2D(function):
         self.angular_shift = angular_shift
         self.fac = 2.**(2.*s)*gamma(1.+s+n)*gamma(1.+l+s+n)/gamma(1+n)/gamma(1.+l+n)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef REAL_t r2 = 0., theta = atan2(x[1], x[0])
         r2 = x[0]**2+x[1]**2
@@ -720,8 +641,6 @@ cdef class solFractional2D(function):
         self.n = n
         self.angular_shift = angular_shift
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef REAL_t r2 = 0., theta = atan2(x[1], x[0])
         r2 = x[0]**2+x[1]**2
@@ -738,8 +657,6 @@ cdef class rhsFractional2Dcombination(function):
         function.__init__(self)
         self.functions = [rhsFractional2D(s, **p) for p in params]
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             REAL_t val = 0.
@@ -758,8 +675,6 @@ cdef class solFractional2Dcombination(function):
         function.__init__(self)
         self.functions = [solFractional2D(s, **p) for p in params]
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             REAL_t val = 0.
@@ -781,8 +696,6 @@ cdef class rhsTestFractional_U(function):
         self.sol = solFractional(s, dim, radius)
         self.t = t
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef REAL_t u = self.sol.eval(x)
         return cos(self.t)*u + (cos(self.t)**2-sin(self.t)**2)*u**2 + sin(self.t)
@@ -797,8 +710,6 @@ cdef class rhsTestFractional_V(function):
         self.sol = solFractional(s, dim, radius)
         self.t = t
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef REAL_t u = self.sol.eval(x)
         return -sin(self.t)*u + (-cos(self.t)**2+sin(self.t)**2)*u**2 + cos(self.t)
@@ -820,8 +731,6 @@ cdef class rhsFractionalBrusselator_U(function):
         self.t = t
         self.radius2s = radius**(2.*s1)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             REAL_t u0 = self.solU.eval(x)*self.eta
@@ -849,8 +758,6 @@ cdef class rhsFractionalBrusselator_V(function):
         self.t = t
         self.radius2s = radius**(2.*s2)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             REAL_t u0 = self.solU.eval(x)*self.eta
@@ -868,8 +775,6 @@ cdef class simpleAnisotropy(function):
     def __init__(self, epsilon=0.1):
         self.epsilon = epsilon
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         if x[0] < 0.5:
             return 1.0
@@ -883,8 +788,6 @@ cdef class simpleAnisotropy2(function):
     def __init__(self, epsilon=0.1):
         self.epsilon = epsilon
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         if (x[0] < 0.5) == (x[1] < 0.5):
             return 1.0
@@ -898,8 +801,6 @@ cdef class inclusions(function):
     def __init__(self, epsilon=0.1):
         self.epsilon = epsilon
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         if (x[0] % 0.4 > 0.2) and (x[1] % 0.4 > 0.2):
             return self.epsilon
@@ -913,8 +814,6 @@ cdef class inclusionsHong(function):
     def __init__(self, epsilon=0.1):
         self.epsilon = epsilon/2.
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         if ((x[0]+1.+self.epsilon)**2+x[1]**2 < 1.) or ((x[0]-1.-self.epsilon)**2+x[1]**2 < 1.):
             return 0.1
@@ -1008,8 +907,6 @@ cdef class motorPermeability(function):
         else:
             return r > segmentRadius(theta, self.rStatorIn, self.thetaStator, pi/3.0-self.thetaStator, self.nStatorIn)+eps
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         if self.inRotor(x):
             return self.epsilon
@@ -1041,8 +938,6 @@ cdef class _rhsMotor(function):
         self.rCoilIn = rCoilIn
         self.rCoilOut = rCoilOut
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef REAL_t r, theta, s
         r = sqrt(x[0]**2.0+x[1]**2.0)
@@ -1125,8 +1020,6 @@ cdef class rhsHr1D(function):
         self.beta = r-0.5
         self.scaling = scaling
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return self.scaling*pow(x[0]*(1.-x[0]), self.beta)
 
@@ -1138,8 +1031,6 @@ cdef class rhsHr2D(function):
         self.beta = r-0.5
         self.scaling = scaling
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return (self.scaling *
                 pow(x[0]*(1.-x[0]), self.beta) *
@@ -1153,8 +1044,6 @@ cdef class rhsHr3D(function):
         self.beta = r-0.5
         self.scaling = scaling
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return (self.scaling *
                 pow(x[0]*(1.-x[0]), self.beta) *
@@ -1169,8 +1058,6 @@ cdef class rhsHr2Ddisk(function):
         self.beta = r-0.5
         self.scaling = scaling
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return (self.scaling *
                 pow(min(1.-pow(x[0], 2)-pow(x[1], 2), 1.), self.beta))
@@ -1183,8 +1070,6 @@ cdef class logDiffusion1D(function):
     def __init__(self, REAL_t[::1] c):
         self.c = c
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             REAL_t S
@@ -1202,8 +1087,6 @@ cdef class logDiffusion2D(function):
     def __init__(self, REAL_t[:, ::1] c):
         self.c = c
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             REAL_t S, sx
@@ -1224,8 +1107,6 @@ cdef class fractalDiffusivity(function):
         self.maxVal = maxVal
         self.offset = offset
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             REAL_t a = self.maxVal
@@ -1244,8 +1125,6 @@ cdef class expDiffusivity(function):
         self.growth = growth
         self.frequency = frequency
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             REAL_t r2 = 0.
@@ -1284,8 +1163,6 @@ cdef class eigfun_disc(function):
             self.a_lk = jn_zeros(l, k+1)[k]
             self.C = sqrt(2)/(sqrt(pi)*jv(l+1, self.a_lk))
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef INDEX_t l
         if self.l == 0:
@@ -1316,8 +1193,6 @@ cdef class eigfun_disc_deriv_x(function):
             self.a_lk = jn_zeros(l, k+1)[k]
             self.C = sqrt(2)/(sqrt(pi)*jv(l+1, self.a_lk)) * self.a_lk/2.
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             INDEX_t l
@@ -1360,8 +1235,6 @@ cdef class eigfun_disc_deriv_y(function):
             self.a_lk = jn_zeros(l, k+1)[k]
             self.C = sqrt(2)/(sqrt(pi)*jv(l+1, self.a_lk)) * self.a_lk/2.
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             INDEX_t l
@@ -1399,8 +1272,6 @@ cdef class radialIndicator(function):
             self.centerIsOrigin = False
             self.center = center
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             REAL_t r = 0.
@@ -1421,8 +1292,6 @@ cdef class squareIndicator(function):
         self.a = a
         self.b = b
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             INDEX_t i
@@ -1473,9 +1342,6 @@ cdef class coordinate(function):
     def __init__(self, INDEX_t i):
         self.i = i
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         return x[self.i]
 
@@ -1489,9 +1355,6 @@ cdef class indicatorFunctor(function):
         self.f = f
         self.indicator = indicator
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         if self.indicator(x) > 1e-9:
             return self.f(x)
@@ -1502,10 +1365,6 @@ cdef class indicatorFunctor(function):
         return '({} if {}>0)'.format(self.f, self.indicator)
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cdef inline REAL_t evalPL1D(REAL_t[:, ::1] simplex, REAL_t[::1] uloc, REAL_t[::1] x):
     cdef:
         REAL_t l
@@ -1531,8 +1390,6 @@ cdef class lookupFunction1D(function):
         self.simplex = uninitialized((self.dim+1, self.dim), dtype=REAL)
         self.uloc = uninitialized((self.dim+1), dtype=REAL)
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             INDEX_t i, j
@@ -1562,8 +1419,6 @@ cdef class lookupFunctionTensor1DNew(function):
         self.uloc = uninitialized((2), dtype=REAL)
         self.N = N
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             INDEX_t i, idxX
@@ -1575,10 +1430,6 @@ cdef class lookupFunctionTensor1DNew(function):
         return evalPL1D(self.simplex, self.uloc, x)
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cdef inline REAL_t evalPLTensor2D(REAL_t[:, ::1] simplex, REAL_t[:, ::1] uloc, REAL_t[::1] x):
     cdef:
         REAL_t lX, lY
@@ -1587,10 +1438,6 @@ cdef inline REAL_t evalPLTensor2D(REAL_t[:, ::1] simplex, REAL_t[:, ::1] uloc, R
     return lX*lY*uloc[0, 0] + (1.-lX)*lY*uloc[1, 0] + lX*(1.-lY)*uloc[0, 1] + (1.-lX)*(1.-lY)*uloc[1, 1]
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cdef inline REAL_t evalPLTensor3D(REAL_t[:, ::1] simplex, REAL_t[:, :, ::1] uloc, REAL_t[::1] x):
     cdef:
         REAL_t lX, lY, lZ
@@ -1622,8 +1469,6 @@ cdef class lookupFunctionTensor2D(function):
         self.uloc = uninitialized((2, 2), dtype=REAL)
         self.q = uninitialized((1), dtype=REAL)
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             INDEX_t i, j
@@ -1657,8 +1502,6 @@ cdef class lookupFunctionTensor2DNew(function):
         self.uloc = uninitialized((2, 2), dtype=REAL)
         self.N = N
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             INDEX_t i, j, idxX, idxY
@@ -1698,8 +1541,6 @@ cdef class lookupFunctionTensor2DNewSym(function):
         assert self.coordsY.shape[0] == self.N
         self.xTemp = uninitialized((2), dtype=REAL)
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             INDEX_t i, j, idxX, idxY, I, J
@@ -1757,8 +1598,6 @@ cdef class lookupFunctionTensor3D(function):
         self.uloc = uninitialized((2, 2, 2), dtype=REAL)
         self.q = uninitialized((1), dtype=REAL)
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             INDEX_t i, j, k
@@ -1802,8 +1641,6 @@ cdef class lookupFunctionTensor3DNew(function):
         self.uloc = uninitialized((2, 2, 2), dtype=REAL)
         self.N = N
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             INDEX_t i, j, k, idxX, idxY, idxZ
@@ -1847,8 +1684,6 @@ cdef class lookupFunctionTensor3DNewSym(function):
         assert self.coordsZ.shape[0] == self.N
         self.xTemp = uninitialized((3), dtype=REAL)
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             INDEX_t i, j, k, idxX, idxY, idxZ, I, J, K
@@ -1908,8 +1743,6 @@ cdef class sphericalIntegral(function):
             raise NotImplementedError()
         self.y = uninitialized((self.dim), dtype=REAL)
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t eval(self, REAL_t[::1] x):
         cdef:
             REAL_t I = 0.
@@ -1925,8 +1758,6 @@ cdef class complexFunction:
     def __call__(self, REAL_t[::1] x):
         return self.eval(x)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef COMPLEX_t eval(self, REAL_t[::1] x):
         pass
 
@@ -1985,8 +1816,6 @@ cdef class complexSumFunction(complexFunction):
         self.f2 = f2
         self.fac2 = fac2
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef COMPLEX_t eval(self, REAL_t[::1] x):
         return self.fac1*self.f1.eval(x)+self.fac2*self.f2.eval(x)
 
@@ -2000,8 +1829,6 @@ cdef class complexMulFunction(complexFunction):
         self.f = f
         self.fac = fac
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef COMPLEX_t eval(self, REAL_t[::1] x):
         return self.fac*self.f.eval(x)
 
@@ -2013,8 +1840,6 @@ cdef class wrapRealToComplexFunction(complexFunction):
     def __init__(self, function fun):
         self.fun = fun
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef COMPLEX_t eval(self, REAL_t[::1] x):
         return self.fun(x)
 
@@ -2026,8 +1851,6 @@ cdef class complexLambda(complexFunction):
     def __init__(self, fun):
         self.fun = fun
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline COMPLEX_t eval(self, REAL_t[::1] x):
         return self.fun(x)
 
@@ -2039,8 +1862,6 @@ cdef class real(function):
     def __init__(self, complexFunction fun):
         self.fun = fun
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x):
         return self.fun.eval(x).real
 
@@ -2052,8 +1873,6 @@ cdef class imag(function):
     def __init__(self, complexFunction fun):
         self.fun = fun
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x):
         return self.fun.eval(x).imag
 
@@ -2066,8 +1885,6 @@ cdef class waveFunction(complexFunction):
     def __init__(self, REAL_t[::1] waveVector):
         self.waveVector = waveVector
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef COMPLEX_t eval(self, REAL_t[::1] x):
         cdef:
             REAL_t s = 0.
@@ -2086,8 +1903,6 @@ cdef class vectorFunction:
         self.eval(x, vals)
         return vals
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef void eval(self, REAL_t[::1] x, REAL_t[::1] vals):
         raise NotImplementedError()
 
@@ -2141,8 +1956,6 @@ cdef class componentVectorFunction(vectorFunction):
         super(componentVectorFunction, self).__init__(len(components))
         self.components = components
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef void eval(self, REAL_t[::1] x, REAL_t[::1] vals):
         cdef:
             INDEX_t i
@@ -2167,8 +1980,6 @@ cdef class vectorNorm(function):
         self.vecFun = vecFun
         self.vals = uninitialized((self.vecFun.rows), dtype=REAL)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef REAL_t eval(self, REAL_t[::1] x):
         self.vecFun.eval(x, self.vals)
         return norm(self.vals)
@@ -2189,8 +2000,6 @@ cdef class sumVectorFunction(vectorFunction):
         self.fac2 = fac2
         self.temp = uninitialized((self.f2.rows), dtype=REAL)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef void eval(self, REAL_t[::1] x, REAL_t[::1] vals):
         self.f1.eval(x, vals)
         self.f2.eval(x, self.temp)
@@ -2213,8 +2022,6 @@ cdef class mulVectorFunction(vectorFunction):
         self.g = g
         self.fac = fac
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef void eval(self, REAL_t[::1] x, REAL_t[::1] vals):
         cdef:
             INDEX_t i
@@ -2246,8 +2053,6 @@ cdef class matrixFunction:
         self.eval(x, vals)
         return vals
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef void eval(self, REAL_t[::1] x, REAL_t[:, ::1] vals):
         cdef:
             INDEX_t i
@@ -2282,9 +2087,6 @@ cdef class periodicityFunctor(function):
         self.period = period
         self.y = uninitialized((period.shape[0]), dtype=REAL)
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             INDEX_t i
@@ -2308,9 +2110,6 @@ cdef class shiftScaleFunctor(function):
         self.scaling = scaling
         self.temp = uninitialized((shift.shape[0]), dtype=REAL)
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
             INDEX_t i

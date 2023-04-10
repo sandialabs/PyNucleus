@@ -8,7 +8,6 @@
 import numpy as np
 from . myTypes import INDEX, REAL, COMPLEX
 from . blas import uninitialized
-cimport cython
 
 include "config.pxi"
 
@@ -24,18 +23,12 @@ cdef class ipBase:
     def __init__(self):
         pass
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def __call__(self,
                  vector_t v1, vector_t v2,
                  BOOL_t acc1=False, BOOL_t acc2=False,
                  BOOL_t asynchronous=False):
         return self.eval(v1, v2, acc1, acc2, asynchronous)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t eval(self,
                        vector_t v1, vector_t v2,
                        BOOL_t acc1=False, BOOL_t acc2=False,
@@ -47,18 +40,12 @@ cdef class normBase:
     def __init__(self):
         pass
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def __call__(self,
                  vector_t v,
                  BOOL_t acc=False,
                  BOOL_t asynchronous=False):
         return self.eval(v, acc, asynchronous)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t eval(self,
                        vector_t v,
                        BOOL_t acc=False,
@@ -67,9 +54,6 @@ cdef class normBase:
 
 
 cdef class ip_noop(ipBase):
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t eval(self,
                        vector_t v1, vector_t v2,
                        BOOL_t acc1=False, BOOL_t acc2=False,
@@ -78,9 +62,6 @@ cdef class ip_noop(ipBase):
 
 
 cdef class norm_noop(normBase):
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t eval(self,
                        vector_t v,
                        BOOL_t acc=False,
@@ -89,9 +70,6 @@ cdef class norm_noop(normBase):
 
 
 cdef class ip_serial(ipBase):
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t eval(self,
                        vector_t v1, vector_t v2,
                        BOOL_t acc1=False, BOOL_t acc2=False,
@@ -100,9 +78,6 @@ cdef class ip_serial(ipBase):
 
 
 cdef class norm_serial(normBase):
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t eval(self,
                        vector_t v,
                        BOOL_t acc=False,
@@ -115,9 +90,6 @@ cdef class ip_distributed_nonoverlapping(ipBase):
         self.comm = comm
         self.localIP = ip_serial()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t eval(self,
                        vector_t v1, vector_t v2,
                        BOOL_t acc1=False, BOOL_t acc2=False,
@@ -135,9 +107,6 @@ cdef class norm_distributed_nonoverlapping(normBase):
         self.comm = comm
         self.localIP = ip_serial()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t eval(self,
                        vector_t v,
                        BOOL_t acc=False,
@@ -159,9 +128,6 @@ cdef class ip_distributed(ipBase):
         self.temporaryMemory = uninitialized((0), dtype=REAL)
         self.localIP = ip_serial()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t eval(self,
                        vector_t v1, vector_t v2,
                        BOOL_t acc1=False, BOOL_t acc2=False,
@@ -202,9 +168,6 @@ cdef class norm_distributed(normBase):
         self.temporaryMemory = uninitialized((0), dtype=REAL)
         self.localIP = ip_serial()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t eval(self,
                        vector_t v,
                        BOOL_t acc=False,
@@ -229,18 +192,12 @@ cdef class complexipBase:
     def __init__(self):
         pass
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def __call__(self,
                  complex_vector_t v1, complex_vector_t v2,
                  BOOL_t acc1=False, BOOL_t acc2=False,
                  BOOL_t asynchronous=False):
         return self.eval(v1, v2, acc1, acc2, asynchronous)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef COMPLEX_t eval(self,
                         complex_vector_t v1,
                         complex_vector_t v2,
@@ -254,18 +211,12 @@ cdef class complexNormBase:
     def __init__(self):
         pass
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def __call__(self,
                  complex_vector_t v,
                  BOOL_t acc=False,
                  BOOL_t asynchronous=False):
         return self.eval(v, acc, asynchronous)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t eval(self,
                        complex_vector_t v,
                        BOOL_t acc=False,
@@ -278,9 +229,6 @@ cdef class wrapRealNormToComplex(complexNormBase):
         self.norm = norm
         self.temporaryMemory = uninitialized((0), dtype=REAL)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t eval(self,
                        complex_vector_t x,
                        BOOL_t acc=False,
@@ -305,9 +253,6 @@ cdef class wrapRealInnerToComplex(complexipBase):
         self.temporaryMemory = uninitialized((0), dtype=REAL)
         self.temporaryMemory2 = uninitialized((0), dtype=REAL)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef COMPLEX_t eval(self,
                         complex_vector_t x,
                         complex_vector_t y,

@@ -12,11 +12,11 @@ from . linear_operators cimport IJOperator, CSR_LinearOperator
 from . myTypes import INDEX, REAL
 from . linear_operators cimport LinearOperator
 
-cimport cython
-
 
 cdef class Map:
     def __init__(self, INDEX_t[:, ::1] GID_PID):
+        cdef:
+            INDEX_t k, rank
         assert GID_PID.shape[1] == 2
         assert np.array(GID_PID, copy=False)[:, 0].min() == 0
         self.GID_PID = GID_PID
@@ -44,9 +44,6 @@ cdef class Map:
                 self.lcl_to_gbl_array[self.lcl_to_gbl_offsets[rank]+k] = lcl[k]
 
 
-    @cython.wraparound(False)
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
     cpdef INDEX_t getGlobalElement(self, INDEX_t pid, INDEX_t lid):
         cdef:
             INDEX_t offset1, offset2
@@ -161,8 +158,8 @@ cdef class Import:
         self.countsSends = np.zeros_like(self.countsReceive)
         self.ovMap.comm.Alltoall(self.countsReceive, self.countsSends)
         sends = np.zeros((np.sum(self.countsSends)), dtype=INDEX)
-        self.offsetsReceives = np.concatenate(([0], np.cumsum(self.countsReceive[:-1]))).astype(INDEX)
-        self.offsetsSends = np.concatenate(([0], np.cumsum(self.countsSends[:-1]))).astype(INDEX)
+        self.offsetsReceives = np.concatenate(([0], np.cumsum(self.countsReceive[:self.countsReceive.shape[0]-1]))).astype(INDEX)
+        self.offsetsSends = np.concatenate(([0], np.cumsum(self.countsSends[:self.countsSends.shape[0]-1]))).astype(INDEX)
         self.ovMap.comm.Alltoallv([receives, (self.countsReceive, self.offsetsReceives)],
                                   [sends, (self.countsSends, self.offsetsSends)])
         self.sendLIDs = np.array([self.oneToOneMap.getLocalElement(gid) for gid in sends], dtype=INDEX)
@@ -189,9 +186,6 @@ cdef class Import:
         return y
 
 
-@cython.wraparound(False)
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
 def writeBinary(filename, CSR_LinearOperator mtx):
     cdef:
         INDEX_t i, start, end, rownnz
@@ -215,9 +209,6 @@ def writeMatrix(fn, CSR_LinearOperator mat, BOOL_t binary=True):
             mmwrite(f, mat.to_csr(), symmetry='general')
 
 
-@cython.wraparound(False)
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
 def computeColMap(globalA, Map rowMap):
     cdef:
         INDEX_t pid, rlid, rgid, jj, cgid, k
@@ -265,9 +256,6 @@ class DistMatrix:
         return s
 
     @staticmethod
-    @cython.wraparound(False)
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
     def fromGlobalMatrix(CSR_LinearOperator globalA, Map rowMap):
         cdef:
             INDEX_t pid, rlid, rgid, jj, cgid, clid, k

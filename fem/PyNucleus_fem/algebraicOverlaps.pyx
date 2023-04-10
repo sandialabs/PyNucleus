@@ -17,7 +17,6 @@ from PyNucleus_base.linear_operators import (LinearOperator_wrapper,
 import numpy as np
 cimport numpy as np
 from numpy.linalg import norm
-cimport cython
 
 import mpi4py.rc
 mpi4py.rc.initialize = False
@@ -78,9 +77,6 @@ cdef class algebraicOverlap:
                                                   self.num_shared_dofs,
                                                   self.num_subdomain_dofs)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef MPI.Request send(self,
                           const REAL_t[::1] vec,
                           INDEX_t vecNo=0,
@@ -95,9 +91,6 @@ cdef class algebraicOverlap:
                                dest=self.otherSubdomainNo,
                                tag=self.tagNoSend)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef MPI.Request receive(self,
                              const REAL_t[::1] vec,
                              INDEX_t vecNo=0,
@@ -107,9 +100,6 @@ cdef class algebraicOverlap:
                                source=self.otherSubdomainNo,
                                tag=self.tagNoRecv)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void accumulateProcess(self,
                                 REAL_t[::1] vec,
                                 INDEX_t vecNo=0):
@@ -119,9 +109,6 @@ cdef class algebraicOverlap:
         for j in range(self.num_shared_dofs):
             vec[shared_dofs[j]] += self.myExchangeIn[j]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef MPI.Request sendComplex(self,
                                  const COMPLEX_t[::1] vec,
                                  INDEX_t vecNo=0,
@@ -138,9 +125,6 @@ cdef class algebraicOverlap:
                                dest=self.otherSubdomainNo,
                                tag=self.tagNoSend)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef MPI.Request receiveComplex(self,
                                     const COMPLEX_t[::1] vec,
                                     INDEX_t vecNo=0,
@@ -152,9 +136,6 @@ cdef class algebraicOverlap:
                                source=self.otherSubdomainNo,
                                tag=self.tagNoRecv)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void accumulateProcessComplex(self,
                                        COMPLEX_t[::1] vec,
                                        INDEX_t vecNo=0):
@@ -164,18 +145,12 @@ cdef class algebraicOverlap:
         for j in range(self.num_shared_dofs):
             vec[shared_dofs[j]] = vec[shared_dofs[j]] + self.myExchangeInComplex[j]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void setOverlapLocal(self, REAL_t[::1] vec, INDEX_t vecNo=0):
         cdef:
             INDEX_t j
         for j in range(self.num_shared_dofs):
             vec[j] = self.myExchangeIn[j]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void uniqueProcess(self,
                             REAL_t[::1] vec,
                             INDEX_t vecNo=0):
@@ -229,9 +204,6 @@ cdef class algebraicOverlapPersistent(algebraicOverlap):
         self.RecvRequest = self.comm.Recv_init(self.exchangeIn[vecNo, self.memOffset:self.memOffset+self.num_shared_dofs],
                                                source=self.otherSubdomainNo, tag=55)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef MPI.Request send(self,
                           const REAL_t[::1] vec,
                           INDEX_t vecNo=0,
@@ -245,9 +217,6 @@ cdef class algebraicOverlapPersistent(algebraicOverlap):
         self.SendRequest.Start()
         return self.SendRequest
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef MPI.Request receive(self,
                              const REAL_t[::1] vec,
                              INDEX_t vecNo=0,
@@ -281,9 +250,6 @@ cdef class algebraicOverlapBlocking(algebraicOverlap):
         self.RecvRequest = self.comm.Recv_init(self.exchangeIn[vecNo, self.memOffset:self.memOffset+self.num_shared_dofs],
                                                source=self.otherSubdomainNo, tag=55)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef MPI.Request send(self,
                           const REAL_t[::1] vec,
                           INDEX_t vecNo=0,
@@ -297,9 +263,6 @@ cdef class algebraicOverlapBlocking(algebraicOverlap):
         self.SendRequest.Start()
         return self.SendRequest
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef MPI.Request receive(self,
                              const REAL_t[::1] vec,
                              INDEX_t vecNo=0,
@@ -345,9 +308,6 @@ cdef class algebraicOverlapOneSidedGet(algebraicOverlap):
                                 MPI.REAL))
         self.Window.Unlock(self.mySubdomainNo)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef MPI.Request send(self,
                           const REAL_t[::1] vec,
                           INDEX_t vecNo=0,
@@ -365,9 +325,6 @@ cdef class algebraicOverlapOneSidedGet(algebraicOverlap):
                                 MPI.REAL))
         self.Window.Unlock(self.mySubdomainNo)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef MPI.Request receive(self,
                              const REAL_t[::1] vec,
                              INDEX_t vecNo=0,
@@ -419,9 +376,6 @@ cdef class algebraicOverlapOneSidedPut(algebraicOverlap):
                                 MPI.REAL))
         self.Window.Unlock(self.otherSubdomainNo)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef MPI.Request send(self,
                           const REAL_t[::1] vec,
                           INDEX_t vecNo=0,
@@ -439,9 +393,6 @@ cdef class algebraicOverlapOneSidedPut(algebraicOverlap):
                                 MPI.REAL))
         self.Window.Unlock(self.otherSubdomainNo)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef MPI.Request receive(self,
                              const REAL_t[::1] vec,
                              INDEX_t vecNo=0,
@@ -456,9 +407,6 @@ cdef class algebraicOverlapOneSidedPut(algebraicOverlap):
         self.Window.Unlock(self.mySubdomainNo)
 
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void accumulateProcess(self,
                                 REAL_t[::1] vec,
                                 INDEX_t vecNo=0):
@@ -505,9 +453,6 @@ cdef class algebraicOverlapOneSidedPutLockAll(algebraicOverlap):
                                 exchangeOut.shape[0],
                                 MPI.REAL))
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef MPI.Request send(self,
                           const REAL_t[::1] vec,
                           INDEX_t vecNo=0,
@@ -535,9 +480,6 @@ cdef class algebraicOverlapOneSidedPutLockAll(algebraicOverlap):
         else:
             raise NotImplementedError()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef MPI.Request receive(self,
                              const REAL_t[::1] vec,
                              INDEX_t vecNo=0,
@@ -561,9 +503,6 @@ cdef class algebraicOverlapOneSidedPutLockAll(algebraicOverlap):
                                 exchangeIn.shape[0],
                                 MPI.REAL))
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void accumulateProcess(self,
                                 REAL_t[::1] vec,
                                 INDEX_t vecNo=0):
@@ -617,9 +556,6 @@ cdef class algebraicOverlapManager:
             shared_dofs |= set(list(np.array(self.overlaps[otherSubdomain].shared_dofs)))
         return np.array(list(shared_dofs), dtype=INDEX)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def prepareDistribute(self):
         cdef:
             INDEX_t i, subdomainNo, k
@@ -643,19 +579,12 @@ cdef class algebraicOverlapManager:
             k += 1
         self.distribute_is_prepared = True
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def prepareDistributeRepartitionSend(self, DoFMap DoFMap):
         cdef:
             REAL_t[::1] x
         x = np.ones((DoFMap.num_dofs), dtype=REAL)
         self.send(x, asynchronous=False)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     def prepareDistributeRepartition(self, DoFMap DoFMap, BOOL_t doSend=True):
         cdef:
             INDEX_t i
@@ -705,7 +634,6 @@ cdef class algebraicOverlapManager:
                 if dof >= 0:
                     x[dof] = 0.
 
-    @cython.cdivision(True)
     def prepareDistributeMeshOverlap(self, mesh, INDEX_t nc, DoFMap DoFMap, INDEX_t depth, meshOverlaps):
 
         # returns layers of vertices around the original subdomain
@@ -748,7 +676,7 @@ cdef class algebraicOverlapManager:
                     for vertexNo in range(cells.shape[1]):
                         localVertexNo = cells[nc+cell, vertexNo]
                         if not localVertexNo in alreadyAdded:
-                            boundaryVertices2[-1].append((nc+cell, vertexNo))
+                            boundaryVertices2[len(boundaryVertices2)-1].append((nc+cell, vertexNo))
                             alreadyAdded.add(localVertexNo)
             return boundaryVertices2
 
@@ -863,9 +791,6 @@ cdef class algebraicOverlapManager:
             k += 1
         self.non_overlapping_distribute_is_prepared = True
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cpdef void distribute(self,
                           REAL_t[::1] vec,
                           REAL_t[::1] vec2=None,
@@ -899,9 +824,6 @@ cdef class algebraicOverlapManager:
     def distribute_py(self, vec, vec2=None, nonOverlapping=False):
         self.distribute(vec, vec2, nonOverlapping)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void distributeComplex(self,
                                 COMPLEX_t[::1] vec,
                                 COMPLEX_t[::1] vec2=None,
@@ -931,9 +853,6 @@ cdef class algebraicOverlapManager:
             dof = Didx[i]
             vec2[dof] = vec2[dof]*Dval[i]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void redistribute(self,
                            REAL_t[::1] vec,
                            REAL_t[::1] vec2=None,
@@ -947,9 +866,6 @@ cdef class algebraicOverlapManager:
             self.accumulate(vec, vec2, asynchronous=asynchronous, vecNo=vecNo)
             self.distribute(vec2, None, nonOverlapping=nonOverlapping)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cpdef void accumulate(self,
                           REAL_t[::1] vec,
                           REAL_t[::1] return_vec=None,
@@ -1038,9 +954,6 @@ cdef class algebraicOverlapManager:
                       vecNo=0):
         self.accumulate(vec, return_vec, asynchronous, vecNo)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void accumulateComplex(self,
                                 COMPLEX_t[::1] vec,
                                 COMPLEX_t[::1] return_vec=None,
@@ -1152,9 +1065,6 @@ cdef class algebraicOverlapManager:
             ov.uniqueProcess(vec, vecNo=vecNo)
         MPI.Request.Waitall(requestsSend)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void send(self,
                    REAL_t[::1] vec,
                    BOOL_t asynchronous=False,
@@ -1201,9 +1111,6 @@ cdef class algebraicOverlapManager:
     def send_py(self, vec, asynchronous=False, vecNo=0):
         self.send(vec, asynchronous, vecNo)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void sendComplex(self,
                           COMPLEX_t[::1] vec,
                           BOOL_t asynchronous=False,
@@ -1247,9 +1154,6 @@ cdef class algebraicOverlapManager:
              len(requestsOneSidedPutLockAll) > 0) and not asynchronous):
             self.comm.Barrier()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void receive(self,
                       REAL_t[::1] return_vec,
                       BOOL_t asynchronous=False,
@@ -1318,9 +1222,6 @@ cdef class algebraicOverlapManager:
     def receive_py(self, return_vec, asynchronous=False, vecNo=0):
         self.receive(return_vec, asynchronous, vecNo)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void receiveComplex(self,
                              COMPLEX_t[::1] return_vec,
                              BOOL_t asynchronous=False,
@@ -1565,9 +1466,6 @@ cdef class algebraicOverlapManager:
         for i in self.overlaps:
             self.overlaps[i].flushMemory(vecNo=vecNo, value=value)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def findMinPerOverlap(self, REAL_t[::1] indicator):
         # Takes local vector.
         # Returns the elementwise minimum in each overlap, i.e. a dict of vectors.
@@ -1679,9 +1577,6 @@ cdef class multilevelAlgebraicOverlapManager:
         else:
             raise NotImplementedError("Cannot find a level of size {}.\nLevel sizes: {}".format(n, [self.levels[level].num_subdomain_dofs for level in range(len(self.levels))]))
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def accumulate(self,
                    REAL_t[::1] vec,
                    REAL_t[::1] return_vec=None,
@@ -1701,9 +1596,6 @@ cdef class multilevelAlgebraicOverlapManager:
         ovM = self.levels[level]
         ovM.accumulate(vec, return_vec, asynchronous=asynchronous, vecNo=vecNo)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def accumulateComplex(self,
                           COMPLEX_t[::1] vec,
                           COMPLEX_t[::1] return_vec=None,
@@ -1723,9 +1615,6 @@ cdef class multilevelAlgebraicOverlapManager:
         ovM = self.levels[level]
         ovM.accumulateComplex(vec, return_vec, asynchronous=asynchronous, vecNo=vecNo)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def unique(self,
                REAL_t[::1] vec,
                INDEX_t vecNo=0):
@@ -1744,11 +1633,8 @@ cdef class multilevelAlgebraicOverlapManager:
     def prepareDistributeMeshOverlap(self, mesh, nc, DoFMap DoFMap, depth, meshOverlaps):
         for i in range(len(self.levels)-1):
             self.levels[i].prepareDistribute()
-        self.levels[-1].prepareDistributeMeshOverlap(mesh, nc, DoFMap, depth, meshOverlaps)
+        self.levels[len(self.levels)-1].prepareDistributeMeshOverlap(mesh, nc, DoFMap, depth, meshOverlaps)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def distribute(self,
                    REAL_t[::1] vec,
                    REAL_t[::1] vec2=None,
@@ -1767,9 +1653,6 @@ cdef class multilevelAlgebraicOverlapManager:
         ovM = self.levels[level]
         ovM.distribute(vec, vec2, nonOverlapping=nonOverlapping)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def distributeComplex(self,
                           COMPLEX_t[::1] vec,
                           COMPLEX_t[::1] vec2=None,
@@ -1788,9 +1671,6 @@ cdef class multilevelAlgebraicOverlapManager:
         ovM = self.levels[level]
         ovM.distributeComplex(vec, vec2, nonOverlapping=nonOverlapping)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def redistribute(self,
                      REAL_t[::1] vec,
                      REAL_t[::1] vec2=None,

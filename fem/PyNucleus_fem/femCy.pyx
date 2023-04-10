@@ -27,8 +27,8 @@ from . meshCy cimport (meshBase,
                        encode_edge)
 from . mesh import NO_BOUNDARY
 from PyNucleus_base.linear_operators cimport (LinearOperator,
-                                               CSR_LinearOperator,
-                                               SSS_LinearOperator)
+                                              CSR_LinearOperator,
+                                              SSS_LinearOperator)
 from PyNucleus_base.sparsityPattern cimport sparsityPattern
 from . DoFMaps cimport (P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap,
                         DoFMap,
@@ -52,16 +52,11 @@ cdef class local_matrix_t:
                  REAL_t[::1] contrib):
         return self.eval(simplex, contrib)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef void eval(self,
                    REAL_t[:, ::1] simplex,
                    REAL_t[::1] contrib):
         pass
 
-    @cython.wraparound(False)
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
     cdef void setCell(self,
                       INDEX_t[::1] cell):
         cdef:
@@ -70,9 +65,6 @@ cdef class local_matrix_t:
             self.cell[i] = cell[i]
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
 cdef inline REAL_t simplexVolume1D(const REAL_t[:, ::1] simplex,
                                    REAL_t[:, ::1] temp):
     # temp needs to bed of size 0x1
@@ -80,9 +72,6 @@ cdef inline REAL_t simplexVolume1D(const REAL_t[:, ::1] simplex,
     return abs(simplex[1, 0]-simplex[0, 0])
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
 cdef inline REAL_t simplexVolume2D(const REAL_t[:, ::1] simplex,
                                    REAL_t[:, ::1] temp):
     # temp needs to bed of size 2x2
@@ -96,9 +85,6 @@ cdef inline REAL_t simplexVolume2D(const REAL_t[:, ::1] simplex,
     return volume2Dnew(temp)
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
 cdef inline REAL_t simplexVolume1Din2D(const REAL_t[:, ::1] simplex,
                                        REAL_t[:, ::1] temp):
     # temp needs to bed of size 1x2
@@ -108,9 +94,6 @@ cdef inline REAL_t simplexVolume1Din2D(const REAL_t[:, ::1] simplex,
     return volume1D_in_2D(temp)
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
 cdef inline REAL_t simplexVolume3D(const REAL_t[:, ::1] simplex,
                                    REAL_t[:, ::1] temp):
     # temp needs to be 4x3
@@ -125,9 +108,6 @@ cdef inline REAL_t simplexVolume3D(const REAL_t[:, ::1] simplex,
     return volume3Dnew(temp[:3, :], temp[3, :])
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
 cdef inline REAL_t simplexVolume2Din3D(const REAL_t[:, ::1] simplex,
                                        REAL_t[:, ::1] temp):
     cdef:
@@ -140,10 +120,6 @@ cdef inline REAL_t simplexVolume2Din3D(const REAL_t[:, ::1] simplex,
     return volume2D_in_3D(temp[0, :], temp[1, :])
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
-@cython.cdivision(True)
 cdef inline void coeffProducts1D(const REAL_t[:, ::1] simplex,
                                  REAL_t vol,
                                  vectorFunction coeff,
@@ -166,10 +142,6 @@ cdef inline void coeffProducts1D(const REAL_t[:, ::1] simplex,
 
 
 # TODO: double check
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
-@cython.cdivision(True)
 cdef inline REAL_t simplexVolumeAndProducts1D(const REAL_t[:, ::1] simplex,
                                                 REAL_t[::1] innerProducts,
                                                 REAL_t[:, ::1] temp):
@@ -235,10 +207,6 @@ cdef class simplexComputations1D(simplexComputations):
     cdef:
         REAL_t[:, ::1] temp
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
     cdef REAL_t evalVolume(self):
         cdef:
             REAL_t vol
@@ -247,10 +215,6 @@ cdef class simplexComputations1D(simplexComputations):
         vol = abs(self.simplex[0, 0]-self.simplex[1, 0])
         return vol
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
     cdef REAL_t evalVolumeGradients(self,
                                     REAL_t[:, ::1] gradients):
         cdef:
@@ -262,10 +226,6 @@ cdef class simplexComputations1D(simplexComputations):
         gradients[1, 0] = -gradients[0, 0]
         return vol
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
     cdef REAL_t evalVolumeGradientsInnerProducts(self,
                                                  REAL_t[:, ::1] gradients,
                                                  REAL_t[::1] innerProducts):
@@ -283,10 +243,6 @@ cdef class simplexComputations1D(simplexComputations):
         innerProducts[2] = vol*gradients[1, 0]*gradients[1, 0]
         return vol
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
     cdef REAL_t evalSimplexVolumeGradientsInnerProducts(self,
                                                         const REAL_t[:, ::1] simplex,
                                                         REAL_t[:, ::1] gradients,
@@ -313,10 +269,6 @@ cdef class simplexComputations2D(simplexComputations):
     def __init__(self):
         self.temp = uninitialized((2, 2), dtype=REAL)
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
     cdef REAL_t evalVolume(self):
         cdef:
             REAL_t vol
@@ -329,10 +281,6 @@ cdef class simplexComputations2D(simplexComputations):
         vol = volume2Dnew(self.temp)
         return vol
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
     cdef REAL_t evalVolumeGradients(self,
                                     REAL_t[:, ::1] gradients):
         cdef:
@@ -352,10 +300,6 @@ cdef class simplexComputations2D(simplexComputations):
                 gradients[k, j] *= f
         return vol
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
     cdef REAL_t evalVolumeGradientsInnerProducts(self,
                                                  REAL_t[:, ::1] gradients,
                                                  REAL_t[::1] innerProducts):
@@ -383,10 +327,6 @@ cdef class simplexComputations2D(simplexComputations):
         innerProducts[5] = vol*mydot(gradients[2, :], gradients[2, :])
         return vol
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
     cdef REAL_t evalSimplexVolumeGradientsInnerProducts(self,
                                                         const REAL_t[:, ::1] simplex,
                                                         REAL_t[:, ::1] gradients,
@@ -424,10 +364,6 @@ cdef class simplexComputations3D(simplexComputations):
     def __init__(self):
         self.temp = uninitialized((7, 3), dtype=REAL)
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
     cdef REAL_t evalVolume(self):
         cdef:
             REAL_t vol
@@ -444,10 +380,6 @@ cdef class simplexComputations3D(simplexComputations):
         vol = volume3Dnew(self.temp[:3, :], self.temp[6, :])
         return vol
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
     cdef REAL_t evalVolumeGradients(self,
                                     REAL_t[:, ::1] gradients):
         cdef:
@@ -478,10 +410,6 @@ cdef class simplexComputations3D(simplexComputations):
                 gradients[k, j] *= f
         return vol
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
     cdef REAL_t evalVolumeGradientsInnerProducts(self,
                                                  REAL_t[:, ::1] gradients,
                                                  REAL_t[::1] innerProducts):
@@ -524,10 +452,6 @@ cdef class simplexComputations3D(simplexComputations):
         innerProducts[9] = vol*mydot(gradients[3, :], gradients[3, :])
         return vol
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
     cdef REAL_t evalSimplexVolumeGradientsInnerProducts(self,
                                                         const REAL_t[:, ::1] simplex,
                                                         REAL_t[:, ::1] gradients,
@@ -573,10 +497,6 @@ cdef class simplexComputations3D(simplexComputations):
 
 
 # TODO: double check
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
-@cython.cdivision(True)
 cdef inline REAL_t simplexVolumeGradientsProducts1D(const REAL_t[:, ::1] simplex,
                                                     REAL_t[::1] innerProducts,
                                                     REAL_t[:, ::1] gradients):
@@ -597,10 +517,6 @@ cdef inline REAL_t simplexVolumeGradientsProducts1D(const REAL_t[:, ::1] simplex
     return vol
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
-@cython.cdivision(True)
 cdef inline REAL_t simplexVolumeAndProducts2D(const REAL_t[:, ::1] simplex,
                                                 REAL_t[::1] innerProducts,
                                                 REAL_t[:, ::1] temp):
@@ -625,10 +541,6 @@ cdef inline REAL_t simplexVolumeAndProducts2D(const REAL_t[:, ::1] simplex,
     innerProducts[5] = mydot(temp[2, :], temp[2, :])
     return vol
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
-@cython.cdivision(True)
 cdef inline REAL_t simplexVolumeGradientsProducts2D(const REAL_t[:, ::1] simplex,
                                                       REAL_t[::1] innerProducts,
                                                       REAL_t[:, ::1] gradients):
@@ -655,17 +567,10 @@ cdef inline REAL_t simplexVolumeGradientsProducts2D(const REAL_t[:, ::1] simplex
     return vol
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
 cdef inline REAL_t mydot_rot2D(const REAL_t[::1] a, const REAL_t[::1] b):
     return -a[0]*b[1]+a[1]*b[0]
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
-@cython.cdivision(True)
 cdef inline void coeffProducts2D(const REAL_t[:, ::1] simplex,
                                  REAL_t vol,
                                  vectorFunction coeff,
@@ -696,10 +601,6 @@ cdef inline void coeffProducts2D(const REAL_t[:, ::1] simplex,
     innerProducts[2] = 0.5/vol*mydot_rot2D(temp[3, :], temp[2, :])
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
-@cython.cdivision(True)
 cdef inline REAL_t simplexVolumeAndProducts3D(const REAL_t[:, ::1] simplex,
                                                 REAL_t[::1] innerProducts,
                                                 REAL_t[:, ::1] temp):
@@ -741,10 +642,6 @@ cdef inline REAL_t simplexVolumeAndProducts3D(const REAL_t[:, ::1] simplex,
     return vol
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
-@cython.cdivision(True)
 cdef inline REAL_t simplexVolumeGradientsProducts3D(const REAL_t[:, ::1] simplex,
                                                     REAL_t[::1] innerProducts,
                                                     REAL_t[:, ::1] gradients,
@@ -816,10 +713,6 @@ cdef class drift_1d_P1(drift_1d):
         drift_1d.__init__(self)
         self.coeff = coeff
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef inline void eval(self,
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):
@@ -876,10 +769,6 @@ cdef class drift_2d_P1(drift_2d):
         drift_2d.__init__(self)
         self.coeff = coeff
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef inline void eval(self,
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):
@@ -949,9 +838,6 @@ cdef class stiffness_3d_sym(local_matrix_t):
 #     def __init__(self, REAL_t[::1] entries):
 #         self.entries = entries
 
-#     @cython.initializedcheck(False)
-#     @cython.boundscheck(False)
-#     @cython.wraparound(False)
 #     cdef inline void eval(self,
 #                           REAL_t[:, ::1] local_vertices,
 #                           REAL_t[::1] contrib,
@@ -975,10 +861,6 @@ cdef class stiffness_3d_sym(local_matrix_t):
 # Local mass matrices for subdmanifolds in 1d, 2d
 
 cdef class mass_0d_in_1d_sym_P1(mass_1d):
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef inline void eval(self,
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):
@@ -986,10 +868,6 @@ cdef class mass_0d_in_1d_sym_P1(mass_1d):
 
 
 cdef class mass_1d_in_2d_sym_P1(mass_2d):
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef inline void eval(self,
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):
@@ -1003,10 +881,6 @@ cdef class mass_1d_in_2d_sym_P1(mass_2d):
 
 
 cdef class mass_2d_in_3d_sym_P1(mass_3d):
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef inline void eval(self,
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):
@@ -1067,10 +941,6 @@ cdef class stiffness_quadrature_matrix(mass_quadrature_matrix):
 
 
 cdef class mass_1d_sym_scalar_anisotropic(mass_quadrature_matrix):
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef inline void eval(self,
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):
@@ -1090,10 +960,6 @@ cdef class mass_1d_sym_scalar_anisotropic(mass_quadrature_matrix):
 
 
 cdef class mass_2d_sym_scalar_anisotropic(mass_quadrature_matrix):
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef inline void eval(self,
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):
@@ -1113,10 +979,6 @@ cdef class mass_2d_sym_scalar_anisotropic(mass_quadrature_matrix):
 
 
 cdef class mass_3d_sym_scalar_anisotropic(mass_quadrature_matrix):
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef inline void eval(self,
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):
@@ -1139,10 +1001,6 @@ cdef class mass_3d_sym_scalar_anisotropic(mass_quadrature_matrix):
 # Local stiffness matrices in 1d, 2d, 3d
 
 cdef class stiffness_1d_in_2d_sym_P1(stiffness_2d_sym):
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef inline void eval(self,
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):
@@ -1176,10 +1034,6 @@ cdef class stiffness_2d_sym_anisotropic_P1(stiffness_2d_sym):
             raise NotImplementedError()
         self.mean = uninitialized((2), dtype=REAL)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef inline void eval(self,
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):
@@ -1217,9 +1071,6 @@ cdef class stiffness_2d_sym_anisotropic_P1(stiffness_2d_sym):
                     p += 1
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef void matvec(const REAL_t[:, ::1] A, const REAL_t[::1] x, REAL_t[::1] y):
     cdef INDEX_t i, j
     for i in range(A.shape[0]):
@@ -1250,10 +1101,6 @@ cdef class stiffness_2d_sym_anisotropic2_P1(stiffness_2d_sym):
         self.diffusivity = np.dot(Q, np.dot(D, Q.T))
         self.temp2 = uninitialized((2), dtype=REAL)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef inline void eval(self,
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):
@@ -1289,10 +1136,6 @@ cdef class stiffness_2d_sym_anisotropic3_P1(stiffness_2d_sym):
         self.temp2 = uninitialized((2), dtype=REAL)
         self.innerProducts = uninitialized((6), dtype=REAL)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef inline void eval(self,
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):
@@ -1334,10 +1177,6 @@ cdef class div_div_2d(local_matrix_t):
         self.innerProducts = uninitialized((((dim+1)*(dim+2))//2), dtype=REAL)
         self.gradients = uninitialized((dim+1, dim), dtype=REAL)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef inline void eval(self,
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):
@@ -1382,10 +1221,6 @@ cdef class elasticity_1d_P1(local_matrix_t):
         self.gradients = uninitialized((dim+1, dim), dtype=REAL)
         self.sC = simplexComputations1D()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef inline void eval(self,
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):
@@ -1438,10 +1273,6 @@ cdef class elasticity_2d_P1(local_matrix_t):
         self.gradients = uninitialized((dim+1, dim), dtype=REAL)
         self.sC = simplexComputations2D()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef inline void eval(self,
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):
@@ -1494,10 +1325,6 @@ cdef class elasticity_3d_P1(local_matrix_t):
         self.gradients = uninitialized((dim+1, dim), dtype=REAL)
         self.sC = simplexComputations3D()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef inline void eval(self,
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):
@@ -1535,10 +1362,6 @@ cdef class elasticity_3d_P1(local_matrix_t):
 
 
 cdef class mass_1d_in_2d_sym_P2(mass_2d):
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef inline void eval(self,
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):
@@ -2029,8 +1852,6 @@ def assembleMatrix(meshBase mesh,
                                          cellIndices=cellIndices)
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef assembleSymMatrix_CSR(meshBase mesh,
                            local_matrix_t local_matrix,
                            DoFMap DoFMap,
@@ -2148,8 +1969,6 @@ cdef assembleSymMatrix_CSR(meshBase mesh,
     return A
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef assembleSymMatrix_SSS(meshBase mesh,
                            local_matrix_t local_matrix,
                            DoFMap DoFMap,
@@ -2239,8 +2058,6 @@ cdef assembleSymMatrix_SSS(meshBase mesh,
     return A
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def assembleNonSymMatrix_CSR(meshBase mesh,
                              local_matrix_t local_matrix,
                              DoFMap DoFMap1,
@@ -2421,8 +2238,6 @@ ctypedef fused FUNCTION_t:
     vectorFunction
 
 
-@cython.boundscheck(False)
-@cython.cdivision(True)
 def assembleRHS(FUNCTION_t fun, DoFMap dm,
                 simplexQuadratureRule qr=None):
     cdef:
@@ -2588,8 +2403,6 @@ def assembleRHS(FUNCTION_t fun, DoFMap dm,
     return dataVec
 
 
-@cython.boundscheck(False)
-@cython.cdivision(True)
 def assembleRHScomplex(complexFunction fun, DoFMap dm,
                        simplexQuadratureRule qr=None):
     cdef:
@@ -2678,8 +2491,6 @@ def assembleRHScomplex(complexFunction fun, DoFMap dm,
     return dataVec
 
 
-@cython.boundscheck(False)
-@cython.cdivision(True)
 def assembleRHSgrad(FUNCTION_t fun, DoFMap dm,
                     vectorFunction coeff,
                     simplexQuadratureRule qr=None):
@@ -2800,8 +2611,6 @@ cdef class power(multi_function):
         self.k = k
         multi_function.__init__(self, 1, 1)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y):
         cdef:
             REAL_t u
@@ -2818,8 +2627,6 @@ cdef class gray_scott(multi_function):
         self.k = k
         multi_function.__init__(self, 2, 2)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline void eval(self, REAL_t[::1] x, REAL_t[::1] y):
         cdef:
             REAL_t u, v
@@ -2838,8 +2645,6 @@ cdef class gray_scott_gradient(multi_function):
         self.k = k
         multi_function.__init__(self, 4, 2)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline void eval(self, REAL_t[::1] x, REAL_t[::1] y):
         cdef REAL_t u, v, unew, vnew
         u = x[0]
@@ -2859,8 +2664,6 @@ cdef class brusselator(multi_function):
         self.Q = Q
         multi_function.__init__(self, 2, 2)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef inline void eval(self, REAL_t[::1] x, REAL_t[::1] y):
         cdef:
             REAL_t u, v, z
@@ -2875,8 +2678,6 @@ cdef class CahnHilliard_F_prime(multi_function):
     def __init__(self):
         multi_function.__init__(self, 1, 1)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y):
         cdef:
             REAL_t u
@@ -2888,8 +2689,6 @@ cdef class CahnHilliard_F(multi_function):
     def __init__(self):
         multi_function.__init__(self, 1, 1)
 
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y):
         cdef:
             REAL_t u
@@ -2897,9 +2696,6 @@ cdef class CahnHilliard_F(multi_function):
         y[0] = 0.25*(1.-u**2)**2
 
 
-@cython.boundscheck(False)
-@cython.initializedcheck(False)
-@cython.cdivision(True)
 def assembleNonlinearity(meshBase mesh, multi_function fun, DoFMap DoFMap, multi_fe_vector U):
     cdef:
         INDEX_t dim = mesh.dim
@@ -2995,9 +2791,6 @@ def assembleNonlinearity(meshBase mesh, multi_function fun, DoFMap DoFMap, multi
     # return data_mem
 
 
-@cython.boundscheck(False)
-@cython.initializedcheck(False)
-@cython.cdivision(True)
 def assembleRHSfromFEfunction(meshBase mesh,
                               vector_t u,
                               DoFMap DoFMap,
@@ -3084,10 +2877,6 @@ def assembleRHSfromFEfunction(meshBase mesh,
     return np.array(b, copy=False)
 
 
-@cython.boundscheck(False)
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 def assembleJumpMatrix(meshBase mesh, P0_DoFMap dm):
     cdef:
         sparsityPattern sPat = sparsityPattern(dm.num_dofs)
@@ -3237,9 +3026,6 @@ cdef class matrixFreeOperator(LinearOperator):
                                 dm.num_dofs,
                                 dm.num_dofs)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         REAL_t[::1] x,
                         REAL_t[::1] y) except -1:
@@ -3249,9 +3035,6 @@ cdef class matrixFreeOperator(LinearOperator):
             y[i] = 0.
         self.matvec_no_overwrite(x, y)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec_no_overwrite(self,
                                      REAL_t[::1] x,
                                      REAL_t[::1] y) except -1:
@@ -3284,9 +3067,6 @@ cdef class matrixFreeOperator(LinearOperator):
                         y[J] += local_contrib[s] * x[I]
                     s += 1
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def get_diagonal(self):
         cdef:
             INDEX_t i, s, j, k, I, J

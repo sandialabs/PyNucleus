@@ -79,10 +79,6 @@ cdef class sorPreconditioner(preconditioner):
         self.postsmoother_forwardSweep = postsmoother_forwardSweep
         self.forwardSweep = False
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cdef INDEX_t matvec(self,
                         REAL_t[::1] x,
                         REAL_t[::1] result) except -1:
@@ -209,10 +205,6 @@ cdef class ssorPreconditioner(preconditioner):
         self.A_data = A.data
         self.omega = omega
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cdef INDEX_t matvec(self,
                         REAL_t[::1] x,
                         REAL_t[::1] result) except -1:
@@ -321,10 +313,6 @@ cdef class gaussSeidelSmoother(smoother):
     def setD(self, REAL_t[::1] D):
         self.D = D
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cdef void eval(self,
                    REAL_t[::1] rhs,
                    REAL_t[::1] y,
@@ -411,9 +399,6 @@ cdef class iluPreconditioner(preconditioner):
         ILUS.setup(self.A, fill_factor=fill_factor)
         self.preconditioner = ILUS.asPreconditioner()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self, REAL_t[::1] x, REAL_t[::1] y) except -1:
         self.preconditioner(x, y)
         return 0

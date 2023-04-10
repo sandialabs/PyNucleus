@@ -16,8 +16,6 @@ from . meshCy cimport sortEdge, sortFace, faceVals
 import mpi4py
 mpi4py.rc.initialize = False
 from mpi4py import MPI
-cimport cython
-
 
 
 cdef class boundaryLayer(object):
@@ -40,9 +38,6 @@ cdef class boundaryLayer(object):
         self.depth = depth
         self.afterRefinements = afterRefinements
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def getBoundaryAndConnectivity(self, mesh, INDEX_t startCell=0):
         """
         Calculate the connectivity and the boundary cells and edges of the
@@ -122,9 +117,6 @@ cdef class boundaryLayer(object):
         else:
             raise NotImplementedError()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def getLayer(self, INDEX_t depth, set ofCells=None, BOOL_t returnLayerNo=False, INDEX_t[:, ::1] cells=None):
         """
         Returns depth layers of cells that are adjacent to ofCells.
@@ -167,9 +159,6 @@ cdef class boundaryLayer(object):
         else:
             return [np.array(list(bc), dtype=INDEX) for bc in bcells]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def prune(self, depth, pp=None, cells=None):
         """
         Remove cells that are to far from the boundary.
@@ -191,10 +180,6 @@ cdef class boundaryLayer(object):
         new_cell_connectivity.pop(-1)
         self.cell_connectivity = new_cell_connectivity
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     def refine(self, newMesh):
         """
         Refine the boundary layers.
@@ -324,9 +309,6 @@ cdef class boundaryLayer(object):
         self.prune(depth, pp, cells=newMesh.cells)
         self.afterRefinements -= 1
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def vertex2cells(self, const INDEX_t[:, ::1] cells):
         """
         Return a lookup dict

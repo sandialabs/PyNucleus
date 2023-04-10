@@ -31,7 +31,6 @@ from copy import deepcopy
 import numpy as np
 cimport numpy as np
 from numpy.linalg import norm
-cimport cython
 
 import mpi4py.rc
 mpi4py.rc.initialize = False
@@ -41,9 +40,6 @@ from mpi4py cimport MPI
 from warnings import warn
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def boundary1D(meshBase mesh):
     cdef:
         INDEX_t[:, ::1] cells = mesh.cells
@@ -70,9 +66,6 @@ def boundary1D(meshBase mesh):
     return bvertices_mem
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def boundary2D(meshBase mesh, BOOL_t assumeConnected=True):
     cdef:
         simplexMapper sM = mesh.simplexMapper
@@ -154,9 +147,6 @@ def boundary2D(meshBase mesh, BOOL_t assumeConnected=True):
     return bvertices_mem, bedges_mem
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def boundary3D(meshBase mesh, BOOL_t assumeConnected=True):
     cdef:
         simplexMapper3D sM = mesh.simplexMapper
@@ -249,9 +239,6 @@ cdef class dofCheckerSet(dofChecker):
         self.dofs = set()
         self.orderedDoFs = list()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void add(self, INDEX_t dof):
         if dof >= 0 and not dof in self.dofs:
             self.dofs.add(dof)
@@ -270,9 +257,6 @@ cdef class dofCheckerArray(dofChecker):
         self.dofs = np.zeros((num_dofs), dtype=BOOL)
         self.orderedDoFs = list()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void add(self, INDEX_t dof):
         if dof >= 0 and not self.dofs[dof]:
             self.dofs[dof] = True
@@ -325,10 +309,6 @@ cdef class sharedMesh:
                                                                     self.num_faces,
                                                                     self.num_cells)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     def refine(self, mesh=None):
         cdef:
             INDEX_t[:, ::1] cells
@@ -489,9 +469,6 @@ cdef class sharedMesh:
         else:
             raise NotImplementedError()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def getDoFs(self, meshBase mesh, DoFMap dm, comm, overlapType='standard', INDEX_t numSharedVecs=1,
                 BOOL_t allowInteriorBoundary=False):
         cdef:
@@ -721,9 +698,6 @@ cdef class sharedMesh:
         self.otherSubdomainNo = state[5]
         self.dim = state[6]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def sendPartition(self, MPI.Comm comm, INDEX_t[::1] part):
         cdef:
             INDEX_t i, cellNo
@@ -748,9 +722,6 @@ cdef class sharedMesh:
             requests.append(comm.Isend(facePart, dest=self.otherSubdomainNo, tag=25))
         return requests
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def recvPartition(self, MPI.Comm comm):
         cdef:
             INDEX_t[::1] vertexPart = uninitialized((self.num_vertices), dtype=INDEX)
@@ -765,9 +736,6 @@ cdef class sharedMesh:
             requests.append(comm.Irecv(facePart, source=self.otherSubdomainNo, tag=25))
         return requests, vertexPart, edgePart, facePart
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def shrink(self, REAL_t[::1] indicator, INDEX_t[::1] newCellIndices):
         # indicator vector wrt pre-shrink mesh
         # newCellIndices translate from pre-shrink to post-shrink cells
@@ -792,9 +760,6 @@ cdef class sharedMesh:
         for i in range(len(cells)):
             self.cells[i] = cells[i]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def getAllSharedVertices(self, meshBase mesh):
         """Returns a list of shared vertices, i.e. vertices that are on shared faces, edges as well."""
         cdef:
@@ -1269,9 +1234,6 @@ cdef class vertexMap:
         public dict overlap2local
 
     # translates local to overlap vertex indices and the other way around
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def __init__(self, meshBase mesh, sharedMesh interface):
         cdef:
             simplexMapper sM
@@ -1521,9 +1483,6 @@ class vertexMapManager:
         return numberCellsLastLayer
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def updateBoundary1D(INDEX_t[:, ::1] cells,
                      INDEX_t[::1] oldVertices):
     cdef:
@@ -1547,9 +1506,6 @@ def updateBoundary1D(INDEX_t[:, ::1] cells,
     return np.array(list(bvertices), dtype=INDEX)
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def updateBoundary2D(INDEX_t[:, ::1] cells,
                      INDEX_t[:, ::1] oldEdges,
                      INDEX_t[::1] oldVertices):
@@ -1594,9 +1550,6 @@ def updateBoundary2D(INDEX_t[:, ::1] cells,
     return np.array(list(bvertices), dtype=INDEX), bedges_mem
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def updateBoundary3D(INDEX_t[:, ::1] cells,
                      INDEX_t[:, ::1] oldFaces,
                      INDEX_t[:, ::1] oldEdges,
@@ -2160,9 +2113,6 @@ def extendOverlap(meshBase subdomain, interfaces, interiorBL, depth, comm, debug
     return overlap, numberCellsLastLayer
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def getMeshOverlapsWithOtherPartition(INDEX_t dim,
                                       INDEX_t myRank,
                                       MPI.Comm comm,

@@ -9,7 +9,6 @@ import numpy as np
 from libc.stdlib cimport malloc, realloc, free
 from libc.stdlib cimport qsort
 from . myTypes import INDEX
-cimport cython
 
 include "config.pxi"
 
@@ -123,9 +122,6 @@ cdef class arrayIndexSet(indexSet):
         else:
             self.I = np.empty((0), dtype=INDEX)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef BOOL_t inSet(self, INDEX_t i):
         cdef:
             INDEX_t low = 0
@@ -147,9 +143,6 @@ cdef class arrayIndexSet(indexSet):
                     high = mid
             return True
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cpdef void fromSet(self, set s):
         cdef:
             INDEX_t i, k
@@ -180,9 +173,6 @@ cdef class arrayIndexSet(indexSet):
     cpdef void empty(self):
         self.I = np.empty((0), dtype=INDEX)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cpdef indexSet union(self, indexSet other_):
         cdef:
             arrayIndexSet other = other_
@@ -246,9 +236,6 @@ cdef class arrayIndexSet(indexSet):
 
         return newIS
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cpdef indexSet inter(self, indexSet other_):
         cdef:
             arrayIndexSet other = other_
@@ -294,9 +281,6 @@ cdef class arrayIndexSet(indexSet):
 
         return newIS
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cpdef indexSet setminus(self, indexSet other_):
         cdef:
             arrayIndexSet other = other_
@@ -360,9 +344,6 @@ cdef class unsortedArrayIndexSet(arrayIndexSet):
         else:
             self.I = np.empty((0), dtype=INDEX)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef BOOL_t inSet(self, INDEX_t i):
         cdef:
             INDEX_t j
@@ -371,9 +352,6 @@ cdef class unsortedArrayIndexSet(arrayIndexSet):
                 return True
         return False
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cpdef void fromSet(self, set s):
         cdef:
             INDEX_t i, k
@@ -421,9 +399,6 @@ cdef class arrayIndexSetIterator(indexSetIterator):
     cdef void reset(self):
         self.k = -1
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef BOOL_t step(self):
         cdef:
             arrayIndexSet aIS = self.iS
@@ -442,7 +417,6 @@ cdef class bitArray(indexSet):
         for j in range(self.length):
             self.a[j] = 0
 
-    @cython.cdivision(True)
     cdef void set(self, INDEX_t i):
         cdef:
             INDEX_t k = i/(sizeof(MEM_t)*8)
@@ -460,7 +434,6 @@ cdef class bitArray(indexSet):
     def set_py(self, INDEX_t i):
         self.set(i)
 
-    @cython.cdivision(True)
     cdef BOOL_t inSet(self, INDEX_t i):
         cdef:
             INDEX_t k = i/(sizeof(MEM_t)*8)

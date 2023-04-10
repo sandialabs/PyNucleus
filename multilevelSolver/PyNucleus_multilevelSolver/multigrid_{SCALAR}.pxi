@@ -7,7 +7,6 @@
 
 import numpy as np
 cimport numpy as np
-cimport cython
 from tabulate import tabulate
 from PyNucleus_base import INDEX, REAL, COMPLEX, uninitialized
 from PyNucleus_base.performanceLogger cimport FakeTimer
@@ -99,7 +98,7 @@ cdef class {SCALAR_label}multigrid({SCALAR_label_lc_}iterative_solver):
         self.hierarchyManager = myHierarchyManager
         self.PLogger = PLogger() if logging else FakePLogger()
 
-        fineHierarchy = myHierarchyManager.builtHierarchies[-1]
+        fineHierarchy = myHierarchyManager.builtHierarchies[len(myHierarchyManager.builtHierarchies) - 1]
         levels = fineHierarchy.getLevelList(recurse=False)
 
         numLevels = len(levels)
@@ -135,7 +134,7 @@ cdef class {SCALAR_label}multigrid({SCALAR_label_lc_}iterative_solver):
         {SCALAR_label_lc_}iterative_solver.__init__(self, lvl.A)
         self.maxIter = 50
 
-        if 'multilevelAlgebraicOverlapManager' in levels[-1]:
+        if 'multilevelAlgebraicOverlapManager' in levels[len(levels)-1]:
             overlap = levels[numLevels-1]['multilevelAlgebraicOverlapManager']
             if overlap.comm.size == 1:
                 overlap = None
@@ -160,9 +159,6 @@ cdef class {SCALAR_label}multigrid({SCALAR_label_lc_}iterative_solver):
             else:
                 self.levels[lvlNo].smootherType = smoother[lvlNo]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cpdef void setup(self, {SCALAR_label}LinearOperator A=None):
         cdef:
             INDEX_t lvlNo
@@ -235,9 +231,6 @@ cdef class {SCALAR_label}multigrid({SCALAR_label_lc_}iterative_solver):
 
         self.initialized = True
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void solveOnLevel(self, int lvlNo, {SCALAR}_t[::1] b, {SCALAR}_t[::1] x,
                            BOOL_t simpleResidual=False):
         cdef:
@@ -297,9 +290,6 @@ cdef class {SCALAR_label}multigrid({SCALAR_label_lc_}iterative_solver):
     def asPreconditioner(self, INDEX_t maxIter=1, CycleType cycle=V):
         return {SCALAR_label}multigridPreconditioner(self, cycle, maxIter)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef int solve(self,
                    {SCALAR}_t[::1] b,
                    {SCALAR}_t[::1] x) except -1:
@@ -395,9 +385,6 @@ cdef class {SCALAR_label}multigrid({SCALAR_label_lc_}iterative_solver):
         self.residuals = residuals
         return iterNo
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cpdef int solveFMG(self,
                        {SCALAR}_t[::1] b,
                        {SCALAR}_t[::1] x):
@@ -474,7 +461,7 @@ cdef class {SCALAR_label}multigrid({SCALAR_label_lc_}iterative_solver):
         return M
 
     def operatorComplexity(self):
-        return sum([lvl.A.nnz for lvl in self.levels])/self.levels[-1].A.nnz
+        return sum([lvl.A.nnz for lvl in self.levels])/self.levels[len(self.levels)-1].A.nnz
 
 
 cdef class {SCALAR_label}multigridPreconditioner({SCALAR_label_lc_}preconditioner):
@@ -490,9 +477,6 @@ cdef class {SCALAR_label}multigridPreconditioner({SCALAR_label_lc_}preconditione
         self.maxIter = maxIter
         self.numLevels = len(self.ml.levels)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         {SCALAR}_t[::1] x,
                         {SCALAR}_t[::1] y) except -1:

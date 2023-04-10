@@ -9,9 +9,6 @@ cdef class {SCALAR_label}smoother:
     def __init__(self, {SCALAR_label}LinearOperator A):
         self._A = A
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def __call__(self,
                  {SCALAR}_t[::1] b,
                  {SCALAR}_t[::1] y,
@@ -19,9 +16,6 @@ cdef class {SCALAR_label}smoother:
                  BOOL_t simpleResidual=False):
         self.eval(b, y, postsmoother, simpleResidual)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void eval(self,
                    {SCALAR}_t[::1] b,
                    {SCALAR}_t[::1] y,
@@ -91,9 +85,6 @@ cdef class {SCALAR_label}separableSmoother({SCALAR_label}smoother):
     def setD(self, {SCALAR}_t[::1] D):
         self.prec.setD(D)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void eval(self,
                    {SCALAR}_t[::1] b,
                    {SCALAR}_t[::1] y,
@@ -132,9 +123,6 @@ cdef class {SCALAR_label}jacobiPreconditioner({SCALAR_label}preconditioner):
     def setD(self, {SCALAR}_t[::1] D):
         self.invD = self.omega/np.array(D, copy=False)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self, {SCALAR}_t[::1] x, {SCALAR}_t[::1] y) except -1:
         cdef:
             INDEX_t i
@@ -184,9 +172,6 @@ cdef class {SCALAR_label}blockJacobiPreconditioner({SCALAR_label}preconditioner)
         self.invD = {SCALAR_label_lc_}lu_solver(D)
         self.invD.setup()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self, {SCALAR}_t[::1] x, {SCALAR}_t[::1] y) except -1:
         self.invD.solve(x, y)
         return 0
@@ -255,9 +240,6 @@ cdef class {SCALAR_label}gmresSmoother({SCALAR_label}smoother):
         else:
             self._accA = A
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void eval(self,
                    {SCALAR}_t[::1] b,
                    {SCALAR}_t[::1] y,

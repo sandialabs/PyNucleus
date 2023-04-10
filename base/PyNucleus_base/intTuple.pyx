@@ -7,7 +7,6 @@
 
 import numpy as np
 cimport numpy as np
-cimport cython
 from libc.stdlib cimport malloc, realloc, free
 from libc.string cimport memcpy
 from . myTypes import INDEX
@@ -18,35 +17,20 @@ cdef enum:
 
 
 cdef class intTuple:
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void set(self, INDEX_t * t, int size):
         self.size = size
         self.entries = <INDEX_t *>malloc(size*INDEX_SIZE)
         memcpy(&self.entries[0], &t[0], size*INDEX_SIZE)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void assign(self, INDEX_t * t):
         memcpy(&self.entries[0], &t[0], self.size*INDEX_SIZE)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void assignNonOwning(self, INDEX_t * t):
         self.entries = t
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void get(self, INDEX_t * t):
         memcpy(&t[0], &self.entries[0], self.size*INDEX_SIZE)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     @staticmethod
     cdef intTuple create(INDEX_t[::1] t):
         cdef:
@@ -54,9 +38,6 @@ cdef class intTuple:
         tt.set(&t[0], t.shape[0])
         return tt
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     @staticmethod
     cdef intTuple createNonOwning(INDEX_t[::1] t):
         cdef:
@@ -98,9 +79,6 @@ cdef class intTuple:
     def create3Py(INDEX_t a, INDEX_t b, INDEX_t c):
         return intTuple.create3(a, b, c)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def __hash__(self):
         cdef:
             INDEX_t hash_val = 2166136261
@@ -111,9 +89,6 @@ cdef class intTuple:
             hash_val = hash_val * 16777619
         return hash_val
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def __eq__(self, intTuple other):
         cdef:
             INDEX_t i
@@ -135,9 +110,6 @@ cdef class productIterator:
         self.dim = dim
         self.idx = np.zeros((dim), dtype=INDEX)
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef void reset(self):
         cdef:
             INDEX_t i
@@ -145,9 +117,6 @@ cdef class productIterator:
             self.idx[i] = 0
         self.idx[self.dim-1] = -1
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef BOOL_t step(self):
         cdef:
             INDEX_t i

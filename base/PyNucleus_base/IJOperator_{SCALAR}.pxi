@@ -10,17 +10,11 @@ cdef class {SCALAR_label}IJOperator({SCALAR_label}LinearOperator):
         super({SCALAR_label}IJOperator, self).__init__(numRows, numCols)
         self.entries = {}
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void setEntry({SCALAR_label}IJOperator self, INDEX_t I, INDEX_t J, {SCALAR}_t val):
         cdef:
             ENCODE_t hv = MAX_VAL*<ENCODE_t>I+<ENCODE_t>J
         self.entries[hv] = val
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void addToEntry({SCALAR_label}IJOperator self, INDEX_t I, INDEX_t J, {SCALAR}_t val):
         cdef:
             ENCODE_t hv = MAX_VAL*<ENCODE_t>I+<ENCODE_t>J
@@ -28,17 +22,11 @@ cdef class {SCALAR_label}IJOperator({SCALAR_label}LinearOperator):
         oldVal = self.entries.pop(hv, 0.)
         self.entries[hv] = oldVal+val
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef {SCALAR}_t getEntry({SCALAR_label}IJOperator self, INDEX_t I, INDEX_t J):
         cdef:
             ENCODE_t hv = MAX_VAL*<ENCODE_t>I+<ENCODE_t>J
         return self.entries.get(hv, 0.)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def getData(self):
         cdef:
             INDEX_t[::1] I, J

@@ -43,9 +43,6 @@ cdef class tupleDict{VALUE}:
         s += l*(sizeof(INDEX_t)+sizeof({VALUE_t}))
         return s
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     cdef inline BOOL_t findIndex(self, INDEX_t I, INDEX_t J):
         cdef:
             {LENGTH_t} m, low, high, mid
@@ -90,9 +87,6 @@ cdef class tupleDict{VALUE}:
                                             (self.lengths[I]) *
                                             sizeof({VALUE_t}))
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     cdef {VALUE_t} enterValue(self, const INDEX_t[::1] e, {VALUE_t} val):
         cdef:
             INDEX_t m, n, I = e[0], J = e[1]
@@ -129,9 +123,6 @@ cdef class tupleDict{VALUE}:
             self.nnz += 1
             return val
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     cdef {VALUE_t} removeValue(self, const INDEX_t[::1] e):
         cdef:
             INDEX_t m, n, I = e[0], J = e[1]
@@ -154,9 +145,6 @@ cdef class tupleDict{VALUE}:
     cpdef {VALUE_t} removeValue_py(self, const INDEX_t[::1] e):
         self.removeValue(e)
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     cdef {VALUE_t} getValue(self, const INDEX_t[::1] e):
         cdef:
             INDEX_t m
@@ -178,18 +166,12 @@ cdef class tupleDict{VALUE}:
         free(self.vals)
         malloc_trim(0)
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     cdef void startIter(self):
         self.i = 0
         while self.i < self.num_dofs and self.counts[self.i] == 0:
             self.i += 1
         self.jj = 0
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     cdef BOOL_t next(self, INDEX_t[::1] e, {VALUE_t} * val):
         cdef:
             INDEX_t i = self.i, jj = self.jj, j
@@ -210,9 +192,6 @@ cdef class tupleDict{VALUE}:
             self.i = i
         return True
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     cdef tuple getData(self):
         cdef:
             INDEX_t[::1] indexL
@@ -232,9 +211,6 @@ cdef class tupleDict{VALUE}:
         indexL, vals = self.getData()
         return (self.num_dofs, self.length_inc, self.deleteHits, self.logicalAndHits, np.array(self.counts), np.array(indexL), np.array(vals))
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     def __setstate__(self, state):
         cdef:
             INDEX_t[::1] indexL = state[5]
@@ -255,9 +231,6 @@ cdef class tupleDict{VALUE}:
                 k += 1
         self.nnz = k
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     cpdef void merge(self, tupleDict{VALUE} other):
         cdef:
             INDEX_t[::1] e = np.empty((2), dtype=INDEX)
@@ -268,9 +241,6 @@ cdef class tupleDict{VALUE}:
         while other.next(e, &val):
             self.enterValue(e, val)
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     cpdef void mergeData(self, {LENGTH_t}[::1] counts, INDEX_t[::1] indexL, {VALUE_t}[::1] vals):
         cdef:
             INDEX_t[::1] e = np.empty((2), dtype=INDEX)
