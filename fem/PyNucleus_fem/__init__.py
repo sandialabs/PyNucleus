@@ -13,5 +13,5 @@ from . DoFMaps import (P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap,
                        str2DoFMap, str2DoFMapOrder, getAvailableDoFMaps)
 from . factories import functionFactory, dofmapFactory, meshFactory
 from . pdeProblems import diffusionProblem, helmholtzProblem
-__all__ = [functionFactory, dofmapFactory, meshFactory,
-           diffusionProblem, helmholtzProblem]
+__all__ = ['functionFactory', 'dofmapFactory', 'meshFactory',
+           'diffusionProblem', 'helmholtzProblem']
