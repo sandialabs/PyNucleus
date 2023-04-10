@@ -9,7 +9,6 @@ from libc.math cimport sqrt
 from PyNucleus_base import uninitialized
 import numpy as np
 cimport numpy as np
-cimport cython
 # from libcpp.unordered_map cimport unordered_map
 # from libcpp.map cimport map
 from libc.stdlib cimport malloc, realloc, free
@@ -373,9 +372,6 @@ cdef class meshBase:
             return False
         return True
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void getSimplex(meshBase self,
                          const INDEX_t cellIdx,
                          REAL_t[:, ::1] simplex):
@@ -479,9 +475,6 @@ cdef class meshBase:
     def setMeshTransformation(self, meshTransformer transformer):
         self.transformer = transformer
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def refine(meshBase self, BOOL_t returnLookup=False, BOOL_t sortRefine=False):
         from . mesh import mesh1d, mesh2d, mesh3d
         cdef:
@@ -561,9 +554,6 @@ cdef class meshBase:
         else:
             return newMesh
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def removeUnusedVertices(self):
         cdef:
             INDEX_t[::1] mapping = -np.ones((self.num_vertices), dtype=INDEX)
@@ -636,9 +626,6 @@ cdef class meshBase:
         if hasattr(self, '_interiorVertices'):
             del self._interiorVertices
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     def getCellCenters(self):
         cdef:
             REAL_t[:, ::1] simplex = uninitialized((self.dim+1, self.dim), dtype=REAL)
@@ -656,9 +643,6 @@ cdef class meshBase:
                 centers[cellNo, k] *= fac
         return centers
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     def getProjectedCenters(self):
         cdef:
             REAL_t[:, ::1] simplex = uninitialized((self.dim+1, self.dim), dtype=REAL)
@@ -681,9 +665,6 @@ cdef class meshBase:
                 centers[cellNo, k] = 0.5*(mins[k]+maxs[k])
         return centers
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef BOOL_t vertexInCell(self, REAL_t[::1] vertex, INDEX_t cellNo, REAL_t[:, ::1] simplexMem, REAL_t[::1] baryMem, REAL_t tol=0.):
         cdef:
             INDEX_t i
@@ -746,9 +727,6 @@ cdef class meshBase:
 cdef ENCODE_t MAX_VAL_EDGE = pow(<ENCODE_t>2, <ENCODE_t>31)
 
 
-@cython.boundscheck(False)
-@cython.initializedcheck(False)
-@cython.wraparound(False)
 cdef ENCODE_t encode_edge(const INDEX_t[::1] e):
     return MAX_VAL_EDGE*<ENCODE_t>e[0]+<ENCODE_t>e[1]
 
@@ -757,9 +735,6 @@ def encode_edge_python(INDEX_t[::1] e):
     return encode_edge(e)
 
 
-@cython.boundscheck(False)
-@cython.initializedcheck(False)
-@cython.wraparound(False)
 cdef void decode_edge(const ENCODE_t encodeVal, INDEX_t[::1] e):
     e[0] = encodeVal // MAX_VAL_EDGE
     e[1] = encodeVal % MAX_VAL_EDGE
@@ -771,9 +746,6 @@ def decode_edge_python(ENCODE_t encodeVal):
     return e
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef void sortEdge(const INDEX_t c0, const INDEX_t c1, INDEX_t[::1] e):
     if c0 < c1:
         e[0], e[1] = c0, c1
@@ -786,16 +758,10 @@ def sortEdge_py(const INDEX_t c0, const INDEX_t c1, INDEX_t[::1] e):
 
 # Encoding, decoding and sorting of faces
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef tuple encode_face(const INDEX_t[::1] f):
     return (f[0], MAX_VAL_EDGE*<ENCODE_t>f[1]+<ENCODE_t>f[2])
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef void decode_face(tuple encodeVal, INDEX_t[::1] f):
     f[0] = encodeVal[0]
     f[1] = encodeVal[1] // MAX_VAL_EDGE
@@ -806,9 +772,6 @@ def encode_face_python(INDEX_t[::1] f):
     return encode_face(f)
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef void sortFace(const INDEX_t c0, const INDEX_t c1, const INDEX_t c2,
                    INDEX_t[::1] f):
     if c0 < c1:
@@ -833,7 +796,6 @@ def sortFace_py(const INDEX_t c0, const INDEX_t c1, const INDEX_t c2, INDEX_t[::
     sortFace(c0, c1, c2, f)
 
 
-@cython.cdivision(True)
 def refineCy1D(const REAL_t[:, ::1] vertices,
                const INDEX_t[:, ::1] cells):
     cdef:
@@ -877,9 +839,6 @@ def refineCy1D(const REAL_t[:, ::1] vertices,
     return new_vertices_mem, new_cells_mem, lookup
 
 
-# @cython.initializedcheck(False)
-# @cython.boundscheck(False)
-# @cython.wraparound(False)
 # def refineCy2D(const REAL_t[:, ::1] vertices,
 #                const INDEX_t[:, ::1] cells):
 #     cdef:
@@ -961,9 +920,6 @@ cdef inline int compareEdges(const void *pa, const void *pb) noexcept nogil:
     #         return 1
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def refineCy2Dsort(const REAL_t[:, ::1] vertices,
                    const INDEX_t[:, ::1] cells):
     cdef:
@@ -1029,9 +985,6 @@ def refineCy2Dsort(const REAL_t[:, ::1] vertices,
     return new_vertices_mem, new_cells_mem, lookup
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def refineCy2DedgeVals(const REAL_t[:, ::1] vertices,
                        const INDEX_t[:, ::1] cells):
     cdef:
@@ -1092,9 +1045,6 @@ def refineCy2DedgeVals(const REAL_t[:, ::1] vertices,
     return new_vertices_mem, new_cells_mem, lookup
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def refineCy2Dhash(const REAL_t[:, ::1] vertices,
                    const INDEX_t[:, ::1] cells):
     cdef:
@@ -1174,9 +1124,6 @@ def refineCy2Dhash(const REAL_t[:, ::1] vertices,
     return new_vertices_mem, new_cells_mem, eV
 
 
-# @cython.initializedcheck(False)
-# @cython.boundscheck(False)
-# @cython.wraparound(False)
 # def refineCy3D(const REAL_t[:, ::1] vertices,
 #                const INDEX_t[:, ::1] cells):
 #     cdef:
@@ -1300,9 +1247,6 @@ def refineCy2Dhash(const REAL_t[:, ::1] vertices,
 #     return new_vertices_mem, new_cells_mem, lookup
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def refineCy3DedgeVals(const REAL_t[:, ::1] vertices,
                        const INDEX_t[:, ::1] cells):
     cdef:
@@ -1507,9 +1451,6 @@ def newBoundaryAndTags3D(dict lookup,
             new_boundaryFaces_mem, new_boundaryFaceTags_mem)
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
 cdef void vectorProduct(const REAL_t[::1] v, const REAL_t[::1] w,
                         REAL_t[::1] z):
     z[0] = v[1]*w[2]-v[2]*w[1]
@@ -1517,16 +1458,10 @@ cdef void vectorProduct(const REAL_t[::1] v, const REAL_t[::1] w,
     z[2] = v[0]*w[1]-v[1]*w[0]
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
 cdef REAL_t volume0D(REAL_t[:, ::1] span):
     return 1.
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
 cdef REAL_t volume1D(REAL_t[::1] v0):
     cdef REAL_t s = 0.0
     for i in range(v0.shape[0]):
@@ -1534,32 +1469,18 @@ cdef REAL_t volume1D(REAL_t[::1] v0):
     return sqrt(s)
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
 cdef REAL_t volume1Dnew(REAL_t[:, ::1] span):
     return abs(span[0, 0])
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
 cdef REAL_t volume1D_in_2D(REAL_t[:, ::1] span):
     return sqrt(span[0, 0]**2+span[0, 1]**2)
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
-@cython.cdivision(True)
 cdef REAL_t volume2D(REAL_t[::1] v0, REAL_t[::1] v1):
     return abs(v0[0]*v1[1]-v1[0]*v0[1])*0.5
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
-@cython.cdivision(True)
 cdef REAL_t volume2D_in_3D(REAL_t[::1] v0, REAL_t[::1] v1):
     cdef:
         REAL_t temp_mem[3]
@@ -1568,10 +1489,6 @@ cdef REAL_t volume2D_in_3D(REAL_t[::1] v0, REAL_t[::1] v1):
     return sqrt(mydot(temp, temp))*0.5
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
-@cython.cdivision(True)
 cdef REAL_t volume2D_in_3Dnew(REAL_t[:, ::1] span):
     cdef:
         REAL_t temp_mem[3]
@@ -1580,18 +1497,10 @@ cdef REAL_t volume2D_in_3Dnew(REAL_t[:, ::1] span):
     return sqrt(mydot(temp, temp))*0.5
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
-@cython.cdivision(True)
 cdef REAL_t volume2Dnew(REAL_t[:, ::1] span):
     return abs(span[0, 0]*span[1, 1]-span[0, 1]*span[1, 0])*0.5
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
-@cython.cdivision(True)
 cdef REAL_t volume3D(REAL_t[:, ::1] span):
     cdef:
         REAL_t temp_mem[3]
@@ -1600,32 +1509,19 @@ cdef REAL_t volume3D(REAL_t[:, ::1] span):
     return abs(mydot(span[2, :], temp))/6.0
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
-@cython.cdivision(True)
 cdef REAL_t volume3Dnew(REAL_t[:, ::1] span, REAL_t[::1] temp):
     vectorProduct(span[0, :], span[1, :], temp)
     return abs(mydot(span[2, :], temp))/6.0
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
 cdef REAL_t volume0Dsimplex(REAL_t[:, ::1] simplex):
     return 1.
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
 cdef REAL_t volume1Dsimplex(REAL_t[:, ::1] simplex):
     return abs(simplex[1, 0]-simplex[0, 0])
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
 cdef REAL_t volume2Dsimplex(REAL_t[:, ::1] simplex):
     cdef:
         REAL_t v00 = simplex[1, 0]-simplex[0, 0]
@@ -1635,9 +1531,6 @@ cdef REAL_t volume2Dsimplex(REAL_t[:, ::1] simplex):
     return abs(v00*v11-v10*v01)*0.5
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
 cdef REAL_t volume1Din2Dsimplex(REAL_t[:, ::1] simplex):
     cdef:
         REAL_t v0 = simplex[1, 0]-simplex[0, 0]
@@ -1645,10 +1538,6 @@ cdef REAL_t volume1Din2Dsimplex(REAL_t[:, ::1] simplex):
     return sqrt(v0*v0 + v1*v1)
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
-@cython.cdivision(True)
 cdef REAL_t volume3Dsimplex(REAL_t[:, ::1] simplex):
     cdef:
         REAL_t v00 = simplex[1, 0]-simplex[0, 0]
@@ -1665,9 +1554,6 @@ cdef REAL_t volume3Dsimplex(REAL_t[:, ::1] simplex):
                + (v00*v11-v01*v10) * v22)/6.0
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
 cdef REAL_t volume2Din3Dsimplex(REAL_t[:, ::1] simplex):
     cdef:
         REAL_t v00 = simplex[1, 0]-simplex[0, 0]
@@ -1681,10 +1567,6 @@ cdef REAL_t volume2Din3Dsimplex(REAL_t[:, ::1] simplex):
                 + (v00*v11-v01*v11)**2)*0.5
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
-@cython.boundscheck(False)
-@cython.cdivision(True)
 def hdeltaCy(meshBase mesh):
     cdef:
         INDEX_t space_dim = mesh.dim
@@ -1831,9 +1713,6 @@ def boundaryVertices(INDEX_t[:, ::1] cells):
     return np.array(list(bvertices), dtype=INDEX)
 
 
-@cython.boundscheck(False)
-@cython.initializedcheck(False)
-@cython.wraparound(False)
 def boundaryEdges(INDEX_t[:, ::1] cells, BOOL_t returnBoundaryCells=False):
     cdef:
         INDEX_t nc = cells.shape[0]
@@ -2010,9 +1889,6 @@ cdef class faceVals:
                                              sizeof(INDEX_t))
         self.deleteHits = deleteHits
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     cdef inline INDEX_t enterValue(self, const INDEX_t[::1] f, INDEX_t val):
         cdef:
             INDEX_t m, n, I = f[0], J = f[1], K = f[2]
@@ -2065,9 +1941,6 @@ cdef class faceVals:
             self.nnz += 1
             return val
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     cdef inline INDEX_t getValue(self, const INDEX_t[::1] f):
         cdef:
             INDEX_t m
@@ -2089,18 +1962,12 @@ cdef class faceVals:
         free(self.indexR)
         free(self.vals)
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     cdef void startIter(self):
         self.i = 0
         while self.i < self.num_dofs and self.counts[self.i] == 0:
             self.i += 1
         self.jj = 0
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     cdef BOOL_t next(self, INDEX_t[::1] f, INDEX_t * val):
         cdef:
             INDEX_t i = self.i, jj = self.jj, j, k
@@ -2124,10 +1991,6 @@ cdef class faceVals:
         return True
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cdef inline BOOL_t inCell1D(REAL_t[:, ::1] simplex, REAL_t[::1] x):
     cdef:
         REAL_t bary_mem[2]
@@ -2136,10 +1999,6 @@ cdef inline BOOL_t inCell1D(REAL_t[:, ::1] simplex, REAL_t[::1] x):
     return bary[0] >= 0 and bary[1] >= 0
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cdef inline BOOL_t inCell2D(REAL_t[:, ::1] simplex, REAL_t[::1] x):
     cdef:
         REAL_t bary_mem[3]
@@ -2165,9 +2024,6 @@ cdef class cellFinder(object):
                 numCandidates = self.mesh.dim+2
         self.numCandidates = numCandidates
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t findCell(self, REAL_t[::1] vertex):
         cdef:
             INDEX_t[::1] cellIdx
@@ -2181,9 +2037,6 @@ cdef class cellFinder(object):
 
 
 cdef class cellFinder2:
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def __init__(self, meshBase mesh):
         cdef:
             INDEX_t L, j, k, cellNo, vertexNo, vertex
@@ -2223,9 +2076,6 @@ cdef class cellFinder2:
                     self.v2c[vertex] = set([cellNo])
         self.myKey = intTuple.createNonOwning(self.key)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t findCell(self, REAL_t[::1] vertex):
         cdef:
             INDEX_t j, cellNo, vertexNo, v
@@ -2275,10 +2125,6 @@ cdef class cellFinder2:
         return self.findCell(vertex)
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cdef void getBarycentricCoords1D(REAL_t[:, ::1] simplex, REAL_t[::1] x, REAL_t[::1] bary):
     cdef:
         REAL_t vol
@@ -2287,10 +2133,6 @@ cdef void getBarycentricCoords1D(REAL_t[:, ::1] simplex, REAL_t[::1] x, REAL_t[:
     bary[1] = 1.-bary[0]
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cdef void getBarycentricCoords2D(REAL_t[:, ::1] simplex, REAL_t[::1] x, REAL_t[::1] bary):
     cdef:
         REAL_t vol

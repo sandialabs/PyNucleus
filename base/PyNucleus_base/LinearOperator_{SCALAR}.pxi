@@ -234,27 +234,18 @@ cdef class {SCALAR_label}LinearOperator:
                                self.num_columns,
                                self.__class__.__name__)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void setEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t val):
         raise NotImplementedError()
 
     def setEntry_py(self, INDEX_t I, INDEX_t J, {SCALAR}_t val):
         self.setEntry(I, J, val)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void addToEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t val):
         raise NotImplementedError()
 
     def addToEntry_py(self, INDEX_t I, INDEX_t J, {SCALAR}_t val):
         self.addToEntry(I, J, val)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef {SCALAR}_t getEntry(self, INDEX_t I, INDEX_t J):
         raise NotImplementedError()
 

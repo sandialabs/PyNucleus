@@ -6,10 +6,6 @@
 ###################################################################################
 
 cdef class stiffness_3d_sym_P3(stiffness_3d_sym):
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef inline void eval(stiffness_3d_sym_P3 self,
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):

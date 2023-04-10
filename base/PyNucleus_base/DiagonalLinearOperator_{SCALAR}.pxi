@@ -12,9 +12,6 @@ cdef class {SCALAR_label}diagonalOperator({SCALAR_label}LinearOperator):
                                   diagonal.shape[0])
         self.data = diagonal
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         {SCALAR}_t[::1] x,
                         {SCALAR}_t[::1] y) except -1:
@@ -25,25 +22,16 @@ cdef class {SCALAR_label}diagonalOperator({SCALAR_label}LinearOperator):
             y[i] = self.data[i]*x[i]
         return 0
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef {SCALAR}_t getEntry(self, INDEX_t I, INDEX_t J):
         if I == J:
             return self.data[I]
         else:
             return 0.
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void setEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t val):
         if I == J:
             self.data[I] = val
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void addToEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t val):
         if I == J:
             self.data[I] += val

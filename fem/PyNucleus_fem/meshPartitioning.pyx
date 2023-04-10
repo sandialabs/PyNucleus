@@ -13,7 +13,6 @@ from PyNucleus_base import uninitialized
 from PyNucleus_base.linear_operators cimport LinearOperator, CSR_LinearOperator, sparseGraph
 from itertools import chain
 from libc.math cimport floor
-cimport cython
 
 include "config.pxi"
 
@@ -22,8 +21,6 @@ class PartitionerException(Exception):
     pass
 
 
-@cython.initializedcheck(False)
-@cython.wraparound(False)
 def partition2sparseGraph(const INDEX_t[::1] partition,
                           const INDEX_t numPartitions):
     cdef:
@@ -225,9 +222,6 @@ class regularVertexPartitioner(vertexPartitioner):
         numPartitions = np.unique(part).shape[0]
         return part, numPartitions
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     def partitionDim(self, REAL_t[:, ::1] coord, INDEX_t[::1] part, INDEX_t[::1] numPartitionsPerDim, INDEX_t[::1] idx, INDEX_t d=0, INDEX_t offset=0):
         cdef:
             INDEX_t k, j, i

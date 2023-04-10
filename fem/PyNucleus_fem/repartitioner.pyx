@@ -28,7 +28,6 @@ from . meshOverlaps cimport (meshOverlap, overlapManager,
                              meshInterface, interfaceManager)
 from . meshCy cimport encode_edge, encode_face, sortEdge, sortFace, decode_edge
 from functools import lru_cache
-cimport cython
 
 
 cdef class Repartitioner:
@@ -166,9 +165,6 @@ cdef class Repartitioner:
 
     numPartitions = property(fget=getNumPartitions)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def getCellPartition(self, partitioner='parmetis', partitionerParams={}):
         cdef:
             INDEX_t i, c, dim, numVerticesPerCell, numCells
@@ -294,9 +290,6 @@ cdef class Repartitioner:
                 raise NotImplementedError(partitioner)
             return self.part
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def reorderPartitioning(self):
         """We collect the information of how many cells f_{p,q} of which
         partition q are on each subdomain p. Then we solve a linear
@@ -353,9 +346,6 @@ cdef class Repartitioner:
                 self.part[i] = inv_mapping[self.part[i]]
             # print(self.oldComm.rank, count[self.oldComm.rank], count[mapping[self.oldComm.rank]])
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def getRepartitionedSubdomains(self):
         cdef:
             INDEX_t dim, numVerticesPerCell = -1, i, j, k, m, l, p
@@ -757,9 +747,6 @@ cdef class localInterfaceManager:
         dict edgeLookup
         dict vertexLookup
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def __init__(self, meshBase mesh, interfaceManager interfaces=None, MPI.Comm comm=None, INDEX_t[::1] part=None, INDEX_t cell_offset=0):
         cdef:
             dict faceLookup, edgeLookup, vertexLookup
@@ -853,9 +840,6 @@ cdef class localInterfaceManager:
                     except KeyError:
                         vertexLookup[face[2]] = {otherSubdomainNo: -1}
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void addSubdomain(self, INDEX_t subdomainNo):
         cdef:
             dict faceLookup, edgeLookup, vertexLookup
@@ -920,9 +904,6 @@ cdef class localInterfaceManager:
             except KeyError:
                 vertexLookup[vertex] = {subdomainNo: cellNo}
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void removeBoundary(self, TAG_t tag=PHYSICAL):
         cdef:
             INDEX_t[:, ::1] bfaces, bedges
@@ -978,9 +959,6 @@ cdef class localInterfaceManager:
                     temp[localVertexNo] = self.vertexLookup[localVertexNo]
             self.vertexLookup = temp
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef tuple getDataForSend(self):
         cdef:
             dict faceLookup, interface_faces
@@ -1079,9 +1057,6 @@ cdef class localInterfaceManager:
 
         return interface_vertices, interface_edges, interface_faces
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef tuple getPackedDataForSend(self):
         cdef:
             dict interface_vertices, interface_edges, interface_faces
@@ -1182,9 +1157,6 @@ cdef class interfaceProcessor:
         simplexMapper sMnew
         set face_candidates, edge_candidates, vertex_candidates
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def __init__(self, meshBase mesh, MPI.Comm comm, INDEX_t[::1] localToGlobal, dict globalToLocalCells):
         cdef:
             INDEX_t[:, ::1] bvertices, bedges, bfaces
@@ -1255,9 +1227,6 @@ cdef class interfaceProcessor:
         else:
             raise NotImplementedError()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void processInterfaceInformation(self, INDEX_t[:, ::1] packed_recv_faces, INDEX_t[:, ::1] packed_recv_edges, INDEX_t[:, ::1] packed_recv_vertices):
         cdef:
             INDEX_t i
@@ -1292,9 +1261,6 @@ cdef class interfaceProcessor:
             except KeyError:
                 self.interface_vertices[otherSubdomainNo] = [(localCellNo, vertexNo)]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void setBoundaryInformation(self):
         cdef:
             INDEX_t[:, ::1] bvertices, bedges, bfaces
@@ -1519,9 +1485,6 @@ cdef class interfaceProcessor:
         self.mesh._boundaryVertices = np.array(subdomainBoundaryVertices, copy=False)
         self.mesh._boundaryVertexTags = np.array(subdomainBoundaryVertexTags, copy=False)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef interfaceManager getInterfaceManager(self):
         cdef:
             INDEX_t dim, subdomainNo, i, k

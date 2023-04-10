@@ -7,7 +7,6 @@
 
 import numpy as np
 cimport numpy as np
-cimport cython
 from libc.math cimport sqrt
 from . myTypes import INDEX, REAL, COMPLEX
 from . myTypes cimport INDEX_t, REAL_t, COMPLEX_t
@@ -31,16 +30,10 @@ from . convergence cimport (convergenceMaster, noOpConvergenceMaster,
 include "config.pxi"
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cpdef REAL_t accumulate_serial(REAL_t[::1] x):
     pass
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def ichol_csr(A):
     cdef:
         np.ndarray[INDEX_t, ndim=1] indptr_mem = np.zeros_like(A.indptr,
@@ -98,9 +91,6 @@ def ichol_csr(A):
     return indices_mem, indptr_mem, data_mem, diagonal_mem
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def ichol_sss(SSS_LinearOperator A):
     cdef:
         np.ndarray[INDEX_t, ndim=1] indptr_mem = np.zeros_like(A.indptr,
@@ -156,10 +146,6 @@ def ichol_sss(SSS_LinearOperator A):
 
 
 # Assumes that indices are ordered
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cdef void forward_solve_csc(INDEX_t[::1] indptr,
                             INDEX_t[::1] indices,
                             SCALAR_t[::1] data,
@@ -213,10 +199,6 @@ IF USE_MKL_TRISOLVE:
                          const REAL_t *val , const MKL_INT *indx , const MKL_INT *pntrb , const MKL_INT *pntre ,
                          const REAL_t *b , const MKL_INT *ldb , REAL_t *c , const MKL_INT *ldc );
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
     cdef inline void trisolve_mkl(INDEX_t[::1] indptr,
                                   INDEX_t[::1] indices,
                                   REAL_t[::1] data,
@@ -246,10 +228,6 @@ IF USE_MKL_TRISOLVE:
 
 
 # Assumes that indices are ordered
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cdef void forward_solve_sss(const INDEX_t[::1] indptr,
                             const INDEX_t[::1] indices,
                             const REAL_t[::1] data,
@@ -272,9 +250,6 @@ cdef void forward_solve_sss(const INDEX_t[::1] indptr,
 
 
 # Assumes that indices are ordered
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef void forward_solve_sss_noInverse(const INDEX_t[::1] indptr,
                                       const INDEX_t[::1] indices,
                                       const REAL_t[::1] data,
@@ -297,10 +272,6 @@ cdef void forward_solve_sss_noInverse(const INDEX_t[::1] indptr,
 
 
 # Assumes that indices are ordered
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cdef inline void backward_solve_csc(INDEX_t[::1] indptr,
                                     INDEX_t[::1] indices,
                                     SCALAR_t[::1] data,
@@ -325,10 +296,6 @@ cdef inline void backward_solve_csc(INDEX_t[::1] indptr,
 
 
 # Assumes that indices are ordered
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cdef inline void backward_solve_csr(INDEX_t[::1] indptr,
                                     INDEX_t[::1] indices,
                                     REAL_t[::1] data,
@@ -349,9 +316,6 @@ cdef inline void backward_solve_csr(INDEX_t[::1] indptr,
 
 
 # Assumes that indices are ordered
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef inline void backward_solve_sss(const INDEX_t[::1] indptr,
                                     const INDEX_t[::1] indices,
                                     const REAL_t[::1] data,
@@ -369,10 +333,6 @@ cdef inline void backward_solve_sss(const INDEX_t[::1] indptr,
 
 
 # Assumes that indices are ordered
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cdef void backward_solve_sss_noInverse(const INDEX_t[::1] indptr,
                                        const INDEX_t[::1] indices,
                                        const REAL_t[::1] data,
@@ -390,9 +350,6 @@ cdef void backward_solve_sss_noInverse(const INDEX_t[::1] indptr,
 
 
 # Assumes that indices are ordered
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cpdef solve_LU(INDEX_t[::1] Lindptr, INDEX_t[::1] Lindices, REAL_t[::1] Ldata,
                INDEX_t[::1] Uindptr, INDEX_t[::1] Uindices, REAL_t[::1] Udata,
                INDEX_t[::1] perm_r, INDEX_t[::1] perm_c,
@@ -441,9 +398,6 @@ cdef class ILU_solver:
         self.perm_r = Clu.perm_r
         self.perm_c = Clu.perm_c
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cpdef solve(self, REAL_t[::1] b, REAL_t[::1] x):
         cdef INDEX_t i
         self.temp1[:] = 0.
@@ -465,9 +419,6 @@ cdef class ILU_solver:
 
 
 # Assumes that indices are ordered
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cpdef solve_cholesky(INDEX_t[::1] Lindptr,
                      INDEX_t[::1] Lindices,
                      REAL_t[::1] Ldata,
@@ -513,9 +464,6 @@ cdef class cholesky_solver:
             for i in range(self.diagonal.shape[0]):
                 self.diagonal[i] = 1./self.diagonal[i]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cpdef solve(self, REAL_t[::1] b, REAL_t[::1] x):
         self.temp[:] = 0.0
         IF USE_MKL_TRISOLVE:
@@ -535,10 +483,6 @@ cdef class cholesky_solver:
                                         self.solve)
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cpdef void bicgstab(LinearOperator A,
                     const REAL_t[::1] b,
                     REAL_t[::1] x,
@@ -647,10 +591,6 @@ cpdef void bicgstab(LinearOperator A,
             p[i] = r[i] + beta*(p[i] - omega*temp[i])
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cpdef int cg(LinearOperator A,
              REAL_t[::1] b,
              REAL_t[::1] x,
@@ -683,10 +623,6 @@ cpdef int cg(LinearOperator A,
     return numIter
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cpdef flexible_cg(A,
                   REAL_t[::1] b,
                   x0=None,
@@ -769,10 +705,6 @@ cpdef flexible_cg(A,
         return np.array(x, copy=False, dtype=REAL)
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cpdef int gmres(LinearOperator A,
                 REAL_t[::1] b,
                 REAL_t[::1] x,
@@ -814,10 +746,6 @@ cpdef int gmres(LinearOperator A,
     return numIter
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cpdef int gmresComplex(ComplexLinearOperator A,
                        COMPLEX_t[::1] b,
                        COMPLEX_t[::1] x,
@@ -858,10 +786,6 @@ cpdef int gmresComplex(ComplexLinearOperator A,
     return numIter
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cpdef void bicgstabComplex(ComplexLinearOperator A,
                            const COMPLEX_t[::1] b,
                            COMPLEX_t[::1] x,
@@ -988,10 +912,6 @@ def estimateSpectralRadius(LinearOperator A,
     return l
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cpdef arnoldi(LinearOperator A,
               REAL_t[::1] x0=None,
               int maxiter=20,

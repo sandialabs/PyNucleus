@@ -14,7 +14,11 @@ from PyNucleus_packageTools import fillTemplate
 
 
 p = package('PyNucleus_multilevelSolver')
-p.loadConfig()
+p.loadConfig(extra_config={'annotate': True,
+                           'cythonDirectives': {'initializedcheck': False,
+                                                'boundscheck': False,
+                                                'cdivision': True,
+                                                'wraparound': False}})
 p.addPackageInclude('PyNucleus_base')
 p.addPackageInclude('PyNucleus_fem')
 

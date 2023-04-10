@@ -10,7 +10,6 @@ from PyNucleus_base import uninitialized
 from PyNucleus_base.blas cimport uninitializedREAL
 from libc.math cimport sin, cos, M_PI as pi
 import numpy as np
-cimport cython
 from modepy import XiaoGimbutasSimplexQuadrature
 from modepy.tools import unit_to_barycentric
 
@@ -33,9 +32,6 @@ cdef class quadratureRule:
             self.manifold_dim = manifold_dim
         self.weights = weights
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.initializedcheck(False)
     cdef inline REAL_t eval(self,
                               const REAL_t[::1] fun_vals,
                               const REAL_t vol):
@@ -79,9 +75,6 @@ cdef class simplexQuadratureRule(quadratureRule):
                                      np.concatenate((self.weights, other.weights)),
                                      self.dim, self.manifold_dim)
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.initializedcheck(False)
     cdef inline void nodesInGlobalCoords(self,
                                          const REAL_t[:, ::1] simplexVertices,
                                          REAL_t[:, ::1] coords):
@@ -100,9 +93,6 @@ cdef class simplexQuadratureRule(quadratureRule):
                                REAL_t[:, ::1] coords):
         self.nodesInGlobalCoords(simplexVertices, coords)
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.initializedcheck(False)
     cdef inline void nodesInGlobalCoordsReorderer(self,
                                                   const REAL_t[:, ::1] simplexVertices,
                                                   REAL_t[:, ::1] coords,
@@ -127,9 +117,6 @@ cdef class simplexQuadratureRule(quadratureRule):
             self.nodesInGlobalCoords(simplex, coords[self.num_nodes*cellNo:self.num_nodes*(cellNo+1), :])
         return np.array(coords, copy=False)
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.initializedcheck(False)
     cpdef void evalFun(self,
                        function fun,
                        const REAL_t[:, ::1] simplexVertices,
@@ -143,9 +130,6 @@ cdef class simplexQuadratureRule(quadratureRule):
                     self.tempVec[m] += self.nodes[k, i] * simplexVertices[k, m]
             fun_vals[i] = fun.eval(self.tempVec)
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.initializedcheck(False)
     cpdef void evalVectorFun(self,
                              vectorFunction fun,
                              const REAL_t[:, ::1] simplexVertices,
@@ -159,9 +143,6 @@ cdef class simplexQuadratureRule(quadratureRule):
                     self.tempVec[m] += self.nodes[k, i] * simplexVertices[k, m]
             fun.eval(self.tempVec, fun_vals[i, :])
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.initializedcheck(False)
     cpdef void evalComplexFun(self,
                               complexFunction fun,
                               const REAL_t[:, ::1] simplexVertices,
@@ -175,9 +156,6 @@ cdef class simplexQuadratureRule(quadratureRule):
                     self.tempVec[m] += self.nodes[k, i] * simplexVertices[k, m]
             fun_vals[i] = fun.eval(self.tempVec)
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.initializedcheck(False)
     cdef REAL_t getSimplexVolume(self,
                                    const REAL_t[:, ::1] simplexVertices):
         cdef INDEX_t k, j
@@ -209,24 +187,15 @@ cdef class transformQuadratureRule(simplexQuadratureRule):
         super(transformQuadratureRule, self).__init__(nodes, weights, qr.dim, qr.manifold_dim)
         self.qr = qr
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.initializedcheck(False)
     cpdef void setLinearBaryTransform(self, REAL_t[:, ::1] A):
         b = np.zeros((A.shape[0]), dtype=REAL)
         self.setAffineBaryTransform(A, b)
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.initializedcheck(False)
     cpdef void setAffineBaryTransform(self, REAL_t[:, ::1] A, REAL_t[::1] b):
         self.A = A
         self.b = b
         self.compute()
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.initializedcheck(False)
     cdef void compute(self):
         cdef:
             INDEX_t k, j, i
@@ -240,9 +209,6 @@ cdef class transformQuadratureRule(simplexQuadratureRule):
 
 
 cdef class doubleSimplexQuadratureRule(quadratureRule):
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.initializedcheck(False)
     def __init__(self,
                  simplexQuadratureRule rule1,
                  simplexQuadratureRule rule2):
@@ -264,9 +230,6 @@ cdef class doubleSimplexQuadratureRule(quadratureRule):
                                 rule1.dim+rule2.dim,
                                 rule1.manifold_dim+rule2.manifold_dim)
 
-    # @cython.boundscheck(False)
-    # @cython.wraparound(False)
-    # @cython.initializedcheck(False)
     # cdef inline REAL_t eval(self,
     #                           const REAL_t[::1] fun_vals,
     #                           const REAL_t vol):
@@ -401,9 +364,6 @@ cdef class quadQuadratureRule(quadratureRule):
         return quadQuadratureRule(np.hstack((self.nodes, other.nodes)),
                                   np.concatenate((self.weights, other.weights)))
 
-    # @cython.boundscheck(False)
-    # @cython.initializedcheck(False)
-    # @cython.wraparound(False)
     # cpdef REAL_t eval(self,
     #                     REAL_t[::1] fun_vals,
     #                     REAL_t vol):
@@ -415,9 +375,6 @@ cdef class quadQuadratureRule(quadratureRule):
     #         I += self.weights[i]*fun_vals[i]
     #     return I*vol
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.initializedcheck(False)
     cpdef void nodesInGlobalCoords(self,
                                    const REAL_t[:, ::1] quadVertices,
                                    REAL_t[:, ::1] coords):
@@ -429,9 +386,6 @@ cdef class quadQuadratureRule(quadratureRule):
                 for m in range(self.dim):
                     coords[i, m] += quadVertices[0, m] + self.nodes[i, k] * (quadVertices[k+1, m]-quadVertices[0, m])
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     cpdef void evalFun(self,
                        function fun,
                        const REAL_t[:, ::1] quadVertices,
@@ -446,9 +400,6 @@ cdef class quadQuadratureRule(quadratureRule):
                     x[m] += quadVertices[0, m] + self.nodes[i, k] * (quadVertices[k+1, m]-quadVertices[0, m])
                     fun_vals[i] = fun(x)
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.initializedcheck(False)
     cpdef REAL_t getQuadVolume(self,
                                  const REAL_t[:, ::1] quadVertices):
         cdef:

@@ -10,7 +10,6 @@ from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, ENCODE_t, BOOL_t
 from PyNucleus_base import uninitialized
 import numpy as np
 cimport numpy as np
-cimport cython
 from PyNucleus_fem.meshCy cimport decode_edge
 from PyNucleus_base.linear_operators cimport (restrictionOp,
                                                prolongationOp,
@@ -108,9 +107,6 @@ def buildRestrictionProlongation(DoFMap coarse_DoFMap,
     return R, P
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef inline void add(sparsityPattern sPat,
                      const INDEX_t dof,
                      const INDEX_t dofF):
@@ -118,9 +114,6 @@ cdef inline void add(sparsityPattern sPat,
         sPat.add(dof, dofF)
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cdef inline void enterData(CSR_LinearOperator R,
                            const INDEX_t dof,
                            const INDEX_t dofF,

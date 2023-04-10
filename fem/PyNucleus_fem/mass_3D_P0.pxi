@@ -6,10 +6,6 @@
 ###################################################################################
 
 cdef class mass_3d_sym_P0(mass_3d):
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.cdivision(True)
-    @cython.wraparound(False)
     cdef inline void eval(mass_3d_sym_P0 self,
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):

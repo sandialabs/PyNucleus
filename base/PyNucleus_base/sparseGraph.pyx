@@ -10,7 +10,6 @@ import numpy as np
 from . myTypes cimport INDEX_t, REAL_t
 from . blas import uninitialized
 cimport numpy as np
-cimport cython
 from . linear_operators cimport (LinearOperator,
                                  CSR_LinearOperator,
                                  sparseGraph,
@@ -63,9 +62,6 @@ class combinedOperator(LinearOperator):
         return combinedOperator(self.operators[:], factors)
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cpdef dropRowsInPlace(S, INDEX_t[::1] rowIndices):
     cdef:
         INDEX_t i, j = 0, k, ri, m = 0, l = 0
@@ -118,9 +114,6 @@ cpdef dropRowsInPlace(S, INDEX_t[::1] rowIndices):
     S.shape = (nrows-rowIndices.shape[0], S.shape[1])
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cpdef dropColsInPlace(S, INDEX_t[::1] col_idx):
     cdef:
         INDEX_t[::1] indptr = S.indptr

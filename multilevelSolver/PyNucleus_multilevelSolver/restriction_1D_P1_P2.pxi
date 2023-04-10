@@ -5,9 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-#@cython.initializedcheck(False)
-#@cython.boundscheck(False)
-#@cython.wraparound(False)
 cdef buildRestriction_1D_P1_P2(DoFMap coarse_DoFMap,
                                          DoFMap fine_DoFMap):
     cdef:

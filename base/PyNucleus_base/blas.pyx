@@ -7,7 +7,6 @@
 
 import numpy as np
 cimport numpy as np
-cimport cython
 from . myTypes import INDEX
 
 include "config.pxi"
@@ -39,9 +38,6 @@ def uninitialized_like(like, **kwargs):
         return np.empty_like(like, **kwargs)
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cpdef carray uninitializedINDEX(tuple shape):
     cdef:
         carray a = carray(shape, 4, 'i')
@@ -55,9 +51,6 @@ cpdef carray uninitializedINDEX(tuple shape):
     return a
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
 cpdef carray uninitializedREAL(tuple shape):
     cdef:
         carray a = carray(shape, 8, 'd')
@@ -79,9 +72,6 @@ IF USE_BLAS:
     from scipy.linalg.cython_blas cimport dgemm, zgemm
 
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void assign(SCALAR_t[::1] y, SCALAR_t[::1] x):
         cdef:
             double* x_ptr
@@ -99,9 +89,6 @@ IF USE_BLAS:
             y_ptr = &y[0]
             dcopy(&n, x_ptr, &inc, y_ptr, &inc)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void assignScaled(SCALAR_t[::1] y, SCALAR_t[::1] x, SCALAR_t alpha):
         cdef:
             double* x_ptr
@@ -121,9 +108,6 @@ IF USE_BLAS:
             dcopy(&n, x_ptr, &inc, y_ptr, &inc)
             dscal(&n, &alpha, y_ptr, &inc)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void assign3(SCALAR_t[::1] z, SCALAR_t[::1] x, SCALAR_t alpha, SCALAR_t[::1] y, SCALAR_t beta):
         cdef:
             double* x_ptr
@@ -151,9 +135,6 @@ IF USE_BLAS:
                 dscal(&n, &alpha, z_ptr, &inc)
             daxpy(&n, &beta, y_ptr, &inc, z_ptr, &inc)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void update(SCALAR_t[::1] x, SCALAR_t[::1] y):
         cdef:
             double* x_ptr
@@ -172,9 +153,6 @@ IF USE_BLAS:
             y_ptr = &y[0]
             daxpy(&n, &alpha, y_ptr, &inc, x_ptr, &inc)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void updateScaled(SCALAR_t[::1] x, SCALAR_t[::1] y, SCALAR_t alpha):
         cdef:
             double* x_ptr
@@ -192,9 +170,6 @@ IF USE_BLAS:
             y_ptr = &y[0]
             daxpy(&n, &alpha, y_ptr, &inc, x_ptr, &inc)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void scaleScalar(SCALAR_t[::1] x, SCALAR_t alpha):
         cdef:
             double* x_ptr
@@ -208,9 +183,6 @@ IF USE_BLAS:
             x_ptr = &x[0]
             dscal(&n, &alpha, x_ptr, &inc)
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef SCALAR_t mydot(SCALAR_t[::1] v0, SCALAR_t[::1] v1):
         cdef:
             SCALAR_t s = 0.0
@@ -230,9 +202,6 @@ IF USE_BLAS:
             s = ddot(&n, v0_ptr, &inc, v1_ptr, &inc)
         return s
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t norm(SCALAR_t[::1] x):
         cdef:
             REAL_t s = 0.0
@@ -248,9 +217,6 @@ IF USE_BLAS:
             x_ptr = &x[0]
             return dnrm2(&n, x_ptr, &inc)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void gemv(SCALAR_t[:, ::1] A, SCALAR_t[::1] x, SCALAR_t[::1] y, SCALAR_t beta=0.):
         cdef:
             double* A_ptr
@@ -276,9 +242,6 @@ IF USE_BLAS:
             y_ptr = &y[0]
             dgemv('t', &m, &n, &alpha, A_ptr, &lda, x_ptr, &incx, &beta, y_ptr, &incy)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void gemvF(SCALAR_t[::1, :] A, SCALAR_t[::1] x, SCALAR_t[::1] y, SCALAR_t beta=0.):
         cdef:
             double* A_ptr
@@ -305,9 +268,6 @@ IF USE_BLAS:
             dgemv('n', &m, &n, &alpha, A_ptr, &lda, x_ptr, &incx, &beta, y_ptr, &incy)
 
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void gemvT(SCALAR_t[:, ::1] A, SCALAR_t[::1] x, SCALAR_t[::1] y, SCALAR_t beta=0.):
         cdef:
             double* A_ptr
@@ -334,9 +294,6 @@ IF USE_BLAS:
             dgemv('n', &m, &n, &alpha, A_ptr, &lda, x_ptr, &incx, &beta, y_ptr, &incy)
 
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void matmat(SCALAR_t[:, ::1] A, SCALAR_t[:, ::1] B, SCALAR_t[:, ::1] C):
         cdef:
             double* A_ptr
@@ -365,18 +322,12 @@ IF USE_BLAS:
             dgemm('n', 'n', &m, &n, &k, &alpha, B_ptr, &ldb, A_ptr, &lda, &beta, C_ptr, &ldc)
 
 ELSE:
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void assign(SCALAR_t[::1] y, const SCALAR_t[::1] x):
         cdef:
             INDEX_t i
         for i in range(x.shape[0]):
             y[i] = x[i]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void assignScaled(SCALAR_t[::1] y, const SCALAR_t[::1] x, SCALAR_t alpha):
         cdef:
             INDEX_t i
@@ -384,18 +335,12 @@ ELSE:
             y[i] = alpha*x[i]
 
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void assign3(SCALAR_t[::1] z, const SCALAR_t[::1] x, SCALAR_t alpha, const SCALAR_t[::1] y, SCALAR_t beta):
         cdef:
             INDEX_t i
         for i in range(x.shape[0]):
             z[i] = alpha*x[i] + beta*y[i]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void update(SCALAR_t[::1] x, SCALAR_t[::1] y):
         cdef:
             INDEX_t i
@@ -406,9 +351,6 @@ ELSE:
             for i in range(x.shape[0]):
                 x[i] += y[i]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void updateScaled(SCALAR_t[::1] x, SCALAR_t[::1] y, SCALAR_t alpha):
         cdef:
             INDEX_t i
@@ -419,9 +361,6 @@ ELSE:
             for i in range(x.shape[0]):
                 x[i] += alpha*y[i]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void scaleScalar(SCALAR_t[::1] x, SCALAR_t alpha):
         cdef:
             INDEX_t i
@@ -432,9 +371,6 @@ ELSE:
             for i in range(x.shape[0]):
                 x[i] = x[i]*alpha
 
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
-    @cython.boundscheck(False)
     cdef SCALAR_t mydot(SCALAR_t[::1] v0, SCALAR_t[::1] v1) nogil:
         cdef:
             int i
@@ -447,9 +383,6 @@ ELSE:
                 s += v0[i]*v1[i]
         return s
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef REAL_t norm(SCALAR_t[::1] x):
         cdef:
             int i
@@ -462,9 +395,6 @@ ELSE:
                 s += x[i]*x[i]
         return sqrt(s)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void gemv(SCALAR_t[:, ::1] A, SCALAR_t[::1] x, SCALAR_t[::1] y, SCALAR_t beta=0.):
         cdef:
             INDEX_t i, j
@@ -497,9 +427,6 @@ ELSE:
                     y[i] = s
 
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void gemvT(SCALAR_t[:, ::1] A, SCALAR_t[::1] x, SCALAR_t[::1] y, SCALAR_t beta=0.):
         cdef:
             INDEX_t i, j
@@ -523,9 +450,6 @@ ELSE:
                     y[i] += A[j, i]*x[j]
 
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void matmat(SCALAR_t[:, ::1] A, SCALAR_t[:, ::1] B, SCALAR_t[:, ::1] C):
         cdef:
             INDEX_t i, j, k
@@ -543,10 +467,6 @@ ELSE:
 
 
 
-@cython.initializedcheck(False)
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cdef void updateScaledVector(REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] alpha):
     cdef:
         INDEX_t i
@@ -607,9 +527,6 @@ IF USE_MKL:
 
 ELSE:
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     cdef void spmv(INDEX_t[::1] indptr, INDEX_t[::1] indices, SCALAR_t[::1] data, SCALAR_t[::1] x, SCALAR_t[::1] y, BOOL_t overwrite=True):
         cdef:
             INDEX_t i, jj, j
@@ -635,9 +552,6 @@ ELSE:
                 else:
                     y[i] += temp
 
-    @cython.boundscheck(False)
-    @cython.initializedcheck(False)
-    @cython.wraparound(False)
     cdef void spres(INDEX_t[::1] indptr, INDEX_t[::1] indices, SCALAR_t[::1] data, SCALAR_t[::1] x, SCALAR_t[::1] rhs, SCALAR_t[::1] result):
         cdef:
             INDEX_t i, jj, j

@@ -24,27 +24,18 @@ cdef class {SCALAR_label}DistributedLinearOperator({SCALAR_label}LinearOperator)
         self.allocateTempMemory(A.shape[0], A.shape[1])
         self.asynchronous = False
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void allocateTempMemory(self, INDEX_t sizeX, INDEX_t sizeY):
         if self.doDistribute:
             self.tempMemX = uninitialized((sizeX), dtype=REAL)
         if self.keepDistributedResult:
             self.tempMemY = uninitialized((sizeY), dtype=REAL)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void setTempMemory(self, {SCALAR}_t[::1] tempMemX, {SCALAR}_t[::1] tempMemY):
         if self.doDistribute:
             self.tempMemX = tempMemX
         if self.keepDistributedResult:
             self.tempMemY = tempMemY
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         {SCALAR}_t[::1] x,
                         {SCALAR}_t[::1] y) except -1:
@@ -65,9 +56,6 @@ cdef class {SCALAR_label}DistributedLinearOperator({SCALAR_label}LinearOperator)
         self.overlaps.accumulate{SCALAR_label}(y, return_vec=None, asynchronous=self.asynchronous)
         return 0
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void residual(self,
                        {SCALAR}_t[::1] x,
                        {SCALAR}_t[::1] rhs,
@@ -106,9 +94,6 @@ cdef class {SCALAR_label}CSR_DistributedLinearOperator({SCALAR_label}Distributed
         self.csrA = A
         self.overlap_indices = self.overlaps.get_shared_dofs()
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         {SCALAR}_t[::1] x,
                         {SCALAR}_t[::1] y) except -1:
@@ -156,9 +141,6 @@ cdef class {SCALAR_label}CSR_DistributedLinearOperator({SCALAR_label}Distributed
         self.overlaps.receive{SCALAR_label}(y, asynchronous=self.asynchronous)
         return 0
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void residual(self,
                        {SCALAR}_t[::1] x,
                        {SCALAR}_t[::1] rhs,
@@ -229,14 +211,11 @@ cdef class {SCALAR_label}RowDistributedOperator({SCALAR_label}LinearOperator):
     def __repr__(self):
         return '<Rank %d/%d, %s, %d local size>' % (self.comm.rank, self.comm.size, self.localMat, self.lcl_dm.num_dofs)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void setupNear(self):
         cdef:
             list remoteReceives_list
             INDEX_t commSize = self.comm.size, remoteRank
-            INDEX_t local_dof, global_dof, k
+            INDEX_t local_dof, global_dof, k, dof
             dict global_to_local
             INDEX_t[::1] indptr, indices
             {SCALAR}_t[::1] data
@@ -318,9 +297,6 @@ cdef class {SCALAR_label}RowDistributedOperator({SCALAR_label}LinearOperator):
         self.localMat.num_rows = self.rowIdx.shape[0]
         self.localMat.num_columns = self.colIdx.shape[0]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void communicateNear(self, {SCALAR}_t[::1] src, {SCALAR}_t[::1] target):
         cdef:
             INDEX_t i
@@ -334,9 +310,6 @@ cdef class {SCALAR_label}RowDistributedOperator({SCALAR_label}LinearOperator):
         for i in range(self.near_remoteReceives.shape[0]):
             target[self.near_remoteReceives[i]] = self.near_dataReceives[i]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self, {SCALAR}_t[::1] x, {SCALAR}_t[::1] y) except -1:
         cdef:
             {SCALAR_label}CSR_LinearOperator localMat = self.localMat
@@ -346,9 +319,6 @@ cdef class {SCALAR_label}RowDistributedOperator({SCALAR_label}LinearOperator):
         self.communicateNear(x, xTemp)
         localMat(xTemp, y)
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec_no_overwrite(self, {SCALAR}_t[::1] x, {SCALAR}_t[::1] y) except -1:
         cdef:
             {SCALAR_label}CSR_LinearOperator localMat = self.localMat

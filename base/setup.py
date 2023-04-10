@@ -54,7 +54,11 @@ except CompileError as e:
     print('malloc.h not found, error was \"{}\". Depending on the system, this might be normal.'.format(e))
     have_malloc_h = False
 p.addOption('HAVE_MALLOC_H', 'have_malloc_h', have_malloc_h)
-p.loadConfig(extra_config={'annotate': True})
+p.loadConfig(extra_config={'annotate': True,
+                           'cythonDirectives': {'initializedcheck': False,
+                                                'boundscheck': False,
+                                                'cdivision': True,
+                                                'wraparound': False}})
 
 # set up variable types
 if cython.inline('return sizeof(a)', a=1) == 4:

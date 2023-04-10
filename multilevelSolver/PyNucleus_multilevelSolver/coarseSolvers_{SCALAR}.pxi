@@ -10,7 +10,6 @@ mpi4py.rc.initialize = False
 from mpi4py import MPI
 import numpy as np
 cimport numpy as np
-cimport cython
 import logging
 from PyNucleus_base.myTypes import INDEX, {SCALAR}, BOOL
 from PyNucleus_base.myTypes cimport INDEX_t, {SCALAR}_t, BOOL_t
@@ -47,7 +46,7 @@ cdef class {SCALAR_label}coarseSolver({SCALAR_label_lc_}iterative_solver):
         self.asynchronous = False
 
         self.hierarchyManager = hierarchyManager
-        hierarchy = hierarchyManager.builtHierarchies[-1]
+        hierarchy = hierarchyManager.builtHierarchies[len(hierarchyManager.builtHierarchies) - 1]
         self.hierarchy = hierarchy
         self.comm = hierarchy.connectorEnd.global_comm
         if not hierarchy.connectorEnd.is_overlapping:
@@ -69,7 +68,7 @@ cdef class {SCALAR_label}coarseSolver({SCALAR_label_lc_}iterative_solver):
             self.inCG = True
             self.x = uninitialized((localSize), dtype={SCALAR})
             self.rhs = uninitialized((localSize), dtype={SCALAR})
-            self.intraLevelCoarse = hierarchy.algebraicLevels[-1].algebraicOverlaps
+            self.intraLevelCoarse = hierarchy.algebraicLevels[len(hierarchy.algebraicLevels)-1].algebraicOverlaps
         else:
             self.inCG = False
 
@@ -88,21 +87,12 @@ cdef class {SCALAR_label}coarseSolver({SCALAR_label_lc_}iterative_solver):
         if self.inCG:
             self.Ainv.PLogger = self.PLogger
 
-    @cython.wraparound(False)
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
     cpdef BOOL_t canWriteRHS(self):
         return True
 
-    @cython.wraparound(False)
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
     cpdef void sendRHS(self, {SCALAR}_t[::1] b):
         self.overlapsFine.send{SCALAR_label}(b)
 
-    @cython.wraparound(False)
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
     cdef BOOL_t solve_cg(self):
         self.rhs[:] = 0.
         self.overlapsCoarse.receive{SCALAR_label}(self.rhs)
@@ -117,18 +107,12 @@ cdef class {SCALAR_label}coarseSolver({SCALAR_label_lc_}iterative_solver):
         self.overlapsCoarse.send{SCALAR_label}(self.x)
         return True
 
-    @cython.wraparound(False)
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
     cpdef BOOL_t getSolution(self, {SCALAR}_t[::1] x):
         x[:] = 0.
         self.overlapsFine.receive{SCALAR_label}(x)
         self.overlapsFine.distribute{SCALAR_label}(x)
         return True
 
-    @cython.wraparound(False)
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
     cdef int solve(self,
                    {SCALAR}_t[::1] b,
                    {SCALAR}_t[::1] x) except -1:
@@ -159,7 +143,7 @@ cdef class {SCALAR_label}coarseSolver({SCALAR_label_lc_}iterative_solver):
         if self.inCG:
             if self.solverName in ('LU', 'Chol', 'IChol', 'ILU'):
                 assert self.subset_comm.size == 1, 'Cannot run {} in distributed mode'.format(self.solverName)
-            self.Ainv = solverFactory.build(self.solverName, A=self.levels[-1]['A'], hierarchy=self.hierarchyManager, **self.kwargs)
+            self.Ainv = solverFactory.build(self.solverName, A=self.levels[len(self.levels)-1]['A'], hierarchy=self.hierarchyManager, **self.kwargs)
 
     cpdef void setup(self, {SCALAR_label}LinearOperator A=None):
         if self.Ainv is not None:

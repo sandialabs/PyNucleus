@@ -13,27 +13,18 @@ cdef class {SCALAR_label}Dense_LinearOperator({SCALAR_label}LinearOperator):
                                   data.shape[1])
         self.data = data
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec(self,
                         {SCALAR}_t[::1] x,
                         {SCALAR}_t[::1] y) except -1:
         gemv(self.data, x, y)
         return 0
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec_no_overwrite(self,
                                      {SCALAR}_t[::1] x,
                                      {SCALAR}_t[::1] y) except -1:
         gemv(self.data, x, y, 1.)
         return 0
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef INDEX_t matvec_multi(self,
                               {SCALAR}_t[:, ::1] x,
                               {SCALAR}_t[:, ::1] y) except -1:
@@ -73,21 +64,12 @@ cdef class {SCALAR_label}Dense_LinearOperator({SCALAR_label}LinearOperator):
     def toarray(self):
         return np.array(self.data, copy=False, dtype={SCALAR})
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef {SCALAR}_t getEntry(self, INDEX_t I, INDEX_t J):
         return self.data[I, J]
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void setEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t val):
         self.data[I, J] = val
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void addToEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t val):
         self.data[I, J] += val
 
@@ -149,9 +131,6 @@ cdef class {SCALAR_label}Dense_SubBlock_LinearOperator({SCALAR_label}LinearOpera
         for i in range(J.shape[0]):
             self.lookupJ[J[i]] = i
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef {SCALAR}_t getEntry(self, INDEX_t I, INDEX_t J):
         cdef:
             INDEX_t i, j
@@ -162,9 +141,6 @@ cdef class {SCALAR_label}Dense_SubBlock_LinearOperator({SCALAR_label}LinearOpera
         else:
             return 0.
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void setEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t val):
         cdef:
             INDEX_t i, j
@@ -173,9 +149,6 @@ cdef class {SCALAR_label}Dense_SubBlock_LinearOperator({SCALAR_label}LinearOpera
         if i >= 0 and j >= 0:
             self.data[i, j] = val
 
-    @cython.initializedcheck(False)
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef void addToEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t val):
         cdef:
             INDEX_t i, j
