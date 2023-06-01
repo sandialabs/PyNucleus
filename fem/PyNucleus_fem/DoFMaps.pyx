@@ -825,6 +825,11 @@ cdef class DoFMap:
                         intervalOps.append(delayedNonlocalOp(self, gamma, matrixFormat=matrixFormat, dm2=dm2, **kwargs))
                     ops.append(intervalOps)
                 return multiIntervalInterpolationOperator(intervals, nodes, ops)
+            elif isinstance(self, Product_DoFMap) and self.numComponents == 1:
+                if dm2 is not None:
+                    return self.scalarDM.assembleNonlocal(kernel, matrixFormat, dm2.scalarDM, returnNearField, **kwargs)
+                else:
+                    return self.scalarDM.assembleNonlocal(kernel, matrixFormat, None, returnNearField, **kwargs)
             else:
                 from PyNucleus_nl import nonlocalBuilder
 
@@ -1853,6 +1858,9 @@ cdef class shapeFunctionP2_vertex(shapeFunction):
     cdef REAL_t eval(self, const REAL_t[::1] lam):
         return lam[self.vertexNo]*(2.*lam[self.vertexNo]-1.)
 
+    cdef REAL_t evalStrided(self, const REAL_t* lam, INDEX_t stride):
+        return lam[self.vertexNo*stride]*(2.*lam[self.vertexNo*stride]-1.)
+
     def __getstate__(self):
         return self.vertexNo
 
@@ -1875,6 +1883,9 @@ cdef class shapeFunctionP2_edge(shapeFunction):
 
     cdef REAL_t eval(self, const REAL_t[::1] lam):
         return 4.*lam[self.vertexNo1]*lam[self.vertexNo2]
+
+    cdef REAL_t evalStrided(self, const REAL_t* lam, INDEX_t stride):
+        return 4.*lam[self.vertexNo1*stride]*lam[self.vertexNo2*stride]
 
     def __getstate__(self):
         return (self.vertexNo1, self.vertexNo2)

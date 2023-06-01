@@ -57,7 +57,7 @@ jobs:
 
     - name: Install
       if: always()
-      run: make install
+      run: python -m pip install wheel && python -m pip list && make install PIP_INSTALL_FLAGS="--no-use-pep517"
 
     - name: Remove ccache cache
       if: ${{ steps.ccache-restore.outputs.cache-hit }}

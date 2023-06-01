@@ -328,7 +328,9 @@ cdef class {SCALAR_label}TimeStepperLinearOperator({SCALAR_label}LinearOperator)
         else:
             B = self.facM*self.M.to_csr() + self.facS*self.S.to_csr()
             B.eliminate_zeros()
-            return {SCALAR_label}CSR_LinearOperator(B.indices, B.indptr, B.data)
+            C = {SCALAR_label}CSR_LinearOperator(B.indices, B.indptr, B.data)
+            C.num_columns = self.S.num_columns
+            return C
 
     def isSparse(self):
         return self.M.isSparse() and self.S.isSparse()

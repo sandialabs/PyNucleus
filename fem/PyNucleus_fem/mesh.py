@@ -967,7 +967,6 @@ def circle(n, radius=1., returnFacets=False, projectNodeToOrigin=True, **kwargs)
 
 def circleWithInnerRadius(n, radius=2., innerRadius=1., returnFacets=False, **kwargs):
     from meshpy.triangle import MeshInfo, build
-    from . import mesh2d
     mesh_info = MeshInfo()
 
     if 'min_angle' not in kwargs:
@@ -1328,6 +1327,8 @@ def ball2(radius=1.):
     mesh_meshpy = build(mesh_info)
     mesh = mesh3d(np.array(mesh_meshpy.points, dtype=REAL),
                   np.array(mesh_meshpy.elements, dtype=INDEX))
+    from . meshCy import radialMeshTransformer
+    mesh.setMeshTransformation(radialMeshTransformer())
     return mesh
 
 
@@ -1364,6 +1365,8 @@ def ball(radius=1., points=4, radial_subdiv=None, **kwargs):
     mesh_meshpy = build(mesh_info, **kwargs)  # , options=Options(switches='pq1.2/10')
     mesh = mesh3d(np.array(mesh_meshpy.points, dtype=REAL),
                   np.array(mesh_meshpy.elements, dtype=INDEX))
+    from . meshCy import radialMeshTransformer
+    mesh.setMeshTransformation(radialMeshTransformer())
     return mesh
 
 
