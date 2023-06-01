@@ -150,6 +150,7 @@ cdef class multilevelAlgebraicOverlapManager:
     cdef:
         public list levels
         public MPI.Comm comm
+        public BOOL_t canUseAsynchronousReduce
         REAL_t[::1] reduceMem
         public MPI.Win ReduceWindow
         public BOOL_t useLockAll

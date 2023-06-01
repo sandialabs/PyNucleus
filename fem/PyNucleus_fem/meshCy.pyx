@@ -1562,9 +1562,9 @@ cdef REAL_t volume2Din3Dsimplex(REAL_t[:, ::1] simplex):
         REAL_t v10 = simplex[2, 0]-simplex[0, 0]
         REAL_t v11 = simplex[2, 1]-simplex[0, 1]
         REAL_t v12 = simplex[2, 2]-simplex[0, 2]
-    return sqrt((v01*v12-v02*v11)**2
-                - (v00*v12-v02*v10)**2
-                + (v00*v11-v01*v11)**2)*0.5
+    return sqrt(abs((v01*v12-v02*v11)**2
+                    - (v00*v12-v02*v10)**2
+                    + (v00*v11-v01*v11)**2))*0.5
 
 
 def hdeltaCy(meshBase mesh):
@@ -1688,7 +1688,7 @@ def hdeltaCy(meshBase mesh):
             totalVolume += vol
             volVec[i] = vol
             hVec[i] = hl
-        return h, delta, totalVolume, hmin, volVec, hVec
+        return h, delta, totalVolume, sqrt(hmin), volVec, hVec
     else:
         return None
 

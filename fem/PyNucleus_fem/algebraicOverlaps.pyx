@@ -1512,44 +1512,38 @@ cdef class multilevelAlgebraicOverlapManager:
     # Tracks the algebraic overlap with the DoFMaps of all other
     # subdomains on all levels.
 
-    def __init__(self, comm):
+    def __init__(self, comm, BOOL_t setupAsynchronousReduce=False):
         self.levels = []
         self.comm = comm
         self.useLockAll = False
-        numSubComms = 2
-        maxCommSize = 300
-        numSubComms = max(numSubComms, (comm.size-1)//maxCommSize+1)
-        commSplits = np.around(np.linspace(1, comm.size, numSubComms+1)).astype(INDEX)
-        comm.Barrier()
-        # split comm into subcomms, rank 0 is in the intersection
-        if self.comm.rank == 0:
-            time = MPI.Wtime()
-            subcomms = []
-            self.ReduceWindows = []
-            self.ReduceMems = []
-            for splitNo in range(numSubComms):
-                subcomms.append(comm.Split(0))
-            t1 = MPI.Wtime()-time
-            time = MPI.Wtime()
-            for subcomm in subcomms:
-                self.ReduceWindows.append(MPI.Win.Allocate(MPI.REAL.size*subcomm.size, comm=subcomm))
-                self.ReduceMems.append(np.ones((subcomm.size), dtype=REAL))
-            t2 = MPI.Wtime()-time
-        else:
-            time = MPI.Wtime()
-            for splitNo in range(numSubComms):
-                if commSplits[splitNo] <= comm.rank  and comm.rank < commSplits[splitNo+1]:
-                    color = 0
-                else:
-                    color = MPI.UNDEFINED
-                subcommTemp = comm.Split(color)
-                if subcommTemp != MPI.COMM_NULL:
-                    subcomm = subcommTemp
-            t1 = MPI.Wtime()-time
-            time = MPI.Wtime()
-            self.rank = subcomm.rank
-            self.ReduceWindow = MPI.Win.Allocate(MPI.REAL.size, comm=subcomm)
-            t2 = MPI.Wtime()-time
+        self.canUseAsynchronousReduce = setupAsynchronousReduce
+        if setupAsynchronousReduce:
+            numSubComms = 2
+            maxCommSize = 300
+            numSubComms = max(numSubComms, (comm.size-1)//maxCommSize+1)
+            commSplits = np.around(np.linspace(1, comm.size, numSubComms+1)).astype(INDEX)
+            comm.Barrier()
+            # split comm into subcomms, rank 0 is in the intersection
+            if self.comm.rank == 0:
+                subcomms = []
+                self.ReduceWindows = []
+                self.ReduceMems = []
+                for splitNo in range(numSubComms):
+                    subcomms.append(comm.Split(0))
+                for subcomm in subcomms:
+                    self.ReduceWindows.append(MPI.Win.Allocate(MPI.REAL.size*subcomm.size, comm=subcomm))
+                    self.ReduceMems.append(np.ones((subcomm.size), dtype=REAL))
+            else:
+                for splitNo in range(numSubComms):
+                    if commSplits[splitNo] <= comm.rank  and comm.rank < commSplits[splitNo+1]:
+                        color = 0
+                    else:
+                        color = MPI.UNDEFINED
+                    subcommTemp = comm.Split(color)
+                    if subcommTemp != MPI.COMM_NULL:
+                        subcomm = subcommTemp
+                self.rank = subcomm.rank
+                self.ReduceWindow = MPI.Win.Allocate(MPI.REAL.size, comm=subcomm)
         self.useAsynchronousComm = False
 
     def LockAll(self):
@@ -1733,6 +1727,7 @@ cdef class multilevelAlgebraicOverlapManager:
             MPI.Win ReduceWindow
             REAL_t[::1] reduceMem
         if asynchronous or self.useAsynchronousComm:
+            assert self.canUseAsynchronousReduce
             if self.comm.rank == 0:
                 if not asynchronous:
                     # let all ranks write local contributions
@@ -1830,6 +1825,8 @@ cdef class multilevelAlgebraicOverlapManager:
             MPI.Win ReduceWindow
             REAL_t[::1] reduceMem
             INDEX_t i, j
+        if not self.canUseAsynchronousReduce:
+            return
         if level is None:
             level = len(self.levels)-1
         self.levels[level].flushMemory(vecNo=vecNo)

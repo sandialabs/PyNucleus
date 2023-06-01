@@ -363,7 +363,7 @@ def loadDictFromHDF5(f):
 
 
 def processDictForYaml(params):
-    from PyNucleus.fem import function
+    from PyNucleus.fem.functions import function
     paramsNew = {}
     for key in params:
         if isinstance(params[key], dict):
