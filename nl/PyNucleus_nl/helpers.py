@@ -130,6 +130,7 @@ def getFracLapl(mesh, DoFMap, kernel=None, rangedOpParams={}, **kwargs):
     diagonal = kwargs.get('diagonal', False)
     cached = kwargs.get('cached', False)
     logging = kwargs.get('logging', False)
+    PLogger = kwargs.get('PLogger', None)
     timer = kwargs.get('timer', None)
 
     target_order = kwargs.get('target_order', None)
@@ -248,12 +249,14 @@ def getFracLapl(mesh, DoFMap, kernel=None, rangedOpParams={}, **kwargs):
                   'eta': eta,
                   'forceUnsymmetric': kwargs.get('forceUnsymmetric', False),
                   'assembleOnRoot': kwargs.get('assembleOnRoot', False),
-                  'localFarFieldIndexing': kwargs.get('localFarFieldIndexing', False)}
+                  'localFarFieldIndexing': kwargs.get('localFarFieldIndexing', False),
+                  'quadType': kwargs.get('quadType', 'classical-refactored'),
+                  'quadTypeBoundary': kwargs.get('quadTypeBoundary', 'classical-refactored')}
         if 'genKernel' in kwargs:
             params['genKernel'] = kwargs['genKernel']
         if kernel is None:
             kernel = getFractionalKernel(mesh.dim, s, constant(horizon.ranges[0, 0]), scaling=scaling, normalized=normalized)
-        builder = nonlocalBuilder(mesh, DoFMap, kernel, params, zeroExterior=zeroExterior, comm=comm, logging=logging)
+        builder = nonlocalBuilder(mesh, DoFMap, kernel, params, zeroExterior=zeroExterior, comm=comm, logging=logging, PLogger=PLogger)
         if diagonal:
             with timer('Assemble diagonal matrix {}, zeroExterior={}'.format(kernel, zeroExterior)):
                 A = builder.getDiagonal()

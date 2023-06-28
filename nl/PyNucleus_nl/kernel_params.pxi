@@ -23,6 +23,7 @@ cdef enum kernelParams:
     fEVAL = 8*OFFSET
     fINTERACTION = 9*OFFSET
     fEXPONENTINVERSE = 10*OFFSET
+    fTEMPERED=10*OFFSET
 
 
 cdef inline BOOL_t isNull(void *c_params, size_t pos):

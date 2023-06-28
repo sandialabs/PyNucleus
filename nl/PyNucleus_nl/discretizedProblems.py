@@ -23,6 +23,7 @@ from PyNucleus_multilevelSolver import hierarchyManager
 from copy import copy
 from . helpers import (multilevelDirichletCondition,
                        paramsForFractionalHierarchy)
+from . fractionalOrders import singleVariableUnsymmetricFractionalOrder
 from . kernelsCy import FRACTIONAL
 from . nonlocalProblems import (DIRICHLET,
                                 NEUMANN, HOMOGENEOUS_NEUMANN,
@@ -195,7 +196,7 @@ class stationaryModelSolution(classWithComputedDependencies):
             plt.gca().set_aspect('equal')
 
     def plotSolutionComponents(self, plotDefaults={}):
-        from PyNucleus.fem import plotManager
+        from PyNucleus.fem.mesh import plotManager
         pm = plotManager(self.u.dm.scalarDM.mesh, self.u.dm.scalarDM,
                          defaults=plotDefaults)
         for c in range(self.u.dm.numComponents):
@@ -343,11 +344,13 @@ class discretizedNonlocalProblem(problem):
         self.addRemote(self.continuumProblem)
 
     def setDriverArgs(self):
-        self.setDriverFlag('solverType', acceptedValues=['cg-mg', 'gmres-mg', 'lu', 'mg', 'cg-jacobi'], help='solver for the linear system')
+        self.setDriverFlag('solverType', acceptedValues=['cg-mg', 'gmres-mg', 'lu', 'mg', 'cg-jacobi', 'gmres-jacobi'], help='solver for the linear system')
         self.setDriverFlag('maxiter', 100, help='maximum number of iterations')
         self.setDriverFlag('tol', 1e-6, help='solver tolerance')
-        self.setDriverFlag('genKernel', False)
+        self.setDriverFlag('quadType', acceptedValues=['auto', 'classical', 'general', 'adaptive', 'classical-refactored'])
+        self.setDriverFlag('quadTypeBoundary', acceptedValues=['auto', 'classical', 'general', 'adaptive', 'classical-refactored'])
         self.setDriverFlag('matrixFormat', acceptedValues=['H2', 'sparse', 'sparsified', 'dense'], help='matrix format')
+        self.setDriverFlag('debugAssemblyTimes', False)
 
     def processCmdline(self, params):
         matrixFormat = params['matrixFormat']
@@ -358,8 +361,8 @@ class discretizedNonlocalProblem(problem):
         super().processCmdline(params)
 
     @generates(['hierarchy', 'bc', 'finalMesh', 'dm', 'dmBC', 'dmInterior', 'R_interior', 'P_interior', 'R_BC', 'P_BC'])
-    def buildHierarchy(self, mesh, kernel, sArgs, rangedKernel, solverType, genKernel, matrixFormat, tag, boundaryCondition, domainIndicator, fluxIndicator,
-                       zeroExterior, noRef, eta, target_order, element):
+    def buildHierarchy(self, mesh, kernel, sArgs, rangedKernel, solverType, matrixFormat, tag, boundaryCondition, domainIndicator, fluxIndicator,
+                       zeroExterior, noRef, eta, target_order, element, quadType, quadTypeBoundary):
         assert matrixFormat != 'H2' or (kernel.kernelType == FRACTIONAL), 'Hierarchical matrices are only implemented for fractional kernels'
         if rangedKernel is not None:
             hierarchy = self.directlyGetWithoutChecks('hierarchy')
@@ -403,7 +406,19 @@ class discretizedNonlocalProblem(problem):
             params['dense'] = matrixFormat == 'dense'
             params['matrixFormat'] = matrixFormat
             params['logging'] = True
-            params['genKernel'] = genKernel
+            if self.debugAssemblyTimes:
+                from PyNucleus.base.utilsFem import TimerManager
+                tm = TimerManager(self.driver.logger, comm=self.driver.comm, memoryProfiling=False, loggingSubTimers=True)
+                params['PLogger'] = tm.PLogger
+
+            if quadType == 'auto':
+                quadType = 'classical-refactored'
+            params['quadType'] = quadType
+
+            if quadTypeBoundary == 'auto':
+                quadTypeBoundary = 'classical-refactored'
+            params['quadTypeBoundary'] = quadTypeBoundary
+
             comm = self.driver.comm
             onRanks = [0]
             if comm is not None and comm.size > 1:

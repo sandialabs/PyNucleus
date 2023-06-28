@@ -20,12 +20,26 @@ cdef class constantFractionalLaplacianScaling(constantTwoPoint):
     cdef:
         INDEX_t dim
         REAL_t s, horizon
+        REAL_t tempered
 
 
 cdef class constantFractionalLaplacianScalingBoundary(constantTwoPoint):
     cdef:
         INDEX_t dim
-        REAL_t s, horizon
+        REAL_t s, horizon, tempered
+
+
+cdef class constantFractionalLaplacianScalingDerivative(twoPointFunction):
+    cdef:
+        INDEX_t dim
+        REAL_t s
+        REAL_t horizon
+        REAL_t horizon2
+        BOOL_t normalized
+        INDEX_t derivative
+        REAL_t tempered
+        REAL_t C
+        REAL_t fac
 
 
 cdef class variableFractionalLaplacianScaling(parametrizedTwoPointFunction):
@@ -36,6 +50,7 @@ cdef class variableFractionalLaplacianScaling(parametrizedTwoPointFunction):
         REAL_t facInfinite, facFinite
         twoPointFunction phi
         BOOL_t normalized
+        INDEX_t derivative
 
 
 cdef class variableFractionalLaplacianScalingBoundary(parametrizedTwoPointFunction):

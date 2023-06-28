@@ -242,9 +242,7 @@ if d.buildDistributedSparse:
     tm = TimerManager(d.logger, comm=d.comm, memoryProfiling=True, loggingSubTimers=True)
     with d.timer('distributed, sparse build'):
         A_distributedSparse = dm.assembleNonlocal(nPP.kernel, matrixFormat='sparse', comm=d.comm,
-                                                  params={'assembleOnRoot': False,
-                                                          'forceUnsymmetric': True,
-                                                          'localFarFieldIndexing': True},
+                                                  params={'assembleOnRoot': False},
                                                   PLogger=tm.PLogger)
     stats = d.addStatsOutputGroup('stats')
     stats.add('number of near field entries', A_distributedSparse.localMat.nnz)

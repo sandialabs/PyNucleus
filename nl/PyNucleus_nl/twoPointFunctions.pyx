@@ -72,6 +72,7 @@ cdef class twoPointFunction:
         cdef:
             INDEX_t i, j
             REAL_t[:, ::1] S
+            REAL_t[::1] S2
             REAL_t[::1] x, y
         import matplotlib.pyplot as plt
         c = np.array(mesh.getCellCenters())
@@ -90,10 +91,10 @@ cdef class twoPointFunction:
             plt.xlabel(r'$x$')
             plt.ylabel(r'$y$')
         elif mesh.dim == 2:
-            S = np.zeros(mesh.num_cells)
+            S2 = np.zeros(mesh.num_cells)
             for i in range(mesh.num_cells):
-                S[i] = self(c[i, :], c[i, :])
-            mesh.plotFunction(S, flat=True)
+                S2[i] = self(c[i, :], c[i, :])
+            mesh.plotFunction(S2, flat=True)
         else:
             raise NotImplementedError()
 

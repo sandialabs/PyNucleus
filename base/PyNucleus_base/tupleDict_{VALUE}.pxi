@@ -30,7 +30,8 @@ cdef class tupleDict{VALUE}:
                                                sizeof({VALUE_t}))
         self.deleteHits = deleteHits
         self.logicalAndHits = logicalAndHits
-        self.invalid = np.iinfo({VALUE_dtype}).max
+        # self.invalid = np.iinfo({VALUE_dtype}).max
+        self.invalid = {INVALID}
         self.invalidIndex = np.iinfo({LENGTH_dtype}).max
 
     cdef INDEX_t getSizeInBytes(self):

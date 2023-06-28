@@ -1350,13 +1350,15 @@ cdef class indicatorFunctor(function):
     cdef:
         function indicator
         function f
+        REAL_t threshold
 
-    def __init__(self, function f, function indicator):
+    def __init__(self, function f, function indicator, REAL_t threshold=1e-9):
         self.f = f
         self.indicator = indicator
+        self.threshold = threshold
 
     cdef inline REAL_t eval(self, REAL_t[::1] x):
-        if self.indicator(x) > 1e-9:
+        if self.indicator(x) > self.threshold:
             return self.f(x)
         else:
             return 0.

@@ -9,7 +9,6 @@ cimport numpy as np
 from . myTypes cimport INDEX_t, BOOL_t
 
 include "tupleDict_decl_INDEX.pxi"
-include "tupleDict_decl_MASK.pxi"
 
 ctypedef np.uint64_t MEM_t
 
@@ -35,6 +34,16 @@ cdef class indexSetIterator:
     cdef void setIndexSet(self, indexSet iS)
     cdef void reset(self)
     cdef BOOL_t step(self)
+
+
+cdef class rangeIndexSet(indexSet):
+    cdef:
+        INDEX_t start, end, increment
+
+
+cdef class rangeIndexSetIterator(indexSetIterator):
+    cdef:
+        INDEX_t k
 
 
 cdef class arrayIndexSet(indexSet):

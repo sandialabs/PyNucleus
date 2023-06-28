@@ -53,8 +53,11 @@ cdef class FractionalKernel(Kernel):
         public fractionalOrderBase s
         public BOOL_t variableOrder
         public BOOL_t boundary
+        public INDEX_t derivative
     cdef REAL_t getsValue(self)
     cdef void setsValue(self, REAL_t s)
+    cdef REAL_t gettemperedValue(self)
+    cdef void settemperedValue(self, REAL_t tempered)
 
 
 cdef class RangedFractionalKernel(FractionalKernel):
@@ -65,6 +68,7 @@ cdef class RangedFractionalKernel(FractionalKernel):
         public INDEX_t M_min
         public INDEX_t M_max
         public REAL_t xi
+        public REAL_t tempered
 
 
 cdef class RangedVariableFractionalKernel(FractionalKernel):

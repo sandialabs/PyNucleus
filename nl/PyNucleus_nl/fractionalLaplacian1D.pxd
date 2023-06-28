@@ -6,17 +6,17 @@
 ###################################################################################
 
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, ENCODE_t, BOOL_t
-from PyNucleus_fem.quadrature cimport (simplexQuadratureRule, quadQuadratureRule,
-                             doubleSimplexQuadratureRule, GaussJacobi,
-                             simplexDuffyTransformation, simplexXiaoGimbutas)
+from PyNucleus_fem.quadrature cimport (quadratureRule,
+                                       simplexQuadratureRule,
+                                       quadQuadratureRule,
+                                       doubleSimplexQuadratureRule)
 from PyNucleus_fem.DoFMaps cimport DoFMap, P0_DoFMap, P1_DoFMap, P2_DoFMap
 from PyNucleus_fem.functions cimport function
 from . nonlocalLaplacianBase cimport (double_local_matrix_t,
-                                        nonlocalLaplacian1D,
-                                        panelType,
-                                        MASK_t,
-                                        specialQuadRule)
-from . interactionDomains cimport CUT
+                                      nonlocalLaplacian1D,
+                                      panelType,
+                                      MASK_t,
+                                      specialQuadRule)
 from . fractionalOrders cimport fractionalOrderBase
 from . kernelsCy cimport (Kernel,
                           FractionalKernel)
@@ -24,26 +24,25 @@ from . kernelsCy cimport (Kernel,
 
 cdef class fractionalLaplacian1DZeroExterior(nonlocalLaplacian1D):
     cdef:
-        public quadQuadratureRule qrVertex
+        public quadratureRule qrVertex
         public REAL_t[:, ::1] PHI_dist, PHI_sep, PHI_vertex
         dict distantPHI
 
 
-cdef class fractionalLaplacian1D_P1(nonlocalLaplacian1D):
+cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
     cdef:
-        public quadQuadratureRule qrId, qrVertex
+        public quadratureRule qrId, qrVertex
         REAL_t[:, ::1] PSI_id, PSI_vertex
+        REAL_t singularityCancelationIntegrandWithinElement
+        REAL_t singularityCancelationIntegrandAcrossElements
 
 
-cdef class fractionalLaplacian1D_P1_boundary(fractionalLaplacian1DZeroExterior):
-    pass
-
-
-cdef class fractionalLaplacian1D_P0(nonlocalLaplacian1D):
+cdef class fractionalLaplacian1D_nonsym(fractionalLaplacian1D):
     cdef:
-        public quadQuadratureRule qrId, qrVertex0, qrVertex1
-        REAL_t[:, ::1] PSI_id, PSI_vertex0, PSI_vertex1
+        REAL_t[:, :, ::1] PHI_id, PHI_vertex
 
 
-cdef class fractionalLaplacian1D_P0_boundary(fractionalLaplacian1DZeroExterior):
+cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
     pass
+
+

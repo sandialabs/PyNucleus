@@ -13,12 +13,14 @@ from libc.math cimport (sin, cos, sinh, cosh, tanh, sqrt, atan2,
                         tgamma as gamma)
 from PyNucleus_base.myTypes import INDEX, REAL, ENCODE, BOOL
 from PyNucleus_base import uninitialized
+from PyNucleus_base.blas cimport mydot
 from libc.stdlib cimport malloc, free
 from . interactionDomains cimport CUT
 
-# With 64 bits, we can handle at most 5 DoFs per element.
-MASK = np.uint64
-ALL = MASK(np.iinfo(MASK).max)
+cdef:
+    MASK_t ALL
+ALL.set()
+
 include "panelTypes.pxi"
 
 cdef INDEX_t MAX_INT = np.iinfo(INDEX).max
@@ -46,8 +48,42 @@ cdef inline void getSimplexAndCenter(const INDEX_t[:, ::1] cells,
         center[l] *= fac
 
 
+cdef class PermutationIndexer:
+    def __init__(self, N):
+        self.N = N
+
+        self.onesCountLookup = np.zeros((1 << N) - 1, dtype=INDEX)
+        for i in range((1 << N) - 1):
+            self.onesCountLookup[i] = i.bit_count()
+
+        self.factorials = np.zeros((N), dtype=INDEX)
+        for i in range(N):
+            self.factorials[i] = np.math.factorial(N-1-i)
+        self.lehmer = np.zeros(N, dtype=INDEX)
+
+    cdef INDEX_t rank(self, INDEX_t[::1] perm):
+        cdef:
+            INDEX_t seen, i, numOnes, index
+
+        seen = (1 << (self.N-1-perm[0]))
+        self.lehmer[0] = perm[0]
+
+        for i in range(1, self.N):
+            seen |= (1 << (self.N-1-perm[i]))
+            numOnes = self.onesCountLookup[seen >> (self.N-perm[i])]
+            self.lehmer[i] = perm[i]-numOnes
+
+        index = 0
+        for i in range(self.N):
+            index += self.lehmer[i]*self.factorials[i]
+        return index
+
+    def rank_py(self, INDEX_t[::1] perm):
+        return self.rank(perm)
+
+
 cdef class double_local_matrix_t:
-    def __init__(self, INDEX_t dim, INDEX_t manifold_dim1, INDEX_t manifold_dim2):
+    def __init__(self, INDEX_t dim, INDEX_t manifold_dim1, INDEX_t manifold_dim2, DoFMap dm):
         self.distantQuadRules = {}
         self.dim = dim
         self.symmetricLocalMatrix = True
@@ -57,10 +93,15 @@ cdef class double_local_matrix_t:
         self.vol1 = np.nan
         self.vol2 = np.nan
 
+        self.DoFMap = dm
+        self.precomputePermutations()
+
         if dim == 1:
             self.volume1 = volume1Dsimplex
         elif dim == 2:
             self.volume1 = volume2Dsimplex
+        elif dim == 3:
+            self.volume1 = volume3Dsimplex
         else:
             raise NotImplementedError()
 
@@ -72,6 +113,10 @@ cdef class double_local_matrix_t:
             self.volume2 = volume2Dsimplex
         elif dim == 2 and manifold_dim2 == 1:
             self.volume2 = volume1Din2Dsimplex
+        elif dim == 3 and manifold_dim2 == 3:
+            self.volume2 = volume3Dsimplex
+        elif dim == 3 and manifold_dim2 == 2:
+            self.volume2 = volume2Din3Dsimplex
         else:
             raise NotImplementedError()
 
@@ -79,11 +124,58 @@ cdef class double_local_matrix_t:
             self.IDENTICAL = COMMON_EDGE
         elif self.dim == 2:
             self.IDENTICAL = COMMON_FACE
+        elif self.dim == 3:
+            self.IDENTICAL = COMMON_VOLUME
         else:
             raise NotImplementedError()
 
         self.center1 = uninitialized((self.dim), dtype=REAL)
         self.center2 = uninitialized((self.dim), dtype=REAL)
+
+    cdef void precomputePermutations(self):
+        cdef:
+            INDEX_t[:, ::1] perms, surface_perms
+            INDEX_t r, j, dofPerm, dofOrig, index, k
+            tuple permTuple
+            INDEX_t[::1] perm
+            REAL_t eps = 1e-10
+            INDEX_t dim = self.DoFMap.mesh.dim
+
+        perms = uninitialized((np.math.factorial(dim+1), dim+1), dtype=INDEX)
+        surface_perms = uninitialized((np.math.factorial(dim), dim), dtype=INDEX)
+
+        from itertools import permutations
+
+        self.pI_volume = PermutationIndexer(dim+1)
+        for permTuple in permutations(range(dim+1)):
+            perm = np.array(permTuple, dtype=INDEX)
+            index = self.pI_volume.rank(perm)
+            for k in range(dim+1):
+                perms[index, k] = perm[k]
+
+        self.pI_surface = PermutationIndexer(dim)
+        for permTuple in permutations(range(dim)):
+            perm = np.array(permTuple, dtype=INDEX)
+            index = self.pI_surface.rank(perm)
+            for k in range(dim):
+                surface_perms[index, k] = perm[k]
+
+        self.precomputedVolumeSimplexPermutations = perms
+        self.precomputedSurfaceSimplexPermutations = surface_perms
+        self.precomputedDoFPermutations = uninitialized((perms.shape[0],
+                                                         self.DoFMap.dofs_per_element), dtype=INDEX)
+        for r in range(perms.shape[0]):
+            for dofPerm in range(self.DoFMap.dofs_per_element):
+                for dofOrig in range(self.DoFMap.dofs_per_element):
+                    for j in range(dim+1):
+                        if abs(self.DoFMap.nodes[dofPerm, j]-self.DoFMap.nodes[dofOrig, perms[r, j]]) > eps:
+                            break
+                    else:
+                        self.precomputedDoFPermutations[r, dofPerm] = dofOrig
+                        break
+                else:
+                    # We should never get here
+                    raise NotImplementedError()
 
     cdef void precomputeSimplices(self):
         # mesh1 and mesh 2 will be the same
@@ -131,6 +223,7 @@ cdef class double_local_matrix_t:
         self.vertices1 = vertices1
         self.cells1 = cells1
         self.simplex1 = uninitialized((self.cells1.shape[1], self.dim), dtype=REAL)
+        self.perm1 = uninitialized((self.cells1.shape[1]), dtype=INDEX)
         self.cellNo1 = -1
         self.cellNo2 = -1
         if self.symmetricCells:
@@ -149,6 +242,8 @@ cdef class double_local_matrix_t:
         self.vertices2 = vertices2
         self.cells2 = cells2
         self.simplex2 = uninitialized((self.cells2.shape[1], self.dim), dtype=REAL)
+        self.perm2 = uninitialized((self.cells2.shape[1]), dtype=INDEX)
+        self.perm = uninitialized((2*self.DoFMap.dofs_per_element), dtype=INDEX)
         self.cellNo1 = -1
         self.cellNo2 = -1
 
@@ -217,7 +312,7 @@ cdef class double_local_matrix_t:
     def eval_py(self,
                 REAL_t[::1] contrib,
                 panel):
-        self.eval(contrib, panel)
+        self.eval(contrib, panel, ALL)
 
     cdef panelType getQuadOrder(self,
                                 const REAL_t h1,
@@ -252,19 +347,97 @@ cdef class double_local_matrix_t:
         # - COMMON_VERTEX
         # - DISTANT
         cdef:
-            INDEX_t k, i, j
-            panelType panel = 0
+            INDEX_t mask1 = 0, mask2 = 0
+            INDEX_t numVertices1 = self.cells1.shape[1]
+            INDEX_t numVertices2 = self.cells2.shape[1]
+            INDEX_t vertexNo1, vertexNo2, vertex1, vertex2
+            INDEX_t commonVertices = 0
+            INDEX_t k, i
+            INDEX_t dofs_per_vertex, dofs_per_edge, dofs_per_face, dofs_per_element = self.DoFMap.dofs_per_element
+            panelType panel
+            INDEX_t chosenPermutation
         if self.symmetricCells:
             if self.cellNo1 > self.cellNo2:
                 return IGNORED
+
         if (self.cells1.shape[1] == self.cells2.shape[1]) and (self.cellNo1 == self.cellNo2):
+            for k in range(numVertices1):
+                self.perm1[k] = k
+            for k in range(numVertices2):
+                self.perm2[k] = k
+            for k in range(dofs_per_element):
+                self.perm[k] = k
             return self.IDENTICAL
-        for k in range(self.cells2.shape[1]):
-            i = self.cells2[self.cellNo2, k]
-            for j in range(self.cells1.shape[1]):
-                if i == self.cells1[self.cellNo1, j]:
-                    panel -= 1
+
+        # now the two simplices can share at most numVertices1-1 vertices
+
+        for vertexNo1 in range(numVertices1):
+            vertex1 = self.cells1[self.cellNo1, vertexNo1]
+            for vertexNo2 in range(numVertices2):
+                if mask2 & (1 << vertexNo2):
+                    continue
+                vertex2 = self.cells2[self.cellNo2, vertexNo2]
+                if vertex1 == vertex2:
+                    self.perm1[commonVertices] = vertexNo1
+                    self.perm2[commonVertices] = vertexNo2
+                    mask1 += (1 << vertexNo1)
+                    mask2 += (1 << vertexNo2)
+                    commonVertices += 1
                     break
+
+        if commonVertices == 0:
+            for k in range(numVertices1):
+                self.perm1[k] = k
+            for k in range(numVertices2):
+                self.perm2[k] = k
+            for k in range(dofs_per_element):
+                self.perm[k] = k
+            return 0
+        else:
+            i = 0
+            for k in range(commonVertices, numVertices1):
+                while mask1 & (1 << i):
+                    i += 1
+                self.perm1[k] = i
+                mask1 += (1 << i)
+
+            i = 0
+            for k in range(commonVertices, numVertices2):
+                while mask2 & (1 << i):
+                    i += 1
+                self.perm2[k] = i
+                mask2 += (1 << i)
+
+        # we now have set permutations for the two simplices
+        # we have at least one shared vertex
+
+        chosenPermutation = self.pI_volume.rank(self.perm1)
+        for k in range(dofs_per_element):
+            self.perm[k] = self.precomputedDoFPermutations[chosenPermutation, k]
+
+        if numVertices1 == numVertices2:
+            dofs_per_vertex = self.DoFMap.dofs_per_vertex
+            dofs_per_edge = self.DoFMap.dofs_per_edge
+            dofs_per_face = self.DoFMap.dofs_per_face
+
+            chosenPermutation = self.pI_volume.rank(self.perm2)
+            if commonVertices == 1:
+                for k in range(dofs_per_vertex, dofs_per_element):
+                    self.perm[dofs_per_element+k-dofs_per_vertex] = dofs_per_element+self.precomputedDoFPermutations[chosenPermutation, k]
+            elif commonVertices == 2:
+                for k in range(2*dofs_per_vertex, numVertices2*dofs_per_vertex):
+                    self.perm[dofs_per_element+k-2*dofs_per_vertex] = dofs_per_element+self.precomputedDoFPermutations[chosenPermutation, k]
+                for k in range(numVertices2*dofs_per_vertex+dofs_per_edge, dofs_per_element):
+                    self.perm[dofs_per_element+k-2*dofs_per_vertex-dofs_per_edge] = dofs_per_element+self.precomputedDoFPermutations[chosenPermutation, k]
+            elif commonVertices == 3:
+                # only in 3d
+                for k in range(3*dofs_per_vertex, numVertices2*dofs_per_vertex):
+                    self.perm[dofs_per_element+k-3*dofs_per_vertex] = dofs_per_element+self.precomputedDoFPermutations[chosenPermutation, k]
+                for k in range(numVertices2*dofs_per_vertex+3*dofs_per_edge, numVertices2*dofs_per_vertex+6*dofs_per_edge):
+                    self.perm[dofs_per_element+k-3*dofs_per_vertex-3*dofs_per_edge] = dofs_per_element+self.precomputedDoFPermutations[chosenPermutation, k]
+                for k in range(numVertices2*dofs_per_vertex+6*dofs_per_edge+dofs_per_face, dofs_per_element):
+                    self.perm[dofs_per_element+k-3*dofs_per_vertex-3*dofs_per_edge-dofs_per_face] = dofs_per_element+self.precomputedDoFPermutations[chosenPermutation, k]
+        panel = -commonVertices
         return panel
 
     cdef void computeCenterDistance(self):
@@ -337,14 +510,13 @@ cdef class nonlocalLaplacian(double_local_matrix_t):
             INDEX_t i
         if manifold_dim2 < 0:
             manifold_dim2 = mesh.manifold_dim
-        double_local_matrix_t.__init__(self, mesh.dim, mesh.manifold_dim, manifold_dim2)
+        double_local_matrix_t.__init__(self, mesh.dim, mesh.manifold_dim, manifold_dim2, dm)
         if num_dofs is None:
             self.num_dofs = dm.num_dofs
         else:
             self.num_dofs = num_dofs
         self.hmin = mesh.hmin
         self.H0 = mesh.diam/sqrt(8)
-        self.DoFMap = dm
         self.localShapeFunctions = malloc(self.DoFMap.dofs_per_element*sizeof(void*))
         for i in range(self.DoFMap.dofs_per_element):
             sf = dm.localShapeFunctions[i]
@@ -353,6 +525,13 @@ cdef class nonlocalLaplacian(double_local_matrix_t):
         self.distantQuadRulesPtr = <void**>malloc(MAX_PANEL*sizeof(void*))
         for i in range(MAX_PANEL):
             self.distantQuadRulesPtr[i] = NULL
+
+        self.x = uninitialized((0, self.dim), dtype=REAL)
+        self.y = uninitialized((0, self.dim), dtype=REAL)
+        self.temp = uninitialized((0), dtype=REAL)
+
+        self.n = uninitialized((self.dim), dtype=REAL)
+        self.w = uninitialized((self.dim), dtype=REAL)
 
         self.kernel = kernel
 
@@ -513,9 +692,9 @@ cdef class nonlocalLaplacian(double_local_matrix_t):
             k = 0
             for i in range(numQuadNodes0):
                 for j in range(numQuadNodes1):
-                    PSI[I, k] = sf(qr0.nodes[:, i])
                     PHI[0, I, k] = sf(qr0.nodes[:, i])
                     PHI[1, I, k] = 0.
+                    PSI[I, k] = PHI[0, I, k]
                     k += 1
         # phi_i(x) - phi_i(y) = -phi_i(y)
         for I in range(self.DoFMap.dofs_per_element):
@@ -523,9 +702,9 @@ cdef class nonlocalLaplacian(double_local_matrix_t):
             k = 0
             for i in range(numQuadNodes0):
                 for j in range(numQuadNodes1):
-                    PSI[I+dofs_per_element, k] = -sf(qr1.nodes[:, j])
                     PHI[0, I+dofs_per_element, k] = 0.
                     PHI[1, I+dofs_per_element, k] = sf(qr1.nodes[:, j])
+                    PSI[I+dofs_per_element, k] = -PHI[1, I+dofs_per_element, k]
                     k += 1
         sQR = specialQuadRule(qr2, PSI, PHI3=PHI)
         self.distantQuadRules[panel] = sQR
@@ -644,7 +823,7 @@ cdef class nonlocalLaplacian(double_local_matrix_t):
             k = 0
             for I in range(2*self.DoFMap.dofs_per_element):
                 for J in range(I, 2*self.DoFMap.dofs_per_element):
-                    if mask & (1 << k):
+                    if mask[k]:
                         val = 0.
                         for i in range(qr2.num_nodes):
                             val += self.temp[i] * PSI[I, i] * PSI[J, i]
@@ -698,13 +877,14 @@ cdef class nonlocalLaplacian(double_local_matrix_t):
                                 else:
                                     PSI_I = -self.getLocalShapeFunction(I-dofs_per_element).evalStrided(&qr1trans.nodes[0, j], numQuadNodes1)
                                 for J in range(I, 2*dofs_per_element):
-                                    if mask & (1 << k):
+                                    if mask[k]:
                                         if J < dofs_per_element:
                                             PSI_J = self.getLocalShapeFunction(J).evalStrided(&qr0trans.nodes[0, i], numQuadNodes0)
                                         else:
                                             PSI_J = -self.getLocalShapeFunction(J-dofs_per_element).evalStrided(&qr1trans.nodes[0, j], numQuadNodes1)
                                         contrib[k] += val * PSI_I*PSI_J
                                     k += 1
+
 
     cdef void eval_distant_nonsym(self,
                                   REAL_t[::1] contrib,
@@ -761,7 +941,7 @@ cdef class nonlocalLaplacian(double_local_matrix_t):
             k = 0
             for I in range(2*self.DoFMap.dofs_per_element):
                 for J in range(2*self.DoFMap.dofs_per_element):
-                    if mask & (1 << k):
+                    if mask[k]:
                         val = 0.
                         for i in range(qr2.num_nodes):
                             val += (self.temp[i] * PHI[0, I, i] - self.temp2[i] * PHI[1, I, i]) * PSI[J, i]
@@ -769,6 +949,119 @@ cdef class nonlocalLaplacian(double_local_matrix_t):
                     k += 1
         else:
             raise NotImplementedError()
+
+    cdef void addQuadRule_boundary(self, panelType panel):
+        cdef:
+            simplexQuadratureRule qr0, qr1
+            doubleSimplexQuadratureRule qr2
+            specialQuadRule sQR
+            REAL_t[:, ::1] PHI
+            INDEX_t i, j, k, l
+            shapeFunction sf
+        qr0 = simplexXiaoGimbutas(panel, self.dim)
+        qr1 = simplexDuffyTransformation(panel, self.dim, self.dim-1)
+        qr2 = doubleSimplexQuadratureRule(qr0, qr1)
+        PHI = uninitialized((self.DoFMap.dofs_per_element, qr2.num_nodes), dtype=REAL)
+        for i in range(self.DoFMap.dofs_per_element):
+            sf = self.getLocalShapeFunction(i)
+            for j in range(qr2.rule1.num_nodes):
+                for k in range(qr2.rule2.num_nodes):
+                    l = j*qr2.rule2.num_nodes+k
+                    PHI[i, l] = sf(qr2.rule1.nodes[:, j])
+        sQR = specialQuadRule(qr2, PHI=PHI)
+        self.distantQuadRules[panel] = sQR
+        self.distantQuadRulesPtr[panel] = <void*>(self.distantQuadRules[panel])
+
+        if qr2.rule1.num_nodes > self.x.shape[0]:
+            self.x = uninitialized((qr2.rule1.num_nodes, self.dim), dtype=REAL)
+        if qr2.rule2.num_nodes > self.y.shape[0]:
+            self.y = uninitialized((qr2.rule2.num_nodes, self.dim), dtype=REAL)
+        if qr2.num_nodes > self.temp.shape[0]:
+            self.temp = uninitialized((qr2.num_nodes), dtype=REAL)
+
+    cdef void eval_distant_boundary(self,
+                                    REAL_t[::1] contrib,
+                                    panelType panel,
+                                    MASK_t mask=ALL):
+        cdef:
+            INDEX_t k, m, i, j, I, J
+            REAL_t vol, val, vol1 = self.vol1, vol2 = self.vol2
+            doubleSimplexQuadratureRule qr2
+            REAL_t[:, ::1] PHI
+            REAL_t[:, ::1] simplex1 = self.simplex1
+            REAL_t[:, ::1] simplex2 = self.simplex2
+            INDEX_t dim = simplex1.shape[1]
+            REAL_t normW, nw
+
+        # Kernel:
+        #  \Gamma(x,y) = n \dot (x-y) * C(d,s) / (2s) / |x-y|^{d+2s}
+        # with inward normal n.
+        #
+        # Rewrite as
+        #  \Gamma(x,y) = [ n \dot (x-y)/|x-y| ] * [ C(d,s) / (2s) / |x-y|^{d-1+2s} ]
+        #                                         \--------------------------------/
+        #                                                 |
+        #                                           boundaryKernel
+        #
+        # n is independent of x and y
+        if dim == 2:
+            self.n[0] = simplex2[1, 1] - simplex2[0, 1]
+            self.n[1] = simplex2[0, 0] - simplex2[1, 0]
+            # F is same as vol2
+            val = 1./sqrt(mydot(self.n, self.n))
+            self.n[0] *= val
+            self.n[1] *= val
+        elif dim == 3:
+            for j in range(dim):
+                self.x[0, j] = simplex2[1, j]-simplex2[0, j]
+            for j in range(dim):
+                self.x[1, j] = simplex2[2, j]-simplex2[0, j]
+            self.n[0] = self.x[0, 1]*self.x[1, 2]-self.x[0, 2]*self.x[1, 1]
+            self.n[1] = self.x[0, 2]*self.x[1, 0]-self.x[0, 0]*self.x[1, 2]
+            self.n[2] = self.x[0, 0]*self.x[1, 1]-self.x[0, 1]*self.x[1, 0]
+            val = 1./sqrt(mydot(self.n, self.n))
+            self.n[0] *= val
+            self.n[1] *= val
+            self.n[2] *= val
+
+        contrib[:] = 0.
+
+        vol = vol1*vol2
+        if panel < 0:
+            sQR = <specialQuadRule>(self.distantQuadRulesPtr[MAX_PANEL+panel])
+        else:
+            sQR = <specialQuadRule>(self.distantQuadRulesPtr[panel])
+        qr2 = <doubleSimplexQuadratureRule>(sQR.qr)
+        PHI = sQR.PHI
+        qr2.rule1.nodesInGlobalCoords(simplex1, self.x)
+        qr2.rule2.nodesInGlobalCoords(simplex2, self.y)
+
+        for k in range(qr2.rule1.num_nodes):
+            for m in range(qr2.rule2.num_nodes):
+                if dim == 1:
+                    nw = 1.
+                else:
+                    normW = 0.
+                    for j in range(dim):
+                        self.w[j] = self.y[m, j]-self.x[k, j]
+                        normW += self.w[j]**2
+                    normW = 1./sqrt(normW)
+                    for j in range(dim):
+                        self.w[j] *= normW
+                    nw = mydot(self.n, self.w)
+                i = k*qr2.rule2.num_nodes+m
+                self.temp[i] = qr2.weights[i] * nw * self.kernel.evalPtr(dim, &self.x[k, 0], &self.y[m, 0])
+
+        k = 0
+        for I in range(self.DoFMap.dofs_per_element):
+            for J in range(I, self.DoFMap.dofs_per_element):
+                if mask[k]:
+                    val = 0.
+                    for i in range(qr2.num_nodes):
+                        val += self.temp[i] * PHI[I, i] * PHI[J, i]
+                    contrib[k] = val*vol
+                k += 1
+
 
 
 cdef class nonlocalLaplacian1D(nonlocalLaplacian):
@@ -1020,3 +1313,5 @@ cdef class nonlocalLaplacian2D(nonlocalLaplacian):
 
         ID[7] = <INDEX_t>(MAX_INT*c01*self.h2MaxInv)
         ID[8] = <INDEX_t>(MAX_INT*c11*self.h2MaxInv)
+
+

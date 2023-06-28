@@ -24,7 +24,9 @@ def ranks(request):
     return request.param
 
 
-@pytest.fixture(scope='module', params=['interval', 'square', 'cube'])
+@pytest.fixture(scope='module', params=['interval',
+                                        pytest.param('square', marks=pytest.mark.slow),
+                                        pytest.param('cube', marks=pytest.mark.slow)])
 def domain(request):
     return request.param
 
@@ -39,6 +41,7 @@ def symmetric(request):
     return request.param
 
 
+@pytest.mark.slow
 def testGMG(extra):
     base = getPath()+'/../'
     py = 'runSerialGMG.py'

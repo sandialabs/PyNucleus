@@ -16,14 +16,17 @@ from PyNucleus_base.blas cimport mydot
 from PyNucleus_fem.quadrature cimport (simplexQuadratureRule,
                                        transformQuadratureRule,
                                        doubleSimplexQuadratureRule, GaussJacobi,
-                                       simplexDuffyTransformation, simplexXiaoGimbutas)
-from PyNucleus_fem.DoFMaps cimport DoFMap, P1_DoFMap, shapeFunction
+                                       simplexXiaoGimbutas)
+from PyNucleus_fem.DoFMaps cimport DoFMap, P0_DoFMap, P1_DoFMap, shapeFunction
 from PyNucleus_nl.fractionalOrders cimport constFractionalOrder
-from . nonlocalLaplacianBase import ALL
+# from . nonlocalLaplacianBase import ALL
 
+include "kernel_params.pxi"
 include "panelTypes.pxi"
 
-cdef INDEX_t MAX_INT = np.iinfo(INDEX).max
+cdef:
+    MASK_t ALL
+ALL.set()
 
 
 cdef class fractionalLaplacian2DZeroExterior(nonlocalLaplacian2D):
@@ -33,25 +36,564 @@ cdef class fractionalLaplacian2DZeroExterior(nonlocalLaplacian2D):
         self.symmetricCells = False
 
 
-cdef class fractionalLaplacian2D_P1(nonlocalLaplacian2D):
-    """The local matrix
+class singularityCancelationQuadRule2D(quadratureRule):
+    def __init__(self, panelType panel,
+                 REAL_t singularity,
+                 INDEX_t quad_order_diagonal,
+                 INDEX_t quad_order_diagonalV,
+                 INDEX_t quad_order_regular):
+        cdef:
+            INDEX_t i
+            REAL_t eta0, eta1, eta2, eta3, x1, x2, y1, y2
+            quadratureRule qrId, qrEdge0, qrEdge1, qrVertex
+            INDEX_t dim = 2
+            REAL_t lcl_bary_x[3]
+            REAL_t lcl_bary_y[3]
+            REAL_t[:, ::1] bary, bary_x, bary_y
+            REAL_t[::1] weights
+            INDEX_t offset
+
+        if panel == COMMON_FACE:
+            # We obtain 6 subdomains from splitting the integral,
+            # but pairs of 2 are symmetric wrt to exchange of K_1
+            # and K_2. So we get 3 integrals, each with a weight
+            # 2.
+
+            #  Jacobian = eta0**3 * eta1**2 * eta2
+
+            # We factor out (eta0 * eta1 * eta2) from each PSI and
+            # (eta0 * eta1 * eta2)**singularity from the kernel.
+
+            # Differences of basis functions one the same element
+            # cancel one singularity order i.e.
+            # singularityCancelationFromContinuity = 1.
+            qrId = GaussJacobi(((1, 3+singularity, 0),
+                                (1, 2+singularity, 0),
+                                (1, 1+singularity, 0),
+                                (quad_order_diagonal, 0, 0)))
+
+            bary = uninitialized((2*dim+2,
+                                  3*qrId.num_nodes), dtype=REAL)
+            bary_x = bary[:dim+1, :]
+            bary_y = bary[dim+1:, :]
+            weights = uninitialized((3*qrId.num_nodes), dtype=REAL)
+
+            # integral 0
+            offset = 0
+            for i in range(qrId.num_nodes):
+                eta0 = qrId.nodes[0, i]
+                eta1 = qrId.nodes[1, i]
+                eta2 = qrId.nodes[2, i]
+                eta3 = qrId.nodes[3, i]
+
+                x1 = eta0
+                x2 = eta0*eta1*(1-eta2+eta2*eta3)
+                y1 = eta0*(1-eta1*eta2)
+                y2 = eta0*eta1*(1-eta2)
+
+                lcl_bary_x[0] = 1-x1
+                lcl_bary_x[1] = x1-x2
+                lcl_bary_x[2] = x2
+
+                lcl_bary_y[0] = 1-y1
+                lcl_bary_y[1] = y1-y2
+                lcl_bary_y[2] = y2
+
+                bary_x[0, offset+i] = lcl_bary_x[0]
+                bary_x[1, offset+i] = lcl_bary_x[1]
+                bary_x[2, offset+i] = lcl_bary_x[2]
+
+                bary_y[0, offset+i] = lcl_bary_y[0]
+                bary_y[1, offset+i] = lcl_bary_y[1]
+                bary_y[2, offset+i] = lcl_bary_y[2]
+
+                weights[offset+i] = 2.0*qrId.weights[i]*(eta0*eta1*eta2)**(-singularity)
+
+            # integral 1
+            offset = qrId.num_nodes
+            for i in range(qrId.num_nodes):
+                eta0 = qrId.nodes[0, i]
+                eta1 = qrId.nodes[1, i]
+                eta2 = qrId.nodes[2, i]
+                eta3 = qrId.nodes[3, i]
+
+                x1 = eta0
+                x2 = eta0*eta1
+                y1 = eta0*(1-eta1*eta2*eta3)
+                y2 = eta0*eta1*(1-eta2)
+
+                lcl_bary_x[0] = 1-x1
+                lcl_bary_x[1] = x1-x2
+                lcl_bary_x[2] = x2
+
+                lcl_bary_y[0] = 1-y1
+                lcl_bary_y[1] = y1-y2
+                lcl_bary_y[2] = y2
+
+                bary_x[0, offset+i] = lcl_bary_x[0]
+                bary_x[1, offset+i] = lcl_bary_x[1]
+                bary_x[2, offset+i] = lcl_bary_x[2]
+
+                bary_y[0, offset+i] = lcl_bary_y[0]
+                bary_y[1, offset+i] = lcl_bary_y[1]
+                bary_y[2, offset+i] = lcl_bary_y[2]
+
+                weights[offset+i] = 2.0*qrId.weights[i]*(eta0*eta1*eta2)**(-singularity)
+
+            # integral 2
+            offset = 2*qrId.num_nodes
+            for i in range(qrId.num_nodes):
+                eta0 = qrId.nodes[0, i]
+                eta1 = qrId.nodes[1, i]
+                eta2 = qrId.nodes[2, i]
+                eta3 = qrId.nodes[3, i]
+
+                x1 = eta0
+                x2 = eta0*eta1*(1-eta2)
+                y1 = eta0*(1-eta1*eta2*eta3)
+                y2 = eta0*eta1*(1-eta2*eta3)
+
+                lcl_bary_x[0] = 1-x1
+                lcl_bary_x[1] = x1-x2
+                lcl_bary_x[2] = x2
+
+                lcl_bary_y[0] = 1-y1
+                lcl_bary_y[1] = y1-y2
+                lcl_bary_y[2] = y2
+
+                bary_x[0, offset+i] = lcl_bary_x[0]
+                bary_x[1, offset+i] = lcl_bary_x[1]
+                bary_x[2, offset+i] = lcl_bary_x[2]
+
+                bary_y[0, offset+i] = lcl_bary_y[0]
+                bary_y[1, offset+i] = lcl_bary_y[1]
+                bary_y[2, offset+i] = lcl_bary_y[2]
+
+                weights[offset+i] = 2.0*qrId.weights[i]*(eta0*eta1*eta2)**(-singularity)
+
+            super(singularityCancelationQuadRule2D, self).__init__(bary, weights, dim+1)
+        elif panel == COMMON_EDGE:
+            # We obtain 4 subdomains from splitting the integral.
+
+            #  Jacobian0,1 = eta0**3 * eta1**2
+            #  Jacobian2,3 = eta0**3 * eta1**2 * eta2
+
+            # We factor out (eta0 * eta1) from each PSI and
+            # (eta0 * eta1)**singularity from the kernel.
+
+            qrEdge0 = GaussJacobi(((1, 3+singularity, 0),
+                                   (1, 2+singularity, 0),
+                                   (quad_order_diagonal, 0, 0),
+                                   (quad_order_diagonal, 0, 0)))
+            qrEdge1 = GaussJacobi(((1, 3+singularity, 0),
+                                   (1, 2+singularity, 0),
+                                   (quad_order_diagonal, 1, 0),
+                                   (quad_order_diagonal, 0, 0)))
+
+            bary = uninitialized((2*dim+2,
+                                  2*(qrEdge0.num_nodes+qrEdge1.num_nodes)), dtype=REAL)
+            bary_x = bary[:dim+1, :]
+            bary_y = bary[dim+1:, :]
+            weights = uninitialized((2*(qrEdge0.num_nodes+qrEdge1.num_nodes)), dtype=REAL)
+
+            # integral 0
+            offset = 0
+            for i in range(qrEdge0.num_nodes):
+                eta0 = qrEdge0.nodes[0, i]
+                eta1 = qrEdge0.nodes[1, i]
+                eta2 = qrEdge0.nodes[2, i]
+                eta3 = qrEdge0.nodes[3, i]
+
+                x1 = eta0*(1-eta1*eta2)
+                x2 = eta0*eta1*(1-eta2)
+                y1 = eta0
+                y2 = eta0*eta1*eta3
+
+                lcl_bary_x[0] = 1-x1
+                lcl_bary_x[1] = x1-x2
+                lcl_bary_x[2] = x2
+
+                lcl_bary_y[0] = 1-y1
+                lcl_bary_y[1] = y1-y2
+                lcl_bary_y[2] = y2
+
+                bary_x[0, offset+i] = lcl_bary_x[0]
+                bary_x[1, offset+i] = lcl_bary_x[1]
+                bary_x[2, offset+i] = lcl_bary_x[2]
+
+                bary_y[0, offset+i] = lcl_bary_y[0]
+                bary_y[1, offset+i] = lcl_bary_y[1]
+                bary_y[2, offset+i] = lcl_bary_y[2]
+
+                weights[offset+i] = qrEdge0.weights[i] * (eta0*eta1)**(-singularity)
+
+            # integral 1
+            offset = qrEdge0.num_nodes
+            for i in range(qrEdge0.num_nodes):
+                eta0 = qrEdge0.nodes[0, i]
+                eta1 = qrEdge0.nodes[1, i]
+                eta2 = qrEdge0.nodes[2, i]
+                eta3 = qrEdge0.nodes[3, i]
+
+                x1 = eta0
+                x2 = eta0*eta1*eta3
+                y1 = eta0*(1-eta1*eta2)
+                y2 = eta0*eta1*(1-eta2)
+
+                lcl_bary_x[0] = 1-x1
+                lcl_bary_x[1] = x1-x2
+                lcl_bary_x[2] = x2
+
+                lcl_bary_y[0] = 1-y1
+                lcl_bary_y[1] = y1-y2
+                lcl_bary_y[2] = y2
+
+                bary_x[0, offset+i] = lcl_bary_x[0]
+                bary_x[1, offset+i] = lcl_bary_x[1]
+                bary_x[2, offset+i] = lcl_bary_x[2]
+
+                bary_y[0, offset+i] = lcl_bary_y[0]
+                bary_y[1, offset+i] = lcl_bary_y[1]
+                bary_y[2, offset+i] = lcl_bary_y[2]
+
+                weights[offset+i] = qrEdge0.weights[i] * (eta0*eta1)**(-singularity)
+
+            # integral 2
+            offset = 2*qrEdge0.num_nodes
+            for i in range(qrEdge1.num_nodes):
+                eta0 = qrEdge1.nodes[0, i]
+                eta1 = qrEdge1.nodes[1, i]
+                eta2 = qrEdge1.nodes[2, i]
+                eta3 = qrEdge1.nodes[3, i]
+
+                x1 = eta0*(1-eta1*eta2*eta3)
+                x2 = eta0*eta1*eta2*(1-eta3)
+                y1 = eta0
+                y2 = eta0*eta1
+
+                lcl_bary_x[0] = 1-x1
+                lcl_bary_x[1] = x1-x2
+                lcl_bary_x[2] = x2
+
+                lcl_bary_y[0] = 1-y1
+                lcl_bary_y[1] = y1-y2
+                lcl_bary_y[2] = y2
+
+                bary_x[0, offset+i] = lcl_bary_x[0]
+                bary_x[1, offset+i] = lcl_bary_x[1]
+                bary_x[2, offset+i] = lcl_bary_x[2]
+
+                bary_y[0, offset+i] = lcl_bary_y[0]
+                bary_y[1, offset+i] = lcl_bary_y[1]
+                bary_y[2, offset+i] = lcl_bary_y[2]
+
+                weights[offset+i] = qrEdge1.weights[i] * (eta0*eta1)**(-singularity)
+
+            # integral 3
+            offset = 2*qrEdge0.num_nodes+qrEdge1.num_nodes
+            for i in range(qrEdge1.num_nodes):
+                eta0 = qrEdge1.nodes[0, i]
+                eta1 = qrEdge1.nodes[1, i]
+                eta2 = qrEdge1.nodes[2, i]
+                eta3 = qrEdge1.nodes[3, i]
+
+                x1 = eta0
+                x2 = eta0*eta1
+                y1 = eta0*(1-eta1*eta2*eta3)
+                y2 = eta0*eta1*eta2*(1-eta3)
+
+                lcl_bary_x[0] = 1-x1
+                lcl_bary_x[1] = x1-x2
+                lcl_bary_x[2] = x2
+
+                lcl_bary_y[0] = 1-y1
+                lcl_bary_y[1] = y1-y2
+                lcl_bary_y[2] = y2
+
+                bary_x[0, offset+i] = lcl_bary_x[0]
+                bary_x[1, offset+i] = lcl_bary_x[1]
+                bary_x[2, offset+i] = lcl_bary_x[2]
+
+                bary_y[0, offset+i] = lcl_bary_y[0]
+                bary_y[1, offset+i] = lcl_bary_y[1]
+                bary_y[2, offset+i] = lcl_bary_y[2]
+
+                weights[offset+i] = qrEdge1.weights[i] * (eta0*eta1)**(-singularity)
+
+            super(singularityCancelationQuadRule2D, self).__init__(bary, weights, 2*dim)
+        elif panel == COMMON_VERTEX:
+            # We obtain 2 subdomains from splitting the integral.
+
+            # Jacobian = eta0**3
+
+            # We factor out eta0 from each PSI and
+            # eta0**singularity from the kernel.
+
+            qrVertex = GaussJacobi(((1, 3+singularity, 0),
+                                    (quad_order_diagonalV, 0, 0),
+                                    (quad_order_diagonalV, 1, 0),
+                                    (quad_order_diagonalV, 0, 0)))
+            bary = uninitialized((2*dim+2,
+                                  2*qrVertex.num_nodes), dtype=REAL)
+            bary_x = bary[:dim+1, :]
+            bary_y = bary[dim+1:, :]
+            weights = uninitialized((2*qrVertex.num_nodes), dtype=REAL)
+
+            offset = 0
+            for i in range(qrVertex.num_nodes):
+                eta0 = qrVertex.nodes[0, i]
+                eta1 = qrVertex.nodes[1, i]
+                eta2 = qrVertex.nodes[2, i]
+                eta3 = qrVertex.nodes[3, i]
+
+                x1 = eta0
+                x2 = eta0*eta1
+                y1 = eta0*eta2
+                y2 = eta0*eta2*eta3
+
+                lcl_bary_x[0] = 1-x1
+                lcl_bary_x[1] = x1-x2
+                lcl_bary_x[2] = x2
+
+                lcl_bary_y[0] = 1-y1
+                lcl_bary_y[1] = y1-y2
+                lcl_bary_y[2] = y2
+
+                bary_x[0, offset+i] = lcl_bary_x[0]
+                bary_x[1, offset+i] = lcl_bary_x[1]
+                bary_x[2, offset+i] = lcl_bary_x[2]
+
+                bary_y[0, offset+i] = lcl_bary_y[0]
+                bary_y[1, offset+i] = lcl_bary_y[1]
+                bary_y[2, offset+i] = lcl_bary_y[2]
+
+                weights[offset+i] = qrVertex.weights[i] * eta0**(-singularity)
+
+            offset = qrVertex.num_nodes
+            for i in range(qrVertex.num_nodes):
+                eta0 = qrVertex.nodes[0, i]
+                eta1 = qrVertex.nodes[1, i]
+                eta2 = qrVertex.nodes[2, i]
+                eta3 = qrVertex.nodes[3, i]
+
+                x1 = eta0*eta2
+                x2 = eta0*eta2*eta3
+                y1 = eta0
+                y2 = eta0*eta1
+
+                lcl_bary_x[0] = 1-x1
+                lcl_bary_x[1] = x1-x2
+                lcl_bary_x[2] = x2
+
+                lcl_bary_y[0] = 1-y1
+                lcl_bary_y[1] = y1-y2
+                lcl_bary_y[2] = y2
+
+                bary_x[0, offset+i] = lcl_bary_x[0]
+                bary_x[1, offset+i] = lcl_bary_x[1]
+                bary_x[2, offset+i] = lcl_bary_x[2]
+
+                bary_y[0, offset+i] = lcl_bary_y[0]
+                bary_y[1, offset+i] = lcl_bary_y[1]
+                bary_y[2, offset+i] = lcl_bary_y[2]
+
+                weights[offset+i] = qrVertex.weights[i] * eta0**(-singularity)
+
+            super(singularityCancelationQuadRule2D, self).__init__(bary, weights, 2*dim+1)
+
+
+class singularityCancelationQuadRule2D_boundary(quadratureRule):
+    def __init__(self, panelType panel,
+                 REAL_t singularity,
+                 INDEX_t quad_order_diagonal,
+                 INDEX_t quad_order_regular):
+        cdef:
+            INDEX_t i, offset
+            REAL_t eta0, eta1, eta2
+            quadratureRule qrEdge0, qrEdge1, qrEdge2, qrVertex0, qrVertex1
+            INDEX_t dim = 2
+            REAL_t lcl_bary_x[3]
+            REAL_t lcl_bary_y[2]
+            REAL_t[:, ::1] bary, bary_x, bary_y
+            REAL_t[::1] weights
+
+        if panel == COMMON_EDGE:
+            qrEdge0 = qrEdge1 = qrEdge2 = GaussJacobi(((quad_order_regular, 1.+singularity, 1.),
+                                                       (quad_order_diagonal, 0., 0.),
+                                                       (quad_order_diagonal, 0., 0.)))
+
+            bary = uninitialized((2*dim+1,
+                                  qrEdge0.num_nodes+
+                                  qrEdge1.num_nodes+
+                                  qrEdge2.num_nodes), dtype=REAL)
+            bary_x = bary[:dim+1, :]
+            bary_y = bary[dim+1:, :]
+            weights = uninitialized((qrEdge0.num_nodes+
+                                     qrEdge1.num_nodes+
+                                     qrEdge2.num_nodes), dtype=REAL)
+
+            # int 0
+            offset = 0
+            for i in range(qrEdge0.num_nodes):
+                eta0 = qrEdge0.nodes[0, i]
+                eta1 = qrEdge0.nodes[1, i]
+                eta2 = qrEdge0.nodes[2, i]
+
+                lcl_bary_x[0] = 1-eta0-(1-eta0)*eta2
+                lcl_bary_x[1] = eta0+(1-eta0)*eta2-eta0*eta1
+                lcl_bary_x[2] = eta0*eta1
+
+                lcl_bary_y[0] = 1-eta2*(1-eta0)
+                lcl_bary_y[1] = eta2*(1-eta0)
+
+                bary_x[0, offset+i] = lcl_bary_x[0]
+                bary_x[1, offset+i] = lcl_bary_x[1]
+                bary_x[2, offset+i] = lcl_bary_x[2]
+
+                bary_y[0, offset+i] = lcl_bary_y[0]
+                bary_y[1, offset+i] = lcl_bary_y[1]
+
+                weights[offset+i] = qrEdge0.weights[i] * eta0**(-singularity)
+
+            # int 1
+            offset = qrEdge0.num_nodes
+            for i in range(qrEdge1.num_nodes):
+                eta0 = qrEdge1.nodes[0, i]
+                eta1 = qrEdge1.nodes[1, i]
+                eta2 = qrEdge1.nodes[2, i]
+
+                lcl_bary_x[0] = 1-eta0-eta2+eta0*eta2
+                lcl_bary_x[1] = eta2-eta0*eta2
+                lcl_bary_x[2] = eta0
+
+                lcl_bary_y[0] = 1-eta2+eta0*eta2+eta0*eta1-eta0
+                lcl_bary_y[1] = eta2-eta0*eta2-eta0*eta1+eta0
+
+                bary_x[0, offset+i] = lcl_bary_x[0]
+                bary_x[1, offset+i] = lcl_bary_x[1]
+                bary_x[2, offset+i] = lcl_bary_x[2]
+
+                bary_y[0, offset+i] = lcl_bary_y[0]
+                bary_y[1, offset+i] = lcl_bary_y[1]
+
+                weights[offset+i] = qrEdge1.weights[i] * eta0**(-singularity)
+
+            # int 2
+            offset = qrEdge0.num_nodes+qrEdge1.num_nodes
+            for i in range(qrEdge2.num_nodes):
+                eta0 = qrEdge2.nodes[0, i]
+                eta1 = qrEdge2.nodes[1, i]
+                eta2 = qrEdge2.nodes[2, i]
+
+                lcl_bary_x[0] = 1-eta2+eta0*eta2-eta0*eta1
+                lcl_bary_x[1] = eta2-eta0*eta2
+                lcl_bary_x[2] = eta0*eta1
+
+                lcl_bary_y[0] = 1-eta2+eta0*eta2-eta0
+                lcl_bary_y[1] = eta2-eta0*eta2+eta0
+
+                bary_x[0, offset+i] = lcl_bary_x[0]
+                bary_x[1, offset+i] = lcl_bary_x[1]
+                bary_x[2, offset+i] = lcl_bary_x[2]
+
+                bary_y[0, offset+i] = lcl_bary_y[0]
+                bary_y[1, offset+i] = lcl_bary_y[1]
+
+                weights[offset+i] = qrEdge2.weights[i] * eta0**(-singularity)
+
+            super(singularityCancelationQuadRule2D_boundary, self).__init__(bary, weights, 2*dim+1)
+        elif panel == COMMON_VERTEX:
+            qrVertex0 = GaussJacobi(((quad_order_regular, 2.0+singularity, 0),
+                                     (quad_order_diagonal, 0, 0),
+                                     (quad_order_diagonal, 0, 0)))
+            qrVertex1 = GaussJacobi(((quad_order_regular, 2.0+singularity, 0),
+                                     (quad_order_diagonal, 1, 0),
+                                     (quad_order_diagonal, 0, 0)))
+            bary = uninitialized((2*dim+1,
+                                  qrVertex0.num_nodes+
+                                  qrVertex1.num_nodes), dtype=REAL)
+            bary_x = bary[:dim+1, :]
+            bary_y = bary[dim+1:, :]
+            weights = uninitialized((qrVertex0.num_nodes+
+                                     qrVertex1.num_nodes), dtype=REAL)
+
+            # int 0
+            offset = 0
+            for i in range(qrVertex0.num_nodes):
+                eta0 = qrVertex0.nodes[0, i]
+                eta1 = qrVertex0.nodes[1, i]
+                eta2 = qrVertex0.nodes[2, i]
+
+                lcl_bary_x[0] = 1-eta0
+                lcl_bary_x[1] = eta0*(1-eta1)
+                lcl_bary_x[2] = eta0*eta1
+
+                lcl_bary_y[0] = 1-eta0*eta2
+                lcl_bary_y[1] = eta0*eta2
+
+                bary_x[0, offset+i] = lcl_bary_x[0]
+                bary_x[1, offset+i] = lcl_bary_x[1]
+                bary_x[2, offset+i] = lcl_bary_x[2]
+
+                bary_y[0, offset+i] = lcl_bary_y[0]
+                bary_y[1, offset+i] = lcl_bary_y[1]
+
+                weights[offset+i] = qrVertex0.weights[i] * eta0**(-singularity)
+
+            # int 1
+            offset = qrVertex0.num_nodes
+            for i in range(qrVertex1.num_nodes):
+                eta0 = qrVertex1.nodes[0, i]
+                eta1 = qrVertex1.nodes[1, i]
+                eta2 = qrVertex1.nodes[2, i]
+
+                lcl_bary_x[0] = 1-eta0*eta1
+                lcl_bary_x[1] = eta0*eta1*(1-eta2)
+                lcl_bary_x[2] = eta0*eta1*eta2
+
+                lcl_bary_y[0] = 1-eta0
+                lcl_bary_y[1] = eta0
+
+                bary_x[0, offset+i] = lcl_bary_x[0]
+                bary_x[1, offset+i] = lcl_bary_x[1]
+                bary_x[2, offset+i] = lcl_bary_x[2]
+
+                bary_y[0, offset+i] = lcl_bary_y[0]
+                bary_y[1, offset+i] = lcl_bary_y[1]
+
+                weights[offset+i] = qrVertex1.weights[i] * eta0**(-singularity)
+
+            super(singularityCancelationQuadRule2D_boundary, self).__init__(bary, weights, 2*dim+1)
+
+
+cdef class fractionalLaplacian2D(nonlocalLaplacian2D):
+    """The local stiffness matrix
 
     .. math::
 
        \\int_{K_1}\\int_{K_2} (u(x)-u(y)) (v(x)-v(y)) \\gamma(x,y) dy dx
 
-    for the 2D fractional Laplacian on P1 elements.
+    for the symmetric 2D nonlocal Laplacian.
     """
     def __init__(self,
-                 FractionalKernel kernel,
+                 Kernel kernel,
                  meshBase mesh,
                  DoFMap DoFMap,
                  target_order=None,
                  quad_order_diagonal=None,
                  num_dofs=None,
                  **kwargs):
-        assert isinstance(DoFMap, P1_DoFMap)
-        super(fractionalLaplacian2D_P1, self).__init__(kernel, mesh, DoFMap, num_dofs, **kwargs)
+        super(fractionalLaplacian2D, self).__init__(kernel, mesh, DoFMap, num_dofs, **kwargs)
+
+        # The integrand (excluding the kernel) cancels 2 orders of the singularity within an element.
+        self.singularityCancelationIntegrandWithinElement = 2.
+        # The integrand (excluding the kernel) cancels 2 orders of the
+        # singularity across elements for continuous finite elements.
+        if isinstance(DoFMap, P0_DoFMap):
+            assert self.kernel.max_singularity > -3., "Discontinuous finite elements are not conforming for singularity order {} <= -3.".format(self.kernel.max_singularity)
+            self.singularityCancelationIntegrandAcrossElements = 0.
+        else:
+            self.singularityCancelationIntegrandAcrossElements = 2.
 
         if target_order is None:
             # this is the desired local quadrature error
@@ -59,7 +601,7 @@ cdef class fractionalLaplacian2D_P1(nonlocalLaplacian2D):
             target_order = 0.5
         self.target_order = target_order
 
-        smax = self.kernel.s.max
+        smax = max(-0.5*(self.kernel.max_singularity+2), 0.)
         if quad_order_diagonal is None:
             # measured log(2 rho_2) = 0.43
             quad_order_diagonal = max(np.ceil((target_order+1.+smax)/(0.43)*abs(np.log(self.hmin/self.H0))), 4)
@@ -70,15 +612,7 @@ cdef class fractionalLaplacian2D_P1(nonlocalLaplacian2D):
         self.quad_order_diagonal = quad_order_diagonal
         self.quad_order_diagonalV = quad_order_diagonalV
 
-        self.x = uninitialized((0, self.dim), dtype=REAL)
-        self.y = uninitialized((0, self.dim), dtype=REAL)
-        self.temp = uninitialized((0), dtype=REAL)
-        self.idx1 = uninitialized((self.dim+1), dtype=INDEX)
-        self.idx2 = uninitialized((self.dim+1), dtype=INDEX)
-        self.idx3 = uninitialized((2*(self.dim+1)), dtype=INDEX)
-        self.idx4 = uninitialized(((2*self.DoFMap.dofs_per_element)*(2*self.DoFMap.dofs_per_element+1)//2), dtype=INDEX)
-
-        if not self.kernel.variableOrder:
+        if (self.kernel.kernelType != FRACTIONAL) or (not self.kernel.variableOrder):
             self.getNearQuadRule(COMMON_FACE)
             self.getNearQuadRule(COMMON_EDGE)
             self.getNearQuadRule(COMMON_VERTEX)
@@ -93,7 +627,7 @@ cdef class fractionalLaplacian2D_P1(nonlocalLaplacian2D):
             REAL_t c = (0.5*self.target_order+0.5)*log(self.num_dofs*self.H0**2) #-4.
             REAL_t logh1H0 = abs(log(h1/self.H0)), logh2H0 = abs(log(h2/self.H0))
             REAL_t loghminH0 = max(logh1H0, logh2H0)
-            REAL_t s = (<FractionalKernel>self.kernel).getsValue()
+            REAL_t s = max(-0.5*(self.kernel.getSingularityValue()+2), 0.)
         panel = <panelType>max(ceil((c + (s-1.)*logh2H0 + loghminH0 - s*logdh2) /
                                     (max(logdh1, 0) + 0.4)),
                                2)
@@ -108,153 +642,161 @@ cdef class fractionalLaplacian2D_P1(nonlocalLaplacian2D):
     cdef void getNearQuadRule(self, panelType panel):
         cdef:
             INDEX_t i
-            REAL_t s = self.kernel.sValue
-            REAL_t eta0, eta1, eta2, eta3
-            specialQuadRule sQR0, sQR1
-            quadQuadratureRule qrId, qrEdge0, qrEdge1, qrVertex
-            REAL_t[:, :, ::1] PSI_id, PSI_edge, PSI_vertex
+            REAL_t singularityValue = self.kernel.getSingularityValue()
+            specialQuadRule sQR
+            quadratureRule qr
+            INDEX_t dofs_per_element = self.DoFMap.dofs_per_element
+            INDEX_t dofs_per_edge = self.DoFMap.dofs_per_edge
+            INDEX_t dofs_per_vertex = self.DoFMap.dofs_per_vertex
+            INDEX_t dm_order = max(self.DoFMap.polynomialOrder, 1)
+            shapeFunction sf
+            INDEX_t dim = 2
+            REAL_t lcl_bary_x[3]
+            REAL_t lcl_bary_y[3]
+            REAL_t[:, ::1] PSI
+            INDEX_t dof
+
         if panel == COMMON_FACE:
             try:
-                sQR0 = self.specialQuadRules[(s, panel, 0)]
+                sQR = self.specialQuadRules[(singularityValue, panel)]
             except KeyError:
-                # COMMON_FACE panels have 3 integral contributions.
-                # Each integral is over a 1D domain.
-                qrId = GaussJacobi(((1, 3-2*s, 0),
-                                    (1, 2-2*s, 0),
-                                    (1, 1-2*s, 0),
-                                    (self.quad_order_diagonal, 0, 0)))
-                PSI_id = uninitialized((3,
-                                        self.DoFMap.dofs_per_element,
-                                        qrId.num_nodes),
-                                       dtype=REAL)
-                for i in range(qrId.num_nodes):
-                    eta0 = qrId.nodes[0, i]
-                    eta1 = qrId.nodes[1, i]
-                    eta2 = qrId.nodes[2, i]
-                    eta3 = qrId.nodes[3, i]
 
-                    PSI_id[0, 0, i] = -eta3
-                    PSI_id[0, 1, i] = eta3-1.
-                    PSI_id[0, 2, i] = 1.
+                qr = singularityCancelationQuadRule2D(panel,
+                                                      self.singularityCancelationIntegrandWithinElement+singularityValue,
+                                                      self.quad_order_diagonal,
+                                                      self.quad_order_diagonalV,
+                                                      1)
+                PSI = uninitialized((dofs_per_element, qr.num_nodes), dtype=REAL)
 
-                    PSI_id[1, 0, i] = -1.
-                    PSI_id[1, 1, i] = 1.-eta3
-                    PSI_id[1, 2, i] = eta3
+                for dof in range(dofs_per_element):
+                    sf = self.getLocalShapeFunction(dof)
+                    for i in range(qr.num_nodes):
+                        lcl_bary_x[0] = qr.nodes[0, i]
+                        lcl_bary_x[1] = qr.nodes[1, i]
+                        lcl_bary_x[2] = qr.nodes[2, i]
+                        lcl_bary_y[0] = qr.nodes[3, i]
+                        lcl_bary_y[1] = qr.nodes[4, i]
+                        lcl_bary_y[2] = qr.nodes[5, i]
+                        PSI[dof, i] = (sf.eval(lcl_bary_x)-sf.eval(lcl_bary_y))
 
-                    PSI_id[2, 0, i] = eta3
-                    PSI_id[2, 1, i] = -1.
-                    PSI_id[2, 2, i] = 1.-eta3
-                sQR0 = specialQuadRule(qrId, PSI3=PSI_id)
-                self.specialQuadRules[(s, panel, 0)] = sQR0
-                if qrId.num_nodes > self.temp.shape[0]:
-                    self.temp = uninitialized((qrId.num_nodes), dtype=REAL)
-            self.qrId = sQR0.qr
-            self.PSI_id = sQR0.PSI3
+                sQR = specialQuadRule(qr, PSI)
+                self.specialQuadRules[(singularityValue, panel)] = sQR
+                if qr.num_nodes > self.temp.shape[0]:
+                    self.temp = uninitialized((qr.num_nodes), dtype=REAL)
+            self.qrId = sQR.qr
+            self.PSI_id = sQR.PSI
         elif panel == COMMON_EDGE:
             try:
-                sQR0 = self.specialQuadRules[(s, panel, 0)]
-                sQR1 = self.specialQuadRules[(s, panel, 1)]
+                sQR = self.specialQuadRules[(singularityValue, panel)]
             except KeyError:
-                qrEdge0 = GaussJacobi(((1, 3-2*s, 0),
-                                       (1, 2-2*s, 0),
-                                       (self.quad_order_diagonal, 0, 0),
-                                       (self.quad_order_diagonal, 0, 0)))
-                qrEdge1 = GaussJacobi(((1, 3-2*s, 0),
-                                       (1, 2-2*s, 0),
-                                       (self.quad_order_diagonal, 1, 0),
-                                       (self.quad_order_diagonal, 0, 0)))
-                PSI_edge = uninitialized((5,
-                                          2*self.DoFMap.dofs_per_element-2*self.DoFMap.dofs_per_vertex-self.DoFMap.dofs_per_edge,
-                                          qrEdge0.num_nodes),
-                                    dtype=REAL)
-                for i in range(qrEdge0.num_nodes):
-                    eta0 = qrEdge0.nodes[0, i]
-                    eta1 = qrEdge0.nodes[1, i]
-                    eta2 = qrEdge0.nodes[2, i]
-                    eta3 = qrEdge0.nodes[3, i]
 
-                    PSI_edge[0, 0, i] = -eta2
-                    PSI_edge[0, 1, i] = 1.-eta3
-                    PSI_edge[0, 2, i] = eta3
-                    PSI_edge[0, 3, i] = eta2-1.
+                qr = singularityCancelationQuadRule2D(panel,
+                                                      self.singularityCancelationIntegrandAcrossElements+singularityValue,
+                                                      self.quad_order_diagonal,
+                                                      self.quad_order_diagonalV,
+                                                      1)
+                PSI = uninitialized((2*dofs_per_element - 2*dofs_per_vertex - dofs_per_edge,
+                                     qr.num_nodes), dtype=REAL)
 
-                    eta0 = qrEdge1.nodes[0, i]
-                    eta1 = qrEdge1.nodes[1, i]
-                    eta2 = qrEdge1.nodes[2, i]
-                    eta3 = qrEdge1.nodes[3, i]
+                for dof in range(2*dofs_per_vertex):
+                    sf = self.getLocalShapeFunction(dof)
+                    for i in range(qr.num_nodes):
+                        lcl_bary_x[0] = qr.nodes[0, i]
+                        lcl_bary_x[1] = qr.nodes[1, i]
+                        lcl_bary_x[2] = qr.nodes[2, i]
+                        lcl_bary_y[0] = qr.nodes[3, i]
+                        lcl_bary_y[1] = qr.nodes[4, i]
+                        lcl_bary_y[2] = qr.nodes[5, i]
+                        PSI[dof, i] = (sf.eval(lcl_bary_x)-sf.eval(lcl_bary_y))
 
-                    PSI_edge[1, 0, i] = -eta2*eta3
-                    PSI_edge[1, 1, i] = eta2-1.
-                    PSI_edge[1, 2, i] = 1.
-                    PSI_edge[1, 3, i] = eta2*(eta3-1.)
+                for dof in range((dim+1)*dofs_per_vertex, (dim+1)*dofs_per_vertex+dofs_per_edge):
+                    sf = self.getLocalShapeFunction(dof)
+                    for i in range(qr.num_nodes):
+                        lcl_bary_x[0] = qr.nodes[0, i]
+                        lcl_bary_x[1] = qr.nodes[1, i]
+                        lcl_bary_x[2] = qr.nodes[2, i]
+                        lcl_bary_y[0] = qr.nodes[3, i]
+                        lcl_bary_y[1] = qr.nodes[4, i]
+                        lcl_bary_y[2] = qr.nodes[5, i]
+                        PSI[dof, i] = (sf.eval(lcl_bary_x)-sf.eval(lcl_bary_y))
 
-                    PSI_edge[2, 0, i] = eta2
-                    PSI_edge[2, 1, i] = eta2*eta3-1.
-                    PSI_edge[2, 2, i] = 1.-eta2
-                    PSI_edge[2, 3, i] = -eta2*eta3
+                for dof in range(2*dofs_per_vertex, (dim+1)*dofs_per_vertex):
+                    sf = self.getLocalShapeFunction(dof)
+                    for i in range(qr.num_nodes):
+                        lcl_bary_x[0] = qr.nodes[0, i]
+                        lcl_bary_x[1] = qr.nodes[1, i]
+                        lcl_bary_x[2] = qr.nodes[2, i]
+                        lcl_bary_y[0] = qr.nodes[3, i]
+                        lcl_bary_y[1] = qr.nodes[4, i]
+                        lcl_bary_y[2] = qr.nodes[5, i]
+                        PSI[dof, i] = sf.eval(lcl_bary_x)
+                        PSI[dofs_per_element+dof-2*dofs_per_vertex, i] = -sf.eval(lcl_bary_y)
 
-                    PSI_edge[3, 0, i] = eta2*eta3
-                    PSI_edge[3, 1, i] = 1.-eta2
-                    PSI_edge[3, 2, i] = eta2*(1.-eta3)
-                    PSI_edge[3, 3, i] = -1.
+                for dof in range((dim+1)*dofs_per_vertex+dofs_per_edge, dofs_per_element):
+                    sf = self.getLocalShapeFunction(dof)
+                    for i in range(qr.num_nodes):
+                        lcl_bary_x[0] = qr.nodes[0, i]
+                        lcl_bary_x[1] = qr.nodes[1, i]
+                        lcl_bary_x[2] = qr.nodes[2, i]
+                        lcl_bary_y[0] = qr.nodes[3, i]
+                        lcl_bary_y[1] = qr.nodes[4, i]
+                        lcl_bary_y[2] = qr.nodes[5, i]
+                        PSI[dof, i] = sf.eval(lcl_bary_x)
+                        PSI[dofs_per_element+dof-2*dofs_per_vertex-dofs_per_edge, i] = -sf.eval(lcl_bary_y)
 
-                    PSI_edge[4, 0, i] = eta2*eta3
-                    PSI_edge[4, 1, i] = eta2-1.
-                    PSI_edge[4, 2, i] = 1.-eta2*eta3
-                    PSI_edge[4, 3, i] = -eta2
-
-                sQR0 = specialQuadRule(qrEdge0, PSI3=PSI_edge)
-                sQR1 = specialQuadRule(qrEdge1, PSI3=PSI_edge)
-                self.specialQuadRules[(s, panel, 0)] = sQR0
-                self.specialQuadRules[(s, panel, 1)] = sQR1
-                if qrEdge0.num_nodes > self.temp.shape[0]:
-                    self.temp = uninitialized((qrEdge0.num_nodes), dtype=REAL)
-                if qrEdge1.num_nodes > self.temp.shape[0]:
-                    self.temp = uninitialized((qrEdge1.num_nodes), dtype=REAL)
-            self.qrEdge0 = sQR0.qr
-            self.qrEdge1 = sQR1.qr
-            self.PSI_edge = sQR0.PSI3
+                sQR = specialQuadRule(qr, PSI)
+                self.specialQuadRules[(singularityValue, panel)] = sQR
+                if qr.num_nodes > self.temp.shape[0]:
+                    self.temp = uninitialized((qr.num_nodes), dtype=REAL)
+            self.qrEdge = sQR.qr
+            self.PSI_edge = sQR.PSI
         elif panel == COMMON_VERTEX:
             try:
-                sQR0 = self.specialQuadRules[(s, panel, 0)]
+                sQR = self.specialQuadRules[(singularityValue, panel)]
             except KeyError:
-                qrVertex = GaussJacobi(((1, 3-2*s, 0),
-                                        (self.quad_order_diagonalV, 0, 0),
-                                        (self.quad_order_diagonalV, 1, 0),
-                                        (self.quad_order_diagonalV, 0, 0)))
-                PSI_vertex = uninitialized((2,
-                                            2*self.DoFMap.dofs_per_element-self.DoFMap.dofs_per_vertex,
-                                            qrVertex.num_nodes),
-                                           dtype=REAL)
-                for i in range(qrVertex.num_nodes):
-                    eta0 = qrVertex.nodes[0, i]
-                    eta1 = qrVertex.nodes[1, i]
-                    eta2 = qrVertex.nodes[2, i]
-                    eta3 = qrVertex.nodes[3, i]
 
-                    PSI_vertex[0, 0, i] = eta2-1.
-                    PSI_vertex[0, 1, i] = 1.-eta1
-                    PSI_vertex[0, 2, i] = eta1
-                    PSI_vertex[0, 3, i] = eta2*(eta3-1.)
-                    PSI_vertex[0, 4, i] = -eta2*eta3
+                qr = singularityCancelationQuadRule2D(panel,
+                                                      self.singularityCancelationIntegrandAcrossElements+singularityValue,
+                                                      self.quad_order_diagonal,
+                                                      self.quad_order_diagonalV,
+                                                      1)
+                PSI = uninitialized((2*dofs_per_element - dofs_per_vertex,
+                                     qr.num_nodes), dtype=REAL)
 
-                    PSI_vertex[1, 0, i] = 1.-eta2
-                    PSI_vertex[1, 1, i] = eta2*(1.-eta3)
-                    PSI_vertex[1, 2, i] = eta2*eta3
-                    PSI_vertex[1, 3, i] = eta1-1.
-                    PSI_vertex[1, 4, i] = -eta1
+                for dof in range(dofs_per_vertex):
+                    sf = self.getLocalShapeFunction(dof)
+                    for i in range(qr.num_nodes):
+                        lcl_bary_x[0] = qr.nodes[0, i]
+                        lcl_bary_x[1] = qr.nodes[1, i]
+                        lcl_bary_x[2] = qr.nodes[2, i]
+                        lcl_bary_y[0] = qr.nodes[3, i]
+                        lcl_bary_y[1] = qr.nodes[4, i]
+                        lcl_bary_y[2] = qr.nodes[5, i]
+                        PSI[dof, i] = (sf.eval(lcl_bary_x)-sf.eval(lcl_bary_y))
 
-                sQR0 = specialQuadRule(qrVertex, PSI3=PSI_vertex)
-                self.specialQuadRules[(s, panel, 0)] = sQR0
-                if qrVertex.num_nodes > self.temp.shape[0]:
-                    self.temp = uninitialized((qrVertex.num_nodes), dtype=REAL)
-            self.qrVertex = sQR0.qr
-            self.PSI_vertex = sQR0.PSI3
+                for dof in range(dofs_per_vertex, dofs_per_element):
+                    sf = self.getLocalShapeFunction(dof)
+                    for i in range(qr.num_nodes):
+                        lcl_bary_x[0] = qr.nodes[0, i]
+                        lcl_bary_x[1] = qr.nodes[1, i]
+                        lcl_bary_x[2] = qr.nodes[2, i]
+                        lcl_bary_y[0] = qr.nodes[3, i]
+                        lcl_bary_y[1] = qr.nodes[4, i]
+                        lcl_bary_y[2] = qr.nodes[5, i]
+                        PSI[dof, i] = sf.eval(lcl_bary_x)
+                        PSI[dofs_per_element+dof-dofs_per_vertex, i] = -sf.eval(lcl_bary_y)
+
+                sQR = specialQuadRule(qr, PSI)
+                self.specialQuadRules[(singularityValue, panel)] = sQR
+                if qr.num_nodes > self.temp.shape[0]:
+                    self.temp = uninitialized((qr.num_nodes), dtype=REAL)
+            self.qrVertex = sQR.qr
+            self.PSI_vertex = sQR.PSI
         else:
             raise NotImplementedError('Unknown panel type: {}'.format(panel))
 
     def __repr__(self):
-        return (super(fractionalLaplacian2D_P1, self).__repr__() +
+        return (super(fractionalLaplacian2D, self).__repr__() +
                 'hmin:                          {:.3}\n'.format(self.hmin) +
                 'H0:                            {:.3}\n'.format(self.H0) +
                 'target order:                  {}\n'.format(self.target_order) +
@@ -266,212 +808,334 @@ cdef class fractionalLaplacian2D_P1(nonlocalLaplacian2D):
                    panelType panel,
                    MASK_t mask=ALL):
         cdef:
-            INDEX_t k, i, j, l, m, I, J, k2
-            REAL_t vol, val, temp
-            REAL_t vol1 = self.vol1, vol2 = self.vol2
-            INDEX_t[::1] idx1, idx2, idx3, idx4
-            INDEX_t numQuadNodes
-            quadQuadratureRule qrEdge
-            REAL_t[:, ::1] simplex1 = self.simplex1
-            REAL_t[:, ::1] simplex2 = self.simplex2
-            REAL_t s = (<FractionalKernel>self.kernel).getsValue()
-            REAL_t scaling = self.kernel.getScalingValue()
+            INDEX_t k, m, i, j, I, J, dofs_per_element, dim = 2
+            REAL_t vol, val
+            quadratureRule qr
+            REAL_t[:, ::1] PSI
+            REAL_t x[2]
+            REAL_t y[2]
 
         if panel >= 1:
             self.eval_distant(contrib, panel, mask)
             return
+        elif panel == COMMON_FACE:
+            qr = self.qrId
+            PSI = self.PSI_id
+        elif panel == COMMON_EDGE:
+            qr = self.qrEdge
+            PSI = self.PSI_edge
+        elif panel == COMMON_VERTEX:
+            qr = self.qrVertex
+            PSI = self.PSI_vertex
+        else:
+            raise NotImplementedError('Unknown panel type: {}'.format(panel))
 
+        vol = 4.0*self.vol1*self.vol2
+
+        dofs_per_element = self.DoFMap.dofs_per_element
+
+        # Evaluate the kernel on the quadrature nodes
+        for m in range(qr.num_nodes):
+            for j in range(dim):
+                x[j] = (self.simplex1[self.perm1[0], j]*qr.nodes[0, m] +
+                        self.simplex1[self.perm1[1], j]*qr.nodes[1, m] +
+                        self.simplex1[self.perm1[2], j]*qr.nodes[2, m])
+                y[j] = (self.simplex2[self.perm2[0], j]*qr.nodes[3, m] +
+                        self.simplex2[self.perm2[1], j]*qr.nodes[4, m] +
+                        self.simplex2[self.perm2[2], j]*qr.nodes[5, m])
+            self.temp[m] = qr.weights[m] * self.kernel.evalPtr(dim, &x[0], &y[0])
+
+        # "perm" maps from dofs on the reordered simplices (matching
+        # vertices first) to the dofs in the usual ordering.
         contrib[:] = 0.
+        for I in range(PSI.shape[0]):
+            i = self.perm[I]
+            for J in range(I, PSI.shape[0]):
+                j = self.perm[J]
+                # We are assembling the upper trinagular part of the
+                # symmetric (2*dofs_per_element)**2 local stiffness
+                # matrix. This computes the flattened index.
+                if j < i:
+                    k = 2*dofs_per_element*j-(j*(j+1) >> 1) + i
+                else:
+                    k = 2*dofs_per_element*i-(i*(i+1) >> 1) + j
+                # Check if that entry has been requested.
+                if mask[k]:
+                    val = 0.
+                    for m in range(qr.num_nodes):
+                        val += self.temp[m] * PSI[I, m] * PSI[J, m]
+                    contrib[k] = val*vol
+
+
+cdef class fractionalLaplacian2D_nonsym(fractionalLaplacian2D):
+    """The local stiffness matrix
+
+    .. math::
+
+       \\int_{K_1}\\int_{K_2} [ u(x) \\gamma(x,y) - u(y) \\gamma(y,x) ] [ v(x)-v(y) ] dy dx
+
+    for the 2D non-symmetric nonlocal Laplacian.
+    """
+    cdef panelType getQuadOrder(self,
+                                const REAL_t h1,
+                                const REAL_t h2,
+                                REAL_t d):
+        cdef:
+            panelType panel, panel2
+            REAL_t logdh1 = log(d/h1), logdh2 = log(d/h2)
+            REAL_t c = (0.5*self.target_order+0.5)*log(self.num_dofs*self.H0**2) #-4.
+            REAL_t logh1H0 = abs(log(h1/self.H0)), logh2H0 = abs(log(h2/self.H0))
+            REAL_t loghminH0 = max(logh1H0, logh2H0)
+            REAL_t s = max(-0.5*(self.kernel.getSingularityValue()+2), 0.)
+        panel = <panelType>max(ceil((c + (s-1.)*logh2H0 + loghminH0 - s*logdh2) /
+                                    (max(logdh1, 0) + 0.4)),
+                               2)
+        panel2 = <panelType>max(ceil((c + (s-1.)*logh1H0 + loghminH0 - s*logdh1) /
+                                     (max(logdh2, 0) + 0.4)),
+                                2)
+        panel = max(panel, panel2)
+        if self.distantQuadRulesPtr[panel] == NULL:
+            self.addQuadRule_nonSym(panel)
+        return panel
+
+    cdef void getNearQuadRule(self, panelType panel):
+        cdef:
+            INDEX_t i
+            REAL_t singularityValue = self.kernel.getSingularityValue()
+            specialQuadRule sQR
+            quadratureRule qr
+            INDEX_t dofs_per_element = self.DoFMap.dofs_per_element
+            INDEX_t dofs_per_edge = self.DoFMap.dofs_per_edge
+            INDEX_t dofs_per_vertex = self.DoFMap.dofs_per_vertex
+            INDEX_t dm_order = max(self.DoFMap.polynomialOrder, 1)
+            shapeFunction sf
+            INDEX_t dim = 2
+            REAL_t lcl_bary_x[3]
+            REAL_t lcl_bary_y[3]
+            REAL_t[:, :, ::1] PHI
+            INDEX_t dof
 
         if panel == COMMON_FACE:
-            # factor 2 comes from symmetric contributions
-            vol = scaling*4.0*2.0*vol1**2
+            try:
+                sQR = self.specialQuadRules[(singularityValue, panel)]
+            except KeyError:
 
-            # three different integrals
-            numQuadNodes = self.qrId.num_nodes
-            for l in range(3):
-                # distance between x and y quadrature nodes
-                for i in range(numQuadNodes):
-                    temp = 0.
-                    for j in range(2):
-                        temp += (simplex1[0, j]*self.PSI_id[l, 0, i] +
-                                 simplex1[1, j]*self.PSI_id[l, 1, i] +
-                                 simplex1[2, j]*self.PSI_id[l, 2, i])**2
-                    self.temp[i] = self.qrId.weights[i]*pow(temp, -1.-s)
-                # loop over all local DoFs
-                for I in range(3):
-                    for J in range(I, 3):
-                        k = 6*I-(I*(I+1) >> 1) + J
-                        if mask & (1 << k):
-                            val = 0.
-                            for i in range(numQuadNodes):
-                                val += (self.temp[i] *
-                                        self.PSI_id[l, I, i] *
-                                        self.PSI_id[l, J, i])
-                            contrib[k] += val*vol
+                qr = singularityCancelationQuadRule2D(panel,
+                                                      self.singularityCancelationIntegrandWithinElement+singularityValue,
+                                                      self.quad_order_diagonal,
+                                                      self.quad_order_diagonalV,
+                                                      1)
+                PHI = uninitialized((dofs_per_element, qr.num_nodes, 2), dtype=REAL)
+
+                for dof in range(dofs_per_element):
+                    sf = self.getLocalShapeFunction(dof)
+                    for i in range(qr.num_nodes):
+                        lcl_bary_x[0] = qr.nodes[0, i]
+                        lcl_bary_x[1] = qr.nodes[1, i]
+                        lcl_bary_x[2] = qr.nodes[2, i]
+                        lcl_bary_y[0] = qr.nodes[3, i]
+                        lcl_bary_y[1] = qr.nodes[4, i]
+                        lcl_bary_y[2] = qr.nodes[5, i]
+                        PHI[dof, i, 0] = sf.eval(lcl_bary_x)
+                        PHI[dof, i, 1] = sf.eval(lcl_bary_y)
+
+                sQR = specialQuadRule(qr, PHI3=PHI)
+                self.specialQuadRules[(singularityValue, panel)] = sQR
+                if qr.num_nodes > self.temp.shape[0]:
+                    self.temp = uninitialized((qr.num_nodes), dtype=REAL)
+                    self.temp2 = uninitialized((qr.num_nodes), dtype=REAL)
+            self.qrId = sQR.qr
+            self.PHI_id = sQR.PHI3
         elif panel == COMMON_EDGE:
-            # order so that common edge matches up and first triangle
-            # is ordered in usual sense and second triangle in counter
-            # sense
+            try:
+                sQR = self.specialQuadRules[(singularityValue, panel)]
+            except KeyError:
 
-            idx1 = self.idx1
-            idx2 = self.idx2
-            idx3 = self.idx3
-            idx4 = self.idx4
+                qr = singularityCancelationQuadRule2D(panel,
+                                                      self.singularityCancelationIntegrandAcrossElements+singularityValue,
+                                                      self.quad_order_diagonal,
+                                                      self.quad_order_diagonalV,
+                                                      1)
+                PHI = uninitialized((2*dofs_per_element - 2*dofs_per_vertex - dofs_per_edge,
+                                     qr.num_nodes,
+                                     2), dtype=REAL)
 
-            k = 0
-            for i in range(3):
-                for j in range(3):
-                    if self.cells1[self.cellNo1, i] == self.cells2[self.cellNo2, j]:
-                        idx3[k] = i
-                        idx4[k] = j
-                        k += 1
-                        break
+                for dof in range(2*dofs_per_vertex):
+                    sf = self.getLocalShapeFunction(dof)
+                    for i in range(qr.num_nodes):
+                        lcl_bary_x[0] = qr.nodes[0, i]
+                        lcl_bary_x[1] = qr.nodes[1, i]
+                        lcl_bary_x[2] = qr.nodes[2, i]
+                        lcl_bary_y[0] = qr.nodes[3, i]
+                        lcl_bary_y[1] = qr.nodes[4, i]
+                        lcl_bary_y[2] = qr.nodes[5, i]
+                        PHI[dof, i, 0] = sf.eval(lcl_bary_x)
+                        PHI[dof, i, 1] = sf.eval(lcl_bary_y)
 
-            if idx3[0] > idx3[1]:
-                idx3[1], idx3[0] = idx3[0], idx3[1]
+                for dof in range((dim+1)*dofs_per_vertex, (dim+1)*dofs_per_vertex+dofs_per_edge):
+                    sf = self.getLocalShapeFunction(dof)
+                    for i in range(qr.num_nodes):
+                        lcl_bary_x[0] = qr.nodes[0, i]
+                        lcl_bary_x[1] = qr.nodes[1, i]
+                        lcl_bary_x[2] = qr.nodes[2, i]
+                        lcl_bary_y[0] = qr.nodes[3, i]
+                        lcl_bary_y[1] = qr.nodes[4, i]
+                        lcl_bary_y[2] = qr.nodes[5, i]
+                        PHI[dof, i, 0] = sf.eval(lcl_bary_x)
+                        PHI[dof, i, 1] = sf.eval(lcl_bary_y)
 
-            if idx3[0] == 0:
-                if idx3[1] == 1:
-                    idx1[0], idx1[1], idx1[2] = 0, 1, 2
-                elif idx3[1] == 2:
-                    idx1[0], idx1[1], idx1[2] = 2, 0, 1
-                else:
-                    raise NotImplementedError("Something went wrong for COMMON_EDGE 1")
-            elif idx3[0] == 1 and idx3[1] == 2:
-                idx1[0], idx1[1], idx1[2] = 1, 2, 0
-            else:
-                raise NotImplementedError("Something went wrong for COMMON_EDGE 1")
+                for dof in range(2*dofs_per_vertex, (dim+1)*dofs_per_vertex):
+                    sf = self.getLocalShapeFunction(dof)
+                    for i in range(qr.num_nodes):
+                        lcl_bary_x[0] = qr.nodes[0, i]
+                        lcl_bary_x[1] = qr.nodes[1, i]
+                        lcl_bary_x[2] = qr.nodes[2, i]
+                        lcl_bary_y[0] = qr.nodes[3, i]
+                        lcl_bary_y[1] = qr.nodes[4, i]
+                        lcl_bary_y[2] = qr.nodes[5, i]
+                        PHI[dof, i, 0] = sf.eval(lcl_bary_x)
+                        PHI[dof, i, 1] = 0
+                        PHI[dofs_per_element+dof-2*dofs_per_vertex, i, 0] = 0
+                        PHI[dofs_per_element+dof-2*dofs_per_vertex, i, 1] = sf.eval(lcl_bary_y)
 
-            if idx4[0] > idx4[1]:
-                idx4[1], idx4[0] = idx4[0], idx4[1]
+                for dof in range((dim+1)*dofs_per_vertex+dofs_per_edge, dofs_per_element):
+                    sf = self.getLocalShapeFunction(dof)
+                    for i in range(qr.num_nodes):
+                        lcl_bary_x[0] = qr.nodes[0, i]
+                        lcl_bary_x[1] = qr.nodes[1, i]
+                        lcl_bary_x[2] = qr.nodes[2, i]
+                        lcl_bary_y[0] = qr.nodes[3, i]
+                        lcl_bary_y[1] = qr.nodes[4, i]
+                        lcl_bary_y[2] = qr.nodes[5, i]
+                        PHI[dof, i, 0] = sf.eval(lcl_bary_x)
+                        PHI[dof, i, 1] = 0
+                        PHI[dofs_per_element+dof-2*dofs_per_vertex-dofs_per_edge, i, 0] = 0
+                        PHI[dofs_per_element+dof-2*dofs_per_vertex-dofs_per_edge, i, 1] = sf.eval(lcl_bary_y)
 
-            if idx4[0] == 0:
-                if idx4[1] == 1:
-                    idx2[0], idx2[1], idx2[2] = 1, 0, 2
-                elif idx4[1] == 2:
-                    idx2[0], idx2[1], idx2[2] = 0, 2, 1
-                else:
-                    raise NotImplementedError("Something went wrong for COMMON_EDGE 2")
-            elif idx4[0] == 1 and idx4[1] == 2:
-                idx2[0], idx2[1], idx2[2] = 2, 1, 0
-            else:
-                raise NotImplementedError("Something went wrong for COMMON_EDGE 2")
-
-            idx3[0], idx3[1], idx3[2], idx3[3] = idx1[0], idx1[1], idx1[2], 3+idx2[2]
-
-            vol = scaling*4.0*vol1*vol2
-
-            # loop over all local DoFs
-            m = 0
-            for I in range(4):
-                for J in range(I, 4):
-                    i = idx3[I]
-                    j = idx3[J]
-                    if j < i:
-                        i, j = j, i
-                    idx4[m] = 6*i-(i*(i+1) >> 1) + j
-                    m += 1
-
-            # five different integrals
-            for l in range(5):
-                if l == 0:
-                    qrEdge = self.qrEdge0
-                else:
-                    qrEdge = self.qrEdge1
-                numQuadNodes = qrEdge.num_nodes
-                # distance between x and y quadrature nodes
-                for i in range(numQuadNodes):
-                    temp = 0.
-                    for j in range(2):
-                        temp += (simplex1[idx1[0], j]*self.PSI_edge[l, 0, i] +
-                                 simplex1[idx1[1], j]*self.PSI_edge[l, 1, i] +
-                                 simplex1[idx1[2], j]*self.PSI_edge[l, 2, i] +
-                                 simplex2[idx2[2], j]*self.PSI_edge[l, 3, i])**2
-                    self.temp[i] = qrEdge.weights[i]*pow(temp, -1.-s)
-
-                # loop over all local DoFs
-                m = 0
-                for I in range(4):
-                    for J in range(I, 4):
-                        k = idx4[m]
-                        m += 1
-                        if mask & (1 << k):
-                            val = 0.
-                            for i in range(numQuadNodes):
-                                val += (self.temp[i] *
-                                        self.PSI_edge[l, I, i] *
-                                        self.PSI_edge[l, J, i])
-                            contrib[k] += val*vol
+                sQR = specialQuadRule(qr, PHI3=PHI)
+                self.specialQuadRules[(singularityValue, panel)] = sQR
+                if qr.num_nodes > self.temp.shape[0]:
+                    self.temp = uninitialized((qr.num_nodes), dtype=REAL)
+                    self.temp2 = uninitialized((qr.num_nodes), dtype=REAL)
+            self.qrEdge = sQR.qr
+            self.PHI_edge = sQR.PHI3
         elif panel == COMMON_VERTEX:
-            # Find vertex that matches
-            i = 0
-            j = 0
-            while True:
-                if self.cells1[self.cellNo1, i] == self.cells2[self.cellNo2, j]:
-                    break
-                if j == 2:
-                    i += 1
-                    j = 0
-                else:
-                    j += 1
+            try:
+                sQR = self.specialQuadRules[(singularityValue, panel)]
+            except KeyError:
 
-            idx1 = self.idx1
-            idx2 = self.idx2
-            idx3 = self.idx3
+                qr = singularityCancelationQuadRule2D(panel,
+                                                      self.singularityCancelationIntegrandAcrossElements+singularityValue,
+                                                      self.quad_order_diagonal,
+                                                      self.quad_order_diagonalV,
+                                                      1)
+                PHI = uninitialized((2*dofs_per_element - dofs_per_vertex,
+                                     qr.num_nodes,
+                                     2), dtype=REAL)
 
-            if i == 0:
-                idx1[0], idx1[1], idx1[2] = 0, 1, 2
-            elif i == 1:
-                idx1[0], idx1[1], idx1[2] = 1, 2, 0
-            else:
-                idx1[0], idx1[1], idx1[2] = 2, 0, 1
-            if j == 0:
-                idx2[0], idx2[1], idx2[2] = 0, 1, 2
-            elif j == 1:
-                idx2[0], idx2[1], idx2[2] = 1, 2, 0
-            else:
-                idx2[0], idx2[1], idx2[2] = 2, 0, 1
-            idx3[0], idx3[1], idx3[2], idx3[3], idx3[4] = idx1[0], idx1[1], idx1[2], 3+idx2[1], 3+idx2[2]
+                for dof in range(dofs_per_vertex):
+                    sf = self.getLocalShapeFunction(dof)
+                    for i in range(qr.num_nodes):
+                        lcl_bary_x[0] = qr.nodes[0, i]
+                        lcl_bary_x[1] = qr.nodes[1, i]
+                        lcl_bary_x[2] = qr.nodes[2, i]
+                        lcl_bary_y[0] = qr.nodes[3, i]
+                        lcl_bary_y[1] = qr.nodes[4, i]
+                        lcl_bary_y[2] = qr.nodes[5, i]
+                        PHI[dof, i, 0] = sf.eval(lcl_bary_x)
+                        PHI[dof, i, 1] = sf.eval(lcl_bary_y)
 
-            # factor 4. comes from inverse sqare of volume of standard simplex
-            vol = scaling*4.0*vol1*vol2
+                for dof in range(dofs_per_vertex, dofs_per_element):
+                    sf = self.getLocalShapeFunction(dof)
+                    for i in range(qr.num_nodes):
+                        lcl_bary_x[0] = qr.nodes[0, i]
+                        lcl_bary_x[1] = qr.nodes[1, i]
+                        lcl_bary_x[2] = qr.nodes[2, i]
+                        lcl_bary_y[0] = qr.nodes[3, i]
+                        lcl_bary_y[1] = qr.nodes[4, i]
+                        lcl_bary_y[2] = qr.nodes[5, i]
+                        PHI[dof, i, 0] = sf.eval(lcl_bary_x)
+                        PHI[dof, i, 1] = 0
+                        PHI[dofs_per_element+dof-dofs_per_vertex, i, 0] = 0
+                        PHI[dofs_per_element+dof-dofs_per_vertex, i, 1] = sf.eval(lcl_bary_y)
 
-            # two different integrals
-            numQuadNodes = self.qrVertex.num_nodes
-            for l in range(2):
-                # distance between x and y quadrature nodes
-                for i in range(numQuadNodes):
-                    temp = 0.
-                    for j in range(2):
-                        temp += (simplex1[idx1[0], j]*self.PSI_vertex[l, 0, i] +
-                                 simplex1[idx1[1], j]*self.PSI_vertex[l, 1, i] +
-                                 simplex1[idx1[2], j]*self.PSI_vertex[l, 2, i] +
-                                 simplex2[idx2[1], j]*self.PSI_vertex[l, 3, i] +
-                                 simplex2[idx2[2], j]*self.PSI_vertex[l, 4, i])**2
-                    self.temp[i] = self.qrVertex.weights[i]*pow(temp, -1.-s)
-
-                # loop over all local DoFs
-                for I in range(5):
-                    i = idx3[I]
-                    for J in range(I, 5):
-                        j = idx3[J]
-                        if j < i:
-                            k = 6*j-(j*(j+1) >> 1) + i
-                        else:
-                            k = 6*i-(i*(i+1) >> 1) + j
-                        if mask & (1 << k):
-                            val = 0.
-                            for k2 in range(numQuadNodes):
-                                val += (self.temp[k2] *
-                                        self.PSI_vertex[l, I, k2] *
-                                        self.PSI_vertex[l, J, k2])
-                            contrib[k] += val*vol
+                sQR = specialQuadRule(qr, PHI3=PHI)
+                self.specialQuadRules[(singularityValue, panel)] = sQR
+                if qr.num_nodes > self.temp.shape[0]:
+                    self.temp = uninitialized((qr.num_nodes), dtype=REAL)
+                    self.temp2 = uninitialized((qr.num_nodes), dtype=REAL)
+            self.qrVertex = sQR.qr
+            self.PHI_vertex = sQR.PHI3
         else:
-            raise NotImplementedError('Panel type unknown: {}'.format(panel))
+            raise NotImplementedError('Unknown panel type: {}'.format(panel))
+
+    cdef void eval(self,
+                   REAL_t[::1] contrib,
+                   panelType panel,
+                   MASK_t mask=ALL):
+        cdef:
+            INDEX_t k, m, i, j, I, J, dofs_per_element, dim = 2
+            REAL_t vol, val
+            quadratureRule qr
+            REAL_t[:, :, ::1] PHI
+            REAL_t x[2]
+            REAL_t y[2]
+
+        if panel >= 1:
+            self.eval_distant_nonsym(contrib, panel, mask)
+            return
+        elif panel == COMMON_FACE:
+            qr = self.qrId
+            PHI = self.PHI_id
+        elif panel == COMMON_EDGE:
+            qr = self.qrEdge
+            PHI = self.PHI_edge
+        elif panel == COMMON_VERTEX:
+            qr = self.qrVertex
+            PHI = self.PHI_vertex
+        else:
+            raise NotImplementedError('Unknown panel type: {}'.format(panel))
+
+        vol = 4.0*self.vol1*self.vol2
+
+        dofs_per_element = self.DoFMap.dofs_per_element
+
+        # Evaluate the kernel on the quadrature nodes
+        for m in range(qr.num_nodes):
+            for j in range(dim):
+                x[j] = (self.simplex1[self.perm1[0], j]*qr.nodes[0, m] +
+                        self.simplex1[self.perm1[1], j]*qr.nodes[1, m] +
+                        self.simplex1[self.perm1[2], j]*qr.nodes[2, m])
+                y[j] = (self.simplex2[self.perm2[0], j]*qr.nodes[3, m] +
+                        self.simplex2[self.perm2[1], j]*qr.nodes[4, m] +
+                        self.simplex2[self.perm2[2], j]*qr.nodes[5, m])
+            self.temp[m] = qr.weights[m] * self.kernel.evalPtr(dim, &x[0], &y[0])
+            self.temp2[m] = qr.weights[m] * self.kernel.evalPtr(dim, &y[0], &x[0])
+
+        # "perm" maps from dofs on the reordered simplices (matching
+        # vertices first) to the dofs in the usual ordering.
+        contrib[:] = 0.
+        for I in range(PHI.shape[0]):
+            i = self.perm[I]
+            for J in range(PHI.shape[0]):
+                j = self.perm[J]
+                k = i*(2*dofs_per_element)+j
+                # Check if that entry has been requested.
+                if mask[k]:
+                    val = 0.
+                    for m in range(qr.num_nodes):
+                        val += (self.temp[m] * PHI[I, m, 0] - self.temp2[m] * PHI[I, m, 1]) * (PHI[J, m, 0] - PHI[J, m, 1])
+                    contrib[k] = val*vol
 
 
-cdef class fractionalLaplacian2D_P1_boundary(fractionalLaplacian2DZeroExterior):
+cdef class fractionalLaplacian2D_boundary(fractionalLaplacian2DZeroExterior):
+    """The local stiffness matrix
+
+    .. math::
+
+       \\int_{K} u(x) v(x) \\int_{e} \\Gamma(x,y) dy dx
+
+    """
     def __init__(self,
                  FractionalKernel kernel,
                  meshBase mesh,
@@ -480,8 +1144,7 @@ cdef class fractionalLaplacian2D_P1_boundary(fractionalLaplacian2DZeroExterior):
                  quad_order_diagonal=None,
                  num_dofs=None,
                  **kwargs):
-        assert isinstance(DoFMap, P1_DoFMap)
-        super(fractionalLaplacian2D_P1_boundary, self).__init__(kernel, mesh, DoFMap, num_dofs, **kwargs)
+        super(fractionalLaplacian2D_boundary, self).__init__(kernel, mesh, DoFMap, num_dofs, **kwargs)
 
         smax = self.kernel.s.max
         if target_order is None:
@@ -489,22 +1152,11 @@ cdef class fractionalLaplacian2D_P1_boundary(fractionalLaplacian2DZeroExterior):
             # target_order = (2.-s)/self.dim
             target_order = 0.5
         self.target_order = target_order
-        self.distantPHI = {}
 
         if quad_order_diagonal is None:
             # measured log(2 rho_2) = 0.4
             quad_order_diagonal = max(np.ceil((target_order+0.5+smax)/(0.35)*abs(np.log(self.hmin/self.H0))), 2)
         self.quad_order_diagonal = quad_order_diagonal
-
-        self.x = uninitialized((0, self.dim), dtype=REAL)
-        self.y = uninitialized((0, self.dim), dtype=REAL)
-        self.temp = uninitialized((0), dtype=REAL)
-
-        self.n = uninitialized((self.dim), dtype=REAL)
-        self.w = uninitialized((self.dim), dtype=REAL)
-
-        self.idx1 = uninitialized((self.dim+1), dtype=INDEX)
-        self.idx2 = uninitialized((self.dim), dtype=INDEX)
 
         if not self.kernel.variableOrder:
             self.getNearQuadRule(COMMON_EDGE)
@@ -536,222 +1188,69 @@ cdef class fractionalLaplacian2D_P1_boundary(fractionalLaplacian2DZeroExterior):
         try:
             self.distantQuadRules[panel]
         except KeyError:
-            self.addQuadRule(panel)
+            self.addQuadRule_boundary(panel)
         return panel
-
-    cdef void addQuadRule(self, panelType panel):
-        cdef:
-            simplexQuadratureRule qr0, qr1
-            doubleSimplexQuadratureRule qr2
-            REAL_t[:, ::1] PHI
-            INDEX_t i, j, k, l
-            shapeFunction sf
-        qr0 = simplexXiaoGimbutas(panel, self.dim)
-        qr1 = simplexDuffyTransformation(panel, self.dim, self.dim-1)
-        qr2 = doubleSimplexQuadratureRule(qr0, qr1)
-        self.distantQuadRules[panel] = qr2
-        PHI = uninitialized((3, qr2.num_nodes), dtype=REAL)
-        for i in range(3):
-            sf = self.getLocalShapeFunction(i)
-            for j in range(qr2.rule1.num_nodes):
-                for k in range(qr2.rule2.num_nodes):
-                    l = j*qr2.rule2.num_nodes+k
-                    PHI[i, l] = sf(qr2.rule1.nodes[:, j])
-        self.distantPHI[panel] = PHI
-
-        if qr2.rule1.num_nodes > self.x.shape[0]:
-            self.x = uninitialized((qr2.rule1.num_nodes, self.dim), dtype=REAL)
-        if qr2.rule2.num_nodes > self.y.shape[0]:
-            self.y = uninitialized((qr2.rule2.num_nodes, self.dim), dtype=REAL)
-        if qr2.num_nodes > self.temp.shape[0]:
-            self.temp = uninitialized((qr2.num_nodes), dtype=REAL)
 
     cdef void getNearQuadRule(self, panelType panel):
         cdef:
             INDEX_t i
-            REAL_t s = self.kernel.sValue
-            REAL_t eta0, eta1, eta2, x, y
-            specialQuadRule sQR0, sQR1
-            REAL_t[:, :, ::1] PHI_edge, PHI_vertex
-            REAL_t[:, :, ::1] PSI_edge, PSI_vertex
+            REAL_t singularityValue = self.kernel.getSingularityValue()
+            INDEX_t dof
+            quadratureRule qr
+            specialQuadRule sQR
+            REAL_t[:, ::1] PHI
+            INDEX_t dofs_per_element = self.DoFMap.dofs_per_element
+            shapeFunction sf
+            REAL_t lcl_bary_x[3]
         if panel == COMMON_EDGE:
             try:
-                sQR0 = self.specialQuadRules[(s, panel, 0)]
+                sQR = self.specialQuadRules[(singularityValue, panel)]
             except KeyError:
-                if s < 0.5:
-                    qrEdge = GaussJacobi(((2, -2.*s, 1.),
-                                          (self.quad_order_diagonal, 0., 0.),
-                                          (2, 0., 0.)))
-                    PHI_edge = uninitialized((3, 3, qrEdge.num_nodes), dtype=REAL)
-                    PSI_edge = uninitialized((3, 3, qrEdge.num_nodes), dtype=REAL)
-                    for i in range(qrEdge.num_nodes):
-                        eta0 = qrEdge.nodes[0, i]
-                        eta1 = qrEdge.nodes[1, i]
-                        eta2 = qrEdge.nodes[2, i]
-
-                        # int 0
-                        x = eta0 + (1.-eta0)*eta2
-                        y = eta0*eta1
-
-                        PHI_edge[0, 0, i] = 1.-x
-                        PHI_edge[0, 1, i] = x-y
-                        PHI_edge[0, 2, i] = y
-
-                        PSI_edge[0, 0, i] = -1.
-                        PSI_edge[0, 1, i] = 1.-eta1
-                        PSI_edge[0, 2, i] = eta1
-
-                        # int 1
-                        x = eta0 + (1.-eta0)*eta2
-                        y = eta0
-
-                        PHI_edge[1, 0, i] = 1.-x
-                        PHI_edge[1, 1, i] = x-y
-                        PHI_edge[1, 2, i] = y
-
-                        PSI_edge[1, 0, i] = -eta1
-                        PSI_edge[1, 1, i] = eta1-1.
-                        PSI_edge[1, 2, i] = 1.
-
-                        # int 2
-                        x = eta0*eta1 + (1.-eta0)*eta2
-                        y = eta0*eta1
-
-                        PHI_edge[2, 0, i] = 1.-x
-                        PHI_edge[2, 1, i] = x-y
-                        PHI_edge[2, 2, i] = y
-
-                        PSI_edge[2, 0, i] = 1.-eta1
-                        PSI_edge[2, 1, i] = -1.
-                        PSI_edge[2, 2, i] = eta1
+                if singularityValue > -2.:
+                    qr = singularityCancelationQuadRule2D_boundary(panel, singularityValue, self.quad_order_diagonal, self.quad_order_diagonal)
                 else:
-                    qrEdge = GaussJacobi(((2, 2.-2.*s, 1.),
-                                          (self.quad_order_diagonal, 0., 0.),
-                                          (2, 0., 0.)))
-                    PHI_edge = uninitialized((3, 3, qrEdge.num_nodes), dtype=REAL)
-                    PSI_edge = uninitialized((3, 3, qrEdge.num_nodes), dtype=REAL)
-                    for i in range(qrEdge.num_nodes):
-                        eta0 = qrEdge.nodes[0, i]
-                        eta1 = qrEdge.nodes[1, i]
-                        eta2 = qrEdge.nodes[2, i]
+                    qr = singularityCancelationQuadRule2D_boundary(panel, 2.+singularityValue, self.quad_order_diagonal, self.quad_order_diagonal)
+                PHI = uninitialized((dofs_per_element, qr.num_nodes), dtype=REAL)
 
-                        # int 0
-                        x = eta0 + (1.-eta0)*eta2
-                        y = eta1
+                for dof in range(dofs_per_element):
+                    sf = self.getLocalShapeFunction(dof)
+                    for i in range(qr.num_nodes):
+                        lcl_bary_x[0] = qr.nodes[0, i]
+                        lcl_bary_x[1] = qr.nodes[1, i]
+                        lcl_bary_x[2] = qr.nodes[2, i]
+                        PHI[dof, i] = sf.eval(lcl_bary_x)
 
-                        PHI_edge[0, 0, i] = 0.
-                        PHI_edge[0, 1, i] = 0.
-                        PHI_edge[0, 2, i] = y
+                sQR = specialQuadRule(qr, PHI=PHI)
+                self.specialQuadRules[(singularityValue, panel)] = sQR
+                if qr.num_nodes > self.temp.shape[0]:
+                    self.temp = uninitialized((qr.num_nodes), dtype=REAL)
+            self.qrEdge = sQR.qr
+            self.PHI_edge2 = sQR.PHI
 
-                        PSI_edge[0, 0, i] = -1.
-                        PSI_edge[0, 1, i] = 1.-eta1
-                        PSI_edge[0, 2, i] = eta1
-
-                        # int 1
-                        x = eta0 + (1.-eta0)*eta2
-                        y = 1.
-
-                        PHI_edge[1, 0, i] = 0.
-                        PHI_edge[1, 1, i] = 0.
-                        PHI_edge[1, 2, i] = y
-
-                        PSI_edge[1, 0, i] = -eta1
-                        PSI_edge[1, 1, i] = eta1-1.
-                        PSI_edge[1, 2, i] = 1.
-
-                        # int 2
-                        x = eta0*eta1 + (1.-eta0)*eta2
-                        y = eta1
-
-                        PHI_edge[2, 0, i] = 0.
-                        PHI_edge[2, 1, i] = 0.
-                        PHI_edge[2, 2, i] = y
-
-                        PSI_edge[2, 0, i] = 1.-eta1
-                        PSI_edge[2, 1, i] = -1.
-                        PSI_edge[2, 2, i] = eta1
-
-                sQR0 = specialQuadRule(qrEdge, PSI3=PSI_edge, PHI3=PHI_edge)
-                self.specialQuadRules[(s, panel, 0)] = sQR0
-                if qrEdge.num_nodes > self.temp.shape[0]:
-                    self.temp = uninitialized((qrEdge.num_nodes), dtype=REAL)
-                if qrEdge.num_nodes > self.x.shape[0]:
-                    self.x = uninitialized((qrEdge.num_nodes, 2), dtype=REAL)
-                    self.y = uninitialized((qrEdge.num_nodes, 2), dtype=REAL)
-            self.qrEdge = sQR0.qr
-            self.PSI_edge = sQR0.PSI3
-            self.PHI_edge = sQR0.PHI3
         elif panel == COMMON_VERTEX:
             try:
-                sQR0 = self.specialQuadRules[(s, panel, 0)]
-                sQR1 = self.specialQuadRules[(s, panel, 1)]
+                sQR = self.specialQuadRules[(singularityValue, panel)]
             except KeyError:
-                qrVertex0 = GaussJacobi(((2, 1.0-2.0*s, 0),
-                                         (self.quad_order_diagonal, 0, 0),
-                                         (self.quad_order_diagonal, 0, 0)))
-                qrVertex1 = GaussJacobi(((2, 1.0-2.0*s, 0),
-                                         (self.quad_order_diagonal, 1.0, 0),
-                                         (self.quad_order_diagonal, 0, 0)))
-                PHI_vertex = uninitialized((2, 3, qrVertex0.num_nodes), dtype=REAL)
-                PSI_vertex = uninitialized((2, 4, qrVertex0.num_nodes), dtype=REAL)
-                for i in range(qrVertex0.num_nodes):
-                    eta0 = qrVertex0.nodes[0, i]
-                    eta1 = qrVertex0.nodes[1, i]
-                    eta2 = qrVertex0.nodes[2, i]
+                qr = singularityCancelationQuadRule2D_boundary(panel, singularityValue, self.quad_order_diagonal, self.quad_order_diagonal)
+                PHI = uninitialized((dofs_per_element, qr.num_nodes), dtype=REAL)
 
-                    # int 0
-                    x = eta0
-                    y = eta0*eta1
+                for dof in range(dofs_per_element):
+                    sf = self.getLocalShapeFunction(dof)
+                    for i in range(qr.num_nodes):
+                        lcl_bary_x[0] = qr.nodes[0, i]
+                        lcl_bary_x[1] = qr.nodes[1, i]
+                        lcl_bary_x[2] = qr.nodes[2, i]
+                        PHI[dof, i] = sf.eval(lcl_bary_x)
 
-                    PHI_vertex[0, 0, i] = 1.-x
-                    PHI_vertex[0, 1, i] = x-y
-                    PHI_vertex[0, 2, i] = y
-
-                    PSI_vertex[0, 0, i] = eta2-1.
-                    PSI_vertex[0, 1, i] = 1.-eta1
-                    PSI_vertex[0, 2, i] = eta1
-                    PSI_vertex[0, 3, i] = -eta2
-
-                    # int 1
-                    eta0 = qrVertex1.nodes[0, i]
-                    eta1 = qrVertex1.nodes[1, i]
-                    eta2 = qrVertex1.nodes[2, i]
-
-                    x = eta0*eta1
-                    y = eta0*eta1*eta2
-
-                    PHI_vertex[1, 0, i] = 1.-x
-                    PHI_vertex[1, 1, i] = x-y
-                    PHI_vertex[1, 2, i] = y
-
-                    PSI_vertex[1, 0, i] = 1.-eta1
-                    PSI_vertex[1, 1, i] = eta1*(1.-eta2)
-                    PSI_vertex[1, 2, i] = eta1*eta2
-                    PSI_vertex[1, 3, i] = -1.
-
-                sQR0 = specialQuadRule(qrVertex0, PSI3=PSI_vertex, PHI3=PHI_vertex)
-                sQR1 = specialQuadRule(qrVertex1, PSI3=PSI_vertex, PHI3=PHI_vertex)
-                self.specialQuadRules[(s, panel, 0)] = sQR0
-                self.specialQuadRules[(s, panel, 1)] = sQR1
-                if qrVertex0.num_nodes > self.temp.shape[0]:
-                    self.temp = uninitialized((qrVertex0.num_nodes), dtype=REAL)
-                if qrVertex1.num_nodes > self.temp.shape[0]:
-                    self.temp = uninitialized((qrVertex1.num_nodes), dtype=REAL)
-                if qrVertex0.num_nodes > self.x.shape[0]:
-                    self.x = uninitialized((qrVertex0.num_nodes, 2), dtype=REAL)
-                    self.y = uninitialized((qrVertex0.num_nodes, 2), dtype=REAL)
-                if qrVertex1.num_nodes > self.x.shape[0]:
-                    self.x = uninitialized((qrVertex1.num_nodes, 2), dtype=REAL)
-                    self.y = uninitialized((qrVertex1.num_nodes, 2), dtype=REAL)
-            self.qrVertex0 = sQR0.qr
-            self.qrVertex1 = sQR1.qr
-            self.PSI_vertex = sQR0.PSI3
-            self.PHI_vertex = sQR0.PHI3
-        else:
-            raise NotImplementedError('Unknown panel type: {}'.format(panel))
+                sQR = specialQuadRule(qr, PHI=PHI)
+                self.specialQuadRules[(singularityValue, panel)] = sQR
+                if qr.num_nodes > self.temp.shape[0]:
+                    self.temp = uninitialized((qr.num_nodes), dtype=REAL)
+            self.qrVertex = sQR.qr
+            self.PHI_vertex2 = sQR.PHI
 
     def __repr__(self):
-        return (super(fractionalLaplacian2D_P1_boundary, self).__repr__() +
+        return (super(fractionalLaplacian2D_boundary, self).__repr__() +
                 'hmin:                          {:.3}\n'.format(self.hmin) +
                 'H0:                            {:.3}\n'.format(self.H0) +
                 'target order:                  {}\n'.format(self.target_order) +
@@ -764,14 +1263,20 @@ cdef class fractionalLaplacian2D_P1_boundary(fractionalLaplacian2DZeroExterior):
                    MASK_t mask=ALL):
         cdef:
             REAL_t vol1 = self.vol1, vol2 = self.vol2, vol, val
-            INDEX_t l, i, j, k, m, I, J
-            INDEX_t[::1] idx1 = self.idx1, idx2 = self.idx2
-            doubleSimplexQuadratureRule qr2
-            quadQuadratureRule qrVertex
-            REAL_t[:, ::1] PHI
+            INDEX_t i, j, k, I, J, m
             REAL_t[:, ::1] simplex1 = self.simplex1
             REAL_t[:, ::1] simplex2 = self.simplex2
             REAL_t normW
+            quadratureRule qr
+            REAL_t[:, ::1] PHI
+            INDEX_t dofs_per_element = self.DoFMap.dofs_per_element
+            INDEX_t dim = 2
+            REAL_t x[2]
+            REAL_t y[2]
+
+        if panel >= 1:
+            self.eval_distant_boundary(contrib, panel, mask)
+            return
 
         # Kernel:
         #  \Gamma(x,y) = n \dot (x-y) * C(d,s) / (2s) / |x-y|^{d+2s}
@@ -779,6 +1284,9 @@ cdef class fractionalLaplacian2D_P1_boundary(fractionalLaplacian2DZeroExterior):
         #
         # Rewrite as
         #  \Gamma(x,y) = [ n \dot (x-y)/|x-y| ] * [ C(d,s) / (2s) / |x-y|^{d-1+2s} ]
+        #                                         \--------------------------------/
+        #                                                 |
+        #                                           boundaryKernel
 
         # n is independent of x and y
         self.n[0] = simplex2[1, 1] - simplex2[0, 1]
@@ -791,139 +1299,42 @@ cdef class fractionalLaplacian2D_P1_boundary(fractionalLaplacian2DZeroExterior):
         contrib[:] = 0.
 
         if panel == COMMON_EDGE:
-            # find reordering of cell and edge so that the singularity
-            # is on the first edge of the cell
-            k = 0
-            for i in range(3):
-                for j in range(2):
-                    if simplex1[i, 0] == simplex2[j, 0] and simplex1[i, 1] == simplex2[j, 1]:
-                        idx1[k] = i
-                        k += 1
-                        break
-                        # K1.add(i)
-            if (idx1[0] == 0) and (idx1[1] == 2):
-                idx1[0] = 2
-                idx1[1] = 0
-                idx1[2] = 1
-            else:
-                idx1[2] = (idx1[1]+1)%3
-
-            vol = -2.0*vol1*vol2
-
-            # We need to calculate 3 integrals
-            for l in range(3):
-                for i in range(self.qrEdge.num_nodes):
-                    normW = 0.
-                    for j in range(2):
-                        self.x[i, j] = (simplex1[idx1[0], j]*self.PHI_edge[l, 0, i] +
-                                        simplex1[idx1[1], j]*self.PHI_edge[l, 1, i] +
-                                        simplex1[idx1[2], j]*self.PHI_edge[l, 2, i])
-                        self.w[j] = (simplex1[idx1[0], j]*self.PSI_edge[l, 0, i] +
-                                     simplex1[idx1[1], j]*self.PSI_edge[l, 1, i] +
-                                     simplex1[idx1[2], j]*self.PSI_edge[l, 2, i])
-                        self.y[i, j] = self.x[i, j]+self.w[j]
-                        normW += self.w[j]**2
-                    normW = 1./sqrt(normW)
-                    for j in range(2):
-                        self.w[j] *= normW
-                    self.temp[i] = self.qrEdge.weights[i] * mydot(self.n, self.w) * self.kernel.evalPtr(2, &self.x[i, 0], &self.y[i, 0])
-                for I in range(3):
-                    for J in range(I, 3):
-                        val = 0.
-                        for i in range(self.qrEdge.num_nodes):
-                            val += (self.temp[i] *
-                                    self.PHI_edge[l, I, i] *
-                                    self.PHI_edge[l, J, i])
-                        i = idx1[I]
-                        j = idx1[J]
-                        if j < i:
-                            i, j = j, i
-                        k = 4*i-(i*(i+1))//2 + j-i
-                        contrib[k] += val*vol
+            qr = self.qrEdge
+            PHI = self.PHI_edge2
         elif panel == COMMON_VERTEX:
-            i = 0
-            j = 0
-            while True:
-                if simplex1[i, 0] == simplex2[j, 0] and simplex1[i, 1] == simplex2[j, 1]:
-                    break
-                if j == 1:
-                    i += 1
-                    j = 0
-                else:
-                    j += 1
-            if i == 0:
-                idx1[0], idx1[1], idx1[2] = 0, 1, 2
-            elif i == 1:
-                idx1[0], idx1[1], idx1[2] = 1, 2, 0
-            else:
-                idx1[0], idx1[1], idx1[2] = 2, 0, 1
-
-            if j == 0:
-                idx2[0], idx2[1] = 0, 1
-            else:
-                idx2[0], idx2[1] = 1, 0
-
-            vol = -2.0*vol1*vol2
-
-            for l in range(2):
-                if l == 0:
-                    qrVertex = self.qrVertex0
-                else:
-                    qrVertex = self.qrVertex1
-
-                for i in range(qrVertex.num_nodes):
-                    normW = 0.
-                    for j in range(2):
-                        self.x[i, j] = (simplex1[idx1[0], j]*self.PHI_vertex[l, 0, i] +
-                                        simplex1[idx1[1], j]*self.PHI_vertex[l, 1, i] +
-                                        simplex1[idx1[2], j]*self.PHI_vertex[l, 2, i])
-                        self.w[j] = (simplex1[idx1[0], j]*self.PSI_vertex[l, 0, i] +
-                                     simplex1[idx1[1], j]*self.PSI_vertex[l, 1, i] +
-                                     simplex1[idx1[2], j]*self.PSI_vertex[l, 2, i] +
-                                     simplex2[idx2[1], j]*self.PSI_vertex[l, 3, i])
-                        self.y[i, j] = self.x[i, j]+self.w[j]
-                        normW += self.w[j]**2
-                    normW = 1./sqrt(normW)
-                    for j in range(2):
-                        self.w[j] *= normW
-                    self.temp[i] = qrVertex.weights[i] * mydot(self.n, self.w) * self.kernel.evalPtr(2, &self.x[i, 0], &self.y[i, 0])
-                for I in range(3):
-                    for J in range(I, 3):
-                        val = 0.
-                        for i in range(qrVertex.num_nodes):
-                            val += (self.temp[i] *
-                                    self.PHI_vertex[l, I, i] *
-                                    self.PHI_vertex[l, J, i])
-                        i = idx1[I]
-                        j = idx1[J]
-                        if j < i:
-                            i, j = j, i
-                        k = 4*i-(i*(i+1))//2 + j-i
-                        contrib[k] += val*vol
-        elif panel >= 1:
-            qr2 = self.distantQuadRules[panel]
-            PHI = self.distantPHI[panel]
-            qr2.rule1.nodesInGlobalCoords(simplex1, self.x)
-            qr2.rule2.nodesInGlobalCoords(simplex2, self.y)
-            for k in range(qr2.rule1.num_nodes):
-                for m in range(qr2.rule2.num_nodes):
-                    normW = 0.
-                    for j in range(2):
-                        self.w[j] = self.y[m, j]-self.x[k, j]
-                        normW += self.w[j]**2
-                    normW = 1./sqrt(normW)
-                    for j in range(2):
-                        self.w[j] *= normW
-                    i = k*qr2.rule2.num_nodes+m
-                    self.temp[i] = qr2.weights[i] * mydot(self.n, self.w) * self.kernel.evalPtr(2, &self.x[k, 0], &self.y[m, 0])
-            vol = vol1*vol2
-            k = 0
-            for i in range(3):
-                for j in range(i, 3):
-                    val = 0.
-                    for m in range(qr2.num_nodes):
-                        val += self.temp[m]*PHI[i, m]*PHI[j, m]
-                    contrib[k] = val*vol
-                    k += 1
+            qr = self.qrVertex
+            PHI = self.PHI_vertex2
         else:
             raise NotImplementedError('Panel type unknown: {}.'.format(panel))
+
+        vol = -2.0*vol1*vol2
+
+        for m in range(qr.num_nodes):
+            normW = 0.
+            for j in range(dim):
+                x[j] = (simplex1[self.perm1[0], j]*qr.nodes[0, m] +
+                        simplex1[self.perm1[1], j]*qr.nodes[1, m] +
+                        simplex1[self.perm1[2], j]*qr.nodes[2, m])
+                y[j] = (simplex2[self.perm2[0], j]*qr.nodes[3, m] +
+                        simplex2[self.perm2[1], j]*qr.nodes[4, m])
+                self.w[j] = x[j]-y[j]
+                normW += self.w[j]**2
+            normW = 1./sqrt(normW)
+            for j in range(dim):
+                self.w[j] *= normW
+            self.temp[m] = qr.weights[m] * mydot(self.n, self.w) * self.kernel.evalPtr(dim, &x[0], &y[0])
+        for I in range(dofs_per_element):
+            i = self.perm[I]
+            for J in range(I, dofs_per_element):
+                j = self.perm[J]
+                if j < i:
+                    k = dofs_per_element*j-(j*(j+1) >> 1) + i
+                else:
+                    k = dofs_per_element*i-(i*(i+1) >> 1) + j
+                if mask[k]:
+                    val = 0.
+                    for m in range(qr.num_nodes):
+                        val += self.temp[m] * PHI[I, m] * PHI[J, m]
+                    contrib[k] = val*vol
+
+

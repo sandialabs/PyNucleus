@@ -7,13 +7,13 @@
 
 import numpy as np
 from PyNucleus.base import INDEX
-from PyNucleus.base.tupleDict import tupleDictMASK
+from PyNucleus.base.tupleDict import tupleDictINDEX
 from copy import deepcopy
 
 
 def test_tupleDict():
     N = 15
-    masks = tupleDictMASK(N, deleteHits=False, logicalAndHits=True)
+    masks = tupleDictINDEX(N, deleteHits=False, logicalAndHits=True)
     e = np.empty((2), dtype=INDEX)
     for k in range(N-2, -1, -1):
         e[0] = k
@@ -32,7 +32,7 @@ def test_tupleDict():
         e[0] = k
         e[1] = k+1
         assert masks2[e] == 3
-    masks3 = tupleDictMASK(N, deleteHits=False, logicalAndHits=True)
+    masks3 = tupleDictINDEX(N, deleteHits=False, logicalAndHits=True)
     for k in range(N-1):
         e[0] = k
         e[1] = k+1
@@ -44,7 +44,7 @@ def test_tupleDict():
         e[1] = k+1
         assert masks2[e] == 7
 
-    masks = tupleDictMASK(1, deleteHits=False, logicalAndHits=True)
+    masks = tupleDictINDEX(1, deleteHits=False, logicalAndHits=True)
     for k in range(30, -1, -1):
         e[0] = 0
         e[1] = k
@@ -60,7 +60,7 @@ def test_tupleDict():
         e[1] = k
         assert masks[e] == k
 
-    masks = tupleDictMASK(1, deleteHits=False, logicalAndHits=True)
+    masks = tupleDictINDEX(1, deleteHits=False, logicalAndHits=True)
     for k in range(31):
         e[0] = 0
         e[1] = k

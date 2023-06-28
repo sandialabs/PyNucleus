@@ -16,9 +16,11 @@ from PyNucleus_fem.meshCy cimport meshBase
 from PyNucleus_fem.functions cimport function, constant
 from PyNucleus_fem.femCy cimport volume_t
 from PyNucleus_fem.meshCy cimport (volume0Dsimplex,
-                         volume1Dsimplex,
-                         volume2Dsimplex,
-                         volume1Din2Dsimplex)
+                                   volume1Dsimplex,
+                                   volume2Dsimplex,
+                                   volume1Din2Dsimplex,
+                                   volume3Dsimplex,
+                                   volume2Din3Dsimplex)
 from . twoPointFunctions cimport (twoPointFunction,
                                   constantTwoPoint)
 from . interactionDomains cimport REMOTE
@@ -30,7 +32,15 @@ from . kernelsCy cimport (Kernel,
 from . clusterMethodCy cimport tree_node
 ctypedef INDEX_t panelType
 
-ctypedef np.uint64_t MASK_t
+from . bitset cimport MASK_t
+
+
+cdef class PermutationIndexer:
+    cdef:
+        INDEX_t N
+        INDEX_t[::1] onesCountLookup, factorials, lehmer
+
+    cdef INDEX_t rank(self, INDEX_t[::1] perm)
 
 
 cdef class double_local_matrix_t:
@@ -54,6 +64,12 @@ cdef class double_local_matrix_t:
         panelType IDENTICAL
         REAL_t dmin2, dmax2, dcenter2
         REAL_t h1MaxInv, h2MaxInv, dMaxInv
+        PermutationIndexer pI_volume, pI_surface
+        public INDEX_t[::1] perm1, perm2, perm
+        public INDEX_t[:, ::1] precomputedVolumeSimplexPermutations
+        public INDEX_t[:, ::1] precomputedSurfaceSimplexPermutations
+        public INDEX_t[:, ::1] precomputedDoFPermutations
+    cdef void precomputePermutations(self)
     cdef void precomputeSimplices(self)
     cdef INDEX_t getCellPairIdentifierSize(self)
     cdef void computeCellPairIdentifierBase(self, INDEX_t[::1] ID, INDEX_t *perm)
@@ -96,13 +112,16 @@ cdef class nonlocalLaplacian(double_local_matrix_t):
         REAL_t[:, ::1] x, y
         void** distantQuadRulesPtr
         REAL_t[::1] temp, temp2
+        public REAL_t[::1] n, w
     cdef void getNearQuadRule(self, panelType panel)
     cdef inline shapeFunction getLocalShapeFunction(self, INDEX_t local_dof)
     cdef void addQuadRule(self, panelType panel)
     cdef void addQuadRule_nonSym(self, panelType panel)
+    cdef void addQuadRule_boundary(self, panelType panel)
     cdef void getNonSingularNearQuadRule(self, panelType panel)
     cdef void eval_distant(self, REAL_t[::1] contrib, panelType panel, MASK_t mask=*)
     cdef void eval_distant_nonsym(self, REAL_t[::1] contrib, panelType panel, MASK_t mask=*)
+    cdef void eval_distant_boundary(self, REAL_t[::1] contrib, panelType panel, MASK_t mask=*)
 
 
 cdef class specialQuadRule:
@@ -126,5 +145,6 @@ cdef class nonlocalLaplacian1D(nonlocalLaplacian):
 cdef class nonlocalLaplacian2D(nonlocalLaplacian):
     cdef:
         public REAL_t target_order, quad_order_diagonal, quad_order_diagonalV
-        dict distantPSI
         INDEX_t[::1] idx1, idx2, idx3, idx4
+
+
