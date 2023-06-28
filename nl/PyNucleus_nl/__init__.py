@@ -24,12 +24,13 @@ from . clusterMethodCy import H2Matrix
 from . nonlocalProblems import (fractionalLaplacianProblem,
                                 nonlocalPoissonProblem,
                                 transientFractionalProblem,
+                                twoPointFunctionFactory,
                                 fractionalOrderFactory,
                                 interactionFactory,
                                 kernelFactory,
                                 nonlocalMeshFactory)
 from . discretizedProblems import (discretizedNonlocalProblem,
                                    discretizedTransientProblem)
-__all__ = ['fractionalOrderFactory', 'interactionFactory', 'kernelFactory', 'nonlocalMeshFactory',
-           'fractionalLaplacianProblem', 'nonlocalPoissonProblem', 'transientFractionalProblem',
-           'discretizedNonlocalProblem', 'discretizedTransientProblem']
+__all__ = [twoPointFunctionFactory, fractionalOrderFactory, interactionFactory, kernelFactory, nonlocalMeshFactory,
+           fractionalLaplacianProblem, nonlocalPoissonProblem, transientFractionalProblem,
+           discretizedNonlocalProblem, discretizedTransientProblem]

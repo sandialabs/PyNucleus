@@ -24,7 +24,7 @@ from PyNucleus_fem.splitting import dofmapSplitter
 from . nonlocalLaplacianBase cimport variableFractionalOrder
 from . nonlocalLaplacian cimport nearFieldClusterPair
 from . kernelsCy cimport Kernel
-from PyNucleus_fem.DoFMaps cimport DoFMap, P0_DoFMap, P1_DoFMap, P2_DoFMap
+from PyNucleus_fem.DoFMaps cimport DoFMap, P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap
 from PyNucleus_fem.meshCy cimport meshBase
 from PyNucleus_fem.functions cimport constant
 import mpi4py.rc
@@ -368,7 +368,8 @@ cdef class tree_node:
             REAL_t[::1] splitPoint
             REAL_t[::1] coords0, coords1
             list blob
-            REAL_t m0 = 0., m1 = 0.
+            INDEX_t splitDimension
+            REAL_t m0 = 0., m1 = 0., median = 0., maxBoxSize
             list children = []
             INDEX_t maxNumChildren, lvlNo, numRootChildren, lvlID
         if not self.mixed_node:
@@ -573,45 +574,33 @@ cdef class tree_node:
             maxNumChildren = 2
             lvlNo = self.levelNo
             numRootChildren = self.get_num_root_children()
+
+            splitDimension = 0
+            maxBoxSize = self.box[0, 1]-self.box[0, 0]
+            for i in range(1, dim):
+                if self.box[i, 1]-self.box[i, 0] > maxBoxSize:
+                    splitDimension = i
+                    maxBoxSize = self.box[i, 1]-self.box[i, 0]
             if refType == MEDIAN:
-                if self.box[0, 1]-self.box[0, 0] > self.box[1, 1]-self.box[1, 0]:
-                    coords0 = np.zeros((num_initial_dofs), dtype=REAL)
-                    it.reset()
-                    k = 0
-                    while it.step():
-                        i = it.i
-                        coords0[k] = coords[i, 0]
-                        k += 1
-                    m0 = np.median(coords0)
-                    del coords0
-                else:
-                    coords1 = np.zeros((num_initial_dofs), dtype=REAL)
-                    it.reset()
-                    k = 0
-                    while it.step():
-                        i = it.i
-                        coords1[k] = coords[i, 1]
-                        k += 1
-                    m1 = np.median(coords1)
-                    del coords1
+                coords0 = np.zeros((num_initial_dofs), dtype=REAL)
+                it.reset()
+                k = 0
+                while it.step():
+                    i = it.i
+                    coords0[k] = coords[i, splitDimension]
+                    k += 1
+                median = np.median(coords0)
+                del coords0
             # split along larger box dimension
             subbox = uninitialized((dim, 2), dtype=REAL)
-            if self.box[0, 1]-self.box[0, 0] > self.box[1, 1]-self.box[1, 0]:
-                subbox[0, 0] = self.box[0, 0]-1e-12
-                if refType == GEOMETRIC:
-                    subbox[0, 1] = (self.box[0, 0] + self.box[0, 1])*0.5
-                elif refType == MEDIAN:
-                    subbox[0, 1] = m0
-                subbox[1, 0] = self.box[1, 0]-1e-12
-                subbox[1, 1] = self.box[1, 1]+1e-12
-            else:
-                subbox[0, 0] = self.box[0, 0]-1e-12
-                subbox[0, 1] = self.box[0, 1]+1e-12
-                subbox[1, 0] = self.box[1, 0]-1e-12
-                if refType == GEOMETRIC:
-                    subbox[1, 1] = (self.box[1, 0] + self.box[1, 1])*0.5
-                elif refType == MEDIAN:
-                    subbox[1, 1] = m1
+
+            for i in range(dim):
+                subbox[i, 0] = self.box[i, 0]-1e-12
+                subbox[i, 1] = self.box[i, 1]+1e-12
+            if refType == GEOMETRIC:
+                subbox[splitDimension, 1] = (self.box[splitDimension, 0] + self.box[splitDimension, 1])*0.5
+            elif refType == MEDIAN:
+                subbox[splitDimension, 1] = median
             sPre0 = set()
             sPre1 = set()
             it.reset()
@@ -1130,6 +1119,8 @@ cdef class tree_node:
             quadOrder = order+2
         elif isinstance(DoFMap, P2_DoFMap):
             quadOrder = order+3
+        elif isinstance(DoFMap, P3_DoFMap):
+            quadOrder = order+4
         else:
             raise NotImplementedError()
         qr = simplexXiaoGimbutas(quadOrder, dim)
@@ -1744,6 +1735,37 @@ cdef class tree_node:
                 offset = c.constructBasisMatrix(B, coefficientsUp, offset)
         return offset
 
+    def partition(self, DoFMap dm, MPI.Comm comm, REAL_t[:, :, ::1] boxes, BOOL_t canBeAssembled, BOOL_t mixed_node, dict params={}):
+        from PyNucleus_fem.meshPartitioning import regularDofPartitioner, metisDofPartitioner
+
+        cdef:
+            indexSet subDofs
+            INDEX_t num_dofs
+            INDEX_t[::1] part = None
+
+        assert self.parent is None
+        assert self.id == 0
+
+        partitioner = params.get('partitioner', 'regular')
+        if partitioner == 'regular':
+            rVP = regularDofPartitioner(dm=dm)
+            part, _ = rVP.partitionDofs(comm.size, irregular=True)
+            del rVP
+        elif partitioner == 'metis':
+            dP = metisDofPartitioner(dm=dm, matrixPower=params.get('metis_matrixPower', 1))
+            part, _ = dP.partitionDofs(comm.size, ufactor=params.get('metis_ufactor', 30))
+            del dP
+        else:
+            raise NotImplementedError(partitioner)
+
+        num_dofs = 0
+        for p in range(comm.size):
+            subDofs = arrayIndexSet(np.where(np.array(part, copy=False) == p)[0].astype(INDEX), sorted=True)
+            num_dofs += subDofs.getNumEntries()
+            self.children.append(tree_node(self, subDofs, boxes, canBeAssembled=canBeAssembled, mixed_node=mixed_node))
+            self.children[p].id = p+1
+        assert dm.num_dofs == num_dofs
+        self._dofs = None
 
 cdef tree_node readNode(list nodes, INDEX_t myId, parent, REAL_t[:, :, ::1] boxes, LinearOperator children, INDEX_t M, REAL_t[:, :, ::1] transferOperators):
     cdef:
@@ -3198,8 +3220,10 @@ cpdef BOOL_t getAdmissibleClusters(Kernel kernel,
                                    dict Pfar=None,
                                    list Pnear=None,
                                    INDEX_t level=0,
-                                   REAL_t[:, :, ::1] boxes=None,
-                                   REAL_t[:, ::1] coords=None):
+                                   REAL_t[:, :, ::1] boxes1=None,
+                                   REAL_t[:, ::1] coords1=None,
+                                   REAL_t[:, :, ::1] boxes2=None,
+                                   REAL_t[:, ::1] coords2=None):
     cdef:
         tree_node t1, t2
         bint seemsAdmissible
@@ -3247,9 +3271,9 @@ cpdef BOOL_t getAdmissibleClusters(Kernel kernel,
     else:
         if refParams.attemptRefinement:
             if n1.get_is_leaf():
-                n1.refine(boxes, coords, refParams, False)
+                n1.refine(boxes1, coords1, refParams, False)
             if n2.get_is_leaf():
-                n2.refine(boxes, coords, refParams, False)
+                n2.refine(boxes2, coords2, refParams, False)
         if (n1.get_is_leaf() and n2.get_is_leaf()) or (level == refParams.maxLevels):
             Pnear.append(nearFieldClusterPair(n1, n2))
             # if kernel.finiteHorizon and len(Pnear[len(Pnear)-1].cellsInter) > 0:
@@ -3268,25 +3292,96 @@ cpdef BOOL_t getAdmissibleClusters(Kernel kernel,
                 addedFarFieldClusters |= getAdmissibleClusters(kernel, n1, t2, refParams,
                                                                Pfar, Pnear,
                                                                level+1,
-                                                               boxes, coords)
+                                                               boxes1, coords1,
+                                                               boxes2, coords2)
         elif n2.get_is_leaf():
             for t1 in n1.children:
                 addedFarFieldClusters |= getAdmissibleClusters(kernel, t1, n2, refParams,
                                                                Pfar, Pnear,
                                                                level+1,
-                                                               boxes, coords)
+                                                               boxes1, coords1,
+                                                               boxes2, coords2)
         else:
             for t1 in n1.children:
                 for t2 in n2.children:
                     addedFarFieldClusters |= getAdmissibleClusters(kernel, t1, t2, refParams,
                                                                    Pfar, Pnear,
                                                                    level+1,
-                                                                   boxes, coords)
+                                                                   boxes1, coords1,
+                                                                   boxes2, coords2)
     if not addedFarFieldClusters:
         if diamUnion < horizonValue:
             del Pnear[lenNearField:]
             Pnear.append(nearFieldClusterPair(n1, n2))
     return addedFarFieldClusters
+
+
+cpdef BOOL_t getCoveringClusters(Kernel kernel,
+                                 tree_node n1,
+                                 tree_node n2,
+                                 refinementParams refParams,
+                                 list Pnear=None,
+                                 INDEX_t level=0,
+                                 REAL_t[:, :, ::1] boxes1=None,
+                                 REAL_t[:, ::1] coords1=None,
+                                 REAL_t[:, :, ::1] boxes2=None,
+                                 REAL_t[:, ::1] coords2=None):
+    cdef:
+        tree_node t1, t2
+        REAL_t dist, maxDist
+        function horizon
+        BOOL_t addedFarFieldClusters = False
+        REAL_t horizonValue
+    dist = distBoxes(n1.box, n2.box)
+    maxDist = maxDistBoxes(n1.box, n2.box)
+
+    horizon = kernel.horizon
+    assert isinstance(horizon, constant)
+    horizonValue = horizon.value
+
+    if (dist > horizonValue) or (n1.get_num_dofs() == 0) or (n2.get_num_dofs() == 0):
+        return True
+    elif maxDist <= horizonValue:
+        Pnear.append(nearFieldClusterPair(n1, n2))
+        return True
+    else:
+        if refParams.attemptRefinement:
+            if n1.get_is_leaf():
+                n1.refine(boxes1, coords1, refParams, False)
+            if n2.get_is_leaf():
+                n2.refine(boxes2, coords2, refParams, False)
+        if (n1.get_is_leaf() and n2.get_is_leaf()) or (level == refParams.maxLevels):
+            Pnear.append(nearFieldClusterPair(n1, n2))
+            return True
+        elif n1.get_is_leaf():
+            for t2 in n2.children:
+                addedFarFieldClusters |= getCoveringClusters(kernel, n1, t2, refParams,
+                                                             Pnear,
+                                                             level+1,
+                                                             boxes1, coords1,
+                                                             boxes2, coords2)
+        elif n2.get_is_leaf():
+            for t1 in n1.children:
+                addedFarFieldClusters |= getCoveringClusters(kernel, t1, n2, refParams,
+                                                             Pnear,
+                                                             level+1,
+                                                             boxes1, coords1,
+                                                             boxes2, coords2)
+        else:
+            for t1 in n1.children:
+                for t2 in n2.children:
+                    addedFarFieldClusters |= getCoveringClusters(kernel, t1, t2, refParams,
+                                                                 Pnear,
+                                                                 level+1,
+                                                                 boxes1, coords1,
+                                                                 boxes2, coords2)
+
+    # if not addedFarFieldClusters:
+    #     if diamUnion < horizonValue:
+    #         del Pnear[lenNearField:]
+    #         Pnear.append(nearFieldClusterPair(n1, n2))
+    # return addedFarFieldClusters
+    return False
 
 
 def symmetrizeNearFieldClusters(list Pnear):

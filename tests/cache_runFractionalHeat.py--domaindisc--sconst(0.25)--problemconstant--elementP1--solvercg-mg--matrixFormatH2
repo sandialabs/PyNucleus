@@ -1,0 +1,8 @@
+Timers: {}
+errors:
+  L^2(0,T; L^2(Omega)) error: 0.05071531506350525
+  L^2(0,T; L^2(Omega)) norm: 1.4949918500501762
+  L^2(Omega) error at t=finalTime: 0.020060587191451665
+meshes: {}
+results: {}
+vectors: {}

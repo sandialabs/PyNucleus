@@ -1,0 +1,45 @@
+cimport numpy as np
+from PyNucleus_base.myTypes cimport INDEX_t, BOOL_t
+
+
+cdef extern from "<bitset>" namespace "std" nogil:
+    cdef cppclass MASK_t "std::bitset<{MASK_SIZE}>":
+        MASK_t() except +
+        bint test(int)
+        bint operator[](int)
+        int size()
+        MASK_t operator<<(int)
+        MASK_t operator>>(int)
+        MASK_t operator&(MASK_t)
+        MASK_t operator|(MASK_t)
+        bint operator==(MASK_t)
+        bint all()
+        bint any()
+        bint none()
+        void set()
+        void reset()
+
+
+cdef class tupleDictMASK:
+    cdef:
+        INDEX_t ** indexL
+        MASK_t ** vals
+        np.uint16_t[::1] counts
+        np.uint16_t initial_length
+        np.uint16_t length_inc
+        np.uint16_t[::1] lengths
+        INDEX_t num_dofs
+        readonly INDEX_t nnz
+        BOOL_t deleteHits, logicalAndHits
+        INDEX_t i, jj
+        MASK_t invalid
+        np.uint16_t invalidIndex
+        np.uint16_t index
+    cdef inline BOOL_t findIndex(self, INDEX_t I, INDEX_t J)
+    cdef inline void increaseSize(self, INDEX_t I, np.uint16_t increment)
+    cdef MASK_t enterValue(self, const INDEX_t[::1] e, MASK_t val)
+    cdef MASK_t removeValue(self, const INDEX_t[::1] e)
+    cdef MASK_t getValue(self, const INDEX_t[::1] e)
+    cdef void startIter(self)
+    cdef BOOL_t next(self, INDEX_t[::1] e, MASK_t * val)
+    cdef INDEX_t getSizeInBytes(self)

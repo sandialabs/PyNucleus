@@ -253,7 +253,8 @@ class test:
         A2 = A2.toarray()
         value = np.absolute(A1-A2).max()
         assert np.absolute(A1).max() > 0
-        valueRel = np.absolute((A1-A2)/A1)[np.absolute(A1) > 0].max()
+        idx = np.absolute(A1) > 0
+        valueRel = np.absolute((A1-A2)[idx]/A1[idx]).max()
         print('{}: abs: {} rel: {}'.format(label, value, valueRel))
         if value > epsAbs[(self.dim, self.horizon.value)] or valueRel > epsRel:
             print(A1.diagonal())
@@ -333,6 +334,7 @@ class test1D(test):
     boundaryCondition = HOMOGENEOUS_DIRICHLET
 
 
+@pytest.mark.slow
 class test2D(test):
     dim = 2
     element = 1

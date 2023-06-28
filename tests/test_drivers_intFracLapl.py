@@ -17,7 +17,7 @@ def getPath():
 
 def idfunc(param):
     S = [str(p) for p in param]
-    return '-'.join(S)
+    return '-'.join(S).replace('(', '').replace(')', '')
 
 
 @pytest.fixture(scope='module', params=[
@@ -39,6 +39,7 @@ def runNonlocal_params(request):
     return request.param
 
 
+@pytest.mark.slow
 def testNonlocal(runNonlocal_params, extra):
     domain, kernel, problem, solver = runNonlocal_params
     base = getPath()+'/../'
@@ -57,51 +58,74 @@ def testNonlocal(runNonlocal_params, extra):
 
 
 @pytest.fixture(scope='module', params=[
-    ('interval', 'const(0.25)', 'constant', 'cg-mg'),
-    ('interval', 'const(0.25)', 'zeroFlux', 'lu'),
-    ('interval', 'const(0.25)', 'knownSolution', 'cg-jacobi'),
-    ('interval', 'const(0.75)', 'constant', 'lu'),
-    ('interval', 'const(0.75)', 'zeroFlux', 'cg-jacobi'),
-    ('interval', 'const(0.75)', 'knownSolution', 'cg-mg'),
-    ('interval', 'varconst(0.75)', 'constant', 'cg-jacobi'),
-    ('interval', 'varconst(0.75)', 'zeroFlux', 'cg-mg'),
-    ('interval', 'varconst(0.75)', 'knownSolution', 'lu'),
+    ('interval', 'const(0.25)', 'constant', 'P0', 'cg-mg', 'dense'),
+    ('interval', 'const(0.25)', 'constant', 'P0', 'cg-mg', 'H2'),
+    ('interval', 'const(0.25)', 'constant', 'P1', 'cg-mg', 'dense'),
+    ('interval', 'const(0.25)', 'constant', 'P1', 'cg-mg', 'H2'),
+    ('interval', 'const(0.25)', 'zeroFlux', 'P1', 'lu', 'H2'),
+    ('interval', 'const(0.25)', 'knownSolution', 'P1', 'cg-jacobi', 'H2'),
+    ('interval', 'const(0.75)', 'constant', 'P1', 'lu', 'dense'),
+    ('interval', 'const(0.75)', 'constant', 'P1', 'lu', 'H2'),
+    ('interval', 'const(0.75)', 'zeroFlux', 'P1', 'cg-jacobi', 'H2'),
+    ('interval', 'const(0.75)', 'knownSolution', 'P1', 'cg-mg', 'H2'),
+    ('interval', 'varconst(0.75)', 'constant', 'P1', 'cg-jacobi', 'dense'),
+    ('interval', 'varconst(0.75)', 'constant', 'P1', 'cg-jacobi', 'H2'),
+    ('interval', 'varconst(0.75)', 'zeroFlux', 'P1', 'cg-mg', 'H2'),
+    ('interval', 'varconst(0.75)', 'knownSolution', 'P1', 'lu', 'H2'),
+    ('interval', 'const(0.25)', 'constant', 'P2', 'cg-mg', 'dense'),
+    ('interval', 'const(0.25)', 'constant', 'P2', 'cg-mg', 'H2'),
+    ('interval', 'const(0.75)', 'constant', 'P2', 'cg-mg', 'dense'),
+    ('interval', 'const(0.75)', 'constant', 'P2', 'cg-mg', 'H2'),
+    ('interval', 'const(0.25)', 'constant', 'P3', 'cg-mg', 'dense'),
+    ('interval', 'const(0.25)', 'constant', 'P3', 'cg-mg', 'H2'),
+    ('interval', 'const(0.75)', 'constant', 'P3', 'cg-mg', 'dense'),
+    ('interval', 'const(0.75)', 'constant', 'P3', 'cg-mg', 'H2'),
+    #
+    ('disc', 'const(0.25)', 'constant', 'P0', 'cg-mg', 'dense'),
+    ('disc', 'const(0.25)', 'constant', 'P0', 'cg-mg', 'H2'),
+    ('disc', 'const(0.25)', 'constant', 'P1', 'cg-mg', 'dense'),
+    ('disc', 'const(0.25)', 'constant', 'P1', 'cg-mg', 'H2'),
+    ('disc', 'const(0.75)', 'constant', 'P1', 'cg-mg', 'dense'),
+    ('disc', 'const(0.75)', 'constant', 'P1', 'cg-mg', 'H2'),
 ],
                 ids=idfunc)
 def runFractional_params(request):
     return request.param
 
 
+@pytest.mark.slow
 def testFractional(runFractional_params, extra):
-    domain, s, problem, solver = runFractional_params
+    domain, s, problem, element, solver, matrixFormat = runFractional_params
     base = getPath()+'/../'
     py = ['runFractional.py',
           '--domain', domain,
           '--s', s,
           '--problem', problem,
-          '--solver', solver]
-    if s.find('twoDomainNonSym') >= 0:
-        py.append('--genKernel')
+          '--element', element,
+          '--solver', solver,
+          '--matrixFormat', matrixFormat]
     path = base+'drivers'
     cacheDir = getPath()+'/'
     runDriver(path, py, cacheDir=cacheDir, extra=extra)
 
 
+@pytest.mark.slow
 def testFractionalHeat(runFractional_params, extra):
-    domain, s, problem, solver = runFractional_params
+    domain, s, problem, element, solver, matrixFormat = runFractional_params
     base = getPath()+'/../'
     py = ['runFractionalHeat.py',
           '--domain', domain,
           '--s', s,
           '--problem', problem,
-          '--solver', solver]
-    if s.find('twoDomainNonSym') >= 0:
-        py.append('--genKernel')
+          '--element', element,
+          '--solver', solver,
+          '--matrixFormat', matrixFormat]
     path = base+'drivers'
     cacheDir = getPath()+'/'
     runDriver(path, py, cacheDir=cacheDir, extra=extra)
 
 
+@pytest.mark.slow
 def testVariableOrder(extra):
     base = getPath()+'/../'
     py = 'variableOrder.py'
@@ -125,6 +149,7 @@ def runDistOp_params(request):
     return request.param
 
 
+@pytest.mark.slow
 def testMatvecs(runDistOp_params, extra):
     base = getPath()+'/../'
     domain, fractionalOrder = runDistOp_params

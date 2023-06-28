@@ -134,12 +134,8 @@ replacementGroups = [[('{VALUE}', 'INDEX'),
                       ('{VALUE_dtype}', 'INDEX'),
                       ('{VALUE_t}', 'INDEX_t'),
                       ('{LENGTH_dtype}', 'np.uint8'),
-                      ('{LENGTH_t}', 'np.uint8_t')],
-                     [('{VALUE}', 'MASK'),
-                      ('{VALUE_dtype}', 'np.uint64'),
-                      ('{VALUE_t}', 'np.uint64_t'),
-                      ('{LENGTH_dtype}', 'np.uint16'),
-                      ('{LENGTH_t}', 'np.uint16_t')]]
+                      ('{LENGTH_t}', 'np.uint8_t'),
+                      ('{INVALID}', str(numpy.iinfo(numpy.int32).max))]]
 fillTemplate(Path(p.folder), templates, replacementGroups)
 
 

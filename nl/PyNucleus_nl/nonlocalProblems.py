@@ -16,7 +16,10 @@ from PyNucleus_fem.mesh import (simpleInterval, intervalWithInteraction,
                                 double_graded_interval,
                                 double_graded_interval_with_interaction,
                                 discWithIslands,
-                                twinDisc)
+                                twinDisc,
+                                box,
+                                # boxWithInteractions,
+                                ball)
 from PyNucleus_fem.functions import (Lambda, constant,
                                      indicatorFunctor, squareIndicator, radialIndicator,
                                      solFractional1D, rhsFractional1D,
@@ -41,12 +44,15 @@ from . interactionDomains import (fullSpace,
                                   ellipse)
 from . fractionalOrders import (constFractionalOrder,
                                 variableConstFractionalOrder,
-                                leftRightFractionalOrder,
-                                smoothedLeftRightFractionalOrder,
                                 constantNonSymFractionalOrder,
+                                leftRightFractionalOrder,
+                                linearLeftRightFractionalOrder,
+                                smoothedLeftRightFractionalOrder,
                                 innerOuterFractionalOrder,
+                                smoothedInnerOuterFractionalOrder,
                                 islandsFractionalOrder,
-                                layersFractionalOrder)
+                                layersFractionalOrder,
+                                singleVariableUnsymmetricFractionalOrder)
 from . kernelsCy import (getKernelEnum,
                          FRACTIONAL, INDICATOR, PERIDYNAMIC, GAUSSIAN,
                          )
@@ -59,11 +65,19 @@ fractionalOrderFactory = factory()
 fractionalOrderFactory.register('constant', constFractionalOrder, aliases=['const'])
 fractionalOrderFactory.register('varConst', variableConstFractionalOrder, aliases=['constVar'])
 fractionalOrderFactory.register('leftRight', leftRightFractionalOrder, aliases=['twoDomain'])
+fractionalOrderFactory.register('linearLeftRightNonSym', linearLeftRightFractionalOrder)
 fractionalOrderFactory.register('smoothedLeftRight', smoothedLeftRightFractionalOrder, params={'r': 0.1, 'slope': 200.}, aliases=['twoDomainNonSym'])
 fractionalOrderFactory.register('constantNonSym', constantNonSymFractionalOrder)
 fractionalOrderFactory.register('innerOuter', innerOuterFractionalOrder)
+fractionalOrderFactory.register('innerOuterNonSym', smoothedInnerOuterFractionalOrder)
 fractionalOrderFactory.register('islands', islandsFractionalOrder, params={'r': 0.1, 'r2': 0.6})
 fractionalOrderFactory.register('layers', layersFractionalOrder)
+
+twoPointFunctionFactory = factory()
+twoPointFunctionFactory.register('constant', constantTwoPoint, aliases=['const', 'constantTwoPoint'])
+twoPointFunctionFactory.register('tempered', temperedTwoPoint, aliases=['temperedTwoPoint'])
+twoPointFunctionFactory.register('leftRight', leftRightTwoPoint, aliases=['leftRightTwoPoint'])
+twoPointFunctionFactory.register('interface', interfaceTwoPoint, aliases=['interfaceTwoPoint'])
 
 interactionFactory = factory()
 interactionFactory.register('fullSpace', fullSpace, aliases=['full'])
@@ -202,6 +216,19 @@ def twinDiscIndicators(radius=1., sep=0.1, **kwargs):
     return domainIndicator, boundaryIndicator, interactionIndicator
 
 
+def boxIndicators(ax=-1., ay=-1., az=-1., bx=1., by=1., bz=1., **kwargs):
+    domainIndicator = squareIndicator(np.array([ax+1e-9, ay+1e-9, az+1e-9], dtype=REAL),
+                                      np.array([bx-1e-9, by-1e-9, bz-1e-9], dtype=REAL))
+    interactionIndicator = constant(1.)-squareIndicator(np.array([ax-1e-9, ay-1e-9, az-1e-9], dtype=REAL),
+                                                        np.array([bx+1e-9, by+1e-9, bz+1e-9], dtype=REAL))
+    boundaryIndicator = constant(1.)-domainIndicator-interactionIndicator
+    return domainIndicator, boundaryIndicator, interactionIndicator
+
+
+def ballWithInteractions(*args, **kwargs):
+    raise NotImplementedError()
+
+
 nonlocalMeshFactory = nonlocalMeshFactoryClass()
 nonlocalMeshFactory.register('interval', simpleInterval, intervalWithInteraction, 1, intervalIndicators,
                              {'a': -1, 'b': 1}, {'a': -1, 'b': 1})
@@ -218,6 +245,10 @@ nonlocalMeshFactory.register('discWithIslands', discWithIslands, discWithIslands
                              {'radius': 1., 'islandOffCenter': 0.35, 'islandDiam': 0.5})
 nonlocalMeshFactory.register('twinDisc', twinDisc, twinDisc, 2, radialIndicators,
                              {'radius': 1., 'sep': 0.1}, {'radius': 1., 'sep': 0.1})
+# nonlocalMeshFactory.register('box', box, boxWithInteractions, 3, boxIndicators,
+#                              {'Nx': 2, 'Ny': 2, 'Nz': 2, 'ax': -1, 'ay': -1, 'az': -1, 'bx': 1, 'by': 1, 'bz': 1}, {'Nx': 2, 'Ny': 2, 'Nz': 2, 'ax': -1, 'ay': -1, 'az': -1, 'bx': 1, 'by': 1, 'bz': 1})
+nonlocalMeshFactory.register('ball', ball, ballWithInteractions, 3, radialIndicators,
+                             {'radius': 1.}, {'radius': 1.})
 
 
 class nonlocalBaseProblem(problem):
@@ -239,11 +270,15 @@ class nonlocalBaseProblem(problem):
         self.addParametrizedArg('leftRight', [float, float, float, float])
         self.addParametrizedArg('twoDomain', [float, float, float, float])
         self.addParametrizedArg('twoDomainNonSym', [float, float])
+        self.addParametrizedArg('linearLeftRightNonSym', [float, float, float])
+        self.addParametrizedArg('innerOuterNonSym', [float, float])
         self.addParametrizedArg('layers', [float, float, int])
         self.addParametrizedArg('islands', [float, float])
         self.addParametrizedArg('islands4', [float, float, float, float])
         self.addParametrizedArg('tempered', [float])
         self.setDriverFlag('s', 'const(0.4)', argInterpreter=self.argInterpreter(['const', 'varconst', 'constantNonSym', 'twoDomain', 'twoDomainNonSym',
+                                                                                  'linearLeftRightNonSym',
+                                                                                  'innerOuterNonSym',
                                                                                   'layers', 'islands', 'islands4']), help='fractional order', group=p)
         self.setDriverFlag('horizon', 0.2, help='interaction horizon', group=p)
         self.addParametrizedArg('ellipse', [float, float])
@@ -258,7 +293,7 @@ class nonlocalBaseProblem(problem):
         dim = nonlocalMeshFactory.getDim(params['domain'])
         if params['kernelType'] == 'fractional':
             s = params['s']
-            for sName in ['const', 'varconst', 'constantNonSym', 'leftRight', 'twoDomain', 'twoDomainNonSym', 'islands']:
+            for sName in ['const', 'varconst', 'constantNonSym', 'leftRight', 'twoDomain', 'twoDomainNonSym', 'linearLeftRightNonSym', 'innerOuterNonSym', 'islands']:
                 if self.parametrizedArg(sName).match(s):
                     sType = sName
                     sArgs = self.parametrizedArg(sName).interpret(s)
@@ -401,10 +436,11 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
             self.driver.parser.set_defaults(s='const(0.75)', horizon=np.inf, interaction='fullSpace')
         p = self.driver.addGroup('problem')
         self.setDriverFlag('domain', acceptedValues=['interval', 'disc', 'Lshape', 'square',
-                                                     'cutoutCircle', 'disconnectedInterval', 'disconnectedDomain'], group=p)
+                                                     'cutoutCircle', 'disconnectedInterval', 'disconnectedDomain',
+                                                     'ball'], group=p)
         self.setDriverFlag('problem', acceptedValues=['constant', 'notPeriodic', 'plateau',
                                                       'sin', 'cos', 3, 'source', 'zeroFlux', 'Greens', 'knownSolution'], group=p)
-        self.setDriverFlag('element', acceptedValues=['P1', 'P2'], group=p)
+        self.setDriverFlag('element', acceptedValues=['P1', 'P2', 'P3', 'P0'], group=p)
         self.setDriverFlag('adaptive', acceptedValues=['residualMelenk', 'residualNochetto',
                                                        'residual', 'hierarchical', 'knownSolution', None],
                            argInterpreter=lambda v: None if v == 'None' else v, group=p)
@@ -418,9 +454,13 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
             adaptive = params['adaptive']
             if domain == 'interval':
                 if adaptive is None:
-                    if element == 'P1':
+                    if element == 'P0':
+                        noRef = 6
+                    elif element == 'P1':
                         noRef = 6
                     elif element == 'P2':
+                        noRef = 5
+                    elif element == 'P3':
                         noRef = 5
                     else:
                         raise NotImplementedError(element)
@@ -444,6 +484,8 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                 noRef = 20
             elif domain == 'cutoutCircle':
                 noRef = 30
+            elif domain == 'ball':
+                noRef = 2
             else:
                 raise NotImplementedError(domain)
             params['noRef'] = noRef
@@ -470,7 +512,7 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
 
             if problem == 'constant':
                 self.rhs = constant(1.)
-                if isinstance(s, (constFractionalOrder, variableConstFractionalOrder)):
+                if isinstance(s, (constFractionalOrder, variableConstFractionalOrder, constantNonSymFractionalOrder)):
                     C = 2.**(-2.*s.value)*Gamma(dim/2.)/Gamma((dim+2.*s.value)/2.)/Gamma(1.+s.value)
                     self.exactHsSquared = C * np.sqrt(np.pi)*Gamma(s.value+1)/Gamma(s.value+3/2)
                     L2_ex = np.sqrt(C**2 * np.sqrt(np.pi) * Gamma(1+2*s.value)/Gamma(3/2+2*s.value) * radius**2)
@@ -518,7 +560,8 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                 L2_ex = np.sqrt(2/3)
             elif problem == 'knownSolution':
                 from scipy.special import hyp2f1
-                assert isinstance(s, (constFractionalOrder, variableConstFractionalOrder, smoothedLeftRightFractionalOrder))
+                assert isinstance(s, (constFractionalOrder, variableConstFractionalOrder,
+                                      constantNonSymFractionalOrder, singleVariableUnsymmetricFractionalOrder)), s
 
                 beta = 0.7
 
@@ -549,7 +592,7 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
 
             if problem == 'constant':
                 self.rhs = constant(1.)
-                if isinstance(s, constFractionalOrder):
+                if isinstance(s, (constFractionalOrder, variableConstFractionalOrder, constantNonSymFractionalOrder)):
                     C = 2.**(-2.*s.value)*Gamma(dim/2.)/Gamma((dim+2.*s.value)/2.)/Gamma(1.+s.value)
                     self.exactHsSquared = C * np.pi*radius**(2-2*s.value)/(s.value+1)
                     L2_ex = np.sqrt(C**2 * np.pi/(1+2*s.value)*radius**2)
@@ -583,6 +626,22 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                 self.rhs = rhsFractional2D(s, n=n, l=l)
             elif problem == 'sin':
                 self.rhs = Lambda(lambda x: np.sin(np.pi*(x[0]**2+x[1]**2)))
+            elif problem == 'knownSolution':
+                from scipy.special import hyp2f1
+                assert isinstance(s, (constFractionalOrder, variableConstFractionalOrder,
+                                      constantNonSymFractionalOrder, singleVariableUnsymmetricFractionalOrder)), s
+
+                beta = 0.7
+
+                def fun(x):
+                    kernel.evalParams_py(x, x)
+                    sVal = kernel.sValue
+
+                    return 2**(2*sVal) * Gamma(sVal+1.0)*Gamma(beta+1.)/Gamma(beta+1.-sVal) * hyp2f1(sVal+1.0, -beta+sVal, 1.0, np.linalg.norm(x)**2)
+
+                self.rhs = functionFactory('Lambda', fun)
+                self.analyticSolution = functionFactory('Lambda', lambda x: max(1.-np.linalg.norm(x)**2, 0.)**beta)
+                L2_ex = np.sqrt(np.pi/(1+2*beta)*radius**2)
             else:
                 raise NotImplementedError(problem)
         elif domain == 'square':
@@ -611,6 +670,17 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                 self.rhs = constant(1.)
             elif problem == 'sin':
                 self.rhs = Lambda(lambda x: np.sin(np.pi*(x[0]**2+x[1]**2)))
+            else:
+                raise NotImplementedError(problem)
+        elif domain == 'ball':
+            radius = 1.
+            if problem == 'constant':
+                self.rhs = constant(1.)
+                if isinstance(s, (constFractionalOrder, variableConstFractionalOrder, constantNonSymFractionalOrder)):
+                    C = 2.**(-2.*s.value)*Gamma(dim/2.)/Gamma((dim+2.*s.value)/2.)/Gamma(1.+s.value)
+                    self.exactHsSquared = C * np.pi*radius**(2-2*s.value)/(s.value+1)
+                    L2_ex = np.sqrt(C**2 * np.pi/(1+2*s.value)*radius**2)
+                    self.analyticSolution = solFractional(s.value, dim, radius)
             else:
                 raise NotImplementedError(problem)
         else:
@@ -643,8 +713,6 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
             self.target_order = (1+elementOrder-s.min)/dim
         else:
             self.target_order = 1/dim
-            if element != 'P1':
-                raise NotImplementedError()
 
         # Picking bigger, say eta = 7, potentially speeds up assembly.
         # Not clear about impact on error.
@@ -679,7 +747,7 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                                                                                              'exact-sin-Dirichlet', 'exact-sin-Neumann', 'discontinuous']),
                            help="select a problem to solve")
         self.setDriverFlag('noRef', argInterpreter=int)
-        self.setDriverFlag('element', acceptedValues=['P1', 'P0'], help="finite element space")
+        self.setDriverFlag('element', acceptedValues=['P1', 'P0', 'P2'], help="finite element space")
         self.setDriverFlag('target_order', -1., help="choose quadrature rule to allow convergence of order h^{target_order}")
 
     def processCmdline(self, params):
@@ -1166,14 +1234,14 @@ class brusselatorProblem(problem):
     """
     Fractional order Brusselator system:
 
-              \partial_t U = -(-\Delta)^\alpha U + (B-1)*U + Q^2 V + B/Q * U**2 + 2*Q*U*V + U**2 * V
-    \eta**2 * \partial_t V = -(-\Delta)^\beta  U - B*U     - Q^2 V - B/Q * U**2 - 2*Q*U*V - U**2 * V
+              \\partial_t U = -(-\\Delta)^\\alpha U + (B-1)*U + Q^2 V + B/Q * U**2 + 2*Q*U*V + U**2 * V
+    \\eta**2 * \\partial_t V = -(-\\Delta)^\\beta  U - B*U     - Q^2 V - B/Q * U**2 - 2*Q*U*V - U**2 * V
 
     with zero flux conditions on U and V.
 
-    s    = \beta/\alpha
-    \eta = sqrt(D_X**s / D_Y)
-    Q    = A \eta
+    s    = \\beta/\\alpha
+    \\eta = sqrt(D_X**s / D_Y)
+    Q    = A \\eta
 
     """
 

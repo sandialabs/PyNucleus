@@ -23,7 +23,6 @@ ELSE:
 #     malloc_trim(0)
 
 include "tupleDict_INDEX.pxi"
-include "tupleDict_MASK.pxi"
 
 
 cdef class indexSet:
@@ -84,10 +83,13 @@ cdef class indexSet:
         return sorted
 
 
-
 cdef class indexSetIterator:
     def __init__(self):
         pass
+
+    def __iter__(self):
+        self.reset()
+        return self
 
     cdef void setIndexSet(self, indexSet iS):
         self.iS = iS
@@ -104,6 +106,44 @@ cdef class indexSetIterator:
             return self.i
         else:
             raise StopIteration
+
+
+cdef class rangeIndexSet(indexSet):
+    def __init__(self, INDEX_t start, INDEX_t end, INDEX_t increment=1):
+        self.start = start
+        self.end = end
+        self.increment = increment
+
+    cdef indexSetIterator getIter(self):
+        return rangeIndexSetIterator(self)
+
+
+cdef class rangeIndexSetIterator(indexSetIterator):
+    def __init__(self, rangeIndexSet rIS=None):
+        if rIS is not None:
+            self.setIndexSet(rIS)
+
+    cdef void reset(self):
+        self.k = -1
+
+    cdef BOOL_t step(self):
+        cdef:
+            rangeIndexSet rIS = self.iS
+        self.k += 1
+        if rIS.increment > 0:
+            if rIS.start+rIS.increment*self.k < rIS.end:
+                self.i = rIS.start+rIS.increment*self.k
+                return True
+            else:
+                return False
+        elif rIS.increment < 0:
+            if rIS.start+rIS.increment*self.k > rIS.end:
+                self.i = rIS.start+rIS.increment*self.k
+                return True
+            else:
+                return False
+        else:
+            return False
 
 
 cdef inline int compareIndices(const void *pa, const void *pb) noexcept nogil:

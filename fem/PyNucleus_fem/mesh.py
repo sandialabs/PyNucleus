@@ -808,6 +808,15 @@ def box(ax=0., ay=0., az=0., bx=1., by=1., bz=1., Nx=2, Ny=2, Nz=2):
                   np.array(cells, dtype=INDEX))
 
 
+def boxWithInteractions(horizon, ax=0., ay=0., az=0., bx=1., by=1., bz=1., Nx=2, Ny=2, Nz=2):
+    Nx2 = max(int(np.ceil((bx-ax+2*horizon)/horizon))+1, int(np.ceil((bx-ax+2*horizon)/(bx-ax)*Nx)))
+    Ny2 = max(int(np.ceil((by-ay+2*horizon)/horizon))+1, int(np.ceil((by-ay+2*horizon)/(by-ay)*Nx)))
+    Nz2 = max(int(np.ceil((bz-az+2*horizon)/horizon))+1, int(np.ceil((bz-az+2*horizon)/(bz-az)*Nx)))
+    return box(ax-horizon, ay-horizon, az-horizon,
+               bx+horizon, by+horizon, bz+horizon,
+               Nx2, Ny2, Nz2)
+
+
 def gradedBox(factor=0.6):
     from . meshCy import gradedHypercubeTransformer
     mesh = simpleBox()
@@ -2072,7 +2081,7 @@ class mesh1d(meshNd):
                 xx[:2*DoFMap.num_dofs-1:2] = x
                 xx[1:2*DoFMap.num_dofs:2] = x
             else:
-                xx = np.zeros((2*x.shape[0], self.num_vertices), dtype=REAL)
+                xx = np.zeros((x.shape[0], 2*(DoFMap.num_dofs+DoFMap.num_boundary_dofs)), dtype=REAL)
                 xx[:, :2*DoFMap.num_dofs-1:2] = x
                 xx[:, 1:2*DoFMap.num_dofs:2] = x
             positions = np.concatenate((positions, self.vertices_as_array[:, 0]))

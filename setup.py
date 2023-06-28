@@ -53,5 +53,6 @@ setup(name='PyNucleus',
       platforms='any',
       license='MIT',
       license_files=['LICENSE'],
+      python_requires='>=3.10',
       install_requires=requirements,
       zip_safe=False)

@@ -802,7 +802,8 @@ cdef class DoFMap:
 
             if isinstance(kernel, RangedFractionalKernel):
                 from PyNucleus_base.linear_operators import multiIntervalInterpolationOperator
-                from PyNucleus_nl import getChebyIntervalsAndNodes, delayedNonlocalOp
+                from PyNucleus_nl.operatorInterpolation import getChebyIntervalsAndNodes
+                from PyNucleus_nl.helpers import delayedNonlocalOp
                 s_left, s_right = kernel.admissibleOrders.ranges[0, 0], kernel.admissibleOrders.ranges[0, 1]
                 horizonValue = min(self.mesh.diam, kernel.horizon.value)
                 r = 1/2
@@ -1078,6 +1079,7 @@ cdef class DoFMap:
             INDEX_t i, j, dof, dofP1, k
             DoFMap dm
             fe_vector y
+            multi_fe_vector ym
             REAL_t[::1] yy
             REAL_t[:, ::1] yyy
         if isinstance(x, fe_vector):
@@ -1100,20 +1102,20 @@ cdef class DoFMap:
             if isinstance(self, P1_DoFMap):
                 return x, self
             dm = P1_DoFMap(self.mesh, self.tag)
-            y = dm.zeros(x.numVectors, dtype=REAL)
-            yyy = y
+            ym = dm.zeros(x.numVectors, dtype=REAL)
+            yyy = ym
             for i in range(self.mesh.num_cells):
                 for j in range(0, (self.dim+1)*self.dofs_per_vertex, self.dofs_per_vertex):
                     dofP1 = dm.cell2dof(i, j//self.dofs_per_vertex)
                     if dofP1 >= 0:
                         dof = self.cell2dof(i, j)
                         if dof >= 0:
-                            for k in range(y.numVectors):
-                                yyy[k, dofP1] = x[k, dof]
+                            for k in range(ym.numVectors):
+                                yyy[k, dofP1] = x.data[k, dof]
                         else:
-                            for k in range(y.numVectors):
+                            for k in range(ym.numVectors):
                                 yyy[k, dofP1] = 0.
-            return y, dm
+            return ym, dm
         else:
             raise NotImplementedError(type(x))
 
@@ -1504,7 +1506,7 @@ cdef class DoFMap:
                 dof1 = self.cell2dof(cellNo, dofNo)
                 dof2 = other.cell2dof(cellNo, dofNo)
                 if dof1 >= 0 and dof2 < 0:
-                   dmCombined.dofs[cellNo, dofNo] = dof1
+                    dmCombined.dofs[cellNo, dofNo] = dof1
                 elif dof1 < 0 and dof2 >= 0:
                     dmCombined.dofs[cellNo, dofNo] = self.num_dofs+dof2
                 else:

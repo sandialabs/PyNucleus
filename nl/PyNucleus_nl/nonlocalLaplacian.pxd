@@ -6,11 +6,12 @@
 ###################################################################################
 
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, ENCODE_t, BOOL_t
-from PyNucleus_base.tupleDict cimport tupleDictMASK, indexSet, indexSetIterator, arrayIndexSet, unsortedArrayIndexSet, arrayIndexSetIterator
+from PyNucleus_base.tupleDict cimport indexSet, indexSetIterator, arrayIndexSet, unsortedArrayIndexSet, arrayIndexSetIterator
 from PyNucleus_fem.quadrature cimport (simplexQuadratureRule, quadQuadratureRule,
                                        doubleSimplexQuadratureRule, GaussJacobi,
                                        simplexDuffyTransformation, simplexXiaoGimbutas)
 from PyNucleus_fem.DoFMaps cimport DoFMap
+from . bitset cimport tupleDictMASK
 from . clusterMethodCy cimport (tree_node,
                                 farFieldClusterPair,
                                 H2Matrix,
@@ -18,17 +19,17 @@ from . clusterMethodCy cimport (tree_node,
                                 DistributedH2Matrix_localData,
                                 DistributedLinearOperator)
 from . nonlocalLaplacianBase cimport (double_local_matrix_t,
-                                        nonlocalLaplacian,
-                                        panelType,
-                                        MASK_t)
-from . fractionalLaplacian1D cimport (fractionalLaplacian1D_P1,
-                                      fractionalLaplacian1D_P1_boundary,
-                                      fractionalLaplacian1D_P0,
-                                      fractionalLaplacian1D_P0_boundary)
-from . fractionalLaplacian2D cimport (fractionalLaplacian2D_P1,
-                                      fractionalLaplacian2D_P1_boundary,
+                                      nonlocalLaplacian,
+                                      panelType,
+                                      MASK_t)
+from . fractionalLaplacian1D cimport (fractionalLaplacian1D,
+                                      fractionalLaplacian1D_nonsym,
+                                      fractionalLaplacian1D_boundary,
                                       )
-from . nonlocalLaplacianND cimport integrable1D, integrable2D
+from . fractionalLaplacian2D cimport (fractionalLaplacian2D,
+                                      fractionalLaplacian2D_nonsym,
+                                      fractionalLaplacian2D_boundary,
+                                      )
 
 import mpi4py.rc
 mpi4py.rc.initialize = False
@@ -54,7 +55,7 @@ cdef class nonlocalBuilder:
         public double_local_matrix_t local_matrix
         public double_local_matrix_t local_matrix_zeroExterior
         public double_local_matrix_t local_matrix_surface
-        bint zeroExterior
+        BOOL_t zeroExterior
         REAL_t[::1] contrib, contribZeroExterior
         list _d2c
         public MPI.Comm comm
