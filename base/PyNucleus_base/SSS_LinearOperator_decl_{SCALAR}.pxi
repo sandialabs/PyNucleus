@@ -22,3 +22,5 @@ cdef class {SCALAR_label}SSS_LinearOperator({SCALAR_label}LinearOperator):
                                      {SCALAR}_t[::1] y) except -1
     cdef void setEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t val)
     cdef {SCALAR}_t getEntry({SCALAR_label}SSS_LinearOperator self, INDEX_t I, INDEX_t J)
+
+

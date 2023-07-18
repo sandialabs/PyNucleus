@@ -21,18 +21,30 @@ def idfunc(param):
 
 
 @pytest.fixture(scope='module', params=[
-    ('interval', 'fractional', 'poly-Dirichlet', 'lu'),
-    ('interval', 'fractional', 'poly-Neumann', 'lu'),
-    ('interval', 'constant', 'poly-Dirichlet', 'lu'),
-    ('interval', 'constant', 'poly-Neumann', 'lu'),
-    ('interval', 'inverseDistance', 'poly-Dirichlet', 'lu'),
-    ('interval', 'inverseDistance', 'poly-Neumann', 'lu'),
-    ('square', 'fractional', 'poly-Dirichlet', 'cg-mg'),
-    ('square', 'fractional', 'poly-Neumann', 'cg-mg'),
-    ('square', 'constant', 'poly-Dirichlet', 'cg-mg'),
-    ('square', 'constant', 'poly-Neumann', 'cg-mg'),
-    ('square', 'inverseDistance', 'poly-Dirichlet', 'cg-mg'),
-    ('square', 'inverseDistance', 'poly-Neumann', 'cg-mg'),
+    ('interval', 'fractional', 'poly-Dirichlet', 'lu', 'dense'),
+    ('interval', 'fractional', 'poly-Neumann', 'lu', 'dense'),
+    ('interval', 'constant', 'poly-Dirichlet', 'lu', 'dense'),
+    ('interval', 'constant', 'poly-Neumann', 'lu', 'dense'),
+    ('interval', 'inverseDistance', 'poly-Dirichlet', 'lu', 'dense'),
+    ('interval', 'inverseDistance', 'poly-Neumann', 'lu', 'dense'),
+    ('square', 'fractional', 'poly-Dirichlet', 'cg-mg', 'dense'),
+    ('square', 'fractional', 'poly-Neumann', 'cg-mg', 'dense'),
+    ('square', 'constant', 'poly-Dirichlet', 'cg-mg', 'dense'),
+    ('square', 'constant', 'poly-Neumann', 'cg-mg', 'dense'),
+    ('square', 'inverseDistance', 'poly-Dirichlet', 'cg-mg', 'dense'),
+    ('square', 'inverseDistance', 'poly-Neumann', 'cg-mg', 'dense'),
+    ('interval', 'fractional', 'poly-Dirichlet', 'lu', 'H2'),
+    ('interval', 'fractional', 'poly-Neumann', 'lu', 'H2'),
+    ('interval', 'constant', 'poly-Dirichlet', 'lu', 'H2'),
+    ('interval', 'constant', 'poly-Neumann', 'lu', 'H2'),
+    ('interval', 'inverseDistance', 'poly-Dirichlet', 'lu', 'H2'),
+    ('interval', 'inverseDistance', 'poly-Neumann', 'lu', 'H2'),
+    ('square', 'fractional', 'poly-Dirichlet', 'cg-mg', 'H2'),
+    ('square', 'fractional', 'poly-Neumann', 'cg-mg', 'H2'),
+    ('square', 'constant', 'poly-Dirichlet', 'cg-mg', 'H2'),
+    ('square', 'constant', 'poly-Neumann', 'cg-mg', 'H2'),
+    ('square', 'inverseDistance', 'poly-Dirichlet', 'cg-mg', 'H2'),
+    ('square', 'inverseDistance', 'poly-Neumann', 'cg-mg', 'H2'),
 ],
                 ids=idfunc)
 def runNonlocal_params(request):
@@ -41,15 +53,15 @@ def runNonlocal_params(request):
 
 @pytest.mark.slow
 def testNonlocal(runNonlocal_params, extra):
-    domain, kernel, problem, solver = runNonlocal_params
+    domain, kernel, problem, solver, matrixFormat = runNonlocal_params
     base = getPath()+'/../'
     py = ['runNonlocal.py',
           '--domain', domain,
           '--kernelType', kernel,
           '--problem', problem,
-          '--solver', solver]
+          '--solver', solver,
+          '--matrixFormat', matrixFormat]
     # if kernel != 'fractional':
-    py += ['--matrixFormat', 'dense']
     path = base+'drivers'
     cacheDir = getPath()+'/'
     if problem == 'poly-Neumann' and domain == 'square':

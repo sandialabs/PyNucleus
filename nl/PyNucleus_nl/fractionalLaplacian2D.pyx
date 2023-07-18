@@ -30,7 +30,7 @@ ALL.set()
 
 
 cdef class fractionalLaplacian2DZeroExterior(nonlocalLaplacian2D):
-    def __init__(self, FractionalKernel kernel, meshBase mesh, DoFMap DoFMap, num_dofs=None, **kwargs):
+    def __init__(self, Kernel kernel, meshBase mesh, DoFMap DoFMap, num_dofs=None, **kwargs):
         manifold_dim2 = mesh.dim-1
         super(fractionalLaplacian2DZeroExterior, self).__init__(kernel, mesh, DoFMap, num_dofs, manifold_dim2=manifold_dim2, **kwargs)
         self.symmetricCells = False
@@ -1137,7 +1137,7 @@ cdef class fractionalLaplacian2D_boundary(fractionalLaplacian2DZeroExterior):
 
     """
     def __init__(self,
-                 FractionalKernel kernel,
+                 Kernel kernel,
                  meshBase mesh,
                  DoFMap DoFMap,
                  target_order=None,
@@ -1146,7 +1146,7 @@ cdef class fractionalLaplacian2D_boundary(fractionalLaplacian2DZeroExterior):
                  **kwargs):
         super(fractionalLaplacian2D_boundary, self).__init__(kernel, mesh, DoFMap, num_dofs, **kwargs)
 
-        smax = self.kernel.s.max
+        smax = max(0.5*(-self.kernel.max_singularity-2.), 0.)
         if target_order is None:
             # this is the desired global order wrt to the number of DoFs
             # target_order = (2.-s)/self.dim
@@ -1158,7 +1158,7 @@ cdef class fractionalLaplacian2D_boundary(fractionalLaplacian2DZeroExterior):
             quad_order_diagonal = max(np.ceil((target_order+0.5+smax)/(0.35)*abs(np.log(self.hmin/self.H0))), 2)
         self.quad_order_diagonal = quad_order_diagonal
 
-        if not self.kernel.variableOrder:
+        if (self.kernel.kernelType != FRACTIONAL) or (not self.kernel.variableOrder):
             self.getNearQuadRule(COMMON_EDGE)
             self.getNearQuadRule(COMMON_VERTEX)
 
@@ -1171,7 +1171,7 @@ cdef class fractionalLaplacian2D_boundary(fractionalLaplacian2DZeroExterior):
             REAL_t logdh1 = max(log(d/h1), 0.), logdh2 = max(log(d/h2), 0.)
             REAL_t logh1H0 = abs(log(h1/self.H0)), logh2H0 = abs(log(h2/self.H0))
             REAL_t loghminH0 = max(logh1H0, logh2H0)
-            REAL_t s = self.kernel.sValue
+            REAL_t s = max(0.5*(-self.kernel.getSingularityValue()-2.), 0.)
             REAL_t h
         panel = <panelType>max(ceil(((0.5*self.target_order+0.25)*log(self.num_dofs*self.H0**2) + loghminH0 + (s-1.)*logh2H0 - s*logdh2) /
                                     (max(logdh1, 0) + 0.35)),

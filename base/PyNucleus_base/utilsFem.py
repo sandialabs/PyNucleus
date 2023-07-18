@@ -1479,6 +1479,7 @@ class propertyBuilder:
                         if (newValue != oldValue).any():
                             needToBuild = True
                     elif newValue != oldValue:
+                        dependencyLogger.log(self.logLevel, 'Values for {} differ: \'{}\' != \'{}\', calling \'{}\''.format(prop, oldValue, newValue, self.fun.__name__))
                         needToBuild = True
                 except Exception as e:
                     dependencyLogger.log(logging.WARN, 'Cannot compare values {}, {} for property \'{}\', exception {}, force call \'{}\''.format(oldValue, newValue, prop, e, self.fun.__name__))

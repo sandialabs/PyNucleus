@@ -69,6 +69,8 @@ p.addExtension("twoPointFunctions",
                sources=[p.folder+"twoPointFunctions.pyx"])
 p.addExtension("interactionDomains",
                sources=[p.folder+"interactionDomains.pyx"])
+p.addExtension("kernelNormalization",
+               sources=[p.folder+"kernelNormalization.pyx"])
 p.addExtension("kernelsCy",
                sources=[p.folder+"kernelsCy.pyx"])
 p.addExtension("fractionalOrders",

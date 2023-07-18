@@ -13,24 +13,14 @@ from libc.math cimport (sin, cos, sinh, cosh, tanh, sqrt, atan, atan2,
                         log, ceil,
                         fabs as abs, M_PI as pi, pow,
                         exp, erf)
-from scipy.special.cython_special cimport psi as digamma
-from scipy.special.cython_special cimport gamma as cgamma
-from PyNucleus_base.myTypes import INDEX, REAL, ENCODE, BOOL
+from PyNucleus_base.myTypes import INDEX, REAL, BOOL
 from PyNucleus_fem.functions cimport constant
-from PyNucleus_fem.meshCy cimport meshBase
-from PyNucleus_fem.DoFMaps cimport DoFMap
+from PyNucleus_fem.meshCy cimport meshBase, cellFinder2
+from PyNucleus_fem.DoFMaps cimport shapeFunction, fe_vector, DoFMap
 from libc.stdlib cimport malloc
 from libc.string cimport memcpy
-import warnings
-from . interactionDomains cimport ball1, ball2, ballInf
 
 include "kernel_params.pxi"
-
-cdef REAL_t inf = np.inf
-
-
-cdef inline REAL_t gamma(REAL_t d):
-    return cgamma(d)
 
 
 ######################################################################
@@ -58,19 +48,29 @@ cdef enum fracOrderParams:
 
 
 cdef class fractionalOrderBase(twoPointFunction):
-    def __init__(self, REAL_t smin, REAL_t smax, BOOL_t symmetric):
+    def __init__(self, REAL_t smin, REAL_t smax, BOOL_t symmetric, INDEX_t numParameters=0):
         super(fractionalOrderBase, self).__init__(symmetric)
         self.min = smin
         self.max = smax
+        self.numParameters = numParameters
 
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
         raise NotImplementedError()
 
+    cdef void evalGrad(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] grad):
+        raise NotImplementedError()
+
+    cdef REAL_t evalGradPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, INDEX_t vectorSize, REAL_t* grad):
+        raise NotImplementedError()
+
+    def evalGrad_py(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] grad):
+        self.evalGrad(x, y, grad)
+
     def __getstate__(self):
-        return (self.min, self.max, self.symmetric)
+        return (self.min, self.max, self.symmetric, self.numParameters)
 
     def __setstate__(self, state):
-        fractionalOrderBase.__init__(self, state[0], state[1], state[2])
+        fractionalOrderBase.__init__(self, state[0], state[1], state[2], state[3])
 
 
 cdef class constFractionalOrder(fractionalOrderBase):
@@ -95,8 +95,8 @@ cdef class constFractionalOrder(fractionalOrderBase):
 
 
 cdef class variableFractionalOrder(fractionalOrderBase):
-    def __init__(self, REAL_t smin, REAL_t smax, BOOL_t symmetric):
-        super(variableFractionalOrder, self).__init__(smin, smax, symmetric)
+    def __init__(self, REAL_t smin, REAL_t smax, BOOL_t symmetric, INDEX_t numParameters=0):
+        super(variableFractionalOrder, self).__init__(smin, smax, symmetric, numParameters)
         self.c_params = malloc(NUM_FRAC_ORDER_PARAMS*OFFSET)
 
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
@@ -123,10 +123,40 @@ cdef class extendedFunction(function):
     cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x):
         pass
 
+    cdef void evalGrad(self, REAL_t[::1] x, REAL_t[::1] grad):
+        raise NotImplementedError()
+
+    cdef void evalGradPtr(self, INDEX_t dim, REAL_t* x, INDEX_t vectorSize, REAL_t* grad):
+        raise NotImplementedError()
+
+
+cdef class singleVariableTwoPointFunction(twoPointFunction):
+    cdef:
+        extendedFunction fun
+
+    def __init__(self, extendedFunction fun):
+        super(singleVariableTwoPointFunction, self).__init__(False)
+        self.fun = fun
+
+    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
+        return self.fun.eval(x)
+
+    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
+        return self.fun.evalPtr(dim, x)
+
+    def __repr__(self):
+        return '{}'.format(self.fun)
+
+    def __getstate__(self):
+        return self.fun
+
+    def __setstate__(self, state):
+        singleVariableTwoPointFunction.__init__(self, state)
+
 
 cdef class singleVariableUnsymmetricFractionalOrder(variableFractionalOrder):
-    def __init__(self, extendedFunction sFun, REAL_t smin, REAL_t smax):
-        super(singleVariableUnsymmetricFractionalOrder, self).__init__(smin, smax, False)
+    def __init__(self, extendedFunction sFun, REAL_t smin, REAL_t smax, INDEX_t numParameters=0):
+        super(singleVariableUnsymmetricFractionalOrder, self).__init__(smin, smax, False, numParameters)
         self.sFun = sFun
 
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
@@ -135,14 +165,20 @@ cdef class singleVariableUnsymmetricFractionalOrder(variableFractionalOrder):
     cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
         return self.sFun.evalPtr(dim, x)
 
+    cdef void evalGrad(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] grad):
+        self.sFun.evalGrad(x, grad)
+
+    cdef REAL_t evalGradPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, INDEX_t vectorSize, REAL_t* grad):
+        self.sFun.evalGradPtr(dim, x, vectorSize, grad)
+
     def __repr__(self):
         return '{}({})'.format(self.__class__.__name__, self.sFun)
 
     def __getstate__(self):
-        return (self.sFun, self.min, self.max)
+        return (self.sFun, self.min, self.max, self.numParameters)
 
     def __setstate__(self, state):
-        singleVariableUnsymmetricFractionalOrder.__init__(self, state[0], state[1], state[2])
+        singleVariableUnsymmetricFractionalOrder.__init__(self, state[0], state[1], state[2], state[3])
 
 
 cdef REAL_t lambdaFractionalOrderFun(REAL_t *x, REAL_t *y, void *c_params):
@@ -328,6 +364,12 @@ cdef class constantExtended(extendedFunction):
     cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x):
         return self.value
 
+    cdef void evalGrad(self, REAL_t[::1] x, REAL_t[::1] grad):
+        grad[0] = 1.
+
+    cdef void evalGradPtr(self, INDEX_t dim, REAL_t* x, INDEX_t vectorSize, REAL_t* grad):
+        grad[0] = 1.
+
     def __repr__(self):
         return '{}'.format(self.value)
 
@@ -363,7 +405,11 @@ cdef class smoothLeftRight(extendedFunction):
 
 cdef class smoothStep(extendedFunction):
     cdef:
-        REAL_t sl, sr, r, slope, interface
+        public REAL_t sl
+        public REAL_t sr
+        public REAL_t r
+        public REAL_t slope
+        public REAL_t interface
 
     def __init__(self, REAL_t sl, REAL_t sr, REAL_t r, REAL_t interface=0.):
         self.sl = sl
@@ -385,6 +431,30 @@ cdef class smoothStep(extendedFunction):
         elif x[0] > self.interface+self.r:
             return self.sr
         return self.sl + (self.sr-self.sl) * (3.0*pow((x[0]-self.interface)*self.slope+0.5, 2.0) - 2.0*pow((x[0]-self.interface)*self.slope+0.5, 3.0))
+
+    cdef void evalGrad(self, REAL_t[::1] x, REAL_t[::1] grad):
+        cdef:
+            REAL_t fac
+        if x[0] < self.interface-self.r:
+            fac = 0.
+        elif x[0] > self.interface+self.r:
+            fac = 1.
+        else:
+            fac = (3.0*pow((x[0]-self.interface)*self.slope+0.5, 2.0) - 2.0*pow((x[0]-self.interface)*self.slope+0.5, 3.0))
+        grad[0] = 1.-fac
+        grad[1] = fac
+
+    cdef void evalGradPtr(self, INDEX_t dim, REAL_t* x, INDEX_t vectorSize, REAL_t* grad):
+        cdef:
+            REAL_t fac
+        if x[0] < self.interface-self.r:
+            fac = 0.
+        elif x[0] > self.interface+self.r:
+            fac = 1.
+        else:
+            fac = (3.0*pow((x[0]-self.interface)*self.slope+0.5, 2.0) - 2.0*pow((x[0]-self.interface)*self.slope+0.5, 3.0))
+        grad[0] = 1.-fac
+        grad[1] = fac
 
     def __repr__(self):
         return '{}(sl={},sr={},r={},interface={})'.format(self.__class__.__name__, self.sl, self.sr, self.r, self.interface)
@@ -414,6 +484,30 @@ cdef class linearStep(extendedFunction):
         elif x[0] > self.interface+self.r:
             return self.sr
         return self.sl + self.slope*(x[0]-self.interface+self.r)
+
+    cdef void evalGrad(self, REAL_t[::1] x, REAL_t[::1] grad):
+        cdef:
+            REAL_t fac
+        if x[0] < self.interface-self.r:
+            fac = 0.
+        elif x[0] > self.interface+self.r:
+            fac = 1.
+        else:
+            fac = 0.5*(x[0]-self.interface+self.r)/self.r
+        grad[0] = 1-fac
+        grad[1] = fac
+
+    cdef void evalGradPtr(self, INDEX_t dim, REAL_t* x, INDEX_t vectorSize, REAL_t* grad):
+        cdef:
+            REAL_t fac
+        if x[0] < self.interface-self.r:
+            fac = 0.
+        elif x[0] > self.interface+self.r:
+            fac = 1.
+        else:
+            fac = 0.5*(x[0]-self.interface+self.r)/self.r
+        grad[0] = 1-fac
+        grad[1] = fac
 
     def __repr__(self):
         return '{}(sl={},sr={},r={})'.format(self.__class__.__name__, self.sl, self.sr, self.r)
@@ -460,13 +554,99 @@ cdef class smoothStepRadial(extendedFunction):
         return '{}(sl={},sr={},r={},radius={})'.format(self.__class__.__name__, self.sl, self.sr, self.r, self.radius)
 
 
+
+cdef class lookupExtended(extendedFunction):
+    cdef:
+        meshBase mesh
+        public DoFMap dm
+        public REAL_t[::1] u
+        public cellFinder2 cellFinder
+
+    def __init__(self, meshBase mesh, DoFMap dm, REAL_t[::1] u, cellFinder2 cF=None):
+        self.mesh = mesh
+        self.dm = dm
+        self.u = u
+        if cF is None:
+            self.cellFinder = cellFinder2(self.mesh)
+        else:
+            self.cellFinder = cF
+
+    cdef REAL_t eval(self, REAL_t[::1] x):
+        cdef:
+            shapeFunction shapeFun
+            REAL_t val
+            INDEX_t cellNo, dof, k
+        cellNo = self.cellFinder.findCell(x)
+        if cellNo == -1:
+            return 0.
+        val = 0.
+        for k in range(self.dm.dofs_per_element):
+            dof = self.dm.cell2dof(cellNo, k)
+            if dof >= 0:
+                shapeFun = self.dm.localShapeFunctions[k]
+                val += shapeFun.eval(self.cellFinder.bary)*self.u[dof]
+        return val
+
+    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x):
+        cdef:
+            shapeFunction shapeFun
+            REAL_t val
+            INDEX_t cellNo, dof, k
+        cellNo = self.cellFinder.findCellPtr(x)
+        if cellNo == -1:
+            return 0.
+        val = 0.
+        for k in range(self.dm.dofs_per_element):
+            dof = self.dm.cell2dof(cellNo, k)
+            if dof >= 0:
+                shapeFun = self.dm.localShapeFunctions[k]
+                val += shapeFun.eval(self.cellFinder.bary)*self.u[dof]
+        return val
+
+    cdef void evalGrad(self, REAL_t[::1] x, REAL_t[::1] grad):
+        cdef:
+            shapeFunction shapeFun
+            INDEX_t cellNo, dof, k
+        cellNo = self.cellFinder.findCell(x)
+        if cellNo == -1:
+            return
+        for dof in range(self.dm.num_dofs):
+            grad[dof] = 0.
+        for k in range(self.dm.dofs_per_element):
+            dof = self.dm.cell2dof(cellNo, k)
+            if dof >= 0:
+                shapeFun = self.dm.localShapeFunctions[k]
+                grad[dof] += shapeFun.eval(self.cellFinder.bary)
+
+    cdef void evalGradPtr(self, INDEX_t dim, REAL_t* x, INDEX_t vectorSize, REAL_t* grad):
+        cdef:
+            shapeFunction shapeFun
+            INDEX_t cellNo, dof, k
+        cellNo = self.cellFinder.findCellPtr(x)
+        if cellNo == -1:
+            return
+        for dof in range(self.dm.num_dofs):
+            grad[dof] = 0.
+        for k in range(self.dm.dofs_per_element):
+            dof = self.dm.cell2dof(cellNo, k)
+            if dof >= 0:
+                shapeFun = self.dm.localShapeFunctions[k]
+                grad[dof] += shapeFun.eval(self.cellFinder.bary)
+
+    def __getstate__(self):
+        return self.mesh, self.dm, self.u
+
+    def __setstate__(self, state):
+        lookupExtended.__init__(self, state[0], state[1], state[2])
+
+
 cdef class constantNonSymFractionalOrder(singleVariableUnsymmetricFractionalOrder):
     cdef:
         public REAL_t value
 
     def __init__(self, REAL_t s):
         sFun = constantExtended(s)
-        super(constantNonSymFractionalOrder, self).__init__(sFun, s, s)
+        super(constantNonSymFractionalOrder, self).__init__(sFun, s, s, 1)
         self.value = s
 
 
@@ -474,19 +654,36 @@ cdef class smoothedLeftRightFractionalOrder(singleVariableUnsymmetricFractionalO
     def __init__(self, REAL_t sl, REAL_t sr, REAL_t r=0.1, REAL_t slope=200., REAL_t interface=0.):
         sFun = smoothStep(sl, sr, r, interface)
         # sFun = smoothLeftRight(sl, sr, r, slope)
-        super(smoothedLeftRightFractionalOrder, self).__init__(sFun, min(sl, sr), max(sl, sr))
+        super(smoothedLeftRightFractionalOrder, self).__init__(sFun, min(sl, sr), max(sl, sr), 2)
 
 
 cdef class linearLeftRightFractionalOrder(singleVariableUnsymmetricFractionalOrder):
     def __init__(self, REAL_t sl, REAL_t sr, REAL_t r=0.1, REAL_t interface=0.):
         sFun = linearStep(sl, sr, r, interface)
-        super(linearLeftRightFractionalOrder, self).__init__(sFun, min(sl, sr), max(sl, sr))
+        super(linearLeftRightFractionalOrder, self).__init__(sFun, min(sl, sr), max(sl, sr), 2)
 
 
 cdef class smoothedInnerOuterFractionalOrder(singleVariableUnsymmetricFractionalOrder):
     def __init__(self, REAL_t sl, REAL_t sr, REAL_t r=0.1, REAL_t slope=200., REAL_t radius=0.5):
         sFun = smoothStepRadial(sl, sr, r, radius)
         super(smoothedInnerOuterFractionalOrder, self).__init__(sFun, min(sl, sr), max(sl, sr))
+
+
+cdef class feFractionalOrder(singleVariableUnsymmetricFractionalOrder):
+    cdef:
+        fe_vector vec
+
+    def __init__(self, fe_vector vec, REAL_t smin, REAL_t smax):
+        self.vec = vec
+        sFun = lookupExtended(vec.dm.mesh, vec.dm, vec)
+        super(feFractionalOrder, self).__init__(sFun, smin, smax, numParameters=vec.dm.num_dofs)
+
+    def __getstate__(self):
+        return (self.vec, self.vec.dm, self.min, self.max)
+
+    def __setstate__(self, state):
+        vec = fe_vector(state[0], state[1])
+        feFractionalOrder.__init__(self, vec, state[2], state[3])
 
 
 cdef REAL_t innerOuterFractionalOrderFun(REAL_t *x, REAL_t *y, void *c_params):
@@ -717,330 +914,3 @@ cdef class layersFractionalOrder(variableFractionalOrder):
     def __repr__(self):
         numLayers = getINDEX(self.c_params, fR)
         return '{}(numLayers={})'.format(self.__class__.__name__, numLayers)
-
-
-######################################################################
-
-cdef class constantFractionalLaplacianScaling(constantTwoPoint):
-    def __init__(self, INDEX_t dim, REAL_t s, REAL_t horizon, REAL_t tempered):
-        self.dim = dim
-        if 1. < s and s < 2.:
-            s = s-1.
-        self.s = s
-        self.horizon = horizon
-        self.tempered = tempered
-        if (self.horizon <= 0.) or (self.s <= 0.) or (self.s >= 1.):
-            value = np.nan
-        else:
-            if horizon < inf:
-                value = (2.-2*s) * pow(horizon, 2*s-2.) * gamma(0.5*dim)/pow(pi, 0.5*dim) * 0.5
-                if dim > 1:
-                    value *= 2.
-            else:
-                if (tempered == 0.) or (s == 0.5):
-                    value = 2.0**(2.0*s) * s * gamma(s+0.5*dim)/pow(pi, 0.5*dim)/gamma(1.0-s) * 0.5
-                else:
-                    value = gamma(0.5*dim) / abs(gamma(-2*s))/pow(pi, 0.5*dim) * 0.5 * 0.5
-        super(constantFractionalLaplacianScaling, self).__init__(value)
-
-    def __getstate__(self):
-        return (self.dim, self.s, self.horizon, self.tempered)
-
-    def __setstate__(self, state):
-        constantFractionalLaplacianScaling.__init__(self, state[0], state[1], state[2], state[3])
-
-    def __repr__(self):
-        return '{}({},{} -> {})'.format(self.__class__.__name__, self.s, self.horizon, self.value)
-
-
-cdef class constantFractionalLaplacianScalingDerivative(twoPointFunction):
-    def __init__(self, INDEX_t dim, REAL_t s, REAL_t horizon, BOOL_t normalized, INDEX_t derivative, REAL_t tempered):
-        super(constantFractionalLaplacianScalingDerivative, self).__init__(True)
-
-        self.dim = dim
-        self.s = s
-        self.horizon = horizon
-        self.normalized = normalized
-        self.derivative = derivative
-        self.tempered = tempered
-
-        horizon2 = horizon**2
-        self.horizon2 = horizon2
-
-        if self.normalized:
-            if horizon2 < inf:
-                self.C = (2.-2*s) * pow(horizon2, s-1.) * gamma(0.5*dim)/pow(pi, 0.5*dim) * 0.5
-                if dim > 1:
-                    self.C *= 2.
-            else:
-                if (tempered == 0.) or (s == 0.5):
-                    self.C = 2.0**(2.0*s) * s * gamma(s+0.5*dim) * pow(pi, -0.5*dim) / gamma(1.0-s) * 0.5
-                else:
-                    self.C = gamma(0.5*dim) / abs(gamma(-2*s))/pow(pi, 0.5*dim) * 0.5 * 0.5
-        else:
-            self.C = 0.5
-
-        if self.derivative == 1:
-            if horizon2 < inf:
-                self.fac = 1./(s-1.)
-            else:
-                self.fac = digamma(s+0.5*self.dim) + digamma(-s)
-        else:
-            raise NotImplementedError(self.derivative)
-
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
-        cdef:
-            REAL_t d2
-            INDEX_t i
-
-        if self.derivative == 0:
-            return self.C
-        elif self.derivative == 1:
-            d2 = 0.
-            for i in range(self.dim):
-                d2 += (x[i]-y[i])*(x[i]-y[i])
-            if self.normalized:
-                if self.horizon2 < inf:
-                    return self.C*(-log(d2/self.horizon2) + self.fac)
-                else:
-                    return self.C*(-log(0.25*d2) + self.fac)
-            else:
-                return -self.C*log(d2)
-        else:
-            raise NotImplementedError()
-
-    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
-        cdef:
-            REAL_t d2
-            INDEX_t i
-
-        if self.derivative == 0:
-            return self.C
-        elif self.derivative == 1:
-            d2 = 0.
-            for i in range(self.dim):
-                d2 += (x[i]-y[i])*(x[i]-y[i])
-            if self.normalized:
-                if self.horizon2 < inf:
-                    return self.C*(-log(d2/self.horizon2) + self.fac)
-                else:
-                    return self.C*(-log(0.25*d2) + self.fac)
-            else:
-                return -self.C*log(d2)
-        else:
-            raise NotImplementedError()
-
-    def __getstate__(self):
-        return (self.dim, self.s, self.horizon, self.normalized, self.derivative, self.tempered)
-
-    def __setstate__(self, state):
-        constantFractionalLaplacianScalingDerivative.__init__(self, state[0], state[1], state[2], state[3], state[4], state[5])
-
-
-cdef class constantIntegrableScaling(constantTwoPoint):
-    def __init__(self, kernelType kType, interactionDomain interaction, INDEX_t dim, REAL_t horizon):
-        self.kType = kType
-        self.dim = dim
-        self.interaction = interaction
-        self.horizon = horizon
-        if self.horizon <= 0.:
-            value = np.nan
-        else:
-            if kType == INDICATOR:
-                if dim == 1:
-                    value = 3./horizon**3 / 2.
-                elif dim == 2:
-                    if isinstance(self.interaction, ball2):
-                        value = 8./pi/horizon**4 / 2.
-                    elif isinstance(self.interaction, ballInf):
-                        value = 3./4./horizon**4 / 2.
-                    else:
-                        raise NotImplementedError()
-                else:
-                    raise NotImplementedError()
-            elif kType == PERIDYNAMIC:
-                if dim == 1:
-                    value = 2./horizon**2 / 2.
-                elif dim == 2:
-                    if isinstance(self.interaction, ball2):
-                        value = 6./pi/horizon**3 / 2.
-                    else:
-                        raise NotImplementedError()
-                else:
-                    raise NotImplementedError()
-            elif kType == GAUSSIAN:
-                if dim == 1:
-                    # value = 4.0/sqrt(pi)/(horizon/3.)**3 / 2.
-                    value = 4.0/sqrt(pi)/(erf(3.0)-6.0*exp(-9.0)/sqrt(pi))/(horizon/3.0)**3 / 2.
-                elif dim == 2:
-                    if isinstance(self.interaction, ball2):
-                        # value = 4.0/pi/(horizon/3.0)**4 / 2.
-                        value = 4.0/pi/(1.0-10.0*exp(-9.0))/(horizon/3.0)**4 / 2.
-                    else:
-                        raise NotImplementedError()
-                else:
-                    raise NotImplementedError()
-            else:
-                raise NotImplementedError()
-        super(constantIntegrableScaling, self).__init__(value)
-
-    def __getstate__(self):
-        return (self.kType, self.interaction, self.dim, self.horizon)
-
-    def __setstate__(self, state):
-        constantIntegrableScaling.__init__(self, state[0], state[1], state[2], state[3])
-
-    def __repr__(self):
-        return '{}({} -> {})'.format(self.__class__.__name__, self.horizon, self.value)
-
-
-cdef class variableFractionalLaplacianScaling(parametrizedTwoPointFunction):
-    def __init__(self, BOOL_t symmetric, BOOL_t normalized=True, INDEX_t derivative=0):
-        super(variableFractionalLaplacianScaling, self).__init__(symmetric)
-        self.normalized = normalized
-        self.derivative = derivative
-
-    cdef void setParams(self, void *params):
-        parametrizedTwoPointFunction.setParams(self, params)
-        self.dim = getINDEX(self.params, fKDIM)
-
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
-        cdef:
-            REAL_t s = getREAL(self.params, fS)
-            REAL_t horizon2 = getREAL(self.params, fHORIZON2)
-            REAL_t C, d2
-            INDEX_t i
-
-        if self.normalized:
-            if horizon2 < inf:
-                if self.dim == 1:
-                    C = (2.-2*s) * pow(horizon2, s-1.) * 0.5
-                elif self.dim == 2:
-                    C = (2.-2*s) * pow(horizon2, s-1.) * 2./pi * 0.5
-                elif self.dim == 3:
-                    C = (2.-2*s) * pow(horizon2, s-1.) * 1./pi * 0.5
-                else:
-                    raise NotImplementedError()
-            else:
-                C = 2.0**(2.0*s) * s * gamma(s+0.5*self.dim) * pow(pi, -0.5*self.dim) / gamma(1.0-s) * 0.5
-        else:
-            C = 0.5
-
-        if self.derivative == 0:
-            return C
-        elif self.derivative == 1:
-            d2 = 0.
-            for i in range(self.dim):
-                d2 += (x[i]-y[i])*(x[i]-y[i])
-            if self.normalized:
-                if horizon2 < inf:
-                    return C*(-log(d2/horizon2) + 1./(s-1.))
-                else:
-                    return C*(-log(0.25*d2) + digamma(s+0.5*self.dim) + digamma(-s))
-            else:
-                return -C*log(d2)
-        else:
-            raise NotImplementedError()
-
-    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
-        cdef:
-            REAL_t s = getREAL(self.params, fS)
-            REAL_t horizon2 = getREAL(self.params, fHORIZON2)
-            REAL_t C, d2
-            INDEX_t i
-
-        if self.normalized:
-            if horizon2 < inf:
-                if self.dim == 1:
-                    C = (2.-2*s) * pow(horizon2, s-1.) * 0.5
-                elif self.dim == 2:
-                    C = (2.-2*s) * pow(horizon2, s-1.) * 2./pi * 0.5
-                elif self.dim == 3:
-                    C = (2.-2*s) * pow(horizon2, s-1.) * 1./pi * 0.5
-                else:
-                    raise NotImplementedError()
-            else:
-                C = 2.0**(2.0*s) * s * gamma(s+0.5*self.dim) * pow(pi, -0.5*self.dim) / gamma(1.0-s) * 0.5
-        else:
-            C = 0.5
-
-        if self.derivative == 0:
-            return C
-        elif self.derivative == 1:
-            d2 = 0.
-            for i in range(self.dim):
-                d2 += (x[i]-y[i])*(x[i]-y[i])
-            if self.normalized:
-                if horizon2 < inf:
-                    return C*(-log(d2/horizon2) + 1./(s-1.))
-                else:
-                    return C*(-log(0.25*d2) + digamma(s+0.5*self.dim) + digamma(-s))
-            else:
-                return -C*log(d2)
-        else:
-            raise NotImplementedError()
-
-    def getScalingWithDifferentHorizon(self):
-        cdef:
-            variableFractionalLaplacianScalingWithDifferentHorizon scaling
-            function horizonFun
-            BOOL_t horizonFunNull = isNull(self.params, fHORIZONFUN)
-        if not horizonFunNull:
-            horizonFun = <function>((<void**>(self.params+fHORIZONFUN))[0])
-        else:
-            horizonFun = constant(sqrt(getREAL(self.params, fHORIZON2)))
-        scaling = variableFractionalLaplacianScalingWithDifferentHorizon(self.symmetric, self.normalized, self.derivative, horizonFun)
-        return scaling
-
-    def __repr__(self):
-        return 'variableFractionalLaplacianScaling'
-
-    def __getstate__(self):
-        return (self.symmetric, self.normalized, self.derivative)
-
-    def __setstate__(self, state):
-        variableFractionalLaplacianScaling.__init__(self, state[0], state[1], state[2])
-
-
-######################################################################
-
-
-cdef class variableFractionalLaplacianScalingWithDifferentHorizon(variableFractionalLaplacianScaling):
-    def __init__(self, BOOL_t symmetric, BOOL_t normalized, INDEX_t derivative, function horizonFun):
-        super(variableFractionalLaplacianScalingWithDifferentHorizon, self).__init__(symmetric, normalized, derivative)
-        self.horizonFun = horizonFun
-
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
-        cdef:
-            void* params
-            void* paramsModified = malloc(NUM_KERNEL_PARAMS*OFFSET)
-            REAL_t horizon
-        horizon = self.horizonFun.eval(x)
-        params = self.getParams()
-        memcpy(paramsModified, params, NUM_KERNEL_PARAMS*OFFSET)
-        setREAL(paramsModified, fHORIZON2, horizon**2)
-        self.setParams(paramsModified)
-        scalingValue = variableFractionalLaplacianScaling.eval(self, x, y)
-        self.setParams(params)
-        return scalingValue
-
-    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
-        cdef:
-            void* params
-            void* paramsModified = malloc(NUM_KERNEL_PARAMS*OFFSET)
-            REAL_t horizon
-            REAL_t[::1] xA = <REAL_t[:dim]> x
-        horizon = self.horizonFun.eval(xA)
-        params = self.getParams()
-        memcpy(paramsModified, params, NUM_KERNEL_PARAMS*OFFSET)
-        setREAL(paramsModified, fHORIZON2, horizon**2)
-        self.setParams(paramsModified)
-        scalingValue = variableFractionalLaplacianScaling.evalPtr(self, dim, x, y)
-        self.setParams(params)
-        return scalingValue
-
-    def __getstate__(self):
-        return (self.symmetric, self.normalized, self.derivative, self.horizonFun)
-
-    def __setstate__(self, state):
-        variableFractionalLaplacianScalingWithDifferentHorizon.__init__(self, state[0], state[1], state[2], state[3])

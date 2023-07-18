@@ -29,7 +29,7 @@ from PyNucleus_fem.mesh import meshFactory as meshFactoryClass
 from PyNucleus_fem import (PHYSICAL, NO_BOUNDARY,
                            DIRICHLET, HOMOGENEOUS_DIRICHLET,
                            NEUMANN, HOMOGENEOUS_NEUMANN,
-                           NORM)
+                           NORM, dofmapFactory)
 from PyNucleus_fem.factories import functionFactory, rhsFractional2D_nonPeriodic
 from scipy.special import gamma as Gamma, binom
 from . twoPointFunctions import (constantTwoPoint,
@@ -52,18 +52,35 @@ from . fractionalOrders import (constFractionalOrder,
                                 smoothedInnerOuterFractionalOrder,
                                 islandsFractionalOrder,
                                 layersFractionalOrder,
-                                singleVariableUnsymmetricFractionalOrder)
+                                singleVariableUnsymmetricFractionalOrder,
+                                feFractionalOrder)
 from . kernelsCy import (getKernelEnum,
                          FRACTIONAL, INDICATOR, PERIDYNAMIC, GAUSSIAN,
                          )
 from . kernels import (getFractionalKernel,
                        getIntegrableKernel,
                        getKernel)
+from copy import deepcopy
 
 
-fractionalOrderFactory = factory()
+class fractionalOrderFactoryClass(factory):
+    def build(self, name, *args, **kwargs):
+        dm = None
+        if 'dm' in kwargs:
+            dm = kwargs.pop('dm')
+        if dm is not None:
+            s = self.build(name, *args, **kwargs)
+            assert isinstance(s, (constFractionalOrder, variableConstFractionalOrder,
+                                  constantNonSymFractionalOrder, singleVariableUnsymmetricFractionalOrder))
+            sVec = dm.interpolate(s.fixedY(np.zeros((dm.mesh.dim), dtype=REAL)))
+            return super().build('fe', sVec, s.min, s.max)
+        else:
+            return super().build(name, *args, **kwargs)
+
+
+fractionalOrderFactory = fractionalOrderFactoryClass()
 fractionalOrderFactory.register('constant', constFractionalOrder, aliases=['const'])
-fractionalOrderFactory.register('varConst', variableConstFractionalOrder, aliases=['constVar'])
+fractionalOrderFactory.register('varConst', variableConstFractionalOrder, aliases=['constVar', 'constantSym'])
 fractionalOrderFactory.register('leftRight', leftRightFractionalOrder, aliases=['twoDomain'])
 fractionalOrderFactory.register('linearLeftRightNonSym', linearLeftRightFractionalOrder)
 fractionalOrderFactory.register('smoothedLeftRight', smoothedLeftRightFractionalOrder, params={'r': 0.1, 'slope': 200.}, aliases=['twoDomainNonSym'])
@@ -72,6 +89,7 @@ fractionalOrderFactory.register('innerOuter', innerOuterFractionalOrder)
 fractionalOrderFactory.register('innerOuterNonSym', smoothedInnerOuterFractionalOrder)
 fractionalOrderFactory.register('islands', islandsFractionalOrder, params={'r': 0.1, 'r2': 0.6})
 fractionalOrderFactory.register('layers', layersFractionalOrder)
+fractionalOrderFactory.register('fe', feFractionalOrder)
 
 twoPointFunctionFactory = factory()
 twoPointFunctionFactory.register('constant', constantTwoPoint, aliases=['const', 'constantTwoPoint'])
@@ -110,25 +128,31 @@ class nonlocalMeshFactoryClass(factory):
         if 'skipMesh' in kwargs:
             skipMesh = kwargs.pop('skipMesh')
 
+        if kernel is None:
+            horizonValue = 0.
+        else:
+            horizonValue = kernel.horizon.value
+
         domainIndicator, boundaryIndicator, interactionIndicator = super(nonlocalMeshFactoryClass, self).build(name, **kwargs)
 
         if boundaryCondition == HOMOGENEOUS_DIRICHLET:
-            if kernel.horizon.value == np.inf:
-                if kernel.s.max < 0.5:
-                    tag = NO_BOUNDARY
-                else:
-                    tag = PHYSICAL
+            if horizonValue == np.inf:
+                # if kernel.s.max < 0.5:
+                #     tag = NO_BOUNDARY
+                # else:
+                #     tag = PHYSICAL
+                tag = PHYSICAL
                 zeroExterior = True
             else:
                 tag = domainIndicator
                 zeroExterior = False
-            hasInteractionDomain = kernel.horizon.value < np.inf
+            hasInteractionDomain = 0 < horizonValue < np.inf
         elif boundaryCondition == HOMOGENEOUS_NEUMANN:
             tag = NO_BOUNDARY
             zeroExterior = False
             hasInteractionDomain = False
         elif boundaryCondition == DIRICHLET:
-            if kernel.horizon.value == np.inf:
+            if horizonValue == np.inf:
                 if kernel.s.max < 0.5:
                     tag = NO_BOUNDARY
                 else:
@@ -137,9 +161,9 @@ class nonlocalMeshFactoryClass(factory):
             else:
                 tag = NO_BOUNDARY
             zeroExterior = False
-            hasInteractionDomain = True
+            hasInteractionDomain = 0 < horizonValue < np.inf
         elif boundaryCondition == NEUMANN:
-            if kernel.horizon.value == np.inf:
+            if horizonValue == np.inf:
                 assert False
             else:
                 tag = NO_BOUNDARY
@@ -154,8 +178,8 @@ class nonlocalMeshFactoryClass(factory):
 
         if not skipMesh:
             if hasInteractionDomain:
-                assert 0 < kernel.horizon.value < np.inf
-                kwargs['horizon'] = kernel.horizon.value
+                assert 0 < horizonValue < np.inf, horizonValue
+                kwargs['horizon'] = horizonValue
                 mesh = self.overlappingMeshFactory.build(name, noRef, **kwargs)
             else:
                 mesh = self.nonOverlappingMeshFactory.build(name, noRef, **kwargs)
@@ -260,6 +284,7 @@ class nonlocalBaseProblem(problem):
         self.addProperty('phiArgs')
         self.addProperty('admissibleParams')
         self.admissibleParams = None
+        self.feFractionalOrder = None
 
     def setDriverArgs(self):
         p = self.driver.addGroup('kernel')
@@ -288,6 +313,7 @@ class nonlocalBaseProblem(problem):
         self.setDriverFlag('phi', 'const(1.)', argInterpreter=self.argInterpreter(['const', 'twoDomain', 'twoDomainNonSym', 'tempered']),
                            help='kernel coefficient', group=p)
         self.setDriverFlag('normalized', True, help='kernel normalization', group=p)
+        self.setDriverFlag('discretizedOrder', False, help='Use a FE function for the fractional order s.')
 
     def processCmdline(self, params):
         dim = nonlocalMeshFactory.getDim(params['domain'])
@@ -349,8 +375,13 @@ class nonlocalBaseProblem(problem):
     def getDim(self, domain):
         self.dim = nonlocalMeshFactory.getDim(domain)
 
+    @generates('dmAux')
+    def constructAuxiliarySpace(self):
+        self.dmAux = None
+
     @generates(['kernel', 'rangedKernel'])
-    def processKernel(self, dim, kernelType, sType, sArgs, phiType, phiArgs, horizon, interaction, normalized, admissibleParams):
+    def processKernel(self, dim, kernelType, sType, sArgs, phiType, phiArgs, horizon, interaction, normalized, admissibleParams,
+                      discretizedOrder, dmAux, feFractionalOrder):
 
         if kernelType == 'local':
             self.kernel = None
@@ -382,11 +413,26 @@ class nonlocalBaseProblem(problem):
             self.rangedKernel = None
 
         if kType == FRACTIONAL:
-            try:
-                sFun = fractionalOrderFactory(sType, *sArgs)
-            except TypeError:
-                sArgs = (sArgs, )
-                sFun = fractionalOrderFactory(sType, *sArgs)
+            if feFractionalOrder is None:
+                if isinstance(sArgs, dict):
+                    if discretizedOrder:
+                        sFun = fractionalOrderFactory(sType, dm=dmAux, **sArgs)
+                    else:
+                        sFun = fractionalOrderFactory(sType, **sArgs)
+                else:
+                    try:
+                        if discretizedOrder:
+                            sFun = fractionalOrderFactory(sType, *sArgs, dm=dmAux)
+                        else:
+                            sFun = fractionalOrderFactory(sType, *sArgs)
+                    except TypeError:
+                        sArgs = (sArgs, )
+                        if discretizedOrder:
+                            sFun = fractionalOrderFactory(sType, *sArgs, dm=dmAux)
+                        else:
+                                sFun = fractionalOrderFactory(sType, *sArgs)
+            else:
+                sFun = deepcopy(feFractionalOrder)
         else:
             sFun = None
 
@@ -491,12 +537,35 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
             params['noRef'] = noRef
         super().processCmdline(params)
 
+    @generates('domainParams')
+    def getDomainParams(self, domain):
+        meshParams = {}
+        if domain == 'interval':
+            radius = 1.
+            meshParams.update({'a': -radius, 'b': radius})
+        elif domain == 'disconnectedInterval':
+            meshParams['sep'] = 0.1
+        elif domain == 'disc':
+            radius = 1.
+            meshParams.update({'h': 0.78, 'radius': radius})
+        elif domain == 'square':
+            meshParams.update({'N': 3, 'ax': -1, 'ay': -1, 'bx': 1, 'by': 1})
+        elif domain == 'Lshape':
+            pass
+        elif domain == 'cutoutCircle':
+            meshParams.update({'radius': 1., 'cutoutAngle': np.pi/2.})
+        elif domain == 'ball':
+            pass
+        else:
+            raise NotImplementedError(domain)
+        self.domainParams = meshParams
+
     @generates(['analyticSolution', 'exactHsSquared', 'exactL2Squared', 'rhs',
                 'mesh_domain', 'mesh_params', 'tag', 'boundaryCondition',
                 'domainIndicator', 'interactionIndicator', 'fluxIndicator',
                 'zeroExterior',
                 'rhsData', 'dirichletData', 'fluxData'])
-    def processProblem(self, kernel, dim, domain, problem, normalized):
+    def processProblem(self, kernel, dim, domain, domainParams, problem, normalized):
         s = kernel.s
         self.analyticSolution = None
         self.exactHsSquared = None
@@ -505,10 +574,8 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
         assert normalized
 
         boundaryCondition = HOMOGENEOUS_DIRICHLET
-        meshParams = {'kernel': kernel}
         if domain == 'interval':
             radius = 1.
-            meshParams.update({'a': -radius, 'b': radius})
 
             if problem == 'constant':
                 self.rhs = constant(1.)
@@ -580,15 +647,12 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
             else:
                 raise NotImplementedError(problem)
         elif domain == 'disconnectedInterval':
-            meshParams['sep'] = 0.1
-
             if problem == 'constant':
                 self.rhs = Lambda(lambda x: 1. if x[0] > 0.5 else 0.)
             else:
                 raise NotImplementedError(problem)
         elif domain == 'disc':
             radius = 1.
-            meshParams.update({'h': 0.78, 'radius': radius})
 
             if problem == 'constant':
                 self.rhs = constant(1.)
@@ -645,8 +709,6 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
             else:
                 raise NotImplementedError(problem)
         elif domain == 'square':
-            meshParams.update({'N': 3, 'ax': -1, 'ay': -1, 'bx': 1, 'by': 1})
-
             if problem == 'constant':
                 self.rhs = constant(1.)
             elif problem == 'sin':
@@ -664,8 +726,6 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
             else:
                 raise NotImplementedError(problem)
         elif domain == 'cutoutCircle':
-            meshParams.update({'radius': 1., 'cutoutAngle': np.pi/2.})
-
             if problem == 'constant':
                 self.rhs = constant(1.)
             elif problem == 'sin':
@@ -687,6 +747,8 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
             raise NotImplementedError(domain)
 
         mesh_domain = domain
+        meshParams = {'kernel': kernel}
+        meshParams.update(domainParams)
         self.boundaryCondition = meshParams['boundaryCondition'] = boundaryCondition
         meshParams['useMulti'] = self.useMulti
         self.mesh_domain = mesh_domain
@@ -695,7 +757,10 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
         self.tag = nI['tag']
         self.domainIndicator = nI['domain']
         self.interactionIndicator = nI['interaction']+nI['boundary']
-        self.fluxIndicator = functionFactory('constant', 0.)
+        if boundaryCondition in (NEUMANN, HOMOGENEOUS_NEUMANN):
+            self.fluxIndicator = self.interactionIndicator
+        else:
+            self.fluxIndicator = functionFactory('constant', 0.)
         self.zeroExterior = nI['zeroExterior']
         self.dirichletData = None
         self.fluxData = None
@@ -725,6 +790,19 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
     def buildMesh(self, mesh_domain, mesh_params):
         self.mesh, _ = nonlocalMeshFactory.build(mesh_domain, **mesh_params)
 
+    @generates('dmAux')
+    def constructAuxiliarySpace(self, dim, domain, domainParams, kernelType, horizon):
+        # This is not the actual kernel that we use.
+        # We just need something to get a mesh to support the fractional order.
+        kType = getKernelEnum(kernelType)
+        if kType == FRACTIONAL:
+            sFun = fractionalOrderFactory('const', 0.75)
+            kernel = getKernel(dim=dim, kernel=kType, s=sFun, horizon=horizon)
+        else:
+            kernel = getKernel(dim=dim, kernel=kType, horizon=horizon)
+        mesh, _ = nonlocalMeshFactory(domain, kernel=kernel, boundaryCondition=HOMOGENEOUS_DIRICHLET, **domainParams)
+        self.dmAux = dofmapFactory('P1', mesh, NO_BOUNDARY)
+
     def getIdentifier(self, params):
         keys = ['domain', 'problem', 's', 'noRef', 'element', 'adaptive']
         d = []
@@ -741,10 +819,11 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
         super().setDriverArgs()
         self.setDriverFlag('domain', 'interval', acceptedValues=['gradedInterval', 'square', 'disc', 'gradedDisc', 'discWithIslands'], help='spatial domain')
         self.addParametrizedArg('indicator', [float, float])
+        self.addParametrizedArg('polynomial', [int])
         self.setDriverFlag('problem', 'poly-Dirichlet',
-                           argInterpreter=self.argInterpreter(['indicator'], acceptedValues=['poly-Dirichlet', 'poly-Dirichlet2', 'poly-Dirichlet3',
-                                                                                             'poly-Neumann', 'zeroFlux', 'source', 'constant',
-                                                                                             'exact-sin-Dirichlet', 'exact-sin-Neumann', 'discontinuous']),
+                           argInterpreter=self.argInterpreter(['indicator', 'polynomial'], acceptedValues=['poly-Dirichlet', 'polynomial', 'poly-Dirichlet2', 'poly-Dirichlet3',
+                                                                                                           'poly-Neumann', 'zeroFlux', 'source', 'constant',
+                                                                                                           'exact-sin-Dirichlet', 'exact-sin-Neumann', 'discontinuous']),
                            help="select a problem to solve")
         self.setDriverFlag('noRef', argInterpreter=int)
         self.setDriverFlag('element', acceptedValues=['P1', 'P0', 'P2'], help="finite element space")
@@ -811,6 +890,44 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                 self.dirichletData = Lambda(lambda x: 1-x[0]**2)
                 if ((kType == FRACTIONAL and isinstance(sFun, constFractionalOrder)) or kType in (INDICATOR, PERIDYNAMIC, GAUSSIAN)) and phiFun is None and normalized:
                     self.analyticSolution = Lambda(lambda x: 1-x[0]**2)
+            elif self.parametrizedArg('polynomial').match(problem):
+                self.domainIndicator = domainIndicator
+                self.fluxIndicator = constant(0)
+                self.interactionIndicator = interactionIndicator+boundaryIndicator
+                self.fluxData = constant(0)
+                polyOrder = self.parametrizedArg('polynomial').interpret(problem)[0]
+                knownSolution = (((kType == FRACTIONAL and isinstance(sFun, (constFractionalOrder, variableConstFractionalOrder, singleVariableUnsymmetricFractionalOrder))) or
+                                  (kType in (INDICATOR, PERIDYNAMIC, GAUSSIAN))) and
+                                 phiFun is None and
+                                 normalized and
+                                 0 <= polyOrder <= 3)
+                if polyOrder == 0:
+                    self.rhsData = functionFactory('constant', 0.)
+                    self.dirichletData = functionFactory('constant', 1.)
+                    if knownSolution:
+                        self.analyticSolution = self.dirichletData
+                elif polyOrder == 1:
+                    self.rhsData = functionFactory('constant', 0.)
+                    self.dirichletData = functionFactory('x0')
+                    if knownSolution:
+                        self.analyticSolution = self.dirichletData
+                elif polyOrder == 2:
+                    self.rhsData = functionFactory('constant', -2)
+                    self.dirichletData = functionFactory('x0**2')
+                    if knownSolution:
+                        self.analyticSolution = self.dirichletData
+                elif polyOrder == 3:
+                    self.rhsData = -6*functionFactory('x0')
+                    self.dirichletData = functionFactory('x0**3')
+                    if knownSolution:
+                        self.analyticSolution = self.dirichletData
+                else:
+                    self.rhsData = functionFactory('Lambda', lambda x: -polyOrder*(polyOrder-1)*x[0]**(polyOrder-2))
+                    self.dirichletData = functionFactory('Lambda', lambda x: x[0]**polyOrder)
+                    if knownSolution:
+                        self.analyticSolution = self.dirichletData
+
+
             elif problem == 'exact-sin-Dirichlet':
                 assert ((kType == INDICATOR) or (kType == FRACTIONAL)) and phiFun is None and normalized
 
@@ -1142,19 +1259,23 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
             s = kernel.s
 
             if dim == 1:
-                self.eta = 1.
                 if target_order <= 0.:
                     if s is not None:
                         target_order = (1+element-s.min)/dim
                     else:
                         target_order = 2.
             else:
-                self.eta = 3.
                 if self.target_order <= 0.:
                     target_order = 1/dim
                 if element == 2:
                     raise NotImplementedError()
             self.directlySetWithoutChecks('target_order', target_order)
+        else:
+            if target_order <= 0.:
+                target_order = 2/dim
+                self.directlySetWithoutChecks('target_order', target_order)
+        if dim == 1:
+            self.eta = 1.
         else:
             self.eta = 3.
 
@@ -1187,8 +1308,8 @@ class transientFractionalProblem(fractionalLaplacianProblem):
                 'rhs', 'rhsData', 'dirichletData',
                 'analyticSolution', 'exactL2Squared', 'exactHsSquared',
                 'initial'])
-    def processProblem(self, kernel, dim, domain, problem, normalized):
-        super().processProblem(kernel, dim, domain, problem, normalized)
+    def processProblem(self, kernel, dim, domain, domainParams, problem, normalized):
+        super().processProblem(kernel, dim, domain, domainParams, problem, normalized)
 
         steadyStateRHS = self.rhs
         steadyStateRHSdata = self.rhsData

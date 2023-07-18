@@ -92,3 +92,18 @@ cdef class {SCALAR_label}Product_Linear_Operator({SCALAR_label}LinearOperator):
                                       {SCALAR}_t[::1] rhs,
                                       {SCALAR}_t[::1] result,
                                       BOOL_t simpleResidual=*)
+
+
+cdef class {SCALAR_label}VectorLinearOperator:
+    cdef:
+        public INDEX_t num_rows, num_columns, vectorSize
+        {SCALAR}_t[::1] _diagonal
+    cdef INDEX_t matvec(self,
+                        {SCALAR}_t[::1] x,
+                        {SCALAR}_t[:, ::1] y) except -1
+    cdef INDEX_t matvec_no_overwrite(self,
+                                     {SCALAR}_t[::1] x,
+                                     {SCALAR}_t[:, ::1] y) except -1
+    cdef void addToEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val)
+    cdef void getEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val)
+    cdef void setEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val)

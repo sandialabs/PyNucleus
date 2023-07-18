@@ -48,6 +48,11 @@ cdef class meshBase:
                              REAL_t[:, ::1] simplexMem,
                              REAL_t[::1] baryMem,
                              REAL_t tol=*)
+    cdef BOOL_t vertexInCellPtr(self, REAL_t* vertex,
+                                INDEX_t cellNo,
+                                REAL_t[:, ::1] simplexMem,
+                                REAL_t[::1] baryMem,
+                                REAL_t tol=*)
 
 
 cdef void decode_edge(ENCODE_t encodeVal, INDEX_t[::1] e)
@@ -119,6 +124,7 @@ cdef class cellFinder2:
         INDEX_t[::1] key
         intTuple myKey
     cdef INDEX_t findCell(self, REAL_t[::1] vertex)
+    cdef INDEX_t findCellPtr(self, REAL_t* vertex)
 
 cdef void getBarycentricCoords1D(REAL_t[:, ::1] simplex, REAL_t[::1] x, REAL_t[::1] bary)
 cdef void getBarycentricCoords2D(REAL_t[:, ::1] simplex, REAL_t[::1] x, REAL_t[::1] bary)

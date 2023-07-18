@@ -22,6 +22,15 @@ cdef class {SCALAR_label}diagonalOperator({SCALAR_label}LinearOperator):
             y[i] = self.data[i]*x[i]
         return 0
 
+    cdef INDEX_t matvec_no_overwrite(self,
+                                     {SCALAR}_t[::1] x,
+                                     {SCALAR}_t[::1] y) except -1:
+        cdef:
+            INDEX_t i
+        for i in range(self.num_rows):
+            y[i] += self.data[i]*x[i]
+        return 0
+
     cdef {SCALAR}_t getEntry(self, INDEX_t I, INDEX_t J):
         if I == J:
             return self.data[I]

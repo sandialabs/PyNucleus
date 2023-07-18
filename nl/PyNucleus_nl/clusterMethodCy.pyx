@@ -1911,7 +1911,7 @@ cdef class productIterator:
         return True
 
 
-def assembleFarFieldInteractions(FractionalKernel kernel, dict Pfar, INDEX_t m, DoFMap dm):
+def assembleFarFieldInteractions(Kernel kernel, dict Pfar, INDEX_t m, DoFMap dm):
     cdef:
         INDEX_t lvl
         REAL_t[:, ::1] box1, box2, x, y

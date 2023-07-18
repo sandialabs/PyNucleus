@@ -29,6 +29,8 @@ from PyNucleus_base.sparsityPattern cimport sparsityPattern
 from PyNucleus_base.linear_operators cimport (CSR_LinearOperator,
                                               SSS_LinearOperator,
                                               Dense_LinearOperator,
+                                              VectorLinearOperator,
+                                              Dense_VectorLinearOperator,
                                               Dense_SubBlock_LinearOperator,
                                               diagonalOperator,
                                               TimeStepperLinearOperator,
@@ -42,8 +44,8 @@ from . fractionalOrders cimport (fractionalOrderBase,
                                  constFractionalOrder,
                                  piecewiseConstantFractionalOrder,
                                  variableFractionalOrder,
-                                 singleVariableUnsymmetricFractionalOrder,
-                                 variableFractionalLaplacianScaling)
+                                 singleVariableUnsymmetricFractionalOrder)
+from . kernelNormalization cimport variableFractionalLaplacianScaling
 from . kernels import getFractionalKernel
 from . clusterMethodCy import (assembleFarFieldInteractions,
                                getDoFBoxesAndCells,
@@ -618,6 +620,98 @@ cdef class IndexManager:
         return s
 
 
+cdef class IndexManagerVector(IndexManager):
+    cdef:
+        VectorLinearOperator vecA
+        INDEX_t vectorSize
+
+    def __init__(self, DoFMap dm, VectorLinearOperator A=None, cellPairIdentifierSize=1, indexSet myDofs=None, sparsityPattern sP=None):
+        super(IndexManagerVector, self).__init__(dm, None, cellPairIdentifierSize, myDofs, sP)
+        self.vecA = A
+        self.vectorSize = A.vectorSize
+
+    cdef inline void addToMatrixElemSymVector(self, REAL_t[:, ::1] contrib, REAL_t fac):
+        cdef:
+            INDEX_t k, p, q, I, J
+        for p in range(contrib.shape[0]):
+            for q in range(self.vectorSize):
+                contrib[p, q] *= fac
+        k = 0
+        for p in range(self.dm.dofs_per_element):
+            I = self.localDoFs[p]
+            if I >= 0:
+                self.vecA.addToEntry(I, I, contrib[k, :])
+                k += 1
+                for q in range(p+1, self.dm.dofs_per_element):
+                    J = self.localDoFs[q]
+                    if J >= 0:
+                        self.vecA.addToEntry(I, J, contrib[k, :])
+                        self.vecA.addToEntry(J, I, contrib[k, :])
+                    k += 1
+            else:
+                k += self.dm.dofs_per_element-p
+
+    cdef inline void addToMatrixElemVector(self, REAL_t[:, ::1] contrib, REAL_t fac):
+        cdef:
+            INDEX_t k, p, q, I, J
+        for p in range(contrib.shape[0]):
+            for q in range(self.vectorSize):
+                contrib[p, q] *= fac
+        k = 0
+        for p in range(self.dm.dofs_per_element):
+            I = self.localDoFs[p]
+            if I >= 0:
+                for q in range(self.dm.dofs_per_element):
+                    J = self.localDoFs[q]
+                    if J >= 0:
+                        self.vecA.addToEntry(I, J, contrib[k, :])
+                    k += 1
+            else:
+                k += self.dm.dofs_per_element
+
+    cdef inline void addToMatrixElemElemSymVector(self, REAL_t[:, ::1] contrib, REAL_t fac):
+        # Add symmetric 'contrib' to elements i and j in symmetric fashion
+        cdef:
+            INDEX_t k, p, q, I, J
+        for p in range(contrib.shape[0]):
+            for q in range(self.vectorSize):
+                contrib[p, q] *= fac
+        k = 0
+        for p in range(2*self.dm.dofs_per_element):
+            I = self.localDoFs[p]
+            if I >= 0:
+                self.vecA.addToEntry(I, I, contrib[k, :])
+                k += 1
+                for q in range(p+1, 2*self.dm.dofs_per_element):
+                    J = self.localDoFs[q]
+                    if J >= 0:
+                        self.vecA.addToEntry(I, J, contrib[k, :])
+                        self.vecA.addToEntry(J, I, contrib[k, :])
+                    k += 1
+            else:
+                k += 2*self.dm.dofs_per_element-p
+
+    cdef inline void addToMatrixElemElemVector(self, REAL_t[:, ::1] contrib, REAL_t fac):
+        # Add general 'contrib' to elements i and j
+        cdef:
+            INDEX_t k, p, q, I, J
+        for p in range(contrib.shape[0]):
+            for q in range(self.vectorSize):
+                contrib[p, q] *= fac
+        k = 0
+        for p in range(2*self.dm.dofs_per_element):
+            I = self.localDoFs[p]
+            if I >= 0:
+                for q in range(2*self.dm.dofs_per_element):
+                    J = self.localDoFs[q]
+                    if J >= 0:
+                        self.vecA.addToEntry(I, J, contrib[k, :])
+                    k += 1
+            else:
+                k += 2*self.dm.dofs_per_element
+
+
+
 # These functions are used by getEntry
 
 cdef inline MASK_t getElemSymMask(DoFMap DoFMap, INDEX_t cellNo1, INDEX_t I, INDEX_t J):
@@ -758,6 +852,7 @@ cdef class nonlocalBuilder:
         else:
             self.contribZeroExterior = uninitialized((0), dtype=REAL)
 
+
         if PLogger is not None:
             self.PLogger = PLogger
         else:
@@ -851,7 +946,30 @@ cdef class nonlocalBuilder:
             else:
                 raise NotImplementedError()
         else:
-            local_matrix = None
+            assert isinstance(self.kernel.horizon, constant)
+            if infHorizon:
+                kernelInfHorizon = self.kernel.getModifiedKernel(horizon=constant(np.inf))
+            else:
+                kernelInfHorizon = self.kernel
+            if quadType == 'classical-refactored':
+                kernelBoundary = kernelInfHorizon.getBoundaryKernel()
+                if self.mesh.dim == 1:
+                    local_matrix = fractionalLaplacian1D_boundary(kernelBoundary,
+                                                                  mesh=self.mesh,
+                                                                  DoFMap=self.dm,
+                                                                  target_order=target_order)
+                elif self.mesh.dim == 2:
+                    if not isinstance(self.dm, Product_DoFMap):
+                        local_matrix = fractionalLaplacian2D_boundary(kernelBoundary,
+                                                                      mesh=self.mesh,
+                                                                      DoFMap=self.dm,
+                                                                      target_order=target_order)
+                    else:
+                        raise NotImplementedError()
+                else:
+                    raise NotImplementedError()
+            else:
+                local_matrix = None
         return local_matrix
 
     def getSparse(self, BOOL_t returnNearField=False, str prefix=''):
@@ -1226,6 +1344,113 @@ cdef class nonlocalBuilder:
                 return CSR_LinearOperator.from_dense(A)
             else:
                 LOGGER.warning('Not converting dense to sparse matrix, since only {}% of entries are zero.'.format(100.*ratio))
+        return A
+
+    def getDenseVector(self, BOOL_t trySparsification=False):
+        cdef:
+            INDEX_t cellNo1, cellNo2
+            VectorLinearOperator A = None
+            REAL_t[:, ::1] contrib = self.contribVector, contribZeroExterior = self.contribZeroExteriorVector
+            INDEX_t start, end
+            meshBase surface
+            IndexManagerVector iM
+            INDEX_t i, j, explicitZerosRow
+            np.int64_t explicitZeros
+            REAL_t[:, ::1] data
+            REAL_t sparsificationThreshold = 0.8
+            BOOL_t symmetricLocalMatrix = self.local_matrix.symmetricLocalMatrix
+            BOOL_t symmetricCells = self.local_matrix.symmetricCells
+            MASK_t mask
+
+        if self.comm:
+            start = <INDEX_t>np.ceil(self.mesh.num_cells*self.comm.rank/self.comm.size)
+            end = <INDEX_t>np.ceil(self.mesh.num_cells*(self.comm.rank+1)/self.comm.size)
+        else:
+            start = 0
+            end = self.mesh.num_cells
+
+
+        if self.dm2 is None:
+            A = Dense_VectorLinearOperator(np.zeros((self.dm.num_dofs, self.dm.num_dofs, self.kernel.vectorSize), dtype=REAL))
+        else:
+            A = Dense_VectorLinearOperator(np.zeros((self.dm.num_dofs, self.dm2.num_dofs, self.kernel.vectorSize), dtype=REAL))
+
+        if self.dm2 is None:
+            iM = IndexManagerVector(self.dm, A)
+        else:
+            LOGGER.warning('Efficiency of assembly with 2 DoFMaps is bad.')
+            dmCombined = self.dm.combine(self.dm2)
+            B = SubMatrixAssemblyOperator(A,
+                                          np.arange(self.dm.num_dofs, dtype=INDEX),
+                                          np.arange(self.dm.num_dofs, self.dm.num_dofs+self.dm2.num_dofs, dtype=INDEX))
+            iM = IndexManagerVector(dmCombined, B)
+
+        # Omega x Omega
+        with self.PLogger.Timer('interior'):
+            for cellNo1 in range(start, end):
+                self.local_matrix.setCell1(cellNo1)
+                for cellNo2 in range(cellNo1, self.mesh.num_cells):
+                    self.local_matrix.setCell2(cellNo2)
+                    if iM.getDoFsElemElem(cellNo1, cellNo2):
+                        continue
+                    panel = self.local_matrix.getPanelType()
+                    if cellNo1 == cellNo2:
+                        if panel != IGNORED:
+                            self.local_matrix.evalVector(contrib, panel)
+                            if symmetricLocalMatrix:
+                                iM.addToMatrixElemElemSymVector(contrib, 1.)
+                            else:
+                                iM.addToMatrixElemElemVector(contrib, 1.)
+                    else:
+                        if symmetricCells:
+                            if panel != IGNORED:
+                                self.local_matrix.evalVector(contrib, panel)
+                                # If the kernel is symmetric, the contributions from (cellNo1, cellNo2) and (cellNo2, cellNo1)
+                                # are the same. We multiply by 2 to account for the contribution from cells (cellNo2, cellNo1).
+                                if symmetricLocalMatrix:
+                                    iM.addToMatrixElemElemSymVector(contrib, 2.)
+                                else:
+                                    iM.addToMatrixElemElemVector(contrib, 2.)
+                        else:
+                            if panel != IGNORED:
+                                self.local_matrix.evalVector(contrib, panel)
+                                if symmetricLocalMatrix:
+                                    iM.addToMatrixElemElemSymVector(contrib, 1.)
+                                else:
+                                    iM.addToMatrixElemElemVector(contrib, 1.)
+                            self.local_matrix.swapCells()
+                            panel = self.local_matrix.getPanelType()
+                            if panel != IGNORED:
+                                if iM.getDoFsElemElem(cellNo2, cellNo1):
+                                    continue
+                                self.local_matrix.evalVector(contrib, panel)
+                                if symmetricLocalMatrix:
+                                    iM.addToMatrixElemElemSymVector(contrib, 1.)
+                                else:
+                                    iM.addToMatrixElemElemVector(contrib, 1.)
+                            self.local_matrix.swapCells()
+
+        # Omega x Omega^C
+        if self.zeroExterior:
+            with self.PLogger.Timer('zeroExterior'):
+                surface = self.mesh.get_surface_mesh()
+
+                self.local_matrix_zeroExterior.setMesh2(surface)
+
+                for cellNo1 in range(start, end):
+                    iM.getDoFsElem(cellNo1)
+                    mask = iM.getElemSymMask()
+                    self.local_matrix_zeroExterior.setCell1(cellNo1)
+                    for cellNo2 in range(surface.num_cells):
+                        self.local_matrix_zeroExterior.setCell2(cellNo2)
+                        panel = self.local_matrix_zeroExterior.getPanelType()
+                        self.local_matrix_zeroExterior.evalVector(contribZeroExterior, panel, mask)
+                        # if local_matrix_zeroExterior.symmetricLocalMatrix:
+                        iM.addToMatrixElemSymVector(contribZeroExterior, 1.)
+                        # else:
+                        #     raise NotImplementedError()
+        if self.comm:
+            self.comm.Allreduce(MPI.IN_PLACE, A.data)
         return A
 
     cpdef REAL_t getEntryCluster(self, INDEX_t I, INDEX_t J):
@@ -1627,7 +1852,10 @@ cdef class nonlocalBuilder:
                             vol = 2*np.pi * self.kernel.horizonValue
                         else:
                             raise NotImplementedError()
-                        coeff = constant(-vol*self.kernel.scalingValue*pow(self.kernel.horizonValue, 1-self.mesh.dim-2*self.kernel.sValue)/self.kernel.sValue)
+                        x = np.zeros((self.mesh.dim), dtype=REAL)
+                        y = np.zeros((self.mesh.dim), dtype=REAL)
+                        y[0] = self.kernel.horizonValue
+                        coeff = constant(-vol*self.local_matrix_zeroExterior.kernel(x, y))
                         qr = simplexXiaoGimbutas(2, self.mesh.dim)
                         if self.mesh.dim == 1:
                             mass = mass_1d_sym_scalar_anisotropic(coeff, self.dm, qr)
@@ -2447,7 +2675,6 @@ cdef class nonlocalBuilder:
         cdef:
             meshBase mesh = self.mesh
             DoFMap DoFMap = self.dm
-            fractionalOrderBase s = self.kernel.s
             REAL_t[:, :, ::1] boxes = None, local_boxes
             sparseGraph cells = None
             REAL_t[:, ::1] coords = None
@@ -2457,16 +2684,8 @@ cdef class nonlocalBuilder:
             BOOL_t forceUnsymmetric, doDistributedAssembly = False, assembleOnRoot = True, localFarFieldIndexing = False
             refinementParams refParams
             CSR_LinearOperator lclR
-        assert isinstance(self.kernel, FractionalKernel), 'H2 is only implemented for fractional kernels'
 
         refParams = self.getH2RefinementParams()
-
-        LOGGER.info('interpolation_order: {}, maxLevels: {}, minClusterSize: {}, minMixedClusterSize: {}, minFarFieldBlockSize: {}, eta: {}'.format(refParams.interpolation_order,
-                                                                                                                                                    refParams.maxLevels,
-                                                                                                                                                    refParams.minSize,
-                                                                                                                                                    refParams.minMixedSize,
-                                                                                                                                                    refParams.farFieldInteractionSize,
-                                                                                                                                                    refParams.eta))
 
         forceUnsymmetric = self.params.get('forceUnsymmetric', False)
         doDistributedAssembly = self.comm is not None and self.comm.size > 1 and DoFMap.num_dofs > self.comm.size
@@ -2491,6 +2710,13 @@ cdef class nonlocalBuilder:
             lenPfar = self.comm.bcast(lenPfar)
 
         if lenPfar > 0:
+            LOGGER.info('interpolation_order: {}, maxLevels: {}, minClusterSize: {}, minMixedClusterSize: {}, minFarFieldBlockSize: {}, eta: {}'.format(refParams.interpolation_order,
+                                                                                                                                                    refParams.maxLevels,
+                                                                                                                                                    refParams.minSize,
+                                                                                                                                                    refParams.minMixedSize,
+                                                                                                                                                    refParams.farFieldInteractionSize,
+                                                                                                                                                    refParams.eta))
+
             # get near field matrix
             with self.PLogger.Timer('near field'):
                 Anear = self.assembleClusters(Pnear, jumps=jumps, forceUnsymmetric=forceUnsymmetric, myRoot=myRoot, doDistributedAssembly=doDistributedAssembly)
@@ -2503,12 +2729,12 @@ cdef class nonlocalBuilder:
 
             with self.PLogger.Timer('leaf values'):
                 # get leave values
-                if (s.min > 0) and (s.max < 1):
+                if self.kernel.max_singularity > -self.kernel.dim-2:
                     if not localFarFieldIndexing:
                         root.enterLeafValues(mesh, DoFMap, refParams.interpolation_order, boxes, self.comm, assembleOnRoot=assembleOnRoot)
                     else:
                         myRoot.enterLeafValues(mesh, local_dm, refParams.interpolation_order, local_boxes, local=True)
-                elif (s.min > 1) and (s.max < 2):
+                elif (self.kernel.min_singularity < -self.kernel.dim-2) and (self.kernel.max_singularity > -self.kernel.dim-4):
                     if not localFarFieldIndexing:
                         root.enterLeafValuesGrad(mesh, DoFMap, refParams.interpolation_order, boxes, self.comm)
                     else:
@@ -2536,14 +2762,13 @@ cdef class nonlocalBuilder:
                             h2 = DistributedH2Matrix_localData(local_h2, Pnear, self.comm, self.dm, local_dm, lclR, lclP)
             else:
                 h2 = nullOperator(self.dm.num_dofs, self.dm.num_dofs)
-
+            LOGGER.info('{}'.format(h2))
         elif len(Pnear) == 0:
             h2 = nullOperator(self.dm.num_dofs, self.dm.num_dofs)
         else:
-            LOGGER.info('Near field pairs: {}, far field pairs: {}, tree nodes: {}'.format(len(Pnear), lenPfar, root.nodes))
+            LOGGER.info('Cannot assemble H2 operator, assembling dense matrix instead')
             with self.PLogger.Timer('dense operator'):
                 h2 = self.getDense()
-        LOGGER.info('{}'.format(h2))
         if returnNearField:
             if returnTree:
                 return h2, Pnear, root

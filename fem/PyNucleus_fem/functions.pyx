@@ -173,6 +173,16 @@ cdef class constant(function):
     def __repr__(self):
         return '{}'.format(self.value)
 
+    def __eq__(self, other):
+        cdef:
+            constant o
+        if isinstance(other, constant):
+            o = other
+            return self.value == o.value
+        else:
+            return False
+
+
 
 cdef class monomial(function):
     cdef:
@@ -1284,6 +1294,24 @@ cdef class radialIndicator(function):
                 r += (x[i]-self.center[i])*(x[i]-self.center[i])
         return r <= self.radius
 
+    def __eq__(self, other):
+        cdef:
+            radialIndicator o
+            INDEX_t i
+        if isinstance(other, radialIndicator):
+            o = other
+            if self.radius != o.radius:
+                return False
+            if self.centerIsOrigin != o.centerIsOrigin:
+                return False
+            for i in range(self.center.shape[0]):
+                if not self.center[i] == o.center[i]:
+                    return False
+            return True
+        else:
+            return False
+
+
 
 cdef class squareIndicator(function):
     cdef REAL_t[::1] a, b
@@ -1299,6 +1327,21 @@ cdef class squareIndicator(function):
             if (x[i] < self.a[i]) or (x[i] > self.b[i]):
                 return False
         return True
+
+    def __eq__(self, other):
+        cdef:
+            squareIndicator o
+            INDEX_t i
+        if isinstance(other, squareIndicator):
+            o = other
+            for i in range(self.a.shape[0]):
+                if self.a[i] != o.a[i]:
+                    return False
+                if self.b[i] != o.b[i]:
+                    return False
+            return True
+        else:
+            return False
 
 
 cdef class proj(function):

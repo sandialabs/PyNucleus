@@ -34,6 +34,8 @@ cdef class Kernel(twoPointFunction):
         public BOOL_t variableScaling
         public BOOL_t variable
         public BOOL_t piecewise
+        public BOOL_t boundary
+        public INDEX_t vectorSize
         kernel_fun_t kernelFun
         void *c_kernel_params
     cdef REAL_t getSingularityValue(self)
@@ -46,13 +48,15 @@ cdef class Kernel(twoPointFunction):
     cdef void evalParams(self, REAL_t[::1] x, REAL_t[::1] y)
     cdef void evalParamsPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y)
     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y)
+    cdef void evalVector(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] vec)
+    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y)
+    cdef void evalVectorPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, INDEX_t vectorSize, REAL_t* vec)
 
 
 cdef class FractionalKernel(Kernel):
     cdef:
         public fractionalOrderBase s
         public BOOL_t variableOrder
-        public BOOL_t boundary
         public INDEX_t derivative
     cdef REAL_t getsValue(self)
     cdef void setsValue(self, REAL_t s)

@@ -87,6 +87,10 @@ cdef class double_local_matrix_t:
                    REAL_t[::1] contrib,
                    panelType panel,
                    MASK_t mask=*)
+    cdef void evalVector(self,
+                         REAL_t[:, ::1] contrib,
+                         panelType panel,
+                         MASK_t mask=*)
     cdef panelType getQuadOrder(self,
                                 const REAL_t h1,
                                 const REAL_t h2,

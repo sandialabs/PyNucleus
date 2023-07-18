@@ -21,8 +21,7 @@ from PyNucleus_fem.quadrature import simplexXiaoGimbutas
 from PyNucleus_fem.DoFMaps import Product_DoFMap
 from PyNucleus_multilevelSolver import hierarchyManager
 from copy import copy
-from . helpers import (multilevelDirichletCondition,
-                       paramsForFractionalHierarchy)
+from . helpers import paramsForFractionalHierarchy
 from . fractionalOrders import singleVariableUnsymmetricFractionalOrder
 from . kernelsCy import FRACTIONAL
 from . nonlocalProblems import (DIRICHLET,
@@ -352,18 +351,49 @@ class discretizedNonlocalProblem(problem):
         self.setDriverFlag('matrixFormat', acceptedValues=['H2', 'sparse', 'sparsified', 'dense'], help='matrix format')
         self.setDriverFlag('debugAssemblyTimes', False)
 
-    def processCmdline(self, params):
-        matrixFormat = params['matrixFormat']
-        kernelType = params['kernelType']
-        if matrixFormat.upper() == 'H2' and kernelType != 'fractional':
-            matrixFormat = 'sparse'
-            params['matrixFormat'] = matrixFormat
-        super().processCmdline(params)
+    @generates(['meshHierarchy', 'finalMesh',
+                'dm', 'dmBC', 'dmInterior',
+                'R_interior', 'P_interior',
+                'R_bc', 'P_bc'])
+    def buildMeshHierarchy(self, mesh, solverType, domainIndicator, fluxIndicator, noRef, element):
+        with self.timer('hierarchy - meshes'):
+            params = {}
+            params['domain'] = mesh
+            params['solver'] = solverType
+            params['tag'] = domainIndicator+fluxIndicator
+            params['element'] = element
+            params['keepMeshes'] = 'all'
+            params['keepAllDoFMaps'] = True
+            params['buildMass'] = True
+            params['assemble'] = 'restrictionProlongation' if solverType.find('mg') >= 0 else 'dofmap only last'
+            params['logging'] = True
+            if self.debugAssemblyTimes:
+                from PyNucleus.base.utilsFem import TimerManager
+                tm = TimerManager(self.driver.logger, comm=self.driver.comm, memoryProfiling=False, loggingSubTimers=True)
+                params['PLogger'] = tm.PLogger
 
-    @generates(['hierarchy', 'bc', 'finalMesh', 'dm', 'dmBC', 'dmInterior', 'R_interior', 'P_interior', 'R_BC', 'P_BC'])
-    def buildHierarchy(self, mesh, kernel, sArgs, rangedKernel, solverType, matrixFormat, tag, boundaryCondition, domainIndicator, fluxIndicator,
+            comm = self.driver.comm
+            onRanks = [0]
+            if comm is not None and comm.size > 1:
+                onRanks = range(comm.size)
+            hierarchies, connectors = paramsForFractionalHierarchy(noRef, params, onRanks)
+            hM = hierarchyManager(hierarchies, connectors, params, comm)
+            hM.setup()
+        self.meshHierarchy = hM
+        self.finalMesh = hM['fine'].meshLevels[-1].mesh
+
+        self.dmInterior = hM['fine'].algebraicLevels[-1].DoFMap
+        self.dmBC = self.dmInterior.getComplementDoFMap()
+        self.dm, self.R_interior, self.R_bc = self.dmInterior.getFullDoFMap(self.dmBC)
+        self.P_interior = self.R_interior.transpose()
+        self.P_bc = self.R_bc.transpose()
+
+    @generates('hierarchy')
+    def buildHierarchy(self,
+                       meshHierarchy,
+                       dm, dmBC, dmInterior,
+                       kernel, sArgs, rangedKernel, solverType, matrixFormat, tag, boundaryCondition, domainIndicator, fluxIndicator,
                        zeroExterior, noRef, eta, target_order, element, quadType, quadTypeBoundary):
-        assert matrixFormat != 'H2' or (kernel.kernelType == FRACTIONAL), 'Hierarchical matrices are only implemented for fractional kernels'
         if rangedKernel is not None:
             hierarchy = self.directlyGetWithoutChecks('hierarchy')
             if hierarchy is not None:
@@ -381,78 +411,84 @@ class discretizedNonlocalProblem(problem):
                     assert hierarchy != newHierarchy
                 self.hierarchy = newHierarchy
 
-                for prop in ['bc', 'finalMesh', 'dm', 'dmBC', 'dmInterior', 'R_interior', 'P_interior', 'R_BC', 'P_BC']:
-                    setattr(self, prop, self.directlyGetWithoutChecks(prop))
+                # for prop in ['bc', 'finalMesh', 'dm', 'dmBC', 'dmInterior', 'R_interior', 'P_interior', 'R_bc', 'P_bc']:
+                #     setattr(self, prop, self.directlyGetWithoutChecks(prop))
                 return
 
-        with self.timer('hierarchy'):
-            params = {}
-            params['domain'] = mesh
-            if rangedKernel is None:
-                params['kernel'] = kernel
-            else:
-                params['kernel'] = rangedKernel
-            params['solver'] = solverType
-            params['tag'] = tag
-            params['element'] = element
-            params['boundaryCondition'] = boundaryCondition
-            params['zeroExterior'] = zeroExterior
-            params['target_order'] = target_order
-            params['eta'] = eta
-            params['keepMeshes'] = 'all'
-            params['keepAllDoFMaps'] = True
-            params['buildMass'] = True
-            params['assemble'] = 'ALL' if solverType.find('mg') >= 0 else 'last'
-            params['dense'] = matrixFormat == 'dense'
-            params['matrixFormat'] = matrixFormat
-            params['logging'] = True
-            if self.debugAssemblyTimes:
-                from PyNucleus.base.utilsFem import TimerManager
-                tm = TimerManager(self.driver.logger, comm=self.driver.comm, memoryProfiling=False, loggingSubTimers=True)
-                params['PLogger'] = tm.PLogger
+        hM = meshHierarchy
 
-            if quadType == 'auto':
-                quadType = 'classical-refactored'
-            params['quadType'] = quadType
+        assemblyParams = {}
+        if quadType == 'auto':
+            quadType = 'classical-refactored'
+        assemblyParams['quadType'] = quadType
 
-            if quadTypeBoundary == 'auto':
-                quadTypeBoundary = 'classical-refactored'
-            params['quadTypeBoundary'] = quadTypeBoundary
-
-            comm = self.driver.comm
-            onRanks = [0]
-            if comm is not None and comm.size > 1:
-                onRanks = range(comm.size)
-            hierarchies, connectors = paramsForFractionalHierarchy(noRef, params, onRanks)
-            hM = hierarchyManager(hierarchies, connectors, params, comm)
-            hM.setup()
-
-        if boundaryCondition == DIRICHLET:
-            bc = multilevelDirichletCondition(hM.getLevelList(), domainIndicator, fluxIndicator)
-            hierarchy = bc.naturalLevels
-            dmInterior = bc.naturalDoFMap
-            dmBC = bc.dirichletDoFMap
+        if quadTypeBoundary == 'auto':
+            quadTypeBoundary = 'classical-refactored'
+        assemblyParams['quadTypeBoundary'] = quadTypeBoundary
+        if rangedKernel is None:
+            assemblyParams['kernel'] = kernel
         else:
-            hierarchy = hM.getLevelList()
-            bc = None
-            dmInterior = hierarchy[-1]['DoFMap']
-            dmBC = dmInterior.getComplementDoFMap()
+            assemblyParams['kernel'] = rangedKernel
+        assemblyParams['boundaryCondition'] = boundaryCondition
+        assemblyParams['zeroExterior'] = zeroExterior
+        assemblyParams['target_order'] = target_order
+        assemblyParams['eta'] = eta
+        assemblyParams['dense'] = matrixFormat == 'dense'
+        assemblyParams['matrixFormat'] = matrixFormat
+
+        with self.timer('hierarchy - matrices'):
+            from PyNucleus_multilevelSolver.levels import ASSEMBLY
+            if solverType.find('mg') >= 0:
+                for subHierarchy in hM.builtHierarchies:
+                    for level in subHierarchy.algebraicLevels:
+                        level.params.update(assemblyParams)
+                        level.build(ASSEMBLY)
+            else:
+                level = hM.builtHierarchies[-1].algebraicLevels[-1]
+                level.params.update(assemblyParams)
+                level.build(ASSEMBLY)
+
+        hierarchy = hM.getLevelList()
+
         if rangedKernel is not None:
             hierarchy[0]['sArgs'] = sArgs
             s = kernel.sValue
             for lvl in range(len(hierarchy)):
                 if 'A' in hierarchy[lvl]:
                     hierarchy[lvl]['A'].set(s, 0)
-        self.dmBC = dmBC
-        self.dm, self.R_interior, self.R_bc = dmInterior.getFullDoFMap(dmBC)
-        self.P_interior = self.R_interior.transpose()
-        self.P_bc = self.R_bc.transpose()
 
-        self.finalMesh = hM['fine'].meshLevels[-1].mesh
-        self.bc = bc
-        self.dmInterior = dmInterior
         self.hierarchy = hierarchy
-        assert 2*self.finalMesh.h < kernel.horizon.value, "h = {}, horizon = {}".format(self.finalMesh.h, kernel.horizon.value)
+        if kernel is not None:
+            assert 2*self.finalMesh.h < kernel.horizon.value, "h = {}, horizon = {}".format(self.finalMesh.h, kernel.horizon.value)
+
+    @generates('A_BC')
+    def buildBCoperator(self, dmInterior, dmBC,
+                        kernel, sArgs, rangedKernel, solverType, matrixFormat, tag, boundaryCondition,
+                        zeroExterior, noRef, eta, target_order, element, quadType, quadTypeBoundary):
+        if boundaryCondition == DIRICHLET:
+            from . helpers import getFracLapl
+            assemblyParams = {}
+            if quadType == 'auto':
+                quadType = 'classical-refactored'
+            assemblyParams['quadType'] = quadType
+
+            if quadTypeBoundary == 'auto':
+                quadTypeBoundary = 'classical-refactored'
+            assemblyParams['quadTypeBoundary'] = quadTypeBoundary
+            if rangedKernel is None:
+                assemblyParams['kernel'] = kernel
+            else:
+                assemblyParams['kernel'] = rangedKernel
+            assemblyParams['boundaryCondition'] = boundaryCondition
+            assemblyParams['zeroExterior'] = zeroExterior
+            assemblyParams['target_order'] = target_order
+            assemblyParams['eta'] = eta
+            assemblyParams['dense'] = matrixFormat == 'dense'
+            assemblyParams['matrixFormat'] = matrixFormat
+            assemblyParams['tag'] = tag
+            self.A_BC = getFracLapl(dmInterior.mesh, dmInterior, dm2=dmBC, **assemblyParams)
+        else:
+            self.A_BC = None
 
     @generates('mass')
     def buildMass(self, dm):
@@ -466,16 +502,23 @@ class discretizedNonlocalProblem(problem):
     def getOperators(self, hierarchy):
         self.A = hierarchy[-1]['A']
 
+    @generates('A_derivative')
+    def getDerivativeOperator(self, kernel, dmInterior, matrixFormat, eta, target_order):
+        self.A_derivative = dmInterior.assembleNonlocal(kernel.getDerivativeKernel(derivative=1), matrixFormat=matrixFormat, params={'eta': eta,
+                                                                                                                                     'target_order': target_order})
+
     @generates('b')
-    def buildRHS(self, rhs, dim, bc, dirichletData, boundaryCondition, solverType, dmInterior, hierarchy):
+    def buildRHS(self, rhs, dim, A_BC, dmBC, dirichletData, boundaryCondition, solverType, dmInterior, hierarchy):
         self.b = dmInterior.assembleRHS(rhs, qr=simplexXiaoGimbutas(3, dim))
-        if bc is not None:
-            bc.setDirichletData(dirichletData)
-            bc.applyRHScorrection(self.b)
+
+        if A_BC is not None:
+            assert dmInterior.num_dofs == A_BC.num_rows
+            assert dmBC.num_dofs == A_BC.num_columns
+            if dmBC.num_dofs > 0:
+                self.b -= A_BC*dmBC.interpolate(dirichletData)
 
         # pure Neumann condition -> project out nullspace
         if boundaryCondition in (NEUMANN, HOMOGENEOUS_NEUMANN):
-            assert bc is None
             if solverType.find('mg') >= 0:
                 hierarchy[0]['A'] = hierarchy[0]['A'] + Dense_LinearOperator.ones(*hierarchy[0]['A'].shape)
             else:
@@ -500,7 +543,7 @@ class discretizedNonlocalProblem(problem):
         self.solver = solver
 
     @generates('modelSolution')
-    def solve(self, b, bc, dm, dmInterior, P_interior, solver, boundaryCondition, analyticSolution, dirichletData, tol, maxiter):
+    def solve(self, b, dm, dmInterior, dmBC, P_interior, P_bc, solver, boundaryCondition, analyticSolution, dirichletData, tol, maxiter):
         uInterior = dmInterior.zeros()
         with self.timer('solve {}'.format(self.__class__.__name__)):
             its = solver(b, uInterior)
@@ -508,8 +551,8 @@ class discretizedNonlocalProblem(problem):
         resError = (b-solver.A*uInterior).norm(False)
 
         if isinstance(solver, iterative_solver):
-            assert its < maxiter, "Only reached residual error {} > tol = {} in {} iterations".format(resError, tol, its)
-        # assert resError < tol, "Only reached residual error {} > tol = {}".format(resError, tol)
+            if its >= maxiter-1:
+                self.driver.logger.warn("WARNING: Only reached residual error {} > tol = {} in {} iterations".format(resError, tol, its))
 
         # pure Neumann condition -> add nullspace components to match analytic solution
         if boundaryCondition in (NEUMANN, HOMOGENEOUS_NEUMANN) and analyticSolution is not None:
@@ -519,7 +562,7 @@ class discretizedNonlocalProblem(problem):
 
         u = dm.empty()
         if boundaryCondition in (DIRICHLET, ):
-            u.assign(bc.augmentDirichlet(uInterior))
+            u.assign(P_interior*uInterior+P_bc*dmBC.interpolate(dirichletData))
         else:
             u.assign(P_interior*uInterior)
 

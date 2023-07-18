@@ -494,3 +494,104 @@ cdef class {SCALAR_label}Product_Linear_Operator({SCALAR_label}LinearOperator):
 
     def __repr__(self):
         return '{}*{}'.format(self.A, self.B)
+
+
+cdef class {SCALAR_label}VectorLinearOperator:
+    def __init__(self, int num_rows, int num_columns, int vectorSize):
+        self.num_rows = num_rows
+        self.num_columns = num_columns
+        self.vectorSize = vectorSize
+
+    cdef INDEX_t matvec(self,
+                        {SCALAR}_t[::1] x,
+                        {SCALAR}_t[:, ::1] y) except -1:
+        return -1
+
+    cdef INDEX_t matvec_no_overwrite(self,
+                                     {SCALAR}_t[::1] x,
+                                     {SCALAR}_t[:, ::1] y) except -1:
+        return -1
+
+    def __call__(self,
+                 {SCALAR}_t[::1] x,
+                 {SCALAR}_t[:, ::1] y,
+                 BOOL_t no_overwrite=False):
+        if no_overwrite:
+            self.matvec_no_overwrite(x, y)
+        else:
+            self.matvec(x, y)
+
+    property shape:
+        def __get__(self):
+            return (self.num_rows, self.num_columns, self.vectorSize)
+
+    def isSparse(self):
+        raise NotImplementedError()
+
+    def to_csr(self):
+        raise NotImplementedError()
+
+    def to_dense(self):
+        return Dense_LinearOperator(self.toarray())
+
+    def toarray(self):
+        return self.to_csr().toarray()
+
+    def toLinearOperator(self):
+        def matvec(x):
+            if x.ndim == 1:
+                return self*x
+            elif x.ndim == 2 and x.shape[1] == 1:
+                if x.flags.c_contiguous:
+                    return self*x[:, 0]
+                else:
+                    y = np.zeros((x.shape[0]), dtype=x.dtype)
+                    y[:] = x[:, 0]
+                    return self*y
+            else:
+                raise NotImplementedError()
+
+        from scipy.sparse.linalg import LinearOperator as ScipyLinearOperator
+        return ScipyLinearOperator(shape=self.shape, matvec=matvec)
+
+    # def getDenseOpFromApply(self):
+    #     cdef:
+    #         INDEX_t i
+    #         {SCALAR}_t[::1] x = np.zeros((self.shape[1]), dtype={SCALAR})
+    #         {SCALAR}_t[::1, :] B = np.zeros(self.shape, dtype={SCALAR}, order='F')
+    #     for i in range(self.shape[1]):
+    #         if i > 0:
+    #             x[i-1] = 0.
+    #         x[i] = 1.
+    #         self.matvec(x, B[:, i])
+    #     return np.ascontiguousarray(B)
+
+    def __getstate__(self):
+        return
+
+    def __setstate__(self, state):
+        pass
+
+    def __repr__(self):
+        return '<%dx%dx%d %s>' % (self.num_rows,
+                                  self.num_columns,
+                                  self.vectorSize,
+                                  self.__class__.__name__)
+
+    cdef void setEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val):
+        raise NotImplementedError()
+
+    def setEntry_py(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val):
+        self.setEntry(I, J, val)
+
+    cdef void addToEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val):
+        raise NotImplementedError()
+
+    def addToEntry_py(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val):
+        self.addToEntry(I, J, val)
+
+    cdef void getEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val):
+        raise NotImplementedError()
+
+    def getEntry_py(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val):
+        return self.getEntry(I, J, val)

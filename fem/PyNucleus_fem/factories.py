@@ -34,7 +34,7 @@ from . functions import (function,
                          radialIndicator,
                          fractalDiffusivity, expDiffusivity,
                          componentVectorFunction)
-from . DoFMaps import lookupFunction
+from . lookupFunction import lookupFunction
 
 
 rhsFunSin1D = _rhsFunSin1D()
