@@ -18,10 +18,11 @@ from . interactionDomains import (interactionDomain,
 from . fractionalOrders import (fractionalOrderBase,
                                 constFractionalOrder,
                                 variableConstFractionalOrder,
-                                constantFractionalLaplacianScaling,
-                                constantFractionalLaplacianScalingDerivative,
-                                variableFractionalLaplacianScaling,
-                                constantIntegrableScaling)
+                                singleVariableTwoPointFunction)
+from . kernelNormalization import (constantFractionalLaplacianScaling,
+                                   constantFractionalLaplacianScalingDerivative,
+                                   variableFractionalLaplacianScaling,
+                                   constantIntegrableScaling)
 from . kernelsCy import (Kernel,
                          FractionalKernel,
                          RangedFractionalKernel,
@@ -129,10 +130,13 @@ def getFractionalKernel(dim,
                     if piecewise:
                         warnings.warn('Derivative kernels cannot be piecewise. Switching to piecewise == False.')
                     piecewise = False
-                    scaling = constantFractionalLaplacianScalingDerivative(dim, sFun.value, horizonFun.value, normalized, derivative, tempered)
+                    scaling = constantFractionalLaplacianScalingDerivative(dim, sFun.value, horizonFun.value, normalized, boundary, derivative, tempered)
             else:
                 symmetric = sFun.symmetric and isinstance(horizonFun, constant)
-                scaling = variableFractionalLaplacianScaling(symmetric, normalized, derivative)
+                if piecewise and isinstance(sFun, singleVariableTwoPointFunction):
+                    warnings.warn('Variable s kernels cannot be piecewise. Switching to piecewise == False.')
+                    piecewise = False
+                scaling = variableFractionalLaplacianScaling(symmetric, normalized, boundary, derivative)
             if boundary:
                 if isinstance(sFun, (constFractionalOrder,
                                      variableConstFractionalOrder)):
@@ -154,7 +158,8 @@ def getIntegrableKernel(dim,
                         interaction=None,
                         normalized=True,
                         piecewise=True,
-                        phi=None):
+                        phi=None,
+                        boundary=False):
     dim_ = _getDim(dim)
     kType = _getKernelType(kernel)
     horizonFun = _getHorizon(horizon)
@@ -168,7 +173,7 @@ def getIntegrableKernel(dim,
                 raise NotImplementedError()
         else:
             scaling = constantTwoPoint(0.5)
-    return Kernel(dim_, kType=kType, horizon=horizonFun, interaction=interaction, scaling=scaling, phi=phi, piecewise=piecewise)
+    return Kernel(dim_, kType=kType, horizon=horizonFun, interaction=interaction, scaling=scaling, phi=phi, piecewise=piecewise, boundary=boundary)
 
 
 def getKernel(dim,

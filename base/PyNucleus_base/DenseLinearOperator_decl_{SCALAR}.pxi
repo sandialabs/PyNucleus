@@ -26,3 +26,14 @@ cdef class {SCALAR_label}Dense_SubBlock_LinearOperator({SCALAR_label}LinearOpera
     cdef:
         dict lookupI, lookupJ
         public {SCALAR}_t[:, :] data
+
+
+cdef class {SCALAR_label}Dense_VectorLinearOperator({SCALAR_label}VectorLinearOperator):
+    cdef:
+        public {SCALAR}_t[:, :, ::1] data
+
+    cdef INDEX_t matvec(self,
+                        {SCALAR}_t[::1] x,
+                        {SCALAR}_t[:, ::1] y) except -1
+    cdef void getEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val)
+    cdef void setEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val)

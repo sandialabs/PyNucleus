@@ -26,3 +26,5 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
     cdef {SCALAR}_t getEntry(self, INDEX_t I, INDEX_t J)
     cdef void setEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t val)
     cpdef {SCALAR_label}CSR_LinearOperator getBlockDiagonal(self, sparseGraph blocks)
+
+

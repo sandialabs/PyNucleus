@@ -326,3 +326,5 @@ cdef class {SCALAR_label}SSS_LinearOperator({SCALAR_label}LinearOperator):
             self.diagonal[i] *= scaling
         for i in range(self.data.shape[0]):
             self.data[i] *= scaling
+
+

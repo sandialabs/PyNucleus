@@ -78,6 +78,8 @@ class hierarchy:
             self.buildType = [NO_BUILD]*(self.params['noRef']+1)
         elif self.params['assemble'] == 'restrictionProlongation':
             self.buildType = [RESTRICTION_PROLONGATION_ONLY]*(self.params['noRef']+1)
+        elif self.params['assemble'] == 'dofmap only last':
+            self.buildType = [NO_BUILD]*self.params['noRef']+[DOFMAPS]
         else:
             raise NotImplementedError()
 

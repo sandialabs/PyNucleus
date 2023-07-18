@@ -309,10 +309,21 @@ cdef class double_local_matrix_t:
                    MASK_t mask=ALL):
         raise NotImplementedError()
 
+    cdef void evalVector(self,
+                         REAL_t[:, ::1] contrib,
+                         panelType panel,
+                         MASK_t mask=ALL):
+        raise NotImplementedError()
+
     def eval_py(self,
                 REAL_t[::1] contrib,
                 panel):
         self.eval(contrib, panel, ALL)
+
+    def evalVector_py(self,
+                      REAL_t[:, ::1] contrib,
+                      panel):
+        self.evalVector(contrib, panel, ALL)
 
     cdef panelType getQuadOrder(self,
                                 const REAL_t h1,
@@ -901,6 +912,14 @@ cdef class nonlocalLaplacian(double_local_matrix_t):
             INDEX_t dim = simplex1.shape[1]
             BOOL_t cutElements = False
             REAL_t w
+            REAL_t c1, c2, val2, PHI_I_0, PHI_I_1, PSI_J
+            transformQuadratureRule qr0trans, qr1trans
+            INDEX_t dofs_per_element, numQuadNodes0, numQuadNodes1
+            REAL_t a_b1[3]
+            REAL_t a_A1[3][3]
+            REAL_t a_A2[3][3]
+            REAL_t[::1] b1
+            REAL_t[:, ::1] A1, A2
 
         if self.kernel.finiteHorizon:
             # check if the horizon might cut the elements
@@ -948,7 +967,63 @@ cdef class nonlocalLaplacian(double_local_matrix_t):
                         contrib[k] = val*vol
                     k += 1
         else:
-            raise NotImplementedError()
+            if panel < 0:
+                sQR = <specialQuadRule>(self.distantQuadRulesPtr[MAX_PANEL+panel])
+            else:
+                sQR = <specialQuadRule>(self.distantQuadRulesPtr[panel])
+            qr2 = <doubleSimplexQuadratureRule>(sQR.qr)
+            if sQR.qrTransformed0 is not None:
+                qr0trans = sQR.qrTransformed0
+            else:
+                qr0 = qr2.rule1
+                qr0trans = transformQuadratureRule(qr0)
+                sQR.qrTransformed0 = qr0trans
+            if sQR.qrTransformed1 is not None:
+                qr1trans = sQR.qrTransformed1
+            else:
+                qr1 = qr2.rule2
+                qr1trans = transformQuadratureRule(qr1)
+                sQR.qrTransformed1 = qr1trans
+
+            numQuadNodes0 = qr0trans.num_nodes
+            numQuadNodes1 = qr1trans.num_nodes
+
+            vol = vol1*vol2
+            dofs_per_element = self.DoFMap.dofs_per_element
+
+            A1 = a_A1
+            b1 = a_b1
+            A2 = a_A2
+
+            self.kernel.interaction.startLoopSubSimplices_Simplex(simplex1, simplex2)
+            while self.kernel.interaction.nextSubSimplex_Simplex(A1, b1, &c1):
+                qr0trans.setAffineBaryTransform(A1, b1)
+                qr0trans.nodesInGlobalCoords(simplex1, self.x)
+                for i in range(qr0trans.num_nodes):
+                    self.kernel.interaction.startLoopSubSimplices_Node(self.x[i, :], simplex2)
+                    while self.kernel.interaction.nextSubSimplex_Node(A2, &c2):
+                        qr1trans.setLinearBaryTransform(A2)
+                        qr1trans.nodesInGlobalCoords(simplex2, self.y)
+                        for j in range(qr1trans.num_nodes):
+                            w = qr0trans.weights[i]*qr1trans.weights[j]*c1 * c2 * vol
+                            val = w*self.kernel.evalPtr(dim, &self.x[i, 0], &self.y[j, 0])
+                            val2 = w*self.kernel.evalPtr(dim, &self.y[j, 0], &self.x[i, 0])
+                            k = 0
+                            for I in range(2*dofs_per_element):
+                                if I < dofs_per_element:
+                                    PHI_I_0 = self.getLocalShapeFunction(I).evalStrided(&qr0trans.nodes[0, i], numQuadNodes0)
+                                    PHI_I_1 = 0.
+                                else:
+                                    PHI_I_0 = 0.
+                                    PHI_I_1 = self.getLocalShapeFunction(I-dofs_per_element).evalStrided(&qr1trans.nodes[0, j], numQuadNodes1)
+                                for J in range(2*dofs_per_element):
+                                    if mask[k]:
+                                        if J < dofs_per_element:
+                                            PSI_J = self.getLocalShapeFunction(J).evalStrided(&qr0trans.nodes[0, i], numQuadNodes0)
+                                        else:
+                                            PSI_J = -self.getLocalShapeFunction(J-dofs_per_element).evalStrided(&qr1trans.nodes[0, j], numQuadNodes1)
+                                        contrib[k] += (val * PHI_I_0 - val2 * PHI_I_1) * PSI_J
+                                    k += 1
 
     cdef void addQuadRule_boundary(self, panelType panel):
         cdef:

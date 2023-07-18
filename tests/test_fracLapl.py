@@ -17,8 +17,8 @@ from PyNucleus.nl.clusterMethodCy import H2Matrix
 from PyNucleus.base.myTypes import REAL
 from scipy.special import gamma
 from PyNucleus.nl.kernels import getFractionalKernel
-from PyNucleus.nl.fractionalOrders import (constFractionalOrder,
-                                           variableFractionalLaplacianScaling)
+from PyNucleus.nl.fractionalOrders import constFractionalOrder
+from PyNucleus.nl.kernelNormalization import variableFractionalLaplacianScaling
 import pytest
 import logging
 LOGGER = logging.getLogger(__name__)

@@ -13,6 +13,7 @@ from PyNucleus.nl.fractionalOrders import (constFractionalOrder,
                                            leftRightFractionalOrder,
                                            variableConstFractionalOrder)
 from PyNucleus.nl.nonlocalLaplacian import nonlocalBuilder
+from PyNucleus.nl.kernelNormalization import variableFractionalLaplacianScaling
 from PyNucleus.nl.kernels import getFractionalKernel
 from scipy.linalg import solve
 import pytest
@@ -108,17 +109,23 @@ def test_h2_finite(kernels):
     # plt.colorbar()
     # print(err2.max())
 
-    print('\nCORRECTED\n')
-    builder2 = nonlocalBuilder(mesh2, dm2, kernel1, zeroExterior=False)
-    A2 = builder2.getH2FiniteHorizon()
-    A2.setKernel(kernel1)
+
+    buildCorrected = not isinstance(kernel1.scaling, variableFractionalLaplacianScaling)
+
+    if buildCorrected:
+        print('\nCORRECTED\n')
+        builder2 = nonlocalBuilder(mesh2, dm2, kernel1, zeroExterior=False)
+        A2 = builder2.getH2FiniteHorizon()
+        A2.setKernel(kernel1)
 
     A1d = A1.toarray()[np.ix_(idx, idx)]
     A1_h2d = A1_h2.toarray()[np.ix_(idx, idx)]
     A1_h2_neard = A1_h2.Anear.toarray()[np.ix_(idx, idx)]
     A1_neard = A1d.copy()
     A1_neard[np.where(np.absolute(A1_h2_neard) == 0.)] = 0.
-    A2d = A2.toarray()
+
+    if buildCorrected:
+        A2d = A2.toarray()
 
     nn = np.absolute(A1d)
     nn[nn < 1e-16] = 1.
@@ -131,13 +138,14 @@ def test_h2_finite(kernels):
     errDenseH2_near_rel = errDenseH2_near/nn
     print('errDenseH2_near', errDenseH2_near.max(), errDenseH2_near_rel.max())
 
-    errDenseCor = np.absolute(A1d-A2d)
-    errDenseCor_rel = errDenseCor/nn
-    print('errDenseCor', errDenseCor.max(), errDenseCor_rel.max())
+    if buildCorrected:
+        errDenseCor = np.absolute(A1d-A2d)
+        errDenseCor_rel = errDenseCor/nn
+        print('errDenseCor', errDenseCor.max(), errDenseCor_rel.max())
 
-    errH2Cor = np.absolute(A1_h2d-A2d)
-    errH2Cor_rel = errDenseCor/nn
-    print('errH2Cor', errH2Cor.max(), errH2Cor_rel.max())
+        errH2Cor = np.absolute(A1_h2d-A2d)
+        errH2Cor_rel = errDenseCor/nn
+        print('errH2Cor', errH2Cor.max(), errH2Cor_rel.max())
 
     # c = dm1.getDoFCoordinates()[idx, 0]
     # X, Y = np.meshgrid(c, c)
@@ -184,24 +192,27 @@ def test_h2_finite(kernels):
     x1_h2 = np.zeros((A1.shape[0]))
     x1_h2[idx] = y1_h2
 
-    b2 = dm2.assembleRHS(rhs).toarray()
-    y2 = solve(A2d, b2)
-    x2 = np.zeros((A1.shape[0]))
-    x2[idx] = y2
+    if buildCorrected:
+        b2 = dm2.assembleRHS(rhs).toarray()
+        y2 = solve(A2d, b2)
+        x2 = np.zeros((A1.shape[0]))
+        x2[idx] = y2
 
     # assert np.absolute(A1d[np.ix_(idx, idx)]-A2d).max() < 1e-5
 
     M = dm1.assembleMass()
     L2_denseH2 = np.sqrt(abs(np.vdot(M*(x1-x1_h2), x1-x1_h2)))
-    L2_denseCor = np.sqrt(abs(np.vdot(M*(x1-x2), x1-x2)))
-    L2_H2Cor = np.sqrt(abs(np.vdot(M*(x1_h2-x2), x1_h2-x2)))
+    if buildCorrected:
+        L2_denseCor = np.sqrt(abs(np.vdot(M*(x1-x2), x1-x2)))
+        L2_H2Cor = np.sqrt(abs(np.vdot(M*(x1_h2-x2), x1_h2-x2)))
     L2_dense = np.sqrt(abs(np.vdot(M*x1, x1)))
     # L2_cor = np.sqrt(abs(np.vdot(M*x2, x2)))
 
     # if not (L2/L2_1 < mesh2.h**(0.5+min(kernel1.s.min, 0.5))):
     print('L2 errDenseH2', L2_denseH2)
-    print('L2 errDenseCor', L2_denseCor)
-    print('L2 errH2Cor', L2_H2Cor)
+    if buildCorrected:
+        print('L2 errDenseCor', L2_denseCor)
+        print('L2 errH2Cor', L2_H2Cor)
 
     # mesh1.plotFunction(x1, DoFMap=dm1, label='dense')
     # mesh1.plotFunction(x1_h2, DoFMap=dm1, label='h2')
@@ -209,7 +220,8 @@ def test_h2_finite(kernels):
     # plt.legend()
     # plt.show()
 
-    assert L2_denseCor/L2_dense < mesh2.h**(0.5+min(kernel1.s.min, 0.5)), (L2_denseCor, L2_dense, L2_denseCor/L2_dense, mesh2.h**(0.5+min(kernel1.s.min, 0.5)))
+    if buildCorrected:
+        assert L2_denseCor/L2_dense < mesh2.h**(0.5+min(kernel1.s.min, 0.5)), (L2_denseCor, L2_dense, L2_denseCor/L2_dense, mesh2.h**(0.5+min(kernel1.s.min, 0.5)))
 
     mesh3 = meshOverlap(dim, kernel2.horizon.value)
     dm3 = P1_DoFMap(mesh3)
@@ -217,64 +229,65 @@ def test_h2_finite(kernels):
     ind = dm3.interpolate(Lambda(lambda x: abs(x[0]) < 1-1e-12))
     idx = ind.toarray() > 0
 
-    print('\nCORRECTED\n')
-    A2.setKernel(kernel2)
+    if buildCorrected:
+        print('\nCORRECTED\n')
+        A2.setKernel(kernel2)
 
-    print('\nDENSE\n')
-    builder3 = nonlocalBuilder(mesh3, dm3, kernel2, zeroExterior=False)
-    A3 = builder3.getDense()
+        print('\nDENSE\n')
+        builder3 = nonlocalBuilder(mesh3, dm3, kernel2, zeroExterior=False)
+        A3 = builder3.getDense()
 
-    A2d = A2.toarray()
-    A3d = A3.toarray()[np.ix_(idx, idx)]
+        A2d = A2.toarray()
+        A3d = A3.toarray()[np.ix_(idx, idx)]
 
-    nn = np.absolute(A3d)
-    nn[nn < 1e-16] = 1.
+        nn = np.absolute(A3d)
+        nn[nn < 1e-16] = 1.
 
-    errDenseCor = np.absolute(A3d-A2d)
-    errDenseCor_rel = errDenseCor/nn
-    print('errDenseCor', errDenseCor.max(), errDenseCor_rel.max())
+        errDenseCor = np.absolute(A3d-A2d)
+        errDenseCor_rel = errDenseCor/nn
+        print('errDenseCor', errDenseCor.max(), errDenseCor_rel.max())
 
-    y2 = solve(A2d, b2)
-    x2 = np.zeros((A3.shape[0]))
-    x2[idx] = y2
+        y2 = solve(A2d, b2)
+        x2 = np.zeros((A3.shape[0]))
+        x2[idx] = y2
 
-    b3 = dm3.assembleRHS(rhs).toarray()
-    y3 = solve(A3d, b3[idx])
-    x3 = np.zeros((A3.shape[0]))
-    x3[idx] = y3
+        b3 = dm3.assembleRHS(rhs).toarray()
+        y3 = solve(A3d, b3[idx])
+        x3 = np.zeros((A3.shape[0]))
+        x3[idx] = y3
 
-    # assert np.absolute(A3d[np.ix_(idx, idx)]-A2d).max() < 1e-5
+        # assert np.absolute(A3d[np.ix_(idx, idx)]-A2d).max() < 1e-5
 
-    M = dm3.assembleMass()
+        M = dm3.assembleMass()
 
-    L2_denseCor = np.sqrt(abs(np.vdot(M*(x3-x2), x3-x2)))
-    L2_dense = np.sqrt(abs(np.vdot(M*x3, x3)))
-    # L2_cor = np.sqrt(abs(np.vdot(M*x2, x2)))
+        L2_denseCor = np.sqrt(abs(np.vdot(M*(x3-x2), x3-x2)))
+        L2_dense = np.sqrt(abs(np.vdot(M*x3, x3)))
+        # L2_cor = np.sqrt(abs(np.vdot(M*x2, x2)))
 
-    print('L2 errDenseCor', L2_denseCor)
+        print('L2 errDenseCor', L2_denseCor)
 
-    # mesh3.plotFunction(x2, DoFMap=dm3, label='corrected')
-    # mesh3.plotFunction(x3, DoFMap=dm3, label='dense')
-    # plt.legend()
-    # plt.show()
+        # mesh3.plotFunction(x2, DoFMap=dm3, label='corrected')
+        # mesh3.plotFunction(x3, DoFMap=dm3, label='dense')
+        # plt.legend()
+        # plt.show()
 
-    # if not (L2 < mesh2.h**(0.5+min(kernel2.s.value, 0.5))):
-    #     mesh3.plotFunction(x3, DoFMap=dm3)
-    #     mesh3.plotFunction(x2, DoFMap=dm3)
-    #     plt.figure()
-    #     for lvl in A2.Ainf.Pfar:
-    #         for fCP in A2.Ainf.Pfar[lvl]:
-    #             fCP.plot()
-    #     plt.figure()
-    #     diff = np.absolute((A3d[np.ix_(idx, idx)]-A2d))
-    #     plt.pcolormesh(np.log10(diff))
-    #     plt.colorbar()
-    #     plt.figure()
-    #     diffRel = np.absolute((A3d[np.ix_(idx, idx)]-A2d)/A2d)
-    #     diffRel[diff < 1e-12] = 0.
-    #     plt.pcolormesh(np.log10(diffRel))
-    #     print(diffRel[np.isfinite(diffRel)].max(), diffRel[np.isfinite(diffRel)].mean(), np.median(diffRel[np.isfinite(diffRel)]))
-    #     plt.colorbar()
-    #     plt.show()
+        # if not (L2 < mesh2.h**(0.5+min(kernel2.s.value, 0.5))):
+        #     mesh3.plotFunction(x3, DoFMap=dm3)
+        #     mesh3.plotFunction(x2, DoFMap=dm3)
+        #     plt.figure()
+        #     for lvl in A2.Ainf.Pfar:
+        #         for fCP in A2.Ainf.Pfar[lvl]:
+        #             fCP.plot()
+        #     plt.figure()
+        #     diff = np.absolute((A3d[np.ix_(idx, idx)]-A2d))
+        #     plt.pcolormesh(np.log10(diff))
+        #     plt.colorbar()
+        #     plt.figure()
+        #     diffRel = np.absolute((A3d[np.ix_(idx, idx)]-A2d)/A2d)
+        #     diffRel[diff < 1e-12] = 0.
+        #     plt.pcolormesh(np.log10(diffRel))
+        #     print(diffRel[np.isfinite(diffRel)].max(), diffRel[np.isfinite(diffRel)].mean(), np.median(diffRel[np.isfinite(diffRel)]))
+        #     plt.colorbar()
+        #     plt.show()
 
-    assert L2_denseCor/L2_dense < mesh2.h**(0.5+min(kernel2.s.min, 0.5)), (L2_denseCor, L2_dense, L2_denseCor/L2_dense, mesh2.h**(0.5+min(kernel1.s.min, 0.5)))
+        assert L2_denseCor/L2_dense < mesh2.h**(0.5+min(kernel2.s.min, 0.5)), (L2_denseCor, L2_dense, L2_denseCor/L2_dense, mesh2.h**(0.5+min(kernel1.s.min, 0.5)))

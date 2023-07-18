@@ -6,6 +6,7 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
+from mpi4py import MPI
 import numpy as np
 from PyNucleus import driver, DIRICHLET, NEUMANN
 from PyNucleus.nl import (nonlocalPoissonProblem,
@@ -15,7 +16,7 @@ from PyNucleus.nl import (nonlocalPoissonProblem,
 
 description = """Solves a nonlocal Poisson problem with finite horizon."""
 
-d = driver(description=description)
+d = driver(MPI.COMM_WORLD, description=description)
 p = nonlocalPoissonProblem(d)
 discrProblem = discretizedNonlocalProblem(d, p)
 

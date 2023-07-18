@@ -55,6 +55,8 @@ p.addExtension("repartitioner",
                sources=[p.folder+"repartitioner.pyx"])
 p.addExtension("DoFMaps",
                sources=[p.folder+"DoFMaps.pyx"])
+p.addExtension("lookupFunction",
+               sources=[p.folder+"lookupFunction.pyx"])
 p.addExtension("quadrature",
                sources=[p.folder+"quadrature.pyx"])
 p.addExtension("meshOverlaps",

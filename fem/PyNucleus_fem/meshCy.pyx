@@ -680,6 +680,21 @@ cdef class meshBase:
                 return False
         return True
 
+    cdef BOOL_t vertexInCellPtr(self, REAL_t* vertex, INDEX_t cellNo, REAL_t[:, ::1] simplexMem, REAL_t[::1] baryMem, REAL_t tol=0.):
+        cdef:
+            INDEX_t i
+        self.getSimplex(cellNo, simplexMem)
+        if self.dim == 1:
+            getBarycentricCoords1DPtr(simplexMem, vertex, baryMem)
+        elif self.dim == 2:
+            getBarycentricCoords2DPtr(simplexMem, vertex, baryMem)
+        else:
+            raise NotImplementedError()
+        for i in range(self.dim+1):
+            if baryMem[i] < -tol:
+                return False
+        return True
+
     def vertexInCell_py(self, REAL_t[::1] vertex, INDEX_t cellNo, REAL_t tol=0.):
         simplex = uninitialized((self.dim+1, self.dim), dtype=REAL)
         bary = uninitialized((self.dim+1), dtype=REAL)
@@ -2121,6 +2136,51 @@ cdef class cellFinder2:
                 return cellNo
         return -1
 
+    cdef INDEX_t findCellPtr(self, REAL_t* vertex):
+        cdef:
+            INDEX_t j, cellNo, vertexNo, v
+            set candidates, toCheck = set()
+            productIterator pit
+            INDEX_t[::1] keyCenter
+        for j in range(self.mesh.dim):
+            self.key[j] = <INDEX_t>((vertex[j]-self.x_min[j]) * self.diamInv[j])
+        try:
+            candidates = self.lookup[self.myKey]
+        except KeyError:
+            keyCenter = np.array(self.key, copy=True)
+            pit = productIterator(3, self.mesh.dim)
+            candidates = set()
+            pit.reset()
+            while pit.step():
+                for j in range(self.mesh.dim):
+                    self.key[j] = keyCenter[j] + pit.idx[j]-1
+                try:
+                    candidates |= self.lookup[self.myKey]
+                except KeyError:
+                    pass
+
+        # check if the vertex is in any of the cells
+        for cellNo in candidates:
+            if self.mesh.vertexInCellPtr(vertex, cellNo, self.simplex, self.bary):
+                return cellNo
+        # add neighboring cells of candidate cells
+        for cellNo in candidates:
+            for vertexNo in range(self.mesh.dim+1):
+                v = self.mesh.cells[cellNo, vertexNo]
+                toCheck |= self.v2c[v]
+        toCheck -= candidates
+        for cellNo in toCheck:
+            if self.mesh.vertexInCellPtr(vertex, cellNo, self.simplex, self.bary):
+                return cellNo
+        # allow for some extra room
+        for cellNo in candidates:
+            if self.mesh.vertexInCellPtr(vertex, cellNo, self.simplex, self.bary, 1e-15):
+                return cellNo
+        for cellNo in toCheck:
+            if self.mesh.vertexInCellPtr(vertex, cellNo, self.simplex, self.bary, 1e-15):
+                return cellNo
+        return -1
+
     def findCell_py(self, REAL_t[::1] vertex):
         return self.findCell(vertex)
 
@@ -2134,6 +2194,26 @@ cdef void getBarycentricCoords1D(REAL_t[:, ::1] simplex, REAL_t[::1] x, REAL_t[:
 
 
 cdef void getBarycentricCoords2D(REAL_t[:, ::1] simplex, REAL_t[::1] x, REAL_t[::1] bary):
+    cdef:
+        REAL_t vol
+    vol = ((simplex[0, 0]-simplex[1,0])*(simplex[2, 1]-simplex[1,1]) -
+           (simplex[0, 1]-simplex[1,1])*(simplex[2, 0]-simplex[1,0]))
+    bary[0] = ((x[0]-simplex[1, 0])*(simplex[2, 1]-simplex[1, 1]) -
+               (x[1]-simplex[1, 1])*(simplex[2, 0]-simplex[1, 0]))/vol
+    bary[1] = ((x[0]-simplex[2, 0])*(simplex[0, 1]-simplex[2, 1]) -
+               (x[1]-simplex[2, 1])*(simplex[0, 0]-simplex[2, 0]))/vol
+    bary[2] = 1. - bary[0] - bary[1]
+
+
+cdef void getBarycentricCoords1DPtr(REAL_t[:, ::1] simplex, REAL_t* x, REAL_t[::1] bary):
+    cdef:
+        REAL_t vol
+    vol = simplex[0, 0]-simplex[1, 0]
+    bary[0] = (x[0]-simplex[1, 0])/vol
+    bary[1] = 1.-bary[0]
+
+
+cdef void getBarycentricCoords2DPtr(REAL_t[:, ::1] simplex, REAL_t* x, REAL_t[::1] bary):
     cdef:
         REAL_t vol
     vol = ((simplex[0, 0]-simplex[1,0])*(simplex[2, 1]-simplex[1,1]) -

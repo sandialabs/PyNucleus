@@ -472,3 +472,5 @@ cdef BOOL_t sort_indices{SCALAR_label}(INDEX_t[::1] indptr,
                     kk -= 1
                 indices[kk] = j
     return wasSorted
+
+

@@ -156,3 +156,90 @@ cdef class {SCALAR_label}Dense_SubBlock_LinearOperator({SCALAR_label}LinearOpera
         j = self.lookupJ.get(J, -1)
         if i >= 0 and j >= 0:
             self.data[i, j] += val
+
+
+cdef class {SCALAR_label}Dense_VectorLinearOperator({SCALAR_label}VectorLinearOperator):
+    def __init__(self,
+                 {SCALAR}_t[:, :, ::1] data):
+        {SCALAR_label}VectorLinearOperator.__init__(self,
+                                                    data.shape[0],
+                                                    data.shape[1],
+                                                    data.shape[2])
+        self.data = data
+
+    cdef INDEX_t matvec(self,
+                        {SCALAR}_t[::1] x,
+                        {SCALAR}_t[:, ::1] y) except -1:
+        cdef:
+            INDEX_t i, j, k
+        for i in range(self.num_rows):
+            for k in range(self.vectorSize):
+                y[i, k] = 0.
+            for j in range(self.num_columns):
+                for k in range(self.vectorSize):
+                    y[i, k] += self.data[i, j, k]*x[j]
+        return 0
+
+    cdef INDEX_t matvec_no_overwrite(self,
+                                     {SCALAR}_t[::1] x,
+                                     {SCALAR}_t[:, ::1] y) except -1:
+        cdef:
+            INDEX_t i, j, k
+        for i in range(self.num_rows):
+            for j in range(self.num_columns):
+                for k in range(self.vectorSize):
+                    y[i, k] += self.data[i, j, k]*x[j]
+        return 0
+
+    def isSparse(self):
+        return False
+
+    def toarray(self):
+        return np.array(self.data, copy=False, dtype={SCALAR})
+
+    cdef void getEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val):
+        cdef:
+            INDEX_t k
+        for k in range(self.vectorSize):
+            val[k] = self.data[I, J, k]
+
+    cdef void setEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val):
+        cdef:
+            INDEX_t k
+        for k in range(self.vectorSize):
+            self.data[I, J, k] = val[k]
+
+    cdef void addToEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val):
+        cdef:
+            INDEX_t k
+        for k in range(self.vectorSize):
+            self.data[I, J, k] += val[k]
+
+    @staticmethod
+    def zeros(INDEX_t num_rows, INDEX_t num_columns, INDEX_t vectorSize):
+        return Dense_LinearOperator(np.zeros((num_rows, num_columns, vectorSize), dtype={SCALAR}))
+
+    @staticmethod
+    def ones(INDEX_t num_rows, INDEX_t num_columns, INDEX_t vectorSize):
+        return Dense_LinearOperator(np.ones((num_rows, num_columns, vectorSize), dtype={SCALAR}))
+
+    @staticmethod
+    def empty(INDEX_t num_rows, INDEX_t num_columns, INDEX_t vectorSize):
+        return Dense_LinearOperator(uninitialized((num_rows, num_columns, vectorSize), dtype={SCALAR}))
+
+    def getMemorySize(self):
+        return self.data.shape[0]*self.data.shape[1]*self.data.shape[2]*sizeof({SCALAR}_t)
+
+    def __repr__(self):
+        sizeInMB = self.getMemorySize() >> 20
+        if sizeInMB > 100:
+            return '<%dx%dx%d %s, %d MB>' % (self.num_rows,
+                                             self.num_columns,
+                                             self.vectorSize,
+                                             self.__class__.__name__,
+                                             sizeInMB)
+        else:
+            return '<%dx%dx%d %s>' % (self.num_rows,
+                                      self.num_columns,
+                                      self.vectorSize,
+                                      self.__class__.__name__)

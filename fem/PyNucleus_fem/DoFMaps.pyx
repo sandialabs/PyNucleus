@@ -2295,39 +2295,6 @@ def generateLocalMassMatrix(DoFMap dm, DoFMap dm2=None):
     return generic_matrix(entries)
 
 
-cdef class lookupFunction(function):
-    cdef:
-        meshBase mesh
-        public DoFMap dm
-        public REAL_t[::1] u
-        public cellFinder2 cellFinder
-
-    def __init__(self, meshBase mesh, DoFMap dm, REAL_t[::1] u, cellFinder2 cF=None):
-        self.mesh = mesh
-        self.dm = dm
-        self.u = u
-        if cF is None:
-            self.cellFinder = cellFinder2(self.mesh)
-        else:
-            self.cellFinder = cF
-
-    cdef REAL_t eval(self, REAL_t[::1] x):
-        cdef:
-            shapeFunction shapeFun
-            REAL_t val
-            INDEX_t cellNo, dof, k
-        cellNo = self.cellFinder.findCell(x)
-        if cellNo == -1:
-            return 0.
-        val = 0.
-        for k in range(self.dm.dofs_per_element):
-            dof = self.dm.cell2dof(cellNo, k)
-            if dof >= 0:
-                shapeFun = self.dm.localShapeFunctions[k]
-                val += shapeFun.eval(self.cellFinder.bary)*self.u[dof]
-        return val
-
-
 cdef class elementSizeFunction(function):
     cdef:
         meshBase mesh

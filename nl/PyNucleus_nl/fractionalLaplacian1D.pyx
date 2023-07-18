@@ -30,7 +30,7 @@ ALL.set()
 
 
 cdef class fractionalLaplacian1DZeroExterior(nonlocalLaplacian1D):
-    def __init__(self, FractionalKernel kernel, meshBase mesh, DoFMap DoFMap, num_dofs=None, **kwargs):
+    def __init__(self, Kernel kernel, meshBase mesh, DoFMap DoFMap, num_dofs=None, **kwargs):
         manifold_dim2 = mesh.dim-1
         super(fractionalLaplacian1DZeroExterior, self).__init__(kernel, mesh, DoFMap, num_dofs, manifold_dim2=manifold_dim2, **kwargs)
         self.symmetricCells = False
@@ -394,6 +394,8 @@ cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
                     contrib[k] = val*vol
 
 
+
+
 cdef class fractionalLaplacian1D_nonsym(fractionalLaplacian1D):
     """The local stiffness matrix
 
@@ -566,9 +568,10 @@ cdef class fractionalLaplacian1D_nonsym(fractionalLaplacian1D):
                     contrib[k] = val*vol
 
 
+
 cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
     def __init__(self,
-                 FractionalKernel kernel,
+                 Kernel kernel,
                  meshBase mesh,
                  DoFMap DoFMap,
                  quad_order_diagonal=None,
@@ -577,10 +580,8 @@ cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
                  **kwargs):
         super(fractionalLaplacian1D_boundary, self).__init__(kernel, mesh, DoFMap, num_dofs, **kwargs)
 
-        if self.kernel.variableOrder:
-            smin, smax = self.kernel.s.min, self.kernel.s.max
-        else:
-            smin, smax = self.kernel.sValue, self.kernel.sValue
+        smin = max(0.5*(-self.kernel.min_singularity-1.), 0.)
+        smax = max(0.5*(-self.kernel.max_singularity-1.), 0.)
         if target_order is None:
             # this is the desired local quadrature error
             target_order = self.DoFMap.polynomialOrder+1-smin
@@ -591,7 +592,7 @@ cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
             quad_order_diagonal = max(np.ceil(((target_order+1.)*log(self.num_dofs*self.H0)+(2.*smax-1.)*abs(log(self.hmin/self.H0)))/0.8), 2)
         self.quad_order_diagonal = quad_order_diagonal
 
-        if not self.kernel.variableOrder:
+        if (self.kernel.kernelType != FRACTIONAL) or (not self.kernel.variableOrder):
             self.getNearQuadRule(COMMON_VERTEX)
 
     cdef panelType getQuadOrder(self,
@@ -601,7 +602,7 @@ cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
         cdef:
             panelType panel, panel2
             REAL_t logdh1 = max(log(d/h1), 0.), logdh2 = max(log(d/h2), 0.)
-            REAL_t s = self.kernel.sValue
+            REAL_t s = max(0.5*(-self.kernel.getSingularityValue()-1.), 0.)
             REAL_t h
         panel = <panelType>max(ceil(((self.target_order+1.)*log(self.num_dofs*self.H0) + (2.*s-1.)*abs(log(h2/self.H0)) - 2.*s*log(d/h2)) /
                                     (logdh1 + 0.8)),
@@ -711,6 +712,8 @@ cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
                     y[j] = simplex2[self.perm2[0], j]*qr.nodes[2, m]
                 self.temp[m] = qr.weights[m] * self.kernel.evalPtr(dim, &x[0], &y[0])
 
+            contrib[:] = 0.
+
             for I in range(dofs_per_element):
                 i = self.perm[I]
                 for J in range(I, dofs_per_element):
@@ -726,5 +729,6 @@ cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
                         contrib[k] = val*vol
         else:
             raise NotImplementedError('Unknown panel type: {}'.format(panel))
+
 
 

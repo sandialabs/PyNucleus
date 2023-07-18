@@ -7,37 +7,41 @@
 
 import numpy as np
 from PyNucleus_nl import fractionalOrderFactory, kernelFactory, twoPointFunctionFactory
+from PyNucleus_nl.twoPointFunctions import constantTwoPoint
 from PyNucleus_nl.fractionalOrders import (constFractionalOrder,
                                            variableConstFractionalOrder,
                                            constantNonSymFractionalOrder,
-                                           smoothedLeftRightFractionalOrder)
+                                           smoothedLeftRightFractionalOrder,
+                                           feFractionalOrder)
 from PyNucleus_fem.functions import constant
-from scipy.special import gamma, erf, digamma
+from scipy.special import gamma, erf, digamma, gammaincc
 from numpy import log
 from numpy import pi, exp, sqrt
 from numpy.linalg import norm
 import pytest
 
 
-def idfunc(param):
-    S = [str(p) for p in param]
-    return '-'.join(S)
+def idfuncIntegrable(param):
+    dim, kernelType, horizon, normalized = param
+    return f'dim{dim}-kernelType{kernelType}horizon{horizon}-normalized{normalized}'
 
 
 @pytest.fixture(scope='module', params=[
+    # 1d kernels
     (1, 'constant', 0.5, True),
     (1, 'constant', 0.5, False),
-    (2, 'constant', 0.5, True),
-    (2, 'constant', 0.5, False),
     (1, 'inverseDistance', 0.5, True),
     (1, 'inverseDistance', 0.5, False),
-    (2, 'inverseDistance', 0.5, True),
-    (2, 'inverseDistance', 0.5, False),
     (1, 'Gaussian', 0.5, True),
     (1, 'Gaussian', 0.5, False),
+    # 2d kernels
+    (2, 'constant', 0.5, True),
+    (2, 'constant', 0.5, False),
+    (2, 'inverseDistance', 0.5, True),
+    (2, 'inverseDistance', 0.5, False),
     (2, 'Gaussian', 0.5, True),
     (2, 'Gaussian', 0.5, False),
-], ids=idfunc)
+], ids=idfuncIntegrable)
 def integrableKernelParams(request):
     return request.param
 
@@ -53,6 +57,9 @@ def testIntegrableKernel(integrableKernelParams):
     else:
         raise NotImplementedError()
     kernel = kernelFactory(kernelType, dim=dim, horizon=horizon, normalized=normalized)
+    infHorizonKernel = kernel.getModifiedKernel(horizon=constant(np.inf))
+    boundaryKernelInf = infHorizonKernel.getBoundaryKernel()
+
     horizonValue = kernel.horizon.value
 
     if normalized:
@@ -84,21 +91,59 @@ def testIntegrableKernel(integrableKernelParams):
 
     for x, y in xy_values:
 
+        if kernelType == 'constant':
+            refInf = const
+        elif kernelType == 'inverseDistance':
+            refInf = const/norm(x-y)
+        elif kernelType == 'Gaussian':
+            invD = (3/horizonValue)**2
+            refInf = const*exp(-invD*norm(x-y)**2)
+        else:
+            raise NotImplementedError()
+
         if norm(x-y) < horizonValue:
-            if kernelType == 'constant':
-                ref = const
-            elif kernelType == 'inverseDistance':
-                ref = const/norm(x-y)
-            elif kernelType == 'Gaussian':
-                ref = const*exp(-(3.*norm(x-y)/horizonValue)**2)
-            else:
-                raise NotImplementedError()
+            ref = refInf
         else:
             ref = 0.
-        assert np.isclose(kernel(x, y), ref)
 
+        if kernelType == 'constant':
+            refBoundary = refInf*(-1/dim)
+        elif kernelType == 'inverseDistance':
+            if dim == 1:
+                refBoundary = refInf*(-log(norm(x-y)))
+            else:
+                refBoundary = refInf*(-1/(dim-1))
+        elif kernelType == 'Gaussian':
+            refBoundary = const*0.5*(invD*norm(x-y)**2)**(-dim/2) * gamma(dim/2) * gammaincc(dim/2, invD*norm(x-y)**2)
+        else:
+            raise NotImplementedError()
+
+        # test kernel
+        assert np.isclose(kernel(x, y), ref), (kernel(x, y), ref)
+
+        # test boundary kernel
+        assert np.isclose(boundaryKernelInf(x, y), 2*refBoundary*norm(x-y)), (boundaryKernelInf(x, y), 2*refBoundary*norm(x-y))
+
+        # test that div_y (boundaryKernelInf(x,y) (x-y)/norm(x-y)) == 2*infHorizonKernel(x,y)
+        eps = 1e-8
+        div_fd = 0.
+        for i in range(dim):
+            yShifted = y.copy()
+            yShifted[i] += eps
+            div_fd += (boundaryKernelInf(x, yShifted) * (x-yShifted)[i]/norm(x-yShifted) - boundaryKernelInf(x, y) * (x-y)[i]/norm(x-y))/eps
+        assert np.isclose(div_fd, 2*infHorizonKernel(x, y)), (div_fd, 2*infHorizonKernel(x, y))
+
+
+def idfuncFractional(param):
+    dim, s, horizon, normalized, phi, derivative = param
+    return f'dim{dim}-s{s}-horizon{horizon}-normalized{normalized}-phi{phi}-derivative{derivative}'
+
+from PyNucleus_fem import meshFactory, dofmapFactory
+mesh1d = meshFactory('interval', a=-1, b=1, hTarget=1e-2)
+dm1d = dofmapFactory('P1', mesh1d, -1)
 
 @pytest.fixture(scope='module', params=[
+    # 1d kernels
     (1, fractionalOrderFactory('const', 0.25), np.inf, True, None, 0),
     (1, fractionalOrderFactory('const', 0.25), np.inf, False, None, 0),
     (1, fractionalOrderFactory('const', 0.25), 0.5, True, None, 0),
@@ -107,35 +152,81 @@ def testIntegrableKernel(integrableKernelParams):
     (1, fractionalOrderFactory('const', 0.75), np.inf, False, None, 0),
     (1, fractionalOrderFactory('const', 0.75), 0.5, True, None, 0),
     (1, fractionalOrderFactory('const', 0.75), 0.5, False, None, 0),
+    (1, fractionalOrderFactory('varconst', 0.25), np.inf, True, None, 0),
+    (1, fractionalOrderFactory('varconst', 0.25), np.inf, False, None, 0),
+    (1, fractionalOrderFactory('varconst', 0.25), 0.5, True, None, 0),
+    (1, fractionalOrderFactory('varconst', 0.25), 0.5, False, None, 0),
     (1, fractionalOrderFactory('varconst', 0.75), np.inf, True, None, 0),
     (1, fractionalOrderFactory('varconst', 0.75), np.inf, False, None, 0),
     (1, fractionalOrderFactory('varconst', 0.75), 0.5, True, None, 0),
     (1, fractionalOrderFactory('varconst', 0.75), 0.5, False, None, 0),
+    (1, fractionalOrderFactory('constantNonSym', 0.25), np.inf, True, None, 0),
+    (1, fractionalOrderFactory('constantNonSym', 0.25), np.inf, False, None, 0),
+    (1, fractionalOrderFactory('constantNonSym', 0.25), 0.5, True, None, 0),
+    (1, fractionalOrderFactory('constantNonSym', 0.25), 0.5, False, None, 0),
     (1, fractionalOrderFactory('constantNonSym', 0.75), np.inf, True, None, 0),
     (1, fractionalOrderFactory('constantNonSym', 0.75), np.inf, False, None, 0),
     (1, fractionalOrderFactory('constantNonSym', 0.75), 0.5, True, None, 0),
     (1, fractionalOrderFactory('constantNonSym', 0.75), 0.5, False, None, 0),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25), np.inf, True, None, 0),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25), np.inf, False, None, 0),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25), 0.5, True, None, 0),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25), 0.5, False, None, 0),
     (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), np.inf, True, None, 0),
     (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), np.inf, False, None, 0),
     (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), 0.5, True, None, 0),
     (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), 0.5, False, None, 0),
-    (1, fractionalOrderFactory('const', 0.25), np.inf, True, twoPointFunctionFactory('const', 1.), 0),
-    (1, fractionalOrderFactory('const', 0.25), np.inf, False, twoPointFunctionFactory('const', 1.), 0),
-    (1, fractionalOrderFactory('const', 0.25), 0.5, True, twoPointFunctionFactory('const', 1.), 0),
-    (1, fractionalOrderFactory('const', 0.25), 0.5, False, twoPointFunctionFactory('const', 1.), 0),
-    (1, fractionalOrderFactory('const', 0.75), np.inf, True, twoPointFunctionFactory('const', 1.), 0),
-    (1, fractionalOrderFactory('const', 0.75), np.inf, False, twoPointFunctionFactory('const', 1.), 0),
-    (1, fractionalOrderFactory('const', 0.75), 0.5, True, twoPointFunctionFactory('const', 1.), 0),
-    (1, fractionalOrderFactory('const', 0.75), 0.5, False, twoPointFunctionFactory('const', 1.), 0),
-    (1, fractionalOrderFactory('varconst', 0.75), np.inf, True, twoPointFunctionFactory('const', 1.), 0),
-    (1, fractionalOrderFactory('varconst', 0.75), np.inf, False, twoPointFunctionFactory('const', 1.), 0),
-    (1, fractionalOrderFactory('varconst', 0.75), 0.5, True, twoPointFunctionFactory('const', 1.), 0),
-    (1, fractionalOrderFactory('varconst', 0.75), 0.5, False, twoPointFunctionFactory('const', 1.), 0),
-    (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), np.inf, True, twoPointFunctionFactory('const', 1.), 0),
-    (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), np.inf, False, twoPointFunctionFactory('const', 1.), 0),
-    (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), 0.5, True, twoPointFunctionFactory('const', 1.), 0),
-    (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), 0.5, False, twoPointFunctionFactory('const', 1.), 0),
-    #
+    # discretized fractional order
+    (1, fractionalOrderFactory('const', 0.25, dm=dm1d), np.inf, True, None, 0),
+    (1, fractionalOrderFactory('const', 0.25, dm=dm1d), np.inf, False, None, 0),
+    (1, fractionalOrderFactory('const', 0.25, dm=dm1d), 0.5, True, None, 0),
+    (1, fractionalOrderFactory('const', 0.25, dm=dm1d), 0.5, False, None, 0),
+    (1, fractionalOrderFactory('const', 0.75, dm=dm1d), np.inf, True, None, 0),
+    (1, fractionalOrderFactory('const', 0.75, dm=dm1d), np.inf, False, None, 0),
+    (1, fractionalOrderFactory('const', 0.75, dm=dm1d), 0.5, True, None, 0),
+    (1, fractionalOrderFactory('const', 0.75, dm=dm1d), 0.5, False, None, 0),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25, dm=dm1d), np.inf, True, None, 0),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25, dm=dm1d), np.inf, False, None, 0),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25, dm=dm1d), 0.5, True, None, 0),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25, dm=dm1d), 0.5, False, None, 0),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75, dm=dm1d), np.inf, True, None, 0),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75, dm=dm1d), np.inf, False, None, 0),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75, dm=dm1d), 0.5, True, None, 0),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75, dm=dm1d), 0.5, False, None, 0),
+    # now with a trivial phi
+    (1, fractionalOrderFactory('const', 0.25), np.inf, True, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('const', 0.25), np.inf, False, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('const', 0.25), 0.5, True, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('const', 0.25), 0.5, False, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('const', 0.75), np.inf, True, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('const', 0.75), np.inf, False, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('const', 0.75), 0.5, True, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('const', 0.75), 0.5, False, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('constantSym', 0.25), np.inf, True, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('constantSym', 0.25), np.inf, False, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('constantSym', 0.25), 0.5, True, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('constantSym', 0.25), 0.5, False, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('constantSym', 0.75), np.inf, True, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('constantSym', 0.75), np.inf, False, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('constantSym', 0.75), 0.5, True, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('constantSym', 0.75), 0.5, False, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('constantNonSym', 0.25), np.inf, True, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('constantNonSym', 0.25), np.inf, False, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('constantNonSym', 0.25), 0.5, True, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('constantNonSym', 0.25), 0.5, False, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('constantNonSym', 0.75), np.inf, True, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('constantNonSym', 0.75), np.inf, False, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('constantNonSym', 0.75), 0.5, True, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('constantNonSym', 0.75), 0.5, False, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25), np.inf, True, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25), np.inf, False, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25), 0.5, True, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25), 0.5, False, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), np.inf, True, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), np.inf, False, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), 0.5, True, twoPointFunctionFactory('const', 2.), 0),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), 0.5, False, twoPointFunctionFactory('const', 2.), 0),
+    # derivative wrt s
     (1, fractionalOrderFactory('const', 0.25), np.inf, True, None, 1),
     (1, fractionalOrderFactory('const', 0.25), np.inf, False, None, 1),
     (1, fractionalOrderFactory('const', 0.25), 0.5, True, None, 1),
@@ -144,15 +235,49 @@ def testIntegrableKernel(integrableKernelParams):
     (1, fractionalOrderFactory('const', 0.75), np.inf, False, None, 1),
     (1, fractionalOrderFactory('const', 0.75), 0.5, True, None, 1),
     (1, fractionalOrderFactory('const', 0.75), 0.5, False, None, 1),
-    (1, fractionalOrderFactory('varconst', 0.75), np.inf, True, None, 1),
-    (1, fractionalOrderFactory('varconst', 0.75), np.inf, False, None, 1),
-    (1, fractionalOrderFactory('varconst', 0.75), 0.5, True, None, 1),
-    (1, fractionalOrderFactory('varconst', 0.75), 0.5, False, None, 1),
+    (1, fractionalOrderFactory('constantSym', 0.25), np.inf, True, None, 1),
+    (1, fractionalOrderFactory('constantSym', 0.25), np.inf, False, None, 1),
+    (1, fractionalOrderFactory('constantSym', 0.25), 0.5, True, None, 1),
+    (1, fractionalOrderFactory('constantSym', 0.25), 0.5, False, None, 1),
+    (1, fractionalOrderFactory('constantSym', 0.75), np.inf, True, None, 1),
+    (1, fractionalOrderFactory('constantSym', 0.75), np.inf, False, None, 1),
+    (1, fractionalOrderFactory('constantSym', 0.75), 0.5, True, None, 1),
+    (1, fractionalOrderFactory('constantSym', 0.75), 0.5, False, None, 1),
+    (1, fractionalOrderFactory('constantNonSym', 0.25), np.inf, True, None, 1),
+    (1, fractionalOrderFactory('constantNonSym', 0.25), np.inf, False, None, 1),
+    (1, fractionalOrderFactory('constantNonSym', 0.25), 0.5, True, None, 1),
+    (1, fractionalOrderFactory('constantNonSym', 0.25), 0.5, False, None, 1),
+    (1, fractionalOrderFactory('constantNonSym', 0.75), np.inf, True, None, 1),
+    (1, fractionalOrderFactory('constantNonSym', 0.75), np.inf, False, None, 1),
+    (1, fractionalOrderFactory('constantNonSym', 0.75), 0.5, True, None, 1),
+    (1, fractionalOrderFactory('constantNonSym', 0.75), 0.5, False, None, 1),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25), np.inf, True, None, 1),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25), np.inf, False, None, 1),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25), 0.5, True, None, 1),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25), 0.5, False, None, 1),
     (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), np.inf, True, None, 1),
     (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), np.inf, False, None, 1),
     (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), 0.5, True, None, 1),
     (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), 0.5, False, None, 1),
-    #
+    # discretized fractional order
+    (1, fractionalOrderFactory('const', 0.25, dm=dm1d), np.inf, True, None, 1),
+    (1, fractionalOrderFactory('const', 0.25, dm=dm1d), np.inf, False, None, 1),
+    (1, fractionalOrderFactory('const', 0.25, dm=dm1d), 0.5, True, None, 1),
+    (1, fractionalOrderFactory('const', 0.25, dm=dm1d), 0.5, False, None, 1),
+    (1, fractionalOrderFactory('const', 0.75, dm=dm1d), np.inf, True, None, 1),
+    (1, fractionalOrderFactory('const', 0.75, dm=dm1d), np.inf, False, None, 1),
+    (1, fractionalOrderFactory('const', 0.75, dm=dm1d), 0.5, True, None, 1),
+    (1, fractionalOrderFactory('const', 0.75, dm=dm1d), 0.5, False, None, 1),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25, dm=dm1d), np.inf, True, None, 1),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25, dm=dm1d), np.inf, False, None, 1),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25, dm=dm1d), 0.5, True, None, 1),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25, dm=dm1d), 0.5, False, None, 1),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75, dm=dm1d), np.inf, True, None, 1),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75, dm=dm1d), np.inf, False, None, 1),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75, dm=dm1d), 0.5, True, None, 1),
+    (1, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75, dm=dm1d), 0.5, False, None, 1),
+    ##################################################
+    # 2d kernels
     (2, fractionalOrderFactory('const', 0.25), np.inf, True, None, 0),
     (2, fractionalOrderFactory('const', 0.25), np.inf, False, None, 0),
     (2, fractionalOrderFactory('const', 0.25), 0.5, True, None, 0),
@@ -161,15 +286,65 @@ def testIntegrableKernel(integrableKernelParams):
     (2, fractionalOrderFactory('const', 0.75), np.inf, False, None, 0),
     (2, fractionalOrderFactory('const', 0.75), 0.5, True, None, 0),
     (2, fractionalOrderFactory('const', 0.75), 0.5, False, None, 0),
-    (2, fractionalOrderFactory('varconst', 0.75), np.inf, True, None, 0),
-    (2, fractionalOrderFactory('varconst', 0.75), np.inf, False, None, 0),
-    (2, fractionalOrderFactory('varconst', 0.75), 0.5, True, None, 0),
-    (2, fractionalOrderFactory('varconst', 0.75), 0.5, False, None, 0),
+    (2, fractionalOrderFactory('constantSym', 0.25), np.inf, True, None, 0),
+    (2, fractionalOrderFactory('constantSym', 0.25), np.inf, False, None, 0),
+    (2, fractionalOrderFactory('constantSym', 0.25), 0.5, True, None, 0),
+    (2, fractionalOrderFactory('constantSym', 0.25), 0.5, False, None, 0),
+    (2, fractionalOrderFactory('constantSym', 0.75), np.inf, True, None, 0),
+    (2, fractionalOrderFactory('constantSym', 0.75), np.inf, False, None, 0),
+    (2, fractionalOrderFactory('constantSym', 0.75), 0.5, True, None, 0),
+    (2, fractionalOrderFactory('constantSym', 0.75), 0.5, False, None, 0),
+    (2, fractionalOrderFactory('constantNonSym', 0.25), np.inf, True, None, 0),
+    (2, fractionalOrderFactory('constantNonSym', 0.25), np.inf, False, None, 0),
+    (2, fractionalOrderFactory('constantNonSym', 0.25), 0.5, True, None, 0),
+    (2, fractionalOrderFactory('constantNonSym', 0.25), 0.5, False, None, 0),
+    (2, fractionalOrderFactory('constantNonSym', 0.75), np.inf, True, None, 0),
+    (2, fractionalOrderFactory('constantNonSym', 0.75), np.inf, False, None, 0),
+    (2, fractionalOrderFactory('constantNonSym', 0.75), 0.5, True, None, 0),
+    (2, fractionalOrderFactory('constantNonSym', 0.75), 0.5, False, None, 0),
     (2, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), np.inf, True, None, 0),
     (2, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), np.inf, False, None, 0),
     (2, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), 0.5, True, None, 0),
     (2, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), 0.5, False, None, 0),
-], ids=idfunc)
+    (2, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25), np.inf, True, None, 0),
+    (2, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25), np.inf, False, None, 0),
+    (2, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25), 0.5, True, None, 0),
+    (2, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25), 0.5, False, None, 0),
+    # derivative wrt s
+    (2, fractionalOrderFactory('const', 0.25), np.inf, True, None, 1),
+    (2, fractionalOrderFactory('const', 0.25), np.inf, False, None, 1),
+    (2, fractionalOrderFactory('const', 0.25), 0.5, True, None, 1),
+    (2, fractionalOrderFactory('const', 0.25), 0.5, False, None, 1),
+    (2, fractionalOrderFactory('const', 0.75), np.inf, True, None, 1),
+    (2, fractionalOrderFactory('const', 0.75), np.inf, False, None, 1),
+    (2, fractionalOrderFactory('const', 0.75), 0.5, True, None, 1),
+    (2, fractionalOrderFactory('const', 0.75), 0.5, False, None, 1),
+    (2, fractionalOrderFactory('constantSym', 0.25), np.inf, True, None, 1),
+    (2, fractionalOrderFactory('constantSym', 0.25), np.inf, False, None, 1),
+    (2, fractionalOrderFactory('constantSym', 0.25), 0.5, True, None, 1),
+    (2, fractionalOrderFactory('constantSym', 0.25), 0.5, False, None, 1),
+    (2, fractionalOrderFactory('constantSym', 0.75), np.inf, True, None, 1),
+    (2, fractionalOrderFactory('constantSym', 0.75), np.inf, False, None, 1),
+    (2, fractionalOrderFactory('constantSym', 0.75), 0.5, True, None, 1),
+    (2, fractionalOrderFactory('constantSym', 0.75), 0.5, False, None, 1),
+    (2, fractionalOrderFactory('constantNonSym', 0.25), np.inf, True, None, 1),
+    (2, fractionalOrderFactory('constantNonSym', 0.25), np.inf, False, None, 1),
+    (2, fractionalOrderFactory('constantNonSym', 0.25), 0.5, True, None, 1),
+    (2, fractionalOrderFactory('constantNonSym', 0.25), 0.5, False, None, 1),
+    (2, fractionalOrderFactory('constantNonSym', 0.75), np.inf, True, None, 1),
+    (2, fractionalOrderFactory('constantNonSym', 0.75), np.inf, False, None, 1),
+    (2, fractionalOrderFactory('constantNonSym', 0.75), 0.5, True, None, 1),
+    (2, fractionalOrderFactory('constantNonSym', 0.75), 0.5, False, None, 1),
+    (2, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25), np.inf, True, None, 1),
+    (2, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25), np.inf, False, None, 1),
+    (2, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25), 0.5, True, None, 1),
+    (2, fractionalOrderFactory('twoDomainNonSym', 0.75, 0.25), 0.5, False, None, 1),
+    (2, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), np.inf, True, None, 1),
+    (2, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), np.inf, False, None, 1),
+    (2, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), 0.5, True, None, 1),
+    (2, fractionalOrderFactory('twoDomainNonSym', 0.25, 0.75), 0.5, False, None, 1),
+
+], ids=idfuncFractional)
 def fractionalKernelParams(request):
     return request.param
 
@@ -186,10 +361,18 @@ def testFractionalKernel(fractionalKernelParams):
                      (np.array([-0.1, 0.1]), np.array([0.5, 0.2]))]
     else:
         raise NotImplementedError()
-    kernel = kernelFactory('fractional', dim=dim, s=s, horizon=horizon, normalized=normalized, phi=phi, derivative=derivative)
+
+    kernel = kernelFactory('fractional', dim=dim, s=s, horizon=horizon, normalized=normalized, phi=phi)
+    if derivative == 1:
+        kernel = kernel.getDerivativeKernel()
     boundaryKernel = kernel.getBoundaryKernel()
     infHorizonKernel = kernel.getModifiedKernel(horizon=constant(np.inf))
     boundaryKernelInf = infHorizonKernel.getBoundaryKernel()
+
+    print(kernel)
+    print(boundaryKernel)
+    print(infHorizonKernel)
+    print(boundaryKernelInf)
 
     for x, y in xy_values:
 
@@ -204,9 +387,11 @@ def testFractionalKernel(fractionalKernelParams):
         elif isinstance(s, smoothedLeftRightFractionalOrder):
             assert np.isclose(sValue, s.sFun(x))
             if x[0] < 0:
-                assert np.isclose(sValue, 0.25)
+                assert np.isclose(sValue, s.sFun.sl)
             else:
-                assert np.isclose(sValue, 0.75)
+                assert np.isclose(sValue, s.sFun.sr)
+        elif isinstance(s, feFractionalOrder):
+            pass
         else:
             assert False
 
@@ -229,31 +414,86 @@ def testFractionalKernel(fractionalKernelParams):
         if derivative == 0:
             refInf = const/norm(x-y)**(dim+2*sValue) * phiValue
         elif derivative == 1:
+            refInf = const/norm(x-y)**(dim+2*sValue) * phiValue
             if normalized:
-                refInf = const/norm(x-y)**(dim+2*sValue) * phiValue
                 if horizonValue < np.inf:
-                    refInf *= (-2.*log(norm(x-y)/horizonValue) + 1./(sValue-1.))
+                    refInf *= (-log(norm(x-y)**2/horizonValue**2) - 1./(1.-sValue))
                 else:
-                    refInf *= (-log(0.25*norm(x-y)**2) + digamma(sValue+0.5*dim) + digamma(-sValue))
+                    refInf *= (-log(norm(x-y)**2/4) + digamma(sValue+0.5*dim) + digamma(-sValue))
             else:
-                refInf = -2.*0.5/norm(x-y)**(dim+2*sValue) * phiValue * log(norm(x-y))
+                refInf *= (-log(norm(x-y)**2))
         else:
             raise NotImplementedError()
         ref = refInf if (norm(x-y) < horizonValue) else 0.
+        if derivative == 1:
+            refInfBoundary = const/norm(x-y)**(dim+2*sValue) * phiValue
+            if normalized:
+                if horizonValue == np.inf:
+                    refInfBoundary *= (-log(norm(x-y)**2/4) + digamma(sValue+0.5*dim) + digamma(1.0-sValue))
+                else:
+                    refInfBoundary *= (-log(norm(x-y)**2/horizonValue**2) - 1./(1.-sValue) - 1./sValue)
+            else:
+                refInfBoundary *= (-log(norm(x-y)**2) - 1.0/sValue)
+        else:
+            refInfBoundary = refInf
+        refBoundary = refInfBoundary if (norm(x-y) < horizonValue) else 0.
 
+        # test the kernel with potentially finite horizon
         assert np.isclose(kernel(x, y), ref)
-
-        # test boundary kernel, do not change horizon
-        np.isclose(boundaryKernel(x, y), ref*norm(x-y)/sValue)
 
         # test kernel with infinite horizon
         assert np.isclose(infHorizonKernel(x, y), refInf)
 
-        if (horizonValue < np.inf) and norm(x-y) > horizonValue:
-            assert not np.isclose(ref, refInf)
-            assert np.isclose(ref, 0.)
-        else:
-            assert np.isclose(ref, refInf)
+        if phi is not None and not isinstance(phi, constantTwoPoint):
+            # Not implemented, as the boundary kernel will depend on phi
+            return
 
-        # test boundary kernel, infinite horizon
-        assert np.isclose(boundaryKernelInf(x, y), refInf*norm(x-y)/sValue)
+        # test boundary kernel with potentially finite horizon
+        assert np.isclose(boundaryKernel(x, y), refBoundary*norm(x-y)/sValue), (boundaryKernel(x, y), refBoundary*norm(x-y)/sValue)
+
+        # test boundary kernel with infinite horizon
+        assert np.isclose(boundaryKernelInf(x, y), refInfBoundary*norm(x-y)/sValue), (boundaryKernelInf(x, y), refInfBoundary*norm(x-y)/sValue)
+
+        # test that div_y (boundaryKernelInf(x,y) (x-y)/norm(x-y)) == 2*infHorizonKernel(x,y)
+        eps = 1e-8
+        div_fd = 0.
+        for i in range(dim):
+            yShifted = y.copy()
+            yShifted[i] += eps
+            div_fd += (boundaryKernelInf(x, yShifted) * (x-yShifted)[i]/norm(x-yShifted) - boundaryKernelInf(x, y) * (x-y)[i]/norm(x-y))/eps
+        assert np.isclose(div_fd, 2*infHorizonKernel(x, y)), (div_fd, 2*infHorizonKernel(x, y))
+
+
+from PyNucleus import dofmapFactory, fractionalOrderFactory, kernelFactory, meshFactory, nonlocalBuilder, REAL, functionFactory
+
+
+def test_discrete_s_const():
+    mesh = meshFactory('interval', a=-1, b=1, hTarget=1e-2)
+    dmS = dofmapFactory('P1', mesh, -1)
+    sFun = fractionalOrderFactory('constantNonSym', 0.75)
+    sFE = fractionalOrderFactory('constantNonSym', 0.75, dm=dmS)
+    kernelFun = kernelFactory('fractional', dim=mesh.dim, s=sFun)
+    kernelFE = kernelFactory('fractional', dim=mesh.dim, s=sFE)
+    dm = dofmapFactory('P1', mesh, 0)
+    A_fun = dm.assembleNonlocal(kernelFun)
+    A_fe = dm.assembleNonlocal(kernelFE)
+    assert np.absolute((A_fun-A_fe).toarray()/A_fun.toarray()).max() == 0.
+
+
+def test_discrete_leftRight():
+    mesh = meshFactory('interval', a=-1, b=1, hTarget=1e-2)
+    dmS = dofmapFactory('P1', mesh, -1)
+    sFun = fractionalOrderFactory('twoDomainNonSym', sl=0.25, sr=0.75, r=0.3)
+    sFE = fractionalOrderFactory('twoDomainNonSym', sl=0.25, sr=0.75, r=0.3, dm=dmS)
+    kernelFun = kernelFactory('fractional', dim=mesh.dim, s=sFun)
+    kernelFE = kernelFactory('fractional', dim=mesh.dim, s=sFE)
+    dm = dofmapFactory('P1', mesh, 0)
+    A_fun = dm.assembleNonlocal(kernelFun)
+    A_fe = dm.assembleNonlocal(kernelFE)
+    print('max rel error', np.absolute((A_fun-A_fe).toarray()/A_fun.toarray()).max())
+    x = dm.fromArray(np.random.randn(dm.num_dofs))
+    a = x.inner(A_fun*x)
+    b = x.inner(A_fe*x)
+    print('apply abs error', abs(a-b))
+    print('apply rel error', abs(a-b)/a)
+    assert abs(a-b)/a < 1e-4

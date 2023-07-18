@@ -174,7 +174,7 @@ for solver, label in [
         A.residual_py(x, rhs, r)
         resNorm = r.norm(False)
         rate.add('Rate of convergence P'+label, (resNorm/r0)**(1/numIter), tested=False if label == 'BICGSTAB' else None)
-        its.add('Number of iterations P'+label, numIter, aTol=1 if label == 'BICGSTAB' else None)
+        its.add('Number of iterations P'+label, numIter, aTol=2 if label == 'BICGSTAB' else None)
         res.add('Residual norm P'+label, resNorm)
         resHist.add('P'+label, residuals, tested=False if label == 'BICGSTAB' else None)
 

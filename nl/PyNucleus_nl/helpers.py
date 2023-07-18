@@ -115,6 +115,8 @@ def processBC(tag, boundaryCondition, kernel):
 
 def getFracLapl(mesh, DoFMap, kernel=None, rangedOpParams={}, **kwargs):
 
+    if kernel is None and len(rangedOpParams) == 0:
+        return DoFMap.assembleStiffness(dm2=kwargs.get('dm2', None))
     assert kernel is not None or 's' in rangedOpParams, (kernel, rangedOpParams)
 
     boundaryCondition = kwargs.get('boundaryCondition', 'Dirichlet')
@@ -256,7 +258,14 @@ def getFracLapl(mesh, DoFMap, kernel=None, rangedOpParams={}, **kwargs):
             params['genKernel'] = kwargs['genKernel']
         if kernel is None:
             kernel = getFractionalKernel(mesh.dim, s, constant(horizon.ranges[0, 0]), scaling=scaling, normalized=normalized)
-        builder = nonlocalBuilder(mesh, DoFMap, kernel, params, zeroExterior=zeroExterior, comm=comm, logging=logging, PLogger=PLogger)
+        dm2 = kwargs.pop('dm2', None)
+        if dm2 is not None and matrixFormat.upper() in ('H2', 'SPARSE', 'SPARSIFIED') and DoFMap.num_boundary_dofs > 0:
+            # currently not implemented
+            dm, R_interior, R_bc = DoFMap.getFullDoFMap(dm2)
+            A = getFracLapl(mesh, dm, kernel, rangedOpParams={}, **kwargs)
+            A = R_interior*A*R_bc.transpose()
+            return A
+        builder = nonlocalBuilder(mesh, DoFMap, kernel, params, zeroExterior=zeroExterior, comm=comm, logging=logging, PLogger=PLogger, dm2=dm2)
         if diagonal:
             with timer('Assemble diagonal matrix {}, zeroExterior={}'.format(kernel, zeroExterior)):
                 A = builder.getDiagonal()
