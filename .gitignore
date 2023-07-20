@@ -33,6 +33,9 @@ spack-build*
 /metisCy/PyNucleus_metisCy/*.c
 /fem/PyNucleus_fem/*.c
 /multilevelSolver/PyNucleus_multilevelSolver/*.c
+/adaptive/PyNucleus_adaptive/*.c
 /nl/PyNucleus_nl/*.c
+/nl/PyNucleus_nl/*.cpp
+nl/PyNucleus_nl/bitset.pxd
 docs/example1_*.py
 docs/example2_*.py
