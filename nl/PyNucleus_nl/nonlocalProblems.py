@@ -1361,7 +1361,7 @@ class brusselatorProblem(problem):
     with zero flux conditions on U and V.
 
     s    = \\beta/\\alpha
-    \\eta = sqrt(D_X**s / D_Y)
+    \\eta = \\sqrt(D_X**s / D_Y)
     Q    = A \\eta
 
     """
