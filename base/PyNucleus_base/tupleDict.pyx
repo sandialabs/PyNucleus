@@ -154,30 +154,30 @@ cdef inline int compareIndices(const void *pa, const void *pb) noexcept nogil:
 
 
 cdef class arrayIndexSet(indexSet):
-    def __init__(self, INDEX_t[::1] I = None, BOOL_t sorted=False):
-        if I is not None:
+    def __init__(self, INDEX_t[::1] indexArray = None, BOOL_t sorted=False):
+        if indexArray is not None:
             if not sorted:
-                qsort(&I[0], I.shape[0], sizeof(INDEX_t), compareIndices)
-            self.I = I
+                qsort(&indexArray[0], indexArray.shape[0], sizeof(INDEX_t), compareIndices)
+            self.indexArray = indexArray
         else:
-            self.I = np.empty((0), dtype=INDEX)
+            self.indexArray = np.empty((0), dtype=INDEX)
 
     cdef BOOL_t inSet(self, INDEX_t i):
         cdef:
             INDEX_t low = 0
-            INDEX_t high = self.I.shape[0]
+            INDEX_t high = self.indexArray.shape[0]
             INDEX_t mid
         if high-low < 20:
             for mid in range(low, high):
-                if self.I[mid] == i:
+                if self.indexArray[mid] == i:
                     return True
             return False
         else:
-            while self.I[low] != i:
+            while self.indexArray[low] != i:
                 if high-low <= 1:
                     return False
                 mid = (low+high) >> 1
-                if self.I[mid] <= i:
+                if self.indexArray[mid] <= i:
                     low = mid
                 else:
                     high = mid
@@ -186,32 +186,32 @@ cdef class arrayIndexSet(indexSet):
     cpdef void fromSet(self, set s):
         cdef:
             INDEX_t i, k
-        self.I = np.empty((len(s)), dtype=INDEX)
+        self.indexArray = np.empty((len(s)), dtype=INDEX)
         k = 0
         for i in s:
-            self.I[k] = i
+            self.indexArray[k] = i
             k += 1
-        qsort(&self.I[0], self.I.shape[0], sizeof(INDEX_t), compareIndices)
+        qsort(&self.indexArray[0], self.indexArray.shape[0], sizeof(INDEX_t), compareIndices)
 
     cpdef set toSet(self):
         cdef:
             INDEX_t k
             set s = set()
-        for k in range(self.I.shape[0]):
-            s.add(self.I[k])
+        for k in range(self.indexArray.shape[0]):
+            s.add(self.indexArray[k])
         return s
 
     cpdef INDEX_t[::1] toArray(self):
-        return self.I
+        return self.indexArray
 
     cdef indexSetIterator getIter(self):
         return arrayIndexSetIterator(self)
 
     cdef INDEX_t getNumEntries(self):
-        return self.I.shape[0]
+        return self.indexArray.shape[0]
 
     cpdef void empty(self):
-        self.I = np.empty((0), dtype=INDEX)
+        self.indexArray = np.empty((0), dtype=INDEX)
 
     cpdef indexSet union(self, indexSet other_):
         cdef:
@@ -227,8 +227,8 @@ cdef class arrayIndexSet(indexSet):
         k2 = 0
         k = 0
         while (k1 < l1) and (k2 < l2):
-            i1 = self.I[k1]
-            i2 = other.I[k2]
+            i1 = self.indexArray[k1]
+            i2 = other.indexArray[k2]
             if i1 == i2:
                 k += 1
                 k1 += 1
@@ -250,28 +250,28 @@ cdef class arrayIndexSet(indexSet):
         k2 = 0
         k = 0
         while (k1 < l1) and (k2 < l2):
-            i1 = self.I[k1]
-            i2 = other.I[k2]
+            i1 = self.indexArray[k1]
+            i2 = other.indexArray[k2]
             if i1 == i2:
-                newIS.I[k] = i1
+                newIS.indexArray[k] = i1
                 k += 1
                 k1 += 1
                 k2 += 1
             elif i1 < i2:
-                newIS.I[k] = i1
+                newIS.indexArray[k] = i1
                 k += 1
                 k1 += 1
             else:
-                newIS.I[k] = i2
+                newIS.indexArray[k] = i2
                 k += 1
                 k2 += 1
         if k1 == l1:
             for k1 in range(k2, l2):
-                newIS.I[k] = other.I[k1]
+                newIS.indexArray[k] = other.indexArray[k1]
                 k += 1
         else:
             for k2 in range(k1, l1):
-                newIS.I[k] = self.I[k2]
+                newIS.indexArray[k] = self.indexArray[k2]
                 k += 1
 
         return newIS
@@ -290,8 +290,8 @@ cdef class arrayIndexSet(indexSet):
         k2 = 0
         k = 0
         while (k1 < l1) and (k2 < l2):
-            i1 = self.I[k1]
-            i2 = other.I[k2]
+            i1 = self.indexArray[k1]
+            i2 = other.indexArray[k2]
             if i1 == i2:
                 k += 1
                 k1 += 1
@@ -307,10 +307,10 @@ cdef class arrayIndexSet(indexSet):
         k2 = 0
         k = 0
         while (k1 < l1) and (k2 < l2):
-            i1 = self.I[k1]
-            i2 = other.I[k2]
+            i1 = self.indexArray[k1]
+            i2 = other.indexArray[k2]
             if i1 == i2:
-                newIS.I[k] = i1
+                newIS.indexArray[k] = i1
                 k += 1
                 k1 += 1
                 k2 += 1
@@ -335,8 +335,8 @@ cdef class arrayIndexSet(indexSet):
         k2 = 0
         k = 0
         while (k1 < l1) and (k2 < l2):
-            i1 = self.I[k1]
-            i2 = other.I[k2]
+            i1 = self.indexArray[k1]
+            i2 = other.indexArray[k2]
             if i1 == i2:
                 k1 += 1
                 k2 += 1
@@ -356,21 +356,21 @@ cdef class arrayIndexSet(indexSet):
         k2 = 0
         k = 0
         while (k1 < l1) and (k2 < l2):
-            i1 = self.I[k1]
-            i2 = other.I[k2]
+            i1 = self.indexArray[k1]
+            i2 = other.indexArray[k2]
             if i1 == i2:
                 k1 += 1
                 k2 += 1
             elif i1 < i2:
-                newIS.I[k] = i1
+                newIS.indexArray[k] = i1
                 k += 1
                 k1 += 1
             else:
                 k2 += 1
 
         while (k1 < l1):
-            i1 = self.I[k1]
-            newIS.I[k] = i1
+            i1 = self.indexArray[k1]
+            newIS.indexArray[k] = i1
             k += 1
             k1 += 1
 
@@ -378,48 +378,48 @@ cdef class arrayIndexSet(indexSet):
 
 
 cdef class unsortedArrayIndexSet(arrayIndexSet):
-    def __init__(self, INDEX_t[::1] I = None):
-        if I is not None:
-            self.I = I
+    def __init__(self, INDEX_t[::1] indexArray = None):
+        if indexArray is not None:
+            self.indexArray = indexArray
         else:
-            self.I = np.empty((0), dtype=INDEX)
+            self.indexArray = np.empty((0), dtype=INDEX)
 
     cdef BOOL_t inSet(self, INDEX_t i):
         cdef:
             INDEX_t j
-        for j in range(self.I.shape[0]):
-            if self.I[j] == i:
+        for j in range(self.indexArray.shape[0]):
+            if self.indexArray[j] == i:
                 return True
         return False
 
     cpdef void fromSet(self, set s):
         cdef:
             INDEX_t i, k
-        self.I = np.empty((len(s)), dtype=INDEX)
+        self.indexArray = np.empty((len(s)), dtype=INDEX)
         k = 0
         for i in s:
-            self.I[k] = i
+            self.indexArray[k] = i
             k += 1
 
     cpdef set toSet(self):
         cdef:
             INDEX_t k
             set s = set()
-        for k in range(self.I.shape[0]):
-            s.add(self.I[k])
+        for k in range(self.indexArray.shape[0]):
+            s.add(self.indexArray[k])
         return s
 
     cpdef INDEX_t[::1] toArray(self):
-        return self.I
+        return self.indexArray
 
     cdef indexSetIterator getIter(self):
         return arrayIndexSetIterator(self)
 
     cdef INDEX_t getNumEntries(self):
-        return self.I.shape[0]
+        return self.indexArray.shape[0]
 
     cpdef void empty(self):
-        self.I = np.empty((0), dtype=INDEX)
+        self.indexArray = np.empty((0), dtype=INDEX)
 
     cpdef indexSet union(self, indexSet other):
         raise NotImplementedError()
@@ -443,8 +443,8 @@ cdef class arrayIndexSetIterator(indexSetIterator):
         cdef:
             arrayIndexSet aIS = self.iS
         self.k += 1
-        if self.k < aIS.I.shape[0]:
-            self.i = aIS.I[self.k]
+        if self.k < aIS.indexArray.shape[0]:
+            self.i = aIS.indexArray[self.k]
             return True
         else:
             return False
