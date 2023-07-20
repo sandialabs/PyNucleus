@@ -7,6 +7,7 @@
 
 from shutil import move
 from os import remove
+from importlib.metadata import version
 
 try:
     import cython
@@ -30,11 +31,14 @@ except CompileError as e:
     have_malloc_h = False
 p.addOption('HAVE_MALLOC_H', 'have_malloc_h', have_malloc_h)
 p.addOption(None, 'mask_size', 256)
+cython_directives = {'initializedcheck': False,
+                     'boundscheck': False,
+                     'cdivision': True,
+                     'wraparound': False}
+if version('cython') >= '3.0':
+    cython_directives['cpow'] = True
 p.loadConfig(extra_config={'annotate': True,
-                           'cythonDirectives': {'initializedcheck': False,
-                                                'boundscheck': False,
-                                                'cdivision': True,
-                                                'wraparound': False}})
+                           'cythonDirectives': cython_directives})
 p.addPackageInclude('PyNucleus_base')
 p.addPackageInclude('PyNucleus_fem')
 p.addPackageInclude('PyNucleus_multilevelSolver')

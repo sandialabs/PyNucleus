@@ -48,7 +48,7 @@ cdef class rangeIndexSetIterator(indexSetIterator):
 
 cdef class arrayIndexSet(indexSet):
     cdef:
-        INDEX_t[::1] I
+        INDEX_t[::1] indexArray
 
 
 cdef class unsortedArrayIndexSet(arrayIndexSet):

@@ -11,14 +11,18 @@ except ImportError as e:
     raise ImportError('\'PyNucleus_packageTools\' needs to be installed first.') from e
 from PyNucleus_packageTools import fillTemplate
 from pathlib import Path
+from importlib.metadata import version
 
 p = package('PyNucleus_fem')
 p.addOption('USE_METIS', 'use_metis', True, ['PyNucleus_metisCy'])
+cython_directives = {'initializedcheck': False,
+                     'boundscheck': False,
+                     'cdivision': True,
+                     'wraparound': False}
+if version('cython') >= '3.0':
+    cython_directives['cpow'] = True
 p.loadConfig(extra_config={'annotate': True,
-                           'cythonDirectives': {'initializedcheck': False,
-                                                'boundscheck': False,
-                                                'cdivision': True,
-                                                'wraparound': False}})
+                           'cythonDirectives': cython_directives})
 p.addPackageInclude('PyNucleus_base')
 
 print('Generating templates')
