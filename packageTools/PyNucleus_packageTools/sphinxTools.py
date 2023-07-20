@@ -31,10 +31,12 @@ class codeRegion:
         sys.stdout = self._stdout
 
         caller = getframeinfo(stack()[1][0])
-        if isinstance(caller, tuple):
-            self.endLine = caller.lineno
-        else:
+
+        if hasattr(caller, 'positions'):
             self.endLine = caller.positions.end_lineno
+        else:
+            self.endLine = caller.lineno
+
         if self.codeTarget != '':
             with open(caller.filename, 'r') as f:
                 lines = f.readlines()
