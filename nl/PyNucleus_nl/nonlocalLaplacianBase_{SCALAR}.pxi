@@ -72,8 +72,8 @@ cdef class {SCALAR_label}double_local_matrix_t:
             REAL_t eps = 1e-10
             INDEX_t dim = self.DoFMap.mesh.manifold_dim
 
-        perms = uninitialized((np.math.factorial(dim+1), dim+1), dtype=INDEX)
-        surface_perms = uninitialized((np.math.factorial(dim), dim), dtype=INDEX)
+        perms = uninitialized((factorial(dim+1, True), dim+1), dtype=INDEX)
+        surface_perms = uninitialized((factorial(dim, True), dim), dtype=INDEX)
 
         from itertools import permutations
 

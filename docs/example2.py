@@ -130,7 +130,7 @@ with mgr.add('finiteHorizon'):
 
     solver(b, u)
 
-    u_global = dmConst.augmentWithBoundaryData(u, g_interp)
+    u_global = u.augmentWithBoundaryData(g_interp)
 
     plt.figure().gca().set_title('Numerical solution, constant kernel')
     u_global.plot()

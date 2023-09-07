@@ -8,7 +8,6 @@
 from __future__ import division
 import logging
 import numpy as np
-from PyNucleus_base.ip_norm import norm_serial as norm
 from PyNucleus_base.utilsFem import getLoggingTimer
 from PyNucleus_base import REAL, INDEX, uninitialized
 from PyNucleus_fem import P1_DoFMap

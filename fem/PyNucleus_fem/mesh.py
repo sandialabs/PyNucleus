@@ -17,7 +17,6 @@ from PyNucleus_base import uninitialized, uninitialized_like
 from . meshCy import (meshBase,
                       boundaryVertices,
                       boundaryEdges,
-                      boundaryFaces,
                       boundaryFacesWithOrientation,
                       boundaryVerticesFromBoundaryEdges,
                       boundaryEdgesFromBoundaryFaces,

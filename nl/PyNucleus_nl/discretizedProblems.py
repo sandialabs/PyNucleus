@@ -22,7 +22,6 @@ from PyNucleus_fem.DoFMaps import Product_DoFMap
 from PyNucleus_multilevelSolver import hierarchyManager
 from copy import copy
 from . helpers import paramsForFractionalHierarchy
-from . fractionalOrders import singleVariableUnsymmetricFractionalOrder
 from . kernelsCy import FRACTIONAL
 from . nonlocalProblems import (DIRICHLET,
                                 NEUMANN, HOMOGENEOUS_NEUMANN,
