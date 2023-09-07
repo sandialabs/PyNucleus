@@ -38,6 +38,7 @@ from . DoFMaps cimport (P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap,
 from . quadrature cimport simplexQuadratureRule, Gauss1D, Gauss2D, Gauss3D, simplexXiaoGimbutas
 from . functions cimport function, complexFunction, vectorFunction, matrixFunction
 from . simplexMapper cimport simplexMapper
+from scipy.spatial import cKDTree
 
 
 cdef class local_matrix_t:
@@ -160,9 +161,6 @@ cdef inline REAL_t simplexVolumeAndProducts1D(const REAL_t[:, ::1] simplex,
 
 
 cdef class simplexComputations:
-    cdef:
-        REAL_t[:, ::1] simplex
-
     cdef void setSimplex(self, REAL_t[:, ::1] simplex):
         self.simplex = simplex
 
@@ -202,11 +200,31 @@ coordinates
         """
         pass
 
+    def setSimplex_py(self, REAL_t[:, ::1] simplex):
+        self.setSimplex(simplex)
+
+    def evalVolume_py(self):
+        return self.evalVolume()
+
+    def evalVolumeGradients_py(self):
+        gradients = np.zeros((self.simplex.shape[0], self.simplex.shape[1]), dtype=REAL)
+        vol = self.evalVolumeGradients(gradients)
+        return vol, gradients
+
+    def evalVolumeGradientsInnerProducts_py(self):
+        gradients = np.zeros((self.simplex.shape[0], self.simplex.shape[1]), dtype=REAL)
+        innerProducts = np.zeros(((self.simplex.shape[0]*(self.simplex.shape[0]+1))//2), dtype=REAL)
+        vol = self.evalVolumeGradientsInnerProducts(gradients, innerProducts)
+        return vol, gradients, innerProducts
+
+    def evalSimplexVolumeGradientsInnerProducts_py(self, REAL_t[:,::1] simplex):
+        gradients = np.zeros((simplex.shape[0], simplex.shape[1]), dtype=REAL)
+        innerProducts = np.zeros(((simplex.shape[0]*(simplex.shape[0]+1))//2), dtype=REAL)
+        vol = self.evalSimplexVolumeGradientsInnerProducts(simplex, gradients, innerProducts)
+        return vol, gradients, innerProducts
+
 
 cdef class simplexComputations1D(simplexComputations):
-    cdef:
-        REAL_t[:, ::1] temp
-
     cdef REAL_t evalVolume(self):
         cdef:
             REAL_t vol
@@ -263,9 +281,6 @@ cdef class simplexComputations1D(simplexComputations):
 
 
 cdef class simplexComputations2D(simplexComputations):
-    cdef:
-        REAL_t[:, ::1] temp
-
     def __init__(self):
         self.temp = uninitialized((2, 2), dtype=REAL)
 
@@ -358,9 +373,6 @@ cdef class simplexComputations2D(simplexComputations):
 
 
 cdef class simplexComputations3D(simplexComputations):
-    cdef:
-        REAL_t[:, ::1] temp
-
     def __init__(self):
         self.temp = uninitialized((7, 3), dtype=REAL)
 
@@ -1547,6 +1559,58 @@ def getSurfaceDoFMap(meshBase mesh,
     return dmS
 
 
+def getSurfaceToVolumeProlongation(DoFMap dmVolume,
+                                   DoFMap dmSurface):
+    cdef:
+        INDEX_t[::1] indptr, indices
+        REAL_t[::1] data
+        INDEX_t cellNo, localVertexNo, vertexNo, k, dof_volume, dof_surface, jj
+        INDEX_t[::1] dofSurface2dofVolume
+        REAL_t[:, ::1] coords
+    dofSurface2dofVolume = uninitialized((dmSurface.num_dofs), dtype=INDEX)
+    # check that we did not eliminate vertices
+    if dmVolume.mesh.num_vertices == dmSurface.mesh.num_vertices:
+        assert isinstance(dmVolume, P1_DoFMap)
+        assert isinstance(dmSurface, P1_DoFMap)
+        for cellNo in range(dmSurface.mesh.num_cells):
+            for localVertexNo in range(dmSurface.mesh.cells.shape[1]):
+                vertexNo = dmSurface.mesh.cells[cellNo, localVertexNo]
+                dof_surface = vertexNo
+                dof_volume = vertexNo
+                dofSurface2dofVolume[dof_surface] = dof_volume
+    else:
+        kd = cKDTree(dmVolume.getDoFCoordinates())
+        coords = dmSurface.getDoFCoordinates()
+        for dof_surface in range(dmSurface.num_dofs):
+            dof_volume = kd.query(coords[dof_surface, :], 1)[1]
+            dofSurface2dofVolume[dof_surface] = dof_volume
+
+    indptr = np.zeros((dmVolume.num_dofs+1), dtype=INDEX)
+    indices = uninitialized((dmSurface.num_dofs), dtype=INDEX)
+    data = np.ones((dmSurface.num_dofs), dtype=REAL)
+
+    for cellNo in range(dmSurface.mesh.num_cells):
+        for localVertexNo in range(dmSurface.mesh.cells.shape[1]):
+            for k in range(dmSurface.dofs_per_vertex):
+                dof_surface = dmSurface.cell2dof(cellNo, localVertexNo*dmSurface.dofs_per_vertex+k)
+                dof_volume = dofSurface2dofVolume[dof_surface]
+                if dof_surface >= 0 and dof_volume >= 0:
+                    indptr[dof_volume+1] = 1
+    for dof_volume in range(dmVolume.num_dofs):
+        indptr[dof_volume+1] += indptr[dof_volume]
+    for cellNo in range(dmSurface.mesh.num_cells):
+        for localVertexNo in range(dmSurface.mesh.cells.shape[1]):
+            for k in range(dmSurface.dofs_per_vertex):
+                dof_surface = dmSurface.cell2dof(cellNo, localVertexNo*dmSurface.dofs_per_vertex+k)
+                dof_volume = dofSurface2dofVolume[dof_surface]
+                if dof_surface >= 0 and dof_volume >= 0:
+                    jj = indptr[dof_volume]
+                    indices[jj] = dof_surface
+    P = CSR_LinearOperator(indices, indptr, data)
+    P.num_columns = dmSurface.num_dofs
+    return P
+
+
 def assembleSurfaceMass(meshBase mesh,
                         meshBase surface,
                         DoFMap volumeDoFMap,
@@ -1709,33 +1773,45 @@ def assembleStiffness(DoFMap dm,
                       DoFMap dm2=None):
     cdef:
         INDEX_t dim = dm.mesh.dim
+        INDEX_t manifold_dim = dm.mesh.manifold_dim
         local_matrix_t local_matrix
     if diffusivity is None:
-        if isinstance(dm, P1_DoFMap):
-            if dim == 1:
-                local_matrix = stiffness_1d_sym_P1()
-            elif dim == 2:
-                local_matrix = stiffness_2d_sym_P1()
-            elif dim == 3:
-                local_matrix = stiffness_3d_sym_P1()
+        if dim == manifold_dim:
+            if isinstance(dm, P1_DoFMap):
+                if dim == 1:
+                    local_matrix = stiffness_1d_sym_P1()
+                elif dim == 2:
+                    local_matrix = stiffness_2d_sym_P1()
+                elif dim == 3:
+                    local_matrix = stiffness_3d_sym_P1()
+                else:
+                    raise NotImplementedError()
+            elif isinstance(dm, P2_DoFMap):
+                if dim == 1:
+                    local_matrix = stiffness_1d_sym_P2()
+                elif dim == 2:
+                    local_matrix = stiffness_2d_sym_P2()
+                elif dim == 3:
+                    local_matrix = stiffness_3d_sym_P2()
+                else:
+                    raise NotImplementedError()
+            elif isinstance(dm, P3_DoFMap):
+                if dim == 1:
+                    local_matrix = stiffness_1d_sym_P3()
+                elif dim == 2:
+                    local_matrix = stiffness_2d_sym_P3()
+                elif dim == 3:
+                    local_matrix = stiffness_3d_sym_P3()
+                else:
+                    raise NotImplementedError()
             else:
                 raise NotImplementedError()
-        elif isinstance(dm, P2_DoFMap):
-            if dim == 1:
-                local_matrix = stiffness_1d_sym_P2()
-            elif dim == 2:
-                local_matrix = stiffness_2d_sym_P2()
-            elif dim == 3:
-                local_matrix = stiffness_3d_sym_P2()
-            else:
-                raise NotImplementedError()
-        elif isinstance(dm, P3_DoFMap):
-            if dim == 1:
-                local_matrix = stiffness_1d_sym_P3()
-            elif dim == 2:
-                local_matrix = stiffness_2d_sym_P3()
-            elif dim == 3:
-                local_matrix = stiffness_3d_sym_P3()
+        elif dim-1 == manifold_dim:
+            if isinstance(dm, P1_DoFMap):
+                if dim == 2:
+                    local_matrix = stiffness_1d_in_2d_sym_P1()
+                else:
+                    raise NotImplementedError()
             else:
                 raise NotImplementedError()
         else:

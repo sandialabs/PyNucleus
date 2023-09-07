@@ -56,6 +56,7 @@ from . fractionalOrders import (constFractionalOrder,
                                 feFractionalOrder)
 from . kernelsCy import (getKernelEnum,
                          FRACTIONAL, INDICATOR, PERIDYNAMIC, GAUSSIAN,
+                         LOGINVERSEDISTANCE, MONOMIAL,
                          )
 from . kernels import (getFractionalKernel,
                        getIntegrableKernel,
@@ -108,6 +109,8 @@ kernelFactory.register('fractional', getFractionalKernel)
 kernelFactory.register('indicator', getIntegrableKernel, params={'kernel': INDICATOR}, aliases=['constant'])
 kernelFactory.register('inverseDistance', getIntegrableKernel, params={'kernel': PERIDYNAMIC}, aliases=['peridynamic', 'inverseOfDistance'])
 kernelFactory.register('gaussian', getIntegrableKernel, params={'kernel': GAUSSIAN})
+kernelFactory.register('logInverseDistance', getIntegrableKernel, params={'kernel': LOGINVERSEDISTANCE})
+kernelFactory.register('monomial', getIntegrableKernel, params={'kernel': MONOMIAL})
 
 
 class nonlocalMeshFactoryClass(factory):
@@ -1503,3 +1506,5 @@ class brusselatorProblem(problem):
             except KeyError:
                 d.append((k, str(params[k])))
         return '-'.join(['brusselator'] + [key + '=' + v for key, v in d])
+
+

@@ -144,6 +144,9 @@ cdef class {SCALAR_label_lc_}fe_vector:
                 assignScaled(v2.data, v1.data, alpha)
                 return v2
 
+    def __rmul__(self, other):
+        return self.__mul__(other)
+
     def toarray(self, copy=False):
         return np.array(self.data, copy=copy)
 
@@ -305,6 +308,12 @@ cdef class {SCALAR_label_lc_}fe_vector:
 
     def augmentWithBoundaryData(self, {SCALAR_label_lc_}fe_vector boundaryData):
         return self.dm.augmentWithBoundaryData(self, boundaryData)
+
+    def exportVTK(self, filename, label):
+        if isinstance(self.dm, P0_DoFMap):
+            self.dm.mesh.exportSolutionVTK(x=[], filename=filename, labels=[], cell_data={label: [self.toarray()]})
+        else:
+            self.dm.mesh.exportSolutionVTK(x=[self], filename=filename, labels=[label])
 
 
 cdef void {SCALAR_label_lc_}assign_2d({SCALAR}_t[:, ::1] y, const {SCALAR}_t[:, ::1] x):

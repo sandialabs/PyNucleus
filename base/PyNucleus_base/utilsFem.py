@@ -346,7 +346,7 @@ def loadDictFromHDF5(f):
                 else:
                     params[key] = LinearOperator.HDF5read(f[key])
             elif 'vertices' in f[key] and 'cells' in f[key]:
-                from PyNucleus.fem import meshNd
+                from PyNucleus.fem.mesh import meshNd
                 params[key] = meshNd.HDF5read(f[key])
             else:
                 params[key] = loadDictFromHDF5(f[key])

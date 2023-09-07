@@ -6,7 +6,7 @@
 ###################################################################################
 
 
-from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, BOOL_t
+from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, COMPLEX_t, BOOL_t
 from . twoPointFunctions cimport parametrizedTwoPointFunction
 
 cdef enum RELATIVE_POSITION_t:

@@ -6,7 +6,8 @@
 ###################################################################################
 
 from PyNucleus_base.myTypes cimport REAL_t, INDEX_t
-from . functions cimport function
+from . functions cimport function, vectorFunction
+from . femCy cimport simplexComputations
 from . meshCy cimport meshBase, cellFinder2
 from . DoFMaps cimport DoFMap
 
@@ -17,3 +18,15 @@ cdef class lookupFunction(function):
         public DoFMap dm
         public REAL_t[::1] u
         public cellFinder2 cellFinder
+
+
+cdef class vectorLookupFunction(vectorFunction):
+    cdef:
+        meshBase mesh
+        public DoFMap dm
+        public REAL_t[::1] u
+        public cellFinder2 cellFinder
+        simplexComputations sC
+        REAL_t[::1] temp
+        REAL_t[:, ::1] simplex
+        REAL_t[:, ::1] gradients

@@ -32,8 +32,12 @@ cdef class meshTransformer:
 
 
 cdef class radialMeshTransformer(meshTransformer):
-    def __init__(self):
+    cdef:
+        REAL_t radius
+
+    def __init__(self, REAL_t radius=0.):
         super(radialMeshTransformer, self).__init__()
+        self.radius = radius
 
     def __call__(self, meshBase mesh, dict lookup):
         cdef:
@@ -43,24 +47,46 @@ cdef class radialMeshTransformer(meshTransformer):
             REAL_t r1, r2, r, r3
             INDEX_t dim = mesh.dim
             REAL_t[:, ::1] vertices = mesh.vertices
-        for encodeVal in lookup:
-            decode_edge(encodeVal, e)
-            vertexNo = lookup[encodeVal]
-            r1 = 0.
-            for i in range(dim):
-                r1 += vertices[e[0], i]**2
-            r1 = sqrt(r1)
-            r2 = 0.
-            for i in range(dim):
-                r2 += vertices[e[1], i]**2
-            r2 = sqrt(r2)
-            r = 0.5*r1 + 0.5*r2
-            r3 = 0.
-            for i in range(dim):
-                r3 += vertices[vertexNo, i]**2
-            r3 = sqrt(r3)
-            for i in range(dim):
-                mesh.vertices[vertexNo, i] *= r/r3
+        if self.radius > 0.:
+            for encodeVal in lookup:
+                decode_edge(encodeVal, e)
+                vertexNo = lookup[encodeVal]
+                r3 = 0.
+                for i in range(dim):
+                    r3 += vertices[vertexNo, i]**2
+                r3 = sqrt(r3)
+                if r3 < self.radius:
+                    r1 = 0.
+                    for i in range(dim):
+                        r1 += vertices[e[0], i]**2
+                    r1 = sqrt(r1)
+                    r2 = 0.
+                    for i in range(dim):
+                        r2 += vertices[e[1], i]**2
+                    r2 = sqrt(r2)
+                    r = 0.5*r1 + 0.5*r2
+
+                    for i in range(dim):
+                            mesh.vertices[vertexNo, i] *= r/r3
+        else:
+            for encodeVal in lookup:
+                decode_edge(encodeVal, e)
+                vertexNo = lookup[encodeVal]
+                r1 = 0.
+                for i in range(dim):
+                    r1 += vertices[e[0], i]**2
+                r1 = sqrt(r1)
+                r2 = 0.
+                for i in range(dim):
+                    r2 += vertices[e[1], i]**2
+                r2 = sqrt(r2)
+                r = 0.5*r1 + 0.5*r2
+                r3 = 0.
+                for i in range(dim):
+                    r3 += vertices[vertexNo, i]**2
+                r3 = sqrt(r3)
+                for i in range(dim):
+                    mesh.vertices[vertexNo, i] *= r/r3
 
 
 cdef class gradedMeshTransformer(meshTransformer):
@@ -594,7 +620,7 @@ cdef class meshBase:
         if hasattr(self, '_boundaryVertices'):
             numBoundaryVertices = 0
             boundaryVertices = self._boundaryVertices
-            boundaryVertexTags = self._boundaryVertexTags
+            boundaryVertexTags = self.boundaryVertexTags
             for i in range(boundaryVertices.shape[0]):
                 v = boundaryVertices[i]
                 j = mapping[v]
@@ -1843,6 +1869,71 @@ def boundaryFaces(INDEX_t[:, ::1] cells):
     bfaces_mv = bfaces_mem
     for i, hv in enumerate(bfaces):
         decode_face(hv, f)
+        for j in range(3):
+            bfaces_mv[i, j] = f[j]
+    return bfaces_mem
+
+
+def boundaryFacesWithOrientation(REAL_t[:, ::1] vertices, INDEX_t[:, ::1] cells):
+    cdef:
+        INDEX_t num_cells = cells.shape[0], i, k, j, cellNo
+        INDEX_t v0, v1, v2, v3
+        INDEX_t[:, ::1] faces = uninitialized((4, 3), dtype=INDEX)
+        INDEX_t[::1] f012 = faces[0, :]
+        INDEX_t[::1] f013 = faces[1, :]
+        INDEX_t[::1] f023 = faces[2, :]
+        INDEX_t[::1] f123 = faces[3, :]
+        INDEX_t[::1] f = faces[3, :]
+        REAL_t[::1] x = uninitialized((3), dtype=REAL)
+        REAL_t[::1] y = uninitialized((3), dtype=REAL)
+        REAL_t[::1] n1 = uninitialized((3), dtype=REAL)
+        REAL_t[::1] n2 = uninitialized((3), dtype=REAL)
+        dict bfaces = {}
+        np.ndarray[INDEX_t, ndim=2] bfaces_mem
+        INDEX_t[:, ::1] bfaces_mv
+        tuple hv
+    for i in range(num_cells):
+        v0, v1, v2, v3 = (cells[i, 0], cells[i, 1],
+                          cells[i, 2], cells[i, 3])
+        sortFace(v0, v1, v2, f012)
+        sortFace(v0, v1, v3, f013)
+        sortFace(v0, v2, v3, f023)
+        sortFace(v1, v2, v3, f123)
+        for k in range(4):
+            hv = encode_face(faces[k, :])
+            try:
+                bfaces.pop(hv)
+            except KeyError:
+                bfaces[hv] = i
+    bfaces_mem = uninitialized((len(bfaces), 3), dtype=INDEX)
+    bfaces_mv = bfaces_mem
+    for i, hv in enumerate(bfaces):
+        decode_face(hv, f)
+        cellNo = bfaces[hv]
+
+        # compute face normal
+        for j in range(3):
+            x[j] = vertices[f[1], j]-vertices[f[0], j]
+        for j in range(3):
+            y[j] = vertices[f[2], j]-vertices[f[0], j]
+        n2[0] = x[1]*y[2]-x[2]*y[1]
+        n2[1] = x[2]*y[0]-x[0]*y[2]
+        n2[2] = x[0]*y[1]-x[1]*y[0]
+
+        # compute vector from cell center to face center
+        for j in range(3):
+            x[j] = 0.
+            for k in range(3):
+                x[j] += vertices[f[k], j]
+            x[j] /= 3.
+            y[j] = 0.
+            for k in range(4):
+                y[j] -= vertices[cells[cellNo, k], j]
+            y[j] *= 0.25
+            n1[j] = x[j]-y[j]
+        # flip the face if they point in different directions
+        if mydot(n2, n1) < 0:
+            f[1], f[2] = f[2], f[1]
         for j in range(3):
             bfaces_mv[i, j] = f[j]
     return bfaces_mem

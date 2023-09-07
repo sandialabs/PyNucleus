@@ -798,7 +798,7 @@ cdef class DoFMap:
 
         """
         try:
-            from PyNucleus_nl.kernelsCy import RangedFractionalKernel
+            from PyNucleus_nl.kernelsCy import RangedFractionalKernel, ComplexKernel
 
             if isinstance(kernel, RangedFractionalKernel):
                 from PyNucleus_base.linear_operators import multiIntervalInterpolationOperator
@@ -831,6 +831,26 @@ cdef class DoFMap:
                     return self.scalarDM.assembleNonlocal(kernel, matrixFormat, dm2.scalarDM, returnNearField, **kwargs)
                 else:
                     return self.scalarDM.assembleNonlocal(kernel, matrixFormat, None, returnNearField, **kwargs)
+            elif isinstance(kernel, ComplexKernel):
+                from PyNucleus_nl.nonlocalLaplacian import ComplexnonlocalBuilder
+
+                builder = ComplexnonlocalBuilder(self.mesh, self, kernel, dm2=dm2, **kwargs)
+                if matrixFormat.upper() == 'DENSE':
+                    return builder.getDense()
+                elif matrixFormat.upper() == 'DIAGONAL':
+                    return builder.getDiagonal()
+                elif matrixFormat.upper() == 'SPARSIFIED':
+                    return builder.getDense(trySparsification=True)
+                elif matrixFormat.upper() == 'SPARSE':
+                    return builder.getSparse(returnNearField=returnNearField)
+                elif matrixFormat.upper() == 'H2':
+                    return builder.getH2(returnNearField=returnNearField)
+                elif matrixFormat.upper() == 'H2CORRECTED':
+                    A = builder.getH2FiniteHorizon()
+                    A.setKernel(kernel)
+                    return A
+                else:
+                    raise NotImplementedError('Unknown matrix format: {}'.format(matrixFormat))
             else:
                 from PyNucleus_nl import nonlocalBuilder
 
@@ -1153,31 +1173,57 @@ cdef class DoFMap:
         return y, dm
 
     def augmentWithBoundaryData(self,
-                                const REAL_t[::1] x,
-                                const REAL_t[::1] boundaryData):
+                                x,
+                                boundaryData):
         "Augment the finite element function with boundary data."
         cdef:
             DoFMap dm
-            fe_vector y
-            REAL_t[::1] yy
+            fe_vector yReal
+            REAL_t[::1] xReal, boundaryReal, yyReal
+            complex_fe_vector yComplex
+            COMPLEX_t[::1] xComplex, boundaryComplex, yyComplex
             INDEX_t i, k, dof, dof2, num_cells = self.mesh.num_cells
 
         if isinstance(self, Product_DoFMap):
             dm = Product_DoFMap(type(self.scalarDM)(self.mesh, tag=MAX_INT), self.numComponents)
         else:
             dm = type(self)(self.mesh, tag=MAX_INT)
-        y = dm.empty(dtype=REAL)
-        yy = y
 
-        for i in range(num_cells):
-            for k in range(self.dofs_per_element):
-                dof = self.cell2dof(i, k)
-                dof2 = dm.cell2dof(i, k)
-                if dof >= 0:
-                    yy[dof2] = x[dof]
-                else:
-                    yy[dof2] = boundaryData[-dof-1]
-        return y
+        if ((isinstance(x, fe_vector) and isinstance(boundaryData, fe_vector)) or
+            (isinstance(x, np.ndarray) and x.dtype == REAL) and (isinstance(boundaryData, np.ndarray) and boundaryData.dtype == REAL)):
+
+            xReal = x
+            boundaryReal = boundaryData
+            yReal = dm.empty(dtype=REAL)
+            yyReal = yReal
+
+            for i in range(num_cells):
+                for k in range(self.dofs_per_element):
+                    dof = self.cell2dof(i, k)
+                    dof2 = dm.cell2dof(i, k)
+                    if dof >= 0:
+                        yyReal[dof2] = xReal[dof]
+                    else:
+                        yyReal[dof2] = boundaryReal[-dof-1]
+            return yReal
+        elif ((isinstance(x, complex_fe_vector) and isinstance(boundaryData, complex_fe_vector)) or
+            (isinstance(x, np.ndarray) and x.dtype == REAL) and (isinstance(boundaryData, np.ndarray) and boundaryData.dtype == REAL)):
+            xComplex = x
+            boundaryComplex = boundaryData
+            yComplex = dm.empty(dtype=COMPLEX)
+            yyComplex = yComplex
+
+            for i in range(num_cells):
+                for k in range(self.dofs_per_element):
+                    dof = self.cell2dof(i, k)
+                    dof2 = dm.cell2dof(i, k)
+                    if dof >= 0:
+                        yyComplex[dof2] = xComplex[dof]
+                    else:
+                        yyComplex[dof2] = boundaryComplex[-dof-1]
+            return yComplex
+        else:
+            raise NotImplementedError()
 
     def getFullDoFMap(self, DoFMap complement_dm):
         cdef:

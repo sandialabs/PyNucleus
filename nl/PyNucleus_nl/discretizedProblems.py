@@ -28,6 +28,7 @@ from . nonlocalProblems import (DIRICHLET,
                                 NEUMANN, HOMOGENEOUS_NEUMANN,
                                 transientFractionalProblem)
 import logging
+import warnings
 
 
 class stationaryModelSolution(classWithComputedDependencies):
@@ -592,6 +593,7 @@ class discretizedNonlocalProblem(problem):
         group.add('DoFMap', str(self.dm))
         group.add('Interior DoFMap', str(self.dmInterior))
         group.add('Dirichlet DoFMap', str(self.dmBC))
+        group.add('matrix memory size', self.A.getMemorySize())
 
 
 class discretizedTransientProblem(discretizedNonlocalProblem):
@@ -841,3 +843,5 @@ class discretizedTransientProblem(discretizedNonlocalProblem):
         super().report(group)
         group.add('dt', self.dt)
         group.add('numTimeSteps', self.numTimeSteps)
+
+

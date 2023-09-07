@@ -12,7 +12,6 @@ cimport numpy as np
 from PyNucleus_base.myTypes import INDEX, REAL
 from PyNucleus_base import uninitialized, uninitialized_like
 from PyNucleus_fem.meshCy cimport meshBase
-# from . nonlocalLaplacianBase import ALL
 from PyNucleus_fem.quadrature cimport (simplexQuadratureRule,
                                        transformQuadratureRule,
                                        doubleSimplexQuadratureRule,
@@ -36,7 +35,7 @@ cdef class fractionalLaplacian1DZeroExterior(nonlocalLaplacian1D):
         self.symmetricCells = False
 
 
-class singularityCancelationQuadRule1D(quadratureRule):
+cdef class singularityCancelationQuadRule1D(quadratureRule):
     def __init__(self, panelType panel, REAL_t singularity, INDEX_t quad_order_diagonal, INDEX_t quad_order_regular):
         cdef:
             INDEX_t i
@@ -145,7 +144,7 @@ class singularityCancelationQuadRule1D(quadratureRule):
             super(singularityCancelationQuadRule1D, self).__init__(bary, weights, 2*dim)
 
 
-class singularityCancelationQuadRule1D_boundary(quadratureRule):
+cdef class singularityCancelationQuadRule1D_boundary(quadratureRule):
     def __init__(self, panelType panel, REAL_t singularity, INDEX_t quad_order_diagonal, INDEX_t quad_order_regular):
         cdef:
             INDEX_t i
@@ -580,8 +579,8 @@ cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
                  **kwargs):
         super(fractionalLaplacian1D_boundary, self).__init__(kernel, mesh, DoFMap, num_dofs, **kwargs)
 
-        smin = max(0.5*(-self.kernel.min_singularity-1.), 0.)
-        smax = max(0.5*(-self.kernel.max_singularity-1.), 0.)
+        smin = max(0.5*(-self.kernel.min_singularity), 0.)
+        smax = max(0.5*(-self.kernel.max_singularity), 0.)
         if target_order is None:
             # this is the desired local quadrature error
             target_order = self.DoFMap.polynomialOrder+1-smin
@@ -638,7 +637,7 @@ cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
                 sQR = self.specialQuadRules[(singularityValue, panel)]
             except KeyError:
 
-                if singularityValue > -1.:
+                if singularityValue > -1.+1e-3:
                     qr = singularityCancelationQuadRule1D_boundary(panel, singularityValue, self.quad_order_diagonal, 1)
                 else:
                     qr = singularityCancelationQuadRule1D_boundary(panel, 2.+singularityValue, self.quad_order_diagonal, 1)

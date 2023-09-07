@@ -18,15 +18,22 @@ from . interactionDomains import (interactionDomain,
 from . fractionalOrders import (fractionalOrderBase,
                                 constFractionalOrder,
                                 variableConstFractionalOrder,
-                                singleVariableTwoPointFunction)
+                                singleVariableUnsymmetricFractionalOrder)
 from . kernelNormalization import (constantFractionalLaplacianScaling,
                                    constantFractionalLaplacianScalingDerivative,
                                    variableFractionalLaplacianScaling,
-                                   constantIntegrableScaling)
+                                   constantIntegrableScaling,
+                                   )
 from . kernelsCy import (Kernel,
+                         ComplexKernel,
                          FractionalKernel,
                          RangedFractionalKernel,
                          FRACTIONAL,
+                         PERIDYNAMIC,
+                         LOGINVERSEDISTANCE,
+                         GREENS_2D,
+                         GREENS_3D,
+                         MONOMIAL,
                          getKernelEnum)
 from . operatorInterpolation import admissibleSet
 import warnings
@@ -133,7 +140,7 @@ def getFractionalKernel(dim,
                     scaling = constantFractionalLaplacianScalingDerivative(dim, sFun.value, horizonFun.value, normalized, boundary, derivative, tempered)
             else:
                 symmetric = sFun.symmetric and isinstance(horizonFun, constant)
-                if piecewise and isinstance(sFun, singleVariableTwoPointFunction):
+                if piecewise and isinstance(sFun, singleVariableUnsymmetricFractionalOrder):
                     warnings.warn('Variable s kernels cannot be piecewise. Switching to piecewise == False.')
                     piecewise = False
                 scaling = variableFractionalLaplacianScaling(symmetric, normalized, boundary, derivative)
@@ -159,7 +166,8 @@ def getIntegrableKernel(dim,
                         normalized=True,
                         piecewise=True,
                         phi=None,
-                        boundary=False):
+                        boundary=False,
+                        monomialPower=np.nan):
     dim_ = _getDim(dim)
     kType = _getKernelType(kernel)
     horizonFun = _getHorizon(horizon)
@@ -173,7 +181,7 @@ def getIntegrableKernel(dim,
                 raise NotImplementedError()
         else:
             scaling = constantTwoPoint(0.5)
-    return Kernel(dim_, kType=kType, horizon=horizonFun, interaction=interaction, scaling=scaling, phi=phi, piecewise=piecewise, boundary=boundary)
+    return Kernel(dim_, kType=kType, horizon=horizonFun, interaction=interaction, scaling=scaling, phi=phi, piecewise=piecewise, boundary=boundary, monomialPower=monomialPower)
 
 
 def getKernel(dim,

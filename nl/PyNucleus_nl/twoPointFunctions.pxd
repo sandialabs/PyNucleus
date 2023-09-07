@@ -6,25 +6,12 @@
 ###################################################################################
 
 cimport numpy as np
-from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, BOOL_t
-from PyNucleus_fem.functions cimport function
+from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, COMPLEX_t, BOOL_t
+from PyNucleus_fem.functions cimport function, complexFunction
 
 
-cdef class twoPointFunction:
-    cdef:
-        public BOOL_t symmetric
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y)
-    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y)
-
-
-cdef class productTwoPoint(twoPointFunction):
-    cdef:
-        public twoPointFunction f1, f2
-
-
-cdef class constantTwoPoint(twoPointFunction):
-    cdef:
-        public REAL_t value
+include "twoPointFunctions_decl_REAL.pxi"
+include "twoPointFunctions_decl_COMPLEX.pxi"
 
 
 cdef class leftRightTwoPoint(twoPointFunction):
@@ -58,18 +45,6 @@ cdef class smoothedLeftRightTwoPoint(twoPointFunction):
 cdef class unsymTwoPoint(twoPointFunction):
     cdef:
         public REAL_t l, r
-
-
-cdef class parametrizedTwoPointFunction(twoPointFunction):
-    cdef:
-        void *params
-    cdef void setParams(self, void *params)
-    cdef void* getParams(self)
-
-
-cdef class productParametrizedTwoPoint(parametrizedTwoPointFunction):
-    cdef:
-        public twoPointFunction f1, f2
 
 
 cdef class inverseTwoPoint(twoPointFunction):

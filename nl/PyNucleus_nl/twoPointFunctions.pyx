@@ -12,103 +12,105 @@ Defines the base class for functions of two spatial variables, e.g. kernels, fra
 import numpy as np
 cimport numpy as np
 from libc.math cimport sqrt, exp, atan
-from PyNucleus_base.myTypes import INDEX, REAL, ENCODE, BOOL
+from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX, ENCODE, BOOL
 
 cdef enum fixed_type:
     FIXED_X
     FIXED_Y
     DIAGONAL
 
+include "twoPointFunctions_REAL.pxi"
+include "twoPointFunctions_COMPLEX.pxi"
 
-cdef class fixedTwoPointFunction(function):
-    cdef:
-        twoPointFunction f
-        REAL_t[::1] point
-        fixed_type fixedType
+# cdef class fixedTwoPointFunction(function):
+#     cdef:
+#         twoPointFunction f
+#         REAL_t[::1] point
+#         fixed_type fixedType
 
-    def __init__(self, twoPointFunction f, REAL_t[::1] point, fixed_type fixedType):
-        self.f = f
-        self.point = point
-        self.fixedType = fixedType
+#     def __init__(self, twoPointFunction f, REAL_t[::1] point, fixed_type fixedType):
+#         self.f = f
+#         self.point = point
+#         self.fixedType = fixedType
 
-    cdef REAL_t eval(self, REAL_t[::1] x):
-        if self.fixedType == FIXED_X:
-            return self.f(self.point, x)
-        if self.fixedType == FIXED_Y:
-            return self.f(x, self.point)
-        else:
-            return self.f(x, x)
+#     cdef REAL_t eval(self, REAL_t[::1] x):
+#         if self.fixedType == FIXED_X:
+#             return self.f(self.point, x)
+#         if self.fixedType == FIXED_Y:
+#             return self.f(x, self.point)
+#         else:
+#             return self.f(x, x)
 
 
-cdef class twoPointFunction:
-    def __init__(self, BOOL_t symmetric):
-        self.symmetric = symmetric
+# cdef class twoPointFunction:
+#     def __init__(self, BOOL_t symmetric):
+#         self.symmetric = symmetric
 
-    def __call__(self, REAL_t[::1] x, REAL_t[::1] y):
-        return self.eval(x, y)
+#     def __call__(self, REAL_t[::1] x, REAL_t[::1] y):
+#         return self.eval(x, y)
 
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
-        raise NotImplementedError()
+#     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
+#         raise NotImplementedError()
 
-    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
-        raise NotImplementedError()
+#     cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
+#         raise NotImplementedError()
 
-    def __getstate__(self):
-        return self.symmetric
+#     def __getstate__(self):
+#         return self.symmetric
 
-    def __setstate__(self, state):
-        twoPointFunction.__init__(self, state)
+#     def __setstate__(self, state):
+#         twoPointFunction.__init__(self, state)
 
-    def fixedX(self, REAL_t[::1] x):
-        return fixedTwoPointFunction(self, x, FIXED_X)
+#     def fixedX(self, REAL_t[::1] x):
+#         return fixedTwoPointFunction(self, x, FIXED_X)
 
-    def fixedY(self, REAL_t[::1] y):
-        return fixedTwoPointFunction(self, y, FIXED_Y)
+#     def fixedY(self, REAL_t[::1] y):
+#         return fixedTwoPointFunction(self, y, FIXED_Y)
 
-    def diagonal(self):
-        return fixedTwoPointFunction(self, None, DIAGONAL)
+#     def diagonal(self):
+#         return fixedTwoPointFunction(self, None, DIAGONAL)
 
-    def plot(self, mesh, **kwargs):
-        cdef:
-            INDEX_t i, j
-            REAL_t[:, ::1] S
-            REAL_t[::1] S2
-            REAL_t[::1] x, y
-        import matplotlib.pyplot as plt
-        c = np.array(mesh.getCellCenters())
-        if mesh.dim == 1:
-            X, Y = np.meshgrid(c[:, 0], c[:, 0])
-            x = np.empty((mesh.dim), dtype=REAL)
-            y = np.empty((mesh.dim), dtype=REAL)
-            S = np.zeros((mesh.num_cells, mesh.num_cells))
-            for i in range(mesh.num_cells):
-                for j in range(mesh.num_cells):
-                    x[0] = X[i, j]
-                    y[0] = Y[i, j]
-                    S[i, j] = self.eval(x, y)
-            plt.pcolormesh(X, Y, S, **kwargs)
-            plt.colorbar()
-            plt.xlabel(r'$x$')
-            plt.ylabel(r'$y$')
-        elif mesh.dim == 2:
-            S2 = np.zeros(mesh.num_cells)
-            for i in range(mesh.num_cells):
-                S2[i] = self(c[i, :], c[i, :])
-            mesh.plotFunction(S2, flat=True)
-        else:
-            raise NotImplementedError()
+#     def plot(self, mesh, **kwargs):
+#         cdef:
+#             INDEX_t i, j
+#             REAL_t[:, ::1] S
+#             REAL_t[::1] S2
+#             REAL_t[::1] x, y
+#         import matplotlib.pyplot as plt
+#         c = np.array(mesh.getCellCenters())
+#         if mesh.dim == 1:
+#             X, Y = np.meshgrid(c[:, 0], c[:, 0])
+#             x = np.empty((mesh.dim), dtype=REAL)
+#             y = np.empty((mesh.dim), dtype=REAL)
+#             S = np.zeros((mesh.num_cells, mesh.num_cells))
+#             for i in range(mesh.num_cells):
+#                 for j in range(mesh.num_cells):
+#                     x[0] = X[i, j]
+#                     y[0] = Y[i, j]
+#                     S[i, j] = self.eval(x, y)
+#             plt.pcolormesh(X, Y, S, **kwargs)
+#             plt.colorbar()
+#             plt.xlabel(r'$x$')
+#             plt.ylabel(r'$y$')
+#         elif mesh.dim == 2:
+#             S2 = np.zeros(mesh.num_cells)
+#             for i in range(mesh.num_cells):
+#                 S2[i] = self(c[i, :], c[i, :])
+#             mesh.plotFunction(S2, flat=True)
+#         else:
+#             raise NotImplementedError()
 
-    def __mul__(self, twoPointFunction other):
-        if isinstance(self, constantTwoPoint) and isinstance(other, constantTwoPoint):
-            return constantTwoPoint(self.value*other.value)
-        elif isinstance(self, parametrizedTwoPointFunction) or isinstance(other, parametrizedTwoPointFunction):
-            return productParametrizedTwoPoint(self, other)
-        elif isinstance(self, constantTwoPoint) and isinstance(other, (float, REAL)):
-            return constantTwoPoint(self.value*other)
-        elif isinstance(other, constantTwoPoint) and isinstance(self, (float, REAL)):
-            return constantTwoPoint(self*other.value)
-        else:
-            return productTwoPoint(self, other)
+#     def __mul__(self, twoPointFunction other):
+#         if isinstance(self, constantTwoPoint) and isinstance(other, constantTwoPoint):
+#             return constantTwoPoint(self.value*other.value)
+#         elif isinstance(self, parametrizedTwoPointFunction) or isinstance(other, parametrizedTwoPointFunction):
+#             return productParametrizedTwoPoint(self, other)
+#         elif isinstance(self, constantTwoPoint) and isinstance(other, (float, REAL)):
+#             return constantTwoPoint(self.value*other)
+#         elif isinstance(other, constantTwoPoint) and isinstance(self, (float, REAL)):
+#             return constantTwoPoint(self*other.value)
+#         else:
+#             return productTwoPoint(self, other)
 
 
 cdef class lambdaTwoPoint(twoPointFunction):
@@ -138,47 +140,47 @@ cdef class lambdaTwoPoint(twoPointFunction):
         lambdaTwoPoint.__init__(self, state[0], state[1])
 
 
-cdef class productTwoPoint(twoPointFunction):
-    def __init__(self, twoPointFunction f1, twoPointFunction f2):
-        super(productTwoPoint, self).__init__(f1.symmetric and f2.symmetric)
-        self.f1 = f1
-        self.f2 = f2
+# cdef class productTwoPoint(twoPointFunction):
+#     def __init__(self, twoPointFunction f1, twoPointFunction f2):
+#         super(productTwoPoint, self).__init__(f1.symmetric and f2.symmetric)
+#         self.f1 = f1
+#         self.f2 = f2
 
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
-        return self.f1.eval(x, y)*self.f2.eval(x, y)
+#     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
+#         return self.f1.eval(x, y)*self.f2.eval(x, y)
 
-    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
-        return self.f1.evalPtr(dim, x, y)*self.f2.evalPtr(dim, x, y)
+#     cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
+#         return self.f1.evalPtr(dim, x, y)*self.f2.evalPtr(dim, x, y)
 
-    def __repr__(self):
-        return '{}*{}'.format(self.f1, self.f2)
+#     def __repr__(self):
+#         return '{}*{}'.format(self.f1, self.f2)
 
-    def __getstate__(self):
-        return self.f1, self.f2
+#     def __getstate__(self):
+#         return self.f1, self.f2
 
-    def __setstate__(self, state):
-        productTwoPoint.__init__(self, state[0], state[1])
+#     def __setstate__(self, state):
+#         productTwoPoint.__init__(self, state[0], state[1])
 
 
-cdef class constantTwoPoint(twoPointFunction):
-    def __init__(self, REAL_t value):
-        super(constantTwoPoint, self).__init__(True)
-        self.value = value
+# cdef class constantTwoPoint(twoPointFunction):
+#     def __init__(self, REAL_t value):
+#         super(constantTwoPoint, self).__init__(True)
+#         self.value = value
 
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
-        return self.value
+#     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
+#         return self.value
 
-    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
-        return self.value
+#     cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
+#         return self.value
 
-    def __repr__(self):
-        return '{}'.format(self.value)
+#     def __repr__(self):
+#         return '{}'.format(self.value)
 
-    def __getstate__(self):
-        return self.value
+#     def __getstate__(self):
+#         return self.value
 
-    def __setstate__(self, state):
-        constantTwoPoint.__init__(self, state)
+#     def __setstate__(self, state):
+#         constantTwoPoint.__init__(self, state)
 
 
 cdef class matrixTwoPoint(twoPointFunction):
@@ -518,15 +520,15 @@ cdef class unsymTwoPoint(twoPointFunction):
             return self.r
 
 
-cdef class parametrizedTwoPointFunction(twoPointFunction):
-    def __init__(self, BOOL_t symmetric):
-        super(parametrizedTwoPointFunction, self).__init__(symmetric)
+# cdef class parametrizedTwoPointFunction(twoPointFunction):
+#     def __init__(self, BOOL_t symmetric):
+#         super(parametrizedTwoPointFunction, self).__init__(symmetric)
 
-    cdef void setParams(self, void *params):
-        self.params = params
+#     cdef void setParams(self, void *params):
+#         self.params = params
 
-    cdef void* getParams(self):
-        return self.params
+#     cdef void* getParams(self):
+#         return self.params
 
 
 cdef class inverseTwoPoint(twoPointFunction):
@@ -550,33 +552,33 @@ cdef class inverseTwoPoint(twoPointFunction):
         inverseTwoPoint.__init__(self, state)
 
 
-cdef class productParametrizedTwoPoint(parametrizedTwoPointFunction):
-    def __init__(self, twoPointFunction f1, twoPointFunction f2):
-        super(productParametrizedTwoPoint, self).__init__(f1.symmetric and f2.symmetric)
-        self.f1 = f1
-        self.f2 = f2
+# cdef class productParametrizedTwoPoint(parametrizedTwoPointFunction):
+#     def __init__(self, twoPointFunction f1, twoPointFunction f2):
+#         super(productParametrizedTwoPoint, self).__init__(f1.symmetric and f2.symmetric)
+#         self.f1 = f1
+#         self.f2 = f2
 
-    cdef void setParams(self, void *params):
-        cdef:
-            parametrizedTwoPointFunction f
-        if isinstance(self.f1, parametrizedTwoPointFunction):
-            f = self.f1
-            f.setParams(params)
-        if isinstance(self.f2, parametrizedTwoPointFunction):
-            f = self.f2
-            f.setParams(params)
+#     cdef void setParams(self, void *params):
+#         cdef:
+#             parametrizedTwoPointFunction f
+#         if isinstance(self.f1, parametrizedTwoPointFunction):
+#             f = self.f1
+#             f.setParams(params)
+#         if isinstance(self.f2, parametrizedTwoPointFunction):
+#             f = self.f2
+#             f.setParams(params)
 
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
-        return self.f1.eval(x, y)*self.f2.eval(x, y)
+#     cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
+#         return self.f1.eval(x, y)*self.f2.eval(x, y)
 
-    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
-        return self.f1.evalPtr(dim, x, y)*self.f2.evalPtr(dim, x, y)
+#     cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
+#         return self.f1.evalPtr(dim, x, y)*self.f2.evalPtr(dim, x, y)
 
-    def __repr__(self):
-        return '{}*{}'.format(self.f1, self.f2)
+#     def __repr__(self):
+#         return '{}*{}'.format(self.f1, self.f2)
 
-    def __getstate__(self):
-        return self.f1, self.f2
+#     def __getstate__(self):
+#         return self.f1, self.f2
 
-    def __setstate__(self, state):
-        productParametrizedTwoPoint.__init__(self, state[0], state[1])
+#     def __setstate__(self, state):
+#         productParametrizedTwoPoint.__init__(self, state[0], state[1])

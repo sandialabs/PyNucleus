@@ -18,6 +18,8 @@ try:
     from PyNucleus_packageTools import package
 except ImportError as e:
     raise ImportError('\'PyNucleus_packageTools\' needs to be installed first.') from e
+from PyNucleus_packageTools import fillTemplate
+from pathlib import Path
 
 p = package('PyNucleus_nl')
 try:
@@ -53,6 +55,32 @@ if p.hash_file(p.folder+'bitset.pxd.temp') != p.hash_file(p.folder+'bitset.pxd')
     move(p.folder+'bitset.pxd.temp', p.folder+'bitset.pxd')
 else:
     remove(p.folder+'bitset.pxd.temp')
+
+print('Generating templates')
+templates = [
+    'twoPointFunctions_{SCALAR}.pxi', 'twoPointFunctions_decl_{SCALAR}.pxi',
+    'nonlocalLaplacianBase_{SCALAR}.pxi', 'nonlocalLaplacianBase_decl_{SCALAR}.pxi',
+    'nonlocalLaplacian_{SCALAR}.pxi', 'nonlocalLaplacian_decl_{SCALAR}.pxi',
+]
+replacementGroups = [[('{SCALAR}', 'REAL'),
+                      ('{SCALAR_label}', ''),
+                      ('{SCALAR_label_lc}', ''),
+                      ('{SCALAR_label_lc_}', ''),
+                      ('{IS_REAL}', 'True'),
+                      ('{IS_COMPLEX}', 'False'),
+                      ('{function_type}', 'function')],
+                     [('{SCALAR}', 'COMPLEX'),
+                      ('{SCALAR_label}', 'Complex'),
+                      ('{SCALAR_label_lc}', 'complex'),
+                      ('{SCALAR_label_lc_}', 'complex_'),
+                      ('{IS_REAL}', 'False'),
+                      ('{IS_COMPLEX}', 'True'),
+                      ('{function_type}', 'complexFunction'),
+                      # for some reason, complex cannot handle += etc
+                      ('\s([^\s]+\[[^\]]*\])\s([\*\+-])=', ' \\1 = \\1 \\2'),
+                      ('\s([^\s]+)\s([\*\+-])=', ' \\1 = \\1 \\2')]]
+fillTemplate(Path(p.folder), templates, replacementGroups)
+
 
 p.addExtension("bitset",
                sources=[p.folder+"bitset.pyx"],

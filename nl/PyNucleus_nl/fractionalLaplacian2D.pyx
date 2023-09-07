@@ -36,7 +36,7 @@ cdef class fractionalLaplacian2DZeroExterior(nonlocalLaplacian2D):
         self.symmetricCells = False
 
 
-class singularityCancelationQuadRule2D(quadratureRule):
+cdef class singularityCancelationQuadRule2D(quadratureRule):
     def __init__(self, panelType panel,
                  REAL_t singularity,
                  INDEX_t quad_order_diagonal,
@@ -402,7 +402,7 @@ class singularityCancelationQuadRule2D(quadratureRule):
             super(singularityCancelationQuadRule2D, self).__init__(bary, weights, 2*dim+1)
 
 
-class singularityCancelationQuadRule2D_boundary(quadratureRule):
+cdef class singularityCancelationQuadRule2D_boundary(quadratureRule):
     def __init__(self, panelType panel,
                  REAL_t singularity,
                  INDEX_t quad_order_diagonal,
@@ -1146,7 +1146,7 @@ cdef class fractionalLaplacian2D_boundary(fractionalLaplacian2DZeroExterior):
                  **kwargs):
         super(fractionalLaplacian2D_boundary, self).__init__(kernel, mesh, DoFMap, num_dofs, **kwargs)
 
-        smax = max(0.5*(-self.kernel.max_singularity-2.), 0.)
+        smax = max(0.5*(-self.kernel.max_singularity-1.), 0.)
         if target_order is None:
             # this is the desired global order wrt to the number of DoFs
             # target_order = (2.-s)/self.dim
@@ -1171,7 +1171,7 @@ cdef class fractionalLaplacian2D_boundary(fractionalLaplacian2DZeroExterior):
             REAL_t logdh1 = max(log(d/h1), 0.), logdh2 = max(log(d/h2), 0.)
             REAL_t logh1H0 = abs(log(h1/self.H0)), logh2H0 = abs(log(h2/self.H0))
             REAL_t loghminH0 = max(logh1H0, logh2H0)
-            REAL_t s = max(0.5*(-self.kernel.getSingularityValue()-2.), 0.)
+            REAL_t s = max(0.5*(-self.kernel.getSingularityValue()-1.), 0.)
             REAL_t h
         panel = <panelType>max(ceil(((0.5*self.target_order+0.25)*log(self.num_dofs*self.H0**2) + loghminH0 + (s-1.)*logh2H0 - s*logdh2) /
                                     (max(logdh1, 0) + 0.35)),
@@ -1206,7 +1206,7 @@ cdef class fractionalLaplacian2D_boundary(fractionalLaplacian2DZeroExterior):
             try:
                 sQR = self.specialQuadRules[(singularityValue, panel)]
             except KeyError:
-                if singularityValue > -2.:
+                if singularityValue > -2.+1e-3:
                     qr = singularityCancelationQuadRule2D_boundary(panel, singularityValue, self.quad_order_diagonal, self.quad_order_diagonal)
                 else:
                     qr = singularityCancelationQuadRule2D_boundary(panel, 2.+singularityValue, self.quad_order_diagonal, self.quad_order_diagonal)

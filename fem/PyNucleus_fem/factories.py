@@ -34,7 +34,7 @@ from . functions import (function,
                          radialIndicator,
                          fractalDiffusivity, expDiffusivity,
                          componentVectorFunction)
-from . lookupFunction import lookupFunction
+from . lookupFunction import lookupFunction, vectorLookupFunction
 
 
 rhsFunSin1D = _rhsFunSin1D()
@@ -96,6 +96,7 @@ functionFactory.register('x0**3', monomial, params={'exponent': np.array([3., 0.
 functionFactory.register('x1**3', monomial, params={'exponent': np.array([0., 3., 0.])})
 functionFactory.register('x2**3', monomial, params={'exponent': np.array([0., 0., 3.])})
 functionFactory.register('Lambda', Lambda)
+functionFactory.register('complexLambda', complexLambda)
 functionFactory.register('squareIndicator', squareIndicator)
 functionFactory.register('radialIndicator', radialIndicator)
 functionFactory.register('rhsBoundaryLayer2D', _rhsBoundaryLayer2D)
@@ -110,6 +111,7 @@ functionFactory.register('inclusions', inclusions)
 functionFactory.register('inclusionsHong', inclusionsHong)
 functionFactory.register('motorPermeability', motorPermeability)
 functionFactory.register('lookup', lookupFunction)
+functionFactory.register('vectorLookup', vectorLookupFunction)
 functionFactory.register('shiftScaleFunctor', shiftScaleFunctor)
 functionFactory.register('componentVectorFunction', componentVectorFunction, aliases=['vector'])
 
@@ -143,6 +145,7 @@ from . mesh import (simpleInterval, simpleSquare, simpleLshape, simpleBox, box,
                     circle, graded_circle, cutoutCircle, twinDisc, dumbbell, wrench,
                     Hshape, ball, rectangle, crossSquare,
                     gradedSquare, gradedBox,
+                    squareWithCircularCutout, boxWithBallCutout,
                     disconnectedInterval, disconnectedDomain,
                     double_graded_interval,
                     simpleFicheraCube, uniformSquare,
@@ -174,8 +177,11 @@ meshFactory.register('circle', circle, 2, aliases=['disc', 'unitDisc', 'ball2d',
 meshFactory.register('graded_circle', graded_circle, 2, aliases=['gradedCircle'])
 meshFactory.register('discWithInteraction', discWithInteraction, 2)
 meshFactory.register('cutoutCircle', cutoutCircle, 2, aliases=['cutoutDisc'])
+meshFactory.register('squareWithCircularCutout', squareWithCircularCutout, 2)
+meshFactory.register('boxWithBallCutout', boxWithBallCutout, 3, aliases=['boxMinusBall'])
 meshFactory.register('simpleBox', simpleBox, 3, aliases=['unitBox', 'cube', 'unitCube'])
 meshFactory.register('box', box, 3)
+meshFactory.register('ball', ball, 3)
 meshFactory.register('simpleFicheraCube', simpleFicheraCube, 3, aliases=['fichera', 'ficheraCube'])
 meshFactory.register('standardSimplex2D', standardSimplex2D, 2)
 meshFactory.register('standardSimplex3D', standardSimplex3D, 3)
