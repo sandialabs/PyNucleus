@@ -1101,7 +1101,7 @@ cdef class tree_node:
                         BOOL_t assembleOnRoot=True,
                         BOOL_t local=False):
         cdef:
-            INDEX_t i, k, I, l, j, p, dim, dof = -1, r, start, end
+            INDEX_t i, k, I, l, j, p, dim, manifold_dim, dof = -1, r, start, end
             REAL_t[:, ::1] coeff, simplex, local_vals, PHI, xi, x
             REAL_t[::1] eta, fvals
             REAL_t vol, beta, omega
@@ -1112,6 +1112,7 @@ cdef class tree_node:
             transferMatrixBuilder tMB
             REAL_t[:, ::1] transferOperator
         dim = mesh.dim
+        manifold_dim = mesh.manifold_dim
         # Sauter Schwab p. 428
         if isinstance(DoFMap, P0_DoFMap):
             quadOrder = order+1
@@ -1123,7 +1124,7 @@ cdef class tree_node:
             quadOrder = order+4
         else:
             raise NotImplementedError()
-        qr = simplexXiaoGimbutas(quadOrder, dim)
+        qr = simplexXiaoGimbutas(quadOrder, dim, manifold_dim)
 
         # get values of basis function in quadrature nodes
         PHI = uninitialized((DoFMap.dofs_per_element, qr.num_nodes), dtype=REAL)
@@ -1132,7 +1133,7 @@ cdef class tree_node:
                 PHI[i, j] = DoFMap.localShapeFunctions[i](qr.nodes[:, j])
 
         coeff = np.zeros((DoFMap.num_dofs, order**dim), dtype=REAL)
-        simplex = uninitialized((dim+1, dim), dtype=REAL)
+        simplex = uninitialized((manifold_dim+1, dim), dtype=REAL)
         local_vals = uninitialized((DoFMap.dofs_per_element, order**dim), dtype=REAL)
 
         eta = np.cos((2.0*np.arange(order, 0, -1, dtype=REAL)-1.0) / (2.0*order) * np.pi)
@@ -1911,7 +1912,7 @@ cdef class productIterator:
         return True
 
 
-def assembleFarFieldInteractions(Kernel kernel, dict Pfar, INDEX_t m, DoFMap dm):
+def assembleFarFieldInteractions(Kernel kernel, dict Pfar, INDEX_t m, DoFMap dm, BOOL_t bemMode=False):
     cdef:
         INDEX_t lvl
         REAL_t[:, ::1] box1, box2, x, y
@@ -1946,11 +1947,18 @@ def assembleFarFieldInteractions(Kernel kernel, dict Pfar, INDEX_t m, DoFMap dm)
                     y[k, j] = (box2[j, 1]-box2[j, 0])*0.5 * eta_p + box2[j, 0]
                 k += 1
             cP.kernelInterpolant = uninitialized((kiSize, kiSize), dtype=REAL)
-            for i in range(kiSize):
-                for j in range(kiSize):
-                    if kernel_variable:
-                        kernel.evalParamsPtr(dim, &x[i, 0], &y[j, 0])
-                    cP.kernelInterpolant[i, j] = -2.0*kernel.evalPtr(dim, &x[i, 0], &y[j, 0])
+            if not bemMode:
+                for i in range(kiSize):
+                    for j in range(kiSize):
+                        if kernel_variable:
+                            kernel.evalParamsPtr(dim, &x[i, 0], &y[j, 0])
+                        cP.kernelInterpolant[i, j] = -2.0*kernel.evalPtr(dim, &x[i, 0], &y[j, 0])
+            else:
+                for i in range(kiSize):
+                    for j in range(kiSize):
+                        if kernel_variable:
+                            kernel.evalParamsPtr(dim, &x[i, 0], &y[j, 0])
+                        cP.kernelInterpolant[i, j] = kernel.evalPtr(dim, &x[i, 0], &y[j, 0])
 
 
 cdef class H2Matrix(LinearOperator):
@@ -2374,6 +2382,9 @@ cdef class DistributedH2Matrix_globalData(LinearOperator):
             self.comm.Allreduce(MPI.IN_PLACE, d)
             return d
 
+    def getMemorySize(self):
+        return self.localMat.getMemorySize()
+
 
 cdef class DistributedLinearOperator(LinearOperator):
     """
@@ -2406,6 +2417,9 @@ cdef class DistributedLinearOperator(LinearOperator):
 
     def __repr__(self):
         return '<Rank %d/%d, %s, %d local size>' % (self.comm.rank, self.comm.size, self.localMat, self.lcl_dm.num_dofs)
+
+    def getMemorySize(self):
+        return self.localMat.getMemorySize()
 
     cdef void setupNear(self):
         cdef:
@@ -3284,7 +3298,7 @@ cpdef BOOL_t getAdmissibleClusters(Kernel kernel,
             #                                                                                                             diam2,
             #                                                                                                             diamUnion))
             return False
-        elif (refParams.farFieldInteractionSize > n1.get_num_dofs()*n2.get_num_dofs()) and (diamUnion < horizonValue):
+        elif (refParams.farFieldInteractionSize > (<np.int64_t>n1.get_num_dofs())*(<np.int64_t>n2.get_num_dofs())) and (diamUnion < horizonValue):
             Pnear.append(nearFieldClusterPair(n1, n2))
             return False
         elif n1.get_is_leaf():

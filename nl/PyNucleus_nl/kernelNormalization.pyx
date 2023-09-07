@@ -416,3 +416,5 @@ cdef class variableFractionalLaplacianScalingWithDifferentHorizon(variableFracti
 
     def __setstate__(self, state):
         variableFractionalLaplacianScalingWithDifferentHorizon.__init__(self, state[0], state[1], state[2], state[3], state[4])
+
+

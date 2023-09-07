@@ -18,6 +18,7 @@ from . meshCy import (meshBase,
                       boundaryVertices,
                       boundaryEdges,
                       boundaryFaces,
+                      boundaryFacesWithOrientation,
                       boundaryVerticesFromBoundaryEdges,
                       boundaryEdgesFromBoundaryFaces,
                       radialMeshTransformation)
@@ -1018,6 +1019,49 @@ def circleWithInnerRadius(n, radius=2., innerRadius=1., returnFacets=False, **kw
         return mesh
 
 
+def squareWithCircularCutout(ax=-3., ay=-3., bx=3., by=3., radius=1., num_points_per_unit_len=2):
+    from . meshConstruction import polygon, circle
+    square = polygon([(ax, ay), (bx, ay), (bx, by), (ax, by)])
+    frame = square+circle((0, 0), radius, num_points_per_unit_len=num_points_per_unit_len)
+    frame.holes.append((0, 0))
+    return frame.mesh()
+
+
+def boxWithBallCutout(ax=-3., ay=-3., az=-3., bx=3., by=3., bz=3.,
+                      radius=1., points=4, radial_subdiv=None, **kwargs):
+    from meshpy.tet import MeshInfo, build  # Options
+    from meshpy.geometry import generate_surface_of_revolution, EXT_OPEN, GeometryBuilder, make_box
+
+    if radial_subdiv is None:
+        radial_subdiv = 2*points+2
+
+    dphi = np.pi/points
+
+    def truncate(r):
+        if abs(r) < 1e-10:
+            return 0
+        else:
+            return r
+
+    rz = [(truncate(radius*np.sin(i*dphi)), radius*np.cos(i*dphi)) for i in range(points+1)]
+
+    geob = GeometryBuilder()
+    geob.add_geometry(*generate_surface_of_revolution(rz,
+                                                      closure=EXT_OPEN,
+                                                      radial_subdiv=radial_subdiv))
+    points, facets, _, facet_markers = make_box((ax, ay, az), (bx, by, bz))
+    geob.add_geometry(points, facets, facet_markers=facet_markers)
+    mesh_info = MeshInfo()
+    geob.set(mesh_info)
+    mesh_info.set_holes([(0., 0., 0.)])
+    mesh_meshpy = build(mesh_info, **kwargs)  # , options=Options(switches='pq1.2/10')
+    mesh = mesh3d(np.array(mesh_meshpy.points, dtype=REAL),
+                  np.array(mesh_meshpy.elements, dtype=INDEX))
+    from PyNucleus_fem.meshCy import radialMeshTransformer
+    mesh.setMeshTransformation(radialMeshTransformer(radius))
+    return mesh
+
+
 def gradedIntervals(intervals, h):
 
     intervals = list(sorted(intervals, key=lambda int: int[0]))
@@ -1507,7 +1551,7 @@ class meshNd(meshBase):
             if self.dim <= 2:
                 self._boundaryFaces = uninitialized((0, 3), dtype=INDEX)
             elif self.dim == 3:
-                self._boundaryFaces = boundaryFaces(self.cells)
+                self._boundaryFaces = boundaryFacesWithOrientation(self.vertices, self.cells)
             return self._boundaryFaces
         else:
             return self._boundaryFaces
@@ -1785,11 +1829,11 @@ class meshNd(meshBase):
 
     def exportVTK(self, filename, cell_data=None):
         import meshio
-        if self.dim == 1:
+        if self.manifold_dim == 1:
             cell_type = 'line'
-        elif self.dim == 2:
+        elif self.manifold_dim == 2:
             cell_type = 'triangle'
-        elif self.dim == 3:
+        elif self.manifold_dim == 3:
             cell_type = 'tetra'
         else:
             raise NotImplementedError()
@@ -1801,9 +1845,9 @@ class meshNd(meshBase):
                                  cell_data=cell_data),
                      file_format='vtk')
 
-    def exportSolutionVTK(self, x, filename, labels='solution', cell_data=None):
+    def exportSolutionVTK(self, x, filename, labels='solution', cell_data={}):
         import meshio
-        from . DoFMaps import Product_DoFMap
+        from . DoFMaps import Product_DoFMap, P0_DoFMap
         if not isinstance(x, (list, tuple)):
             x = [x]
             labels = [labels]
@@ -1811,29 +1855,36 @@ class meshNd(meshBase):
             assert len(x) == len(labels)
         point_data = {}
         for xx, label in zip(x, labels):
-            sol = xx.linearPart()
-
-            if isinstance(xx.dm, Product_DoFMap):
-                v2d = uninitialized((self.num_vertices, 1), dtype=INDEX)
-                sol.dm.getVertexDoFs(v2d)
-                sol2 = np.zeros((self.num_vertices, sol.dm.numComponents), dtype=REAL)
-                for component in range(sol.dm.numComponents):
-                    R, _ = sol.dm.getRestrictionProlongation(component)
-                    for i in range(self.num_vertices):
-                        sol2[i, component] = (R*sol)[v2d[i, 0]]
-                point_data[label] = sol2
+            if isinstance(xx.dm, P0_DoFMap):
+                cell_data[label] = [xx.toarray()]
             else:
-                v2d = uninitialized((self.num_vertices, 1), dtype=INDEX)
-                sol.dm.getVertexDoFs(v2d)
-                sol2 = np.zeros((self.num_vertices), dtype=REAL)
-                for i in range(self.num_vertices):
-                    sol2[i] = sol[v2d[i, 0]]
-                point_data[label] = np.array(sol2)
-        if self.dim == 1:
+                sol = xx.linearPart()
+
+                if isinstance(xx.dm, Product_DoFMap):
+                    v2d = -np.ones((self.num_vertices, 1), dtype=INDEX)
+                    sol.dm.getVertexDoFs(v2d)
+                    sol2 = np.zeros((self.num_vertices, sol.dm.numComponents), dtype=REAL)
+                    for component in range(sol.dm.numComponents):
+                        R, _ = sol.dm.getRestrictionProlongation(component)
+                        for i in range(self.num_vertices):
+                            dof = v2d[i, 0]
+                            if dof >= 0:
+                                sol2[i, component] = (R*sol)[dof]
+                    point_data[label] = sol2
+                else:
+                    v2d = -np.ones((self.num_vertices, 1), dtype=INDEX)
+                    sol.dm.getVertexDoFs(v2d)
+                    sol2 = np.zeros((self.num_vertices), dtype=REAL)
+                    for i in range(self.num_vertices):
+                        dof = v2d[i, 0]
+                        if dof >= 0:
+                            sol2[i] = sol[dof]
+                    point_data[label] = np.array(sol2)
+        if self.manifold_dim == 1:
             cell_type = 'line'
-        elif self.dim == 2:
+        elif self.manifold_dim == 2:
             cell_type = 'triangle'
-        elif self.dim == 3:
+        elif self.manifold_dim == 3:
             cell_type = 'tetra'
         else:
             raise NotImplementedError()
@@ -1843,7 +1894,7 @@ class meshNd(meshBase):
                      meshio.Mesh(vertices,
                                  {cell_type: self.cells_as_array},
                                  point_data=point_data,
-                                 cell_data=cell_data,),
+                                 cell_data=cell_data),
                      file_format='vtk')
 
     @staticmethod
@@ -2828,9 +2879,6 @@ class mesh3d(meshNd):
         ugridActor.GetProperty().SetPointSize(30)
 
         return ugridActor
-
-    def get_surface_mesh(self, tag=None):
-        return mesh2d(self.vertices, self.getBoundaryFacesByTag(tag))
 
     def checkDoFMap(self, DoFMap):
         "Plot the DoF numbers on the mesh."

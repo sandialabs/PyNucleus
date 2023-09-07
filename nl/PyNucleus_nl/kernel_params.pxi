@@ -9,7 +9,7 @@ cdef enum:
     OFFSET = sizeof(void*)
 
 cdef enum:
-    NUM_KERNEL_PARAMS = 11
+    NUM_KERNEL_PARAMS = 12
 
 cdef enum kernelParams:
     fS = 0*OFFSET
@@ -24,6 +24,7 @@ cdef enum kernelParams:
     fINTERACTION = 9*OFFSET
     fEXPONENTINVERSE = 10*OFFSET
     fTEMPERED=10*OFFSET
+    fGREENS_LAMBDA=10*OFFSET
 
 
 cdef inline BOOL_t isNull(void *c_params, size_t pos):
@@ -41,6 +42,12 @@ cdef inline REAL_t getREAL(void *c_params, size_t pos):
 cdef inline void setREAL(void *c_params, size_t pos, REAL_t val):
     (<REAL_t*>(c_params+pos))[0] = val
 
+cdef inline COMPLEX_t getCOMPLEX(void *c_params, size_t pos):
+    return (<COMPLEX_t*>(c_params+pos))[0]
+
+cdef inline void setCOMPLEX(void *c_params, size_t pos, COMPLEX_t val):
+    (<COMPLEX_t*>(c_params+pos))[0] = val
+
 ctypedef REAL_t (*fun_t)(REAL_t *x, REAL_t *y, void *c_params)
 
 cdef inline void setFun(void *c_params, size_t pos, fun_t val):
@@ -48,6 +55,14 @@ cdef inline void setFun(void *c_params, size_t pos, fun_t val):
 
 cdef inline fun_t getFun(void *c_params, size_t pos):
     return (<fun_t*>(c_params+pos))[0]
+
+ctypedef COMPLEX_t (*complex_fun_t)(REAL_t *x, REAL_t *y, void *c_params)
+
+cdef inline void setComplexFun(void *c_params, size_t pos, complex_fun_t val):
+    (<complex_fun_t*>(c_params+pos))[0] = val
+
+cdef inline complex_fun_t getComplexFun(void *c_params, size_t pos):
+    return (<complex_fun_t*>(c_params+pos))[0]
 
 cdef inline REAL_t* getREALArray1D(void *c_params, size_t pos):
     return (<REAL_t**>(c_params+pos))[0]
@@ -67,3 +82,7 @@ cpdef enum:
     INDICATOR = 1
     PERIDYNAMIC = 2
     GAUSSIAN = 3
+    LOGINVERSEDISTANCE = 4
+    MONOMIAL = 5
+    GREENS_2D = 6
+    GREENS_3D = 7

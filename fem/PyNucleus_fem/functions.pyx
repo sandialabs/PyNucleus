@@ -59,6 +59,9 @@ cdef class function:
         else:
             return NotImplemented
 
+    def __rmul__(self, other):
+        return self.__mul__(other)
+
     def __neg__(self):
         if isinstance(self, mulFunction):
             return mulFunction(self.f, -self.fac)
@@ -1837,6 +1840,9 @@ cdef class complexFunction:
             return complexMulFunction(second, first)
         else:
             return NotImplemented
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
 
     def __neg__(self):
         if isinstance(self, complexMulFunction):

@@ -1101,7 +1101,10 @@ cdef class complex_lu_solver(complex_solver):
         if A is not None:
             self.A = A
 
-        if isinstance(self.A, (ComplexLinearOperator, HelmholtzShiftOperator)):
+        if isinstance(self.A, ComplexDense_LinearOperator):
+            from scipy.linalg import lu_factor
+            self.lu, self.perm = lu_factor(self.A.data)
+        elif isinstance(self.A, (ComplexLinearOperator, HelmholtzShiftOperator)):
             from scipy.sparse.linalg import splu
             try:
                 if isinstance(self.A, ComplexSSS_LinearOperator):

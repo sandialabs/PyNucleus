@@ -108,7 +108,7 @@ cdef class {SCALAR_label}LinearOperator:
                 raise NotImplementedError('Cannot multiply {} with {}:\n{}'.format(self, x, e))
 
     def __rmul__(self, x):
-        if isinstance(x, {SCALAR}):
+        if isinstance(x, (float, int, {SCALAR})):
             return {SCALAR_label}Multiply_Linear_Operator(self, x)
         else:
             raise NotImplementedError('Cannot multiply with {}'.format(x))
@@ -264,6 +264,9 @@ cdef class {SCALAR_label}LinearOperator:
 
     diagonal = property(fget=get_diagonal, fset=set_diagonal)
 
+    def getMemorySize(self):
+        return -1
+
 
 cdef class {SCALAR_label}TimeStepperLinearOperator({SCALAR_label}LinearOperator):
     def __init__(self,
@@ -356,6 +359,9 @@ cdef class {SCALAR_label}TimeStepperLinearOperator({SCALAR_label}LinearOperator)
         else:
             return super({SCALAR_label}TimeStepperLinearOperator, self).__mul__(x)
 
+    def getMemorySize(self):
+        return self.M.getMemorySize()+self.S.getMemorySize()
+
 
 cdef class {SCALAR_label}Multiply_Linear_Operator({SCALAR_label}LinearOperator):
     def __init__(self,
@@ -418,6 +424,9 @@ cdef class {SCALAR_label}Multiply_Linear_Operator({SCALAR_label}LinearOperator):
 
     def __repr__(self):
         return '{}*{}'.format(self.factor, self.A)
+
+    def getMemorySize(self):
+        return self.A.getMemorySize()
 
 
 cdef class {SCALAR_label}Product_Linear_Operator({SCALAR_label}LinearOperator):
@@ -494,6 +503,9 @@ cdef class {SCALAR_label}Product_Linear_Operator({SCALAR_label}LinearOperator):
 
     def __repr__(self):
         return '{}*{}'.format(self.A, self.B)
+
+    def getMemorySize(self):
+        return self.A.getMemorySize()+self.B.getMemorySize()
 
 
 cdef class {SCALAR_label}VectorLinearOperator:

@@ -5,7 +5,7 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, ENCODE_t, BOOL_t
+from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, COMPLEX_t, ENCODE_t, BOOL_t
 from PyNucleus_fem.quadrature cimport (quadratureRule,
                                        simplexQuadratureRule,
                                        quadQuadratureRule)
@@ -25,6 +25,10 @@ cdef class fractionalLaplacian2DZeroExterior(nonlocalLaplacian2D):
     cdef:
         public REAL_t[:, :, ::1] PHI_edge, PSI_edge, PHI_vertex, PSI_vertex
         public REAL_t[:, ::1] PHI_edge2, PHI_vertex2
+
+
+cdef class singularityCancelationQuadRule2D(quadratureRule):
+    pass
 
 
 cdef class fractionalLaplacian2D(nonlocalLaplacian2D):

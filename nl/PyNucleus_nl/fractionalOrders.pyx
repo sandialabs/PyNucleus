@@ -671,7 +671,7 @@ cdef class smoothedInnerOuterFractionalOrder(singleVariableUnsymmetricFractional
 
 cdef class feFractionalOrder(singleVariableUnsymmetricFractionalOrder):
     cdef:
-        fe_vector vec
+        public fe_vector vec
 
     def __init__(self, fe_vector vec, REAL_t smin, REAL_t smax):
         self.vec = vec

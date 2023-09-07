@@ -344,7 +344,8 @@ if d.doSolve and (d.buildDistributedH2 or d.buildDistributedSparse):
                     lcl_dm.inner)
     cg.maxIter = 1000
     u = lcl_dm.zeros()
-    cg(b, u)
+    with d.timer('CG solve'):
+        cg(b, u)
 
     residuals = cg.residuals
     solveGroup = d.addOutputGroup('solve', tested=True, rTol=1e-1)

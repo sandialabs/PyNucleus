@@ -5,7 +5,7 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, ENCODE_t, BOOL_t
+from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, COMPLEX_t, ENCODE_t, BOOL_t
 from PyNucleus_fem.quadrature cimport (quadratureRule,
                                        simplexQuadratureRule,
                                        quadQuadratureRule,
@@ -27,6 +27,9 @@ cdef class fractionalLaplacian1DZeroExterior(nonlocalLaplacian1D):
         public quadratureRule qrVertex
         public REAL_t[:, ::1] PHI_dist, PHI_sep, PHI_vertex
         dict distantPHI
+
+cdef class singularityCancelationQuadRule1D(quadratureRule):
+    pass
 
 
 cdef class fractionalLaplacian1D(nonlocalLaplacian1D):

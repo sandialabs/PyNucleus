@@ -6,7 +6,7 @@
 ###################################################################################
 
 cimport numpy as np
-from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, BOOL_t
+from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, COMPLEX_t, BOOL_t
 from PyNucleus_fem.functions cimport function
 from . twoPointFunctions cimport (twoPointFunction,
                                   constantTwoPoint,
@@ -84,3 +84,5 @@ cdef class constantIntegrableScaling(constantTwoPoint):
         INDEX_t dim
         REAL_t horizon
         interactionDomain interaction
+
+

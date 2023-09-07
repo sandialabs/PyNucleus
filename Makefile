@@ -170,7 +170,7 @@ docker-mac:
 
 
 prereq:
-	$(PYTHON) -m pip install $(PIP_FLAGS) $(PIP_INSTALL_FLAGS) Cython cython numpy scipy matplotlib pyyaml h5py pybind11 MeshPy tabulate modepy mpi4py pyamg
+	$(PYTHON) -m pip install $(PIP_FLAGS) $(PIP_INSTALL_FLAGS) wheel Cython cython numpy scipy matplotlib pyyaml h5py pybind11 MeshPy tabulate modepy mpi4py pyamg meshio
 	$(PYTHON) -m pip install $(PIP_FLAGS) $(PIP_INSTALL_FLAGS) scikit-sparse
 
 prereq-extra:

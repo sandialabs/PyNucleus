@@ -663,3 +663,5 @@ class delayedFractionalLaplacianOp(delayedConstructionOperator):
         d.update(self.params)
         A = getFracLapl(self.mesh, self.dm, self.kernel, **d)
         return A
+
+
