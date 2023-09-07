@@ -9,9 +9,7 @@ import numpy as np
 from PyNucleus_base.factory import factory
 from . functions import (simpleAnisotropy, simpleAnisotropy2, inclusions, inclusionsHong,
                          motorPermeability)
-from . functions import (function,
-                         vectorFunction,
-                         _rhsFunSin1D, _solSin1D, _rhsFunSin2D, _cos1D, _cos2D, _rhsCos2D, _grad_cos2d_n,
+from . functions import (_rhsFunSin1D, _solSin1D, _rhsFunSin2D, _cos1D, _cos2D, _rhsCos2D, _grad_cos2d_n,
                          _rhsFunSin3D, _solSin2D, _solSin3D, Lambda, constant,
                          monomial,
                          complexLambda,

@@ -11,6 +11,7 @@ from libc.math cimport (sin, cos, sinh, cosh, tanh, sqrt, atan2,
                         log, ceil,
                         fabs as abs, M_PI as pi, pow,
                         tgamma as gamma)
+from scipy.special import factorial
 from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX, ENCODE, BOOL
 from PyNucleus_base import uninitialized
 from PyNucleus_base.blas cimport mydot
@@ -58,7 +59,7 @@ cdef class PermutationIndexer:
 
         self.factorials = np.zeros((N), dtype=INDEX)
         for i in range(N):
-            self.factorials[i] = np.math.factorial(N-1-i)
+            self.factorials[i] = factorial(N-1-i, True)
         self.lehmer = np.zeros(N, dtype=INDEX)
 
     cdef INDEX_t rank(self, INDEX_t[::1] perm):

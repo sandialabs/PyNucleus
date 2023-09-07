@@ -11,7 +11,6 @@ mpi4py.rc.initialize = False
 from mpi4py import MPI
 import logging
 import numpy as np
-from copy import deepcopy
 from PyNucleus_base.myTypes import REAL, INDEX, TAG
 from PyNucleus_base import uninitialized
 from . levels import meshLevel, algebraicLevel
