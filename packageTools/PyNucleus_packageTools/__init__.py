@@ -85,8 +85,6 @@ def update(d, u):
 
 class package:
     def __init__(self, name, namespace=''):
-        import multiprocessing
-
         self.name = name
         self.namespace = namespace
         if self.namespace != '':

@@ -12,11 +12,11 @@ from PyNucleus_fem.quadrature cimport (quadratureRule,
                                        doubleSimplexQuadratureRule)
 from PyNucleus_fem.DoFMaps cimport DoFMap, P0_DoFMap, P1_DoFMap, P2_DoFMap
 from PyNucleus_fem.functions cimport function
-from . nonlocalLaplacianBase cimport (double_local_matrix_t,
-                                      nonlocalLaplacian1D,
-                                      panelType,
-                                      MASK_t,
-                                      specialQuadRule)
+from . nonlocalOperator cimport (double_local_matrix_t,
+                                 nonlocalLaplacian1D,
+                                 panelType,
+                                 MASK_t,
+                                 specialQuadRule)
 from . fractionalOrders cimport fractionalOrderBase
 from . kernelsCy cimport (Kernel,
                           FractionalKernel)

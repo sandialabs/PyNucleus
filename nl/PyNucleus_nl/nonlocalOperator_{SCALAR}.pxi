@@ -421,7 +421,7 @@ cdef class {SCALAR_label}double_local_matrix_t:
         return '{}\n'.format(self.__class__.__name__)
 
 
-cdef class {SCALAR_label}nonlocalLaplacian({SCALAR_label}double_local_matrix_t):
+cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
     def __init__(self,
                  {SCALAR_label}Kernel kernel,
                  meshBase mesh, DoFMap dm,
@@ -539,7 +539,7 @@ cdef class {SCALAR_label}nonlocalLaplacian({SCALAR_label}double_local_matrix_t):
         return panel
 
     def __repr__(self):
-        return (super(nonlocalLaplacian, self).__repr__() +
+        return (super(nonlocalOperator, self).__repr__() +
                 'kernel:                        {}\n'.format(self.kernel))
 
     cdef inline shapeFunction getLocalShapeFunction(self, INDEX_t local_dof):

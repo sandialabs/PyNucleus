@@ -59,8 +59,8 @@ else:
 print('Generating templates')
 templates = [
     'twoPointFunctions_{SCALAR}.pxi', 'twoPointFunctions_decl_{SCALAR}.pxi',
-    'nonlocalLaplacianBase_{SCALAR}.pxi', 'nonlocalLaplacianBase_decl_{SCALAR}.pxi',
-    'nonlocalLaplacian_{SCALAR}.pxi', 'nonlocalLaplacian_decl_{SCALAR}.pxi',
+    'nonlocalOperator_{SCALAR}.pxi', 'nonlocalOperator_decl_{SCALAR}.pxi',
+    'nonlocalAssembly_{SCALAR}.pxi', 'nonlocalAssembly_decl_{SCALAR}.pxi',
 ]
 replacementGroups = [[('{SCALAR}', 'REAL'),
                       ('{SCALAR_label}', ''),
@@ -85,11 +85,11 @@ fillTemplate(Path(p.folder), templates, replacementGroups)
 p.addExtension("bitset",
                sources=[p.folder+"bitset.pyx"],
                language='c++')
-p.addExtension("nonlocalLaplacianBase",
-               sources=[p.folder+"nonlocalLaplacianBase.pyx"],
+p.addExtension("nonlocalOperator",
+               sources=[p.folder+"nonlocalOperator.pyx"],
                language='c++')
-p.addExtension("nonlocalLaplacian",
-               sources=[p.folder+"nonlocalLaplacian.pyx"],
+p.addExtension("nonlocalAssembly",
+               sources=[p.folder+"nonlocalAssembly.pyx"],
                language='c++')
 p.addExtension("fractionalLaplacian1D",
                sources=[p.folder+"fractionalLaplacian1D.pyx"],

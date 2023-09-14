@@ -11,8 +11,8 @@ import numpy.linalg
 from PyNucleus.fem.mesh import simpleInterval, circle
 from PyNucleus.fem.DoFMaps import P1_DoFMap, P2_DoFMap
 from PyNucleus.fem.functions import constant
-from PyNucleus.nl.nonlocalLaplacian import (assembleNonlocalOperator,
-                                            nonlocalBuilder)
+from PyNucleus.nl.nonlocalAssembly import (assembleNonlocalOperator,
+                                           nonlocalBuilder)
 from PyNucleus.nl.clusterMethodCy import H2Matrix
 from PyNucleus.base.myTypes import REAL
 from scipy.special import gamma

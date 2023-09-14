@@ -18,11 +18,11 @@ from . clusterMethodCy cimport (tree_node,
                                 DistributedH2Matrix_globalData,
                                 DistributedH2Matrix_localData,
                                 DistributedLinearOperator)
-from . nonlocalLaplacianBase cimport (double_local_matrix_t,
-                                      Complexdouble_local_matrix_t,
-                                      nonlocalLaplacian,
-                                      panelType,
-                                      MASK_t)
+from . nonlocalOperator cimport (double_local_matrix_t,
+                                 Complexdouble_local_matrix_t,
+                                 nonlocalOperator,
+                                 panelType,
+                                 MASK_t)
 from . fractionalLaplacian1D cimport (fractionalLaplacian1D,
                                       fractionalLaplacian1D_nonsym,
                                       fractionalLaplacian1D_boundary,
@@ -47,8 +47,8 @@ from . kernelsCy cimport (Kernel,
 
 include "config.pxi"
 
-include "nonlocalLaplacian_decl_REAL.pxi"
-include "nonlocalLaplacian_decl_COMPLEX.pxi"
+include "nonlocalAssembly_decl_REAL.pxi"
+include "nonlocalAssembly_decl_COMPLEX.pxi"
 
 
 cdef class nearFieldClusterPair:

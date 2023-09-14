@@ -70,7 +70,7 @@ cdef class {SCALAR_label}double_local_matrix_t:
                                REAL_t[::1] center)
 
 
-cdef class {SCALAR_label}nonlocalLaplacian({SCALAR_label}double_local_matrix_t):
+cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
     cdef:
         public REAL_t H0, hmin, num_dofs
         void* localShapeFunctions

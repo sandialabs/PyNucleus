@@ -26,7 +26,6 @@ class codeRegion:
     def __exit__(self, type, value, traceback):
         from inspect import getframeinfo, stack
         import sys
-        import matplotlib.pyplot as plt
 
         sys.stdout = self._stdout
 
