@@ -19,7 +19,6 @@ from PyNucleus_fem.quadrature cimport (simplexQuadratureRule,
                                        simplexXiaoGimbutas)
 from PyNucleus_fem.DoFMaps cimport DoFMap, P0_DoFMap, P1_DoFMap, shapeFunction
 from PyNucleus_nl.fractionalOrders cimport constFractionalOrder
-# from . nonlocalLaplacianBase import ALL
 
 include "kernel_params.pxi"
 include "panelTypes.pxi"

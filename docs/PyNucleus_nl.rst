@@ -65,28 +65,16 @@ PyNucleus.nl.kernelsCy module
 .. automodule:: PyNucleus_nl.kernelsCy
 
 
-PyNucleus.nl.nonlocalLaplacianBase module
+PyNucleus.nl.nonlocalOperator module
 ------------------------------------------
 
-.. automodule:: PyNucleus_nl.nonlocalLaplacianBase
+.. automodule:: PyNucleus_nl.nonlocalOperator
 
 
-PyNucleus.nl.fractionalLaplacian1D module
-------------------------------------------
-
-.. automodule:: PyNucleus_nl.fractionalLaplacian1D
-
-
-PyNucleus.nl.fractionalLaplacian2D module
-------------------------------------------
-
-.. automodule:: PyNucleus_nl.fractionalLaplacian2D
-
-
-PyNucleus.nl.nonlocalLaplacian module
+PyNucleus.nl.nonlocalBuilder module
 --------------------------------------
 
-.. automodule:: PyNucleus_nl.nonlocalLaplacian
+.. automodule:: PyNucleus_nl.nonlocalBuilder
 
 
 PyNucleus.nl.nonlocalProblems module

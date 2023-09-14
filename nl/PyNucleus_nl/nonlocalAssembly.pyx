@@ -43,7 +43,6 @@ from PyNucleus_base.linear_operators cimport (CSR_LinearOperator,
                                               ComplexdiagonalOperator)
 from PyNucleus_fem.splitting import dofmapSplitter
 from PyNucleus_fem import dofmapFactory
-# from . nonlocalLaplacianBase import MASK
 from . twoPointFunctions cimport constantTwoPoint
 from . fractionalOrders cimport (fractionalOrderBase,
                                  constFractionalOrder,
@@ -78,8 +77,8 @@ cdef REAL_t INTERFACE_DOF = np.inf
 LOGGER = logging.getLogger(__name__)
 
 
-include "nonlocalLaplacian_REAL.pxi"
-include "nonlocalLaplacian_COMPLEX.pxi"
+include "nonlocalAssembly_REAL.pxi"
+include "nonlocalAssembly_COMPLEX.pxi"
 
 
 # These functions are used by getEntry

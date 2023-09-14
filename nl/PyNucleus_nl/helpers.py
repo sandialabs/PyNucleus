@@ -24,7 +24,7 @@ from PyNucleus_multilevelSolver.connectors import (inputConnector,
                                                    repartitionConnector)
 from . twoPointFunctions import constantTwoPoint
 from . kernelsCy import FractionalKernel, RangedFractionalKernel
-from . nonlocalLaplacian import nonlocalBuilder
+from . nonlocalAssembly import nonlocalBuilder
 from . operatorInterpolation import (admissibleSet,
                                      getChebyIntervalsAndNodes)
 from . kernels import getFractionalKernel

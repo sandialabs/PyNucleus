@@ -16,7 +16,7 @@ from PyNucleus.fem.DoFMaps import P0_DoFMap, P1_DoFMap
 from PyNucleus.fem.functions import constant
 from PyNucleus.nl import nonlocalBuilder
 from PyNucleus.nl.kernels import getFractionalKernel
-from PyNucleus.nl.nonlocalLaplacian import nearFieldClusterPair
+from PyNucleus.nl.nonlocalAssembly import nearFieldClusterPair
 from PyNucleus.nl.clusterMethodCy import (H2Matrix,
                                           getDoFBoxesAndCells,
                                           tree_node,

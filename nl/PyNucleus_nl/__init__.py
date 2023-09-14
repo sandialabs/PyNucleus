@@ -19,7 +19,7 @@ from . kernelsCy import (Kernel,
                          RangedFractionalKernel,
                          getKernelEnum,
                          FRACTIONAL, INDICATOR, PERIDYNAMIC, GAUSSIAN)
-from . nonlocalLaplacian import nonlocalBuilder
+from . nonlocalAssembly import nonlocalBuilder
 from . clusterMethodCy import H2Matrix
 from . nonlocalProblems import (fractionalLaplacianProblem,
                                 nonlocalPoissonProblem,

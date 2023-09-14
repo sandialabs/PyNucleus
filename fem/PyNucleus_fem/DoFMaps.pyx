@@ -832,7 +832,7 @@ cdef class DoFMap:
                 else:
                     return self.scalarDM.assembleNonlocal(kernel, matrixFormat, None, returnNearField, **kwargs)
             elif isinstance(kernel, ComplexKernel):
-                from PyNucleus_nl.nonlocalLaplacian import ComplexnonlocalBuilder
+                from PyNucleus_nl.nonlocalAssembly import ComplexnonlocalBuilder
 
                 builder = ComplexnonlocalBuilder(self.mesh, self, kernel, dm2=dm2, **kwargs)
                 if matrixFormat.upper() == 'DENSE':
@@ -852,7 +852,7 @@ cdef class DoFMap:
                 else:
                     raise NotImplementedError('Unknown matrix format: {}'.format(matrixFormat))
             else:
-                from PyNucleus_nl import nonlocalBuilder
+                from PyNucleus_nl.nonlocalAssembly import nonlocalBuilder
 
                 builder = nonlocalBuilder(self.mesh, self, kernel, dm2=dm2, **kwargs)
                 if matrixFormat.upper() == 'DENSE':

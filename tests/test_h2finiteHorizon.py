@@ -12,7 +12,7 @@ from PyNucleus.fem.functions import Lambda, constant
 from PyNucleus.nl.fractionalOrders import (constFractionalOrder,
                                            leftRightFractionalOrder,
                                            variableConstFractionalOrder)
-from PyNucleus.nl.nonlocalLaplacian import nonlocalBuilder
+from PyNucleus.nl.nonlocalAssembly import nonlocalBuilder
 from PyNucleus.nl.kernelNormalization import variableFractionalLaplacianScaling
 from PyNucleus.nl.kernels import getFractionalKernel
 from scipy.linalg import solve

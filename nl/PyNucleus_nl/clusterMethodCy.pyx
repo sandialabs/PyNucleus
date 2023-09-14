@@ -21,8 +21,8 @@ from PyNucleus_base.blas cimport gemv, gemvT, mydot, matmat, norm, assign
 from PyNucleus_base.io cimport DistributedMap, Import
 from PyNucleus_base.sparsityPattern cimport sparsityPattern
 from PyNucleus_fem.splitting import dofmapSplitter
-from . nonlocalLaplacianBase cimport variableFractionalOrder
-from . nonlocalLaplacian cimport nearFieldClusterPair
+from . nonlocalOperator cimport variableFractionalOrder
+from . nonlocalAssembly cimport nearFieldClusterPair
 from . kernelsCy cimport Kernel
 from PyNucleus_fem.DoFMaps cimport DoFMap, P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap
 from PyNucleus_fem.meshCy cimport meshBase
@@ -1747,17 +1747,24 @@ cdef class tree_node:
         assert self.parent is None
         assert self.id == 0
 
-        partitioner = params.get('partitioner', 'regular')
-        if partitioner == 'regular':
-            rVP = regularDofPartitioner(dm=dm)
-            part, _ = rVP.partitionDofs(comm.size, irregular=True)
-            del rVP
-        elif partitioner == 'metis':
-            dP = metisDofPartitioner(dm=dm, matrixPower=params.get('metis_matrixPower', 1))
-            part, _ = dP.partitionDofs(comm.size, ufactor=params.get('metis_ufactor', 30))
-            del dP
+        if 'user-provided partition' in params:
+            part = params['user-provided partition']
+            assert part.shape[0] == dm.num_dofs, "User provided partitioning does not match number of degrees of freedom: {} != {}".format(part.shape[0], dm.num_dofs)
+            assert np.min(part) == 0, "User provided partitioning leaves ranks empty."
+            assert np.max(part) == comm.size-1, "User provided partitioning leaves ranks empty."
+            assert np.unique(part).shape[0] == comm.size, "User provided partitioning leaves ranks empty."
         else:
-            raise NotImplementedError(partitioner)
+            partitioner = params.get('partitioner', 'regular')
+            if partitioner == 'regular':
+                rVP = regularDofPartitioner(dm=dm)
+                part, _ = rVP.partitionDofs(comm.size, irregular=True)
+                del rVP
+            elif partitioner == 'metis':
+                dP = metisDofPartitioner(dm=dm, matrixPower=params.get('metis_matrixPower', 1))
+                part, _ = dP.partitionDofs(comm.size, ufactor=params.get('metis_ufactor', 30))
+                del dP
+            else:
+                raise NotImplementedError(partitioner)
 
         num_dofs = 0
         for p in range(comm.size):

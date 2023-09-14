@@ -212,6 +212,23 @@ def tabulate(x, results, floatfmt=None, groups=False, **kwargs):
     return s
 
 
+def formatScientificLatex(a, useEnotation=True):
+    if abs(a) > 0:
+        exp = int(np.floor(np.log10(a)))
+        mantissa = a/10**exp
+        if useEnotation:
+            return '{:.3}\mathrm{{e}}{{{}}}'.format(mantissa, exp)
+        else:
+            return '{:.3} \\times 10^{{{}}}'.format(mantissa, exp)
+    elif abs(a) == 0:
+        if useEnotation:
+            return '0.00\mathrm{{e}}{0}'
+        else:
+            return '0.00 \\times 10^{0}'
+    else:
+        return a
+
+
 def latexFormatRate(r, digits=2):
     import numpy as np
     if abs(r-1.0) < 1e-9:

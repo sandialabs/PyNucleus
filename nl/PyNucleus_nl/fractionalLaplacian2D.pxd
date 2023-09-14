@@ -11,11 +11,11 @@ from PyNucleus_fem.quadrature cimport (quadratureRule,
                                        quadQuadratureRule)
 from PyNucleus_fem.DoFMaps cimport DoFMap
 from PyNucleus_fem.meshCy cimport meshBase
-from . nonlocalLaplacianBase cimport (double_local_matrix_t,
-                                      nonlocalLaplacian2D,
-                                      specialQuadRule,
-                                      panelType,
-                                      MASK_t)
+from . nonlocalOperator cimport (double_local_matrix_t,
+                                 nonlocalLaplacian2D,
+                                 specialQuadRule,
+                                 panelType,
+                                 MASK_t)
 from . fractionalOrders cimport fractionalOrderBase
 from . kernelsCy cimport (Kernel,
                           FractionalKernel)
