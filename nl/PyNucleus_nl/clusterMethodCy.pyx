@@ -734,8 +734,9 @@ cdef class tree_node:
         else:
             return self.parent.getParent(parentLevel + 1)
 
-    def plot(self, level=0, plotType='box', REAL_t[:, ::1] dofCoords=None, BOOL_t recurse=False, BOOL_t printClusterIds=False, BOOL_t printNumDoFs=False, transferOperatorColor='purple', coefficientsColor='red', horizontal=True, levelSkip=1):
+    def plot(self, level=0, plotType='box', DoFMap dm=None, BOOL_t recurse=False, BOOL_t printClusterIds=False, BOOL_t printNumDoFs=False, transferOperatorColor='purple', coefficientsColor='red', horizontal=True, levelSkip=1, skip_angle=0.):
         import matplotlib.pyplot as plt
+        import matplotlib.patches as patches
 
         cdef:
             indexSet dofs
@@ -744,56 +745,98 @@ cdef class tree_node:
             REAL_t[:, ::1] points
             INDEX_t[::1] idx
             REAL_t[::1] x, y
+            REAL_t[:, ::1] dofCoords
 
         if plotType in ('treeDoFCoords', 'treeDoF'):
             if plotType == 'treeDoFCoords':
-                assert dofCoords is not None
-            if self.dim == 1:
-                if self.parent is not None:
-                    dofs = self.get_dofs()
-                    center = np.zeros((self.dim), dtype=REAL)
-                    it = dofs.getIter()
-                    k = 0
-                    while it.step():
-                        dof = it.i
-                        if plotType == 'treeDoFCoords':
-                            for j in range(self.dim):
-                                center[j] += dofCoords[dof, j]
-                        else:
-                            center[0] += dof
-                        k += 1
-                    for j in range(self.dim):
-                        center[j] /= len(dofs)
+                assert dm is not None
+                dofCoords = dm.getDoFCoordinates()
+            elif plotType == 'treeDoF':
+                assert self.dim == 1
+            if self.parent is not None:
+                dofs = self.get_dofs()
+                center = np.zeros((self.dim), dtype=REAL)
+                it = dofs.getIter()
+                k = 0
+                while it.step():
+                    dof = it.i
+                    if plotType == 'treeDoFCoords':
+                        for j in range(self.dim):
+                            center[j] += dofCoords[dof, j]
+                    else:
+                        center[0] += dof
+                    k += 1
+                for j in range(self.dim):
+                    center[j] /= len(dofs)
 
-                    dofs = self.parent.get_dofs()
-                    pcenter = np.zeros((self.dim), dtype=REAL)
-                    it = dofs.getIter()
-                    k = 0
-                    while it.step():
-                        dof = it.i
-                        if plotType == 'treeDoFCoords':
-                            for j in range(self.dim):
-                                pcenter[j] += dofCoords[dof, j]
-                        else:
-                            pcenter[0] += dof
-                        k += 1
-                    for j in range(self.dim):
-                        pcenter[j] /= len(dofs)
+                dofs = self.parent.get_dofs()
+                pcenter = np.zeros((self.dim), dtype=REAL)
+                it = dofs.getIter()
+                k = 0
+                while it.step():
+                    dof = it.i
+                    if plotType == 'treeDoFCoords':
+                        for j in range(self.dim):
+                            pcenter[j] += dofCoords[dof, j]
+                    else:
+                        pcenter[0] += dof
+                    k += 1
+                for j in range(self.dim):
+                    pcenter[j] /= len(dofs)
+
+                if self.dim == 1:
                     if horizontal:
                         plt.plot([pcenter[0], center[0]], [level+levelSkip, level], c='k')
                         level = level-levelSkip
                     else:
                         plt.plot([level-levelSkip, level], [pcenter[0], center[0]], c='k')
                         level = level+levelSkip
-                if recurse:
-                    for c in self.children:
-                        c.plot(level=level, plotType=plotType, dofCoords=dofCoords, recurse=recurse,
-                               printClusterIds=printClusterIds, printNumDoFs=printNumDoFs, horizontal=horizontal,
-                               levelSkip=levelSkip)
+                else:
+                    offset = np.array(dofCoords).max(axis=0)-np.array(dofCoords).min(axis=0)
+                    offset[0] = np.cos(skip_angle)*offset[0]
+                    offset[1] = -np.sin(skip_angle)*offset[1]
+                    mesh = dm.mesh.copy()
+                    for k in range(mesh.num_vertices):
+                        for j in range(self.dim):
+                            mesh.vertices[k, j] += offset[j]*level
+                    mesh.plot(vertices=False)
+                    plt.gca().add_patch(patches.Rectangle((self.box[0, 0]+offset[0]*level, self.box[1, 0]+offset[1]*level),
+                                                          self.box[0, 1]-self.box[0, 0],
+                                                          self.box[1, 1]-self.box[1, 0],
+                                                          fill=False,
+                                                          color='red' if self.mixed_node else 'blue'))
+                    plt.plot([pcenter[0]+offset[0]*(level-levelSkip), center[0]+offset[0]*level],
+                             [pcenter[1]+offset[1]*(level-levelSkip), center[1]+offset[1]*level], c='k')
+                    level = level+levelSkip
             else:
-                raise NotImplementedError()
+                offset = np.array(dofCoords).max(axis=0)-np.array(dofCoords).min(axis=0)
+                offset[0] = np.cos(skip_angle)*offset[0]
+                offset[1] = -np.sin(skip_angle)*offset[1]
+                level = level-levelSkip
+                mesh = dm.mesh.copy()
+                for k in range(mesh.num_vertices):
+                    for j in range(self.dim):
+                        mesh.vertices[k, j] += offset[j]*level
+                mesh.plot(vertices=False)
+                plt.gca().add_patch(patches.Rectangle((self.box[0, 0]+offset[0]*level, self.box[1, 0]+offset[1]*level),
+                                                          self.box[0, 1]-self.box[0, 0],
+                                                          self.box[1, 1]-self.box[1, 0],
+                                                          fill=False,
+                                                          color='red' if self.mixed_node else 'blue'))
+
+                level = level+levelSkip
+
+            if recurse:
+                for c in self.children:
+                    c.plot(level=level, plotType=plotType, dm=dm, recurse=recurse,
+                           printClusterIds=printClusterIds, printNumDoFs=printNumDoFs, horizontal=horizontal,
+                           levelSkip=levelSkip,
+                           skip_angle=skip_angle)
+
         elif plotType == 'DoFCoords':
-            assert dofCoords is not None
+            # plot the convex hull of the dofs of each tree node
+            assert dm is not None
+            dofCoords = dm.getDoFCoordinates()
             from scipy.spatial import ConvexHull
             if self.dim == 1:
                 dofs = self.get_dofs()
@@ -880,11 +923,10 @@ cdef class tree_node:
 
                 if recurse and not self.get_is_leaf():
                     for c in self.children:
-                        c.plot(level+1, plotType, dofCoords, recurse, printClusterIds, printNumDoFs)
+                        c.plot(level+1, plotType, dm, recurse, printClusterIds, printNumDoFs)
             else:
                 raise NotImplementedError()
         elif plotType == 'DoF':
-            import matplotlib.patches as patches
             if self.dim == 1:
                 dofs = self.get_dofs()
 
@@ -938,11 +980,12 @@ cdef class tree_node:
                 returnLevel = level
                 if recurse:
                     for c in self.children:
-                        returnLevel = c.plot(level=level, plotType=plotType, dofCoords=dofCoords, recurse=recurse,
+                        returnLevel = c.plot(level=level, plotType=plotType, dm=dm, recurse=recurse,
                                              printClusterIds=printClusterIds, printNumDoFs=printNumDoFs, horizontal=horizontal, transferOperatorColor=transferOperatorColor, coefficientsColor=coefficientsColor)
                 return returnLevel
 
         elif plotType == 'box':
+            # plot the box for each tree node
             import matplotlib.patches as patches
             if self.dim == 2:
                 if recurse and self.parent is None:
@@ -957,23 +1000,25 @@ cdef class tree_node:
                         plt.gcf().axes[k].set_xlim([self.box[0, 0], self.box[0, 1]])
                         plt.gcf().axes[k].set_ylim([self.box[1, 0], self.box[1, 1]])
                         plt.gcf().axes[k].set_aspect('equal')
+                    for k in range(self.numLevels, len(plt.gcf().axes)):
+                        plt.gcf().axes[k].set_axis_off()
                 if recurse:
                     ax = plt.gcf().axes[level]
                 else:
                     ax = plt.gca()
 
                 ax.add_patch(patches.Rectangle((self.box[0, 0], self.box[1, 0]),
-                                                                  self.box[0, 1]-self.box[0, 0],
-                                                                  self.box[1, 1]-self.box[1, 0],
-                                                                  fill=False,
-                                                                  color='red' if self.mixed_node else 'blue'))
+                                               self.box[0, 1]-self.box[0, 0],
+                                               self.box[1, 1]-self.box[1, 0],
+                                               fill=False,
+                                               color='red' if self.mixed_node else 'blue'))
                 if recurse and not self.get_is_leaf():
                     myCenter = np.mean(self.box, axis=1)
                     for c in self.children:
                         # cCenter = np.mean(c.box, axis=1)
                         # plt.arrow(myCenter[0], myCenter[1], cCenter[0]-myCenter[0], cCenter[1]-myCenter[1])
                         # plt.text(cCenter[0], cCenter[1], s=str(level+1))
-                        c.plot(level+1)
+                        c.plot(level=level+1, plotType='box', recurse=recurse)
             else:
                 raise NotImplementedError()
         else:

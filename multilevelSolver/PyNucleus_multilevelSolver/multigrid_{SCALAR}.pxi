@@ -19,6 +19,7 @@ from PyNucleus_base.linear_operators cimport {SCALAR_label}LinearOperator, CSR_L
 from . coarseSolvers cimport {SCALAR_label}coarseSolver
 from . smoothers cimport ({SCALAR_label}smoother, {SCALAR_label}jacobiSmoother, {SCALAR_label}blockJacobiSmoother,
                           {SCALAR_label}gmresSmoother,
+                          chebyshevSmoother,
                           iluSmoother, flexibleSmoother)
 from . smoothers import (gaussSeidelSmoother,
                          sorSmoother, ssorSmoother)
@@ -199,6 +200,8 @@ cdef class {SCALAR_label}multigrid({SCALAR_label_lc_}iterative_solver):
                 lvl.smoother = sorSmoother(lvl.A, lvl.D, smoother[1], tempMem, overlap=lvlOverlap)
             elif smoother[0] == 'ssor':
                 lvl.smoother = ssorSmoother(lvl.A, lvl.D, smoother[1], tempMem, overlap=lvlOverlap)
+            elif smoother[0] == 'chebyshev':
+                lvl.smoother = chebyshevSmoother(lvl.A, lvl.D, smoother[1], tempMem, overlap=lvlOverlap)
             elif smoother[0] == 'gmres':
                 lvl.smoother = {SCALAR_label}gmresSmoother(lvl.A, lvl.D, smoother[1], overlap=lvlOverlap)
             elif smoother[0] == 'ilu':

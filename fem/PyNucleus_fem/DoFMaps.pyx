@@ -831,30 +831,15 @@ cdef class DoFMap:
                     return self.scalarDM.assembleNonlocal(kernel, matrixFormat, dm2.scalarDM, returnNearField, **kwargs)
                 else:
                     return self.scalarDM.assembleNonlocal(kernel, matrixFormat, None, returnNearField, **kwargs)
-            elif isinstance(kernel, ComplexKernel):
-                from PyNucleus_nl.nonlocalAssembly import ComplexnonlocalBuilder
-
-                builder = ComplexnonlocalBuilder(self.mesh, self, kernel, dm2=dm2, **kwargs)
-                if matrixFormat.upper() == 'DENSE':
-                    return builder.getDense()
-                elif matrixFormat.upper() == 'DIAGONAL':
-                    return builder.getDiagonal()
-                elif matrixFormat.upper() == 'SPARSIFIED':
-                    return builder.getDense(trySparsification=True)
-                elif matrixFormat.upper() == 'SPARSE':
-                    return builder.getSparse(returnNearField=returnNearField)
-                elif matrixFormat.upper() == 'H2':
-                    return builder.getH2(returnNearField=returnNearField)
-                elif matrixFormat.upper() == 'H2CORRECTED':
-                    A = builder.getH2FiniteHorizon()
-                    A.setKernel(kernel)
-                    return A
-                else:
-                    raise NotImplementedError('Unknown matrix format: {}'.format(matrixFormat))
             else:
-                from PyNucleus_nl.nonlocalAssembly import nonlocalBuilder
+                if isinstance(kernel, ComplexKernel):
+                    from PyNucleus_nl.nonlocalAssembly import ComplexnonlocalBuilder
 
-                builder = nonlocalBuilder(self.mesh, self, kernel, dm2=dm2, **kwargs)
+                    builder = ComplexnonlocalBuilder(self.mesh, self, kernel, dm2=dm2, **kwargs)
+                else:
+                    from PyNucleus_nl.nonlocalAssembly import nonlocalBuilder
+
+                    builder = nonlocalBuilder(self.mesh, self, kernel, dm2=dm2, **kwargs)
                 if matrixFormat.upper() == 'DENSE':
                     return builder.getDense()
                 elif matrixFormat.upper() == 'DIAGONAL':
@@ -1189,8 +1174,8 @@ cdef class DoFMap:
         else:
             dm = type(self)(self.mesh, tag=MAX_INT)
 
-        if ((isinstance(x, fe_vector) and isinstance(boundaryData, fe_vector)) or
-            (isinstance(x, np.ndarray) and x.dtype == REAL) and (isinstance(boundaryData, np.ndarray) and boundaryData.dtype == REAL)):
+        if ((isinstance(x, fe_vector) or (isinstance(x, np.ndarray) and x.dtype == REAL)) and
+            (isinstance(boundaryData, fe_vector)) or (isinstance(boundaryData, np.ndarray) and boundaryData.dtype == REAL)):
 
             xReal = x
             boundaryReal = boundaryData
@@ -1206,8 +1191,8 @@ cdef class DoFMap:
                     else:
                         yyReal[dof2] = boundaryReal[-dof-1]
             return yReal
-        elif ((isinstance(x, complex_fe_vector) and isinstance(boundaryData, complex_fe_vector)) or
-            (isinstance(x, np.ndarray) and x.dtype == REAL) and (isinstance(boundaryData, np.ndarray) and boundaryData.dtype == REAL)):
+        elif ((isinstance(x, complex_fe_vector) or (isinstance(x, np.ndarray) and x.dtype == COMPLEX)) and
+              (isinstance(boundaryData, complex_fe_vector) or (isinstance(boundaryData, np.ndarray) and boundaryData.dtype == COMPLEX))):
             xComplex = x
             boundaryComplex = boundaryData
             yComplex = dm.empty(dtype=COMPLEX)
@@ -1223,7 +1208,7 @@ cdef class DoFMap:
                         yyComplex[dof2] = boundaryComplex[-dof-1]
             return yComplex
         else:
-            raise NotImplementedError()
+            raise NotImplementedError(type(x), type(boundaryData))
 
     def getFullDoFMap(self, DoFMap complement_dm):
         cdef:
@@ -2163,6 +2148,72 @@ cdef class P3_DoFMap(DoFMap):
                                                                      self.num_boundary_dofs)
 
 
+cdef class shapeFunctionN1e(vectorShapeFunction):
+    cdef:
+        INDEX_t localVertexNo1, localVertexNo2
+
+    def __init__(self, INDEX_t dim, INDEX_t localVertexNo1, INDEX_t localVertexNo2):
+        super(shapeFunctionN1e, self).__init__(dim, True)
+        self.localVertexNo1 = localVertexNo1
+        self.localVertexNo2 = localVertexNo2
+
+    def __call__(self, lam, gradLam):
+        value = 0.5*(lam[self.localVertexNo1]*gradLam[self.localVertexNo2, :] - lam[self.localVertexNo2]*gradLam[self.localVertexNo1, :])
+        if self.cell[self.localVertexNo1] > self.cell[self.localVertexNo2]:
+            value = -value
+        return value
+
+    cdef void eval(self, const REAL_t[::1] lam, const REAL_t[:, ::1] gradLam, REAL_t[::1] value):
+        cdef:
+            INDEX_t i
+        for i in range(self.dim):
+            value[i] = 0.5*(lam[self.localVertexNo1]*gradLam[self.localVertexNo2, i] - lam[self.localVertexNo2]*gradLam[self.localVertexNo1, i])
+        if self.cell[self.localVertexNo1] > self.cell[self.localVertexNo2]:
+            for i in range(self.dim):
+                value[i] = -value[i]
+
+    def __getstate__(self):
+        return (self.vertexNo1, self.vertexNo2)
+
+    def __setstate__(self, state):
+        self.vertexNo1 = state[0]
+        self.vertexNo2 = state[1]
+        self.bary = uninitialized((4), dtype=REAL)
+
+
+cdef class N1e_DoFMap(DoFMap):
+    def __init__(self, meshBase mesh, tag=None,
+                 INDEX_t skipCellsAfter=-1):
+        self.polynomialOrder = 1
+        if mesh.dim == 1:
+            raise NotImplementedError()
+        elif mesh.dim == 2:
+            super(N1e_DoFMap, self).__init__(mesh, 0, 1, 0, 0, tag, skipCellsAfter)
+            self.localShapeFunctions = [shapeFunctionN1e(2, 0, 1),
+                                        shapeFunctionN1e(2, 1, 2),
+                                        shapeFunctionN1e(2, 2, 0)]
+            self.nodes = np.array([[0.5, 0.5, 0.],
+                                   [0., 0.5, 0.5],
+                                   [0.5, 0., 0.5]], dtype=REAL)
+        elif mesh.dim == 3:
+            super(N1e_DoFMap, self).__init__(mesh, 0, 1, 0, 0, tag, skipCellsAfter)
+            self.localShapeFunctions = [shapeFunctionN1e(3, 0, 1),
+                                        shapeFunctionN1e(3, 1, 2),
+                                        shapeFunctionN1e(3, 0, 2),
+                                        shapeFunctionN1e(3, 0, 3),
+                                        shapeFunctionN1e(3, 1, 3),
+                                        shapeFunctionN1e(3, 2, 3)]
+            self.nodes = np.array([[0.5, 0.5, 0., 0.],
+                                   [0., 0.5, 0.5, 0.],
+                                   [0.5, 0., 0.5, 0.],
+                                   [0.5, 0., 0., 0.5],
+                                   [0., 0.5, 0., 0.5],
+                                   [0., 0., 0.5, 0.5]], dtype=REAL)
+
+    def __repr__(self):
+        return 'N1e DoFMap with {} DoFs and {} boundary DoFs.'.format(self.num_dofs,
+                                                                      self.num_boundary_dofs)
+
 
 def str2DoFMap(element):
     if element == 'P0':
@@ -2173,13 +2224,14 @@ def str2DoFMap(element):
         return P2_DoFMap
     elif element == 'P3':
         return P3_DoFMap
+    elif element == 'N1e':
+        return N1e_DoFMap
     else:
         raise NotImplementedError('Unknown DoFMap: {}'.format(element))
 
 
 def getAvailableDoFMaps():
-    return ['P0', 'P1', 'P2', 'P3',
-            ]
+    return ['P0', 'P1', 'P2', 'P3', 'N1e']
 
 
 def str2DoFMapOrder(element):
@@ -2191,6 +2243,8 @@ def str2DoFMapOrder(element):
         return 2
     elif element in ('P3', 3, '3'):
         return 3
+    elif element in ('N1e', ):
+        return 1
     else:
         raise NotImplementedError('Unknown DoFMap: {}'.format(element))
 

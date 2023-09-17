@@ -24,8 +24,5 @@ include "config.pxi"
 LOGGER = logging.getLogger(__name__)
 MPI_BOOL = MPI.BOOL
 
-from PyNucleus_fem.algebraicOverlaps cimport flush_type, no_flush, flush_local, flush_local_all, flush, flush_all
-
 include "coarseSolvers_REAL.pxi"
 include "coarseSolvers_COMPLEX.pxi"
-

@@ -328,3 +328,213 @@ cdef class {SCALAR_label}SSS_LinearOperator({SCALAR_label}LinearOperator):
             self.data[i] *= scaling
 
 
+cdef class {SCALAR_label}SSS_VectorLinearOperator({SCALAR_label}VectorLinearOperator):
+    """
+    Sparse symmetric matrix that saves the lower triangular part.
+    """
+    def __init__(self,
+                 INDEX_t[::1] indices,
+                 INDEX_t[::1] indptr,
+                 {SCALAR}_t[:, ::1] data,
+                 {SCALAR}_t[:, ::1] diagonal):
+        {SCALAR_label}VectorLinearOperator.__init__(self,
+                                                    indptr.shape[0]-1,
+                                                    indptr.shape[0]-1,
+                                                    data.shape[1])
+        self.indices = indices
+        self.indptr = indptr
+        self.data = data
+        self.diagonal = diagonal
+        self.indices_sorted = False
+        self.temp = uninitialized((self.vectorSize), dtype=REAL)
+
+    cdef INDEX_t matvec({SCALAR_label}SSS_VectorLinearOperator self,
+                        {SCALAR}_t[::1] x,
+                        {SCALAR}_t[:, ::1] y) except -1:
+        cdef:
+            INDEX_t i, j, k, l
+        y[:] = 0.
+        for i in range(self.num_rows):
+            for l in range(self.vectorSize):
+                self.temp[l] = self.diagonal[i, l]*x[i]
+            for j in range(self.indptr[i], self.indptr[i+1]):
+                k = self.indices[j]
+                for l in range(self.vectorSize):
+                    self.temp[l] += self.data[j, l]*x[k]
+                    y[k, l] += self.data[j, l]*x[i]
+            for l in range(self.vectorSize):
+                y[i, l] += self.temp[l]
+        return 0
+
+    cdef INDEX_t matvec_no_overwrite({SCALAR_label}SSS_VectorLinearOperator self,
+                                     {SCALAR}_t[::1] x,
+                                     {SCALAR}_t[:, ::1] y) except -1:
+        cdef:
+            INDEX_t i, j, k, l
+        for i in range(self.num_rows):
+            for l in range(self.vectorSize):
+                self.temp[l] = self.diagonal[i, l]*x[i]
+            for j in range(self.indptr[i], self.indptr[i+1]):
+                k = self.indices[j]
+                for l in range(self.vectorSize):
+                    self.temp[l] += self.data[j, l]*x[k]
+                    y[k, l] += self.data[j, l]*x[i]
+            for l in range(self.vectorSize):
+                y[i, l] += self.temp[l]
+        return 0
+
+    cdef void setEntry({SCALAR_label}SSS_VectorLinearOperator self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val):
+        cdef:
+            INDEX_t i, low, mid, high, l
+        if I == J:
+            for l in range(self.vectorSize):
+                self.diagonal[I, l] = val[l]
+        elif I > J:
+            low = self.indptr[I]
+            high = self.indptr[I+1]
+            if high-low < 20:
+                for i in range(low, high):
+                    if self.indices[i] == J:
+                        for l in range(self.vectorSize):
+                            self.data[i, l] = val[l]
+                        break
+            else:
+                # This should scale better than previous implementation,
+                # if we have a high number of non-zeros per row.
+                while self.indices[low] != J:
+                    if high-low <= 1:
+                        raise IndexError()
+                    mid = (low+high) >> 1
+                    if self.indices[mid] <= J:
+                        low = mid
+                    else:
+                        high = mid
+                for l in range(self.vectorSize):
+                    self.data[low, l] = val[l]
+
+    cdef void addToEntry({SCALAR_label}SSS_VectorLinearOperator self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val):
+        cdef:
+            INDEX_t i, low, mid, high, l
+        if I == J:
+            for l in range(self.vectorSize):
+                self.diagonal[I, l] += val[l]
+        elif I > J:
+            low = self.indptr[I]
+            high = self.indptr[I+1]
+            if high-low < 20:
+                for i in range(low, high):
+                    if self.indices[i] == J:
+                        for l in range(self.vectorSize):
+                            self.data[i, l] += val[l]
+                        break
+            else:
+                # This should scale better than previous implementation,
+                # if we have a high number of non-zeros per row.
+                while self.indices[low] != J:
+                    if high-low <= 1:
+                        # raise IndexError()
+                        return
+                    mid = (low+high) >> 1
+                    if self.indices[mid] <= J:
+                        low = mid
+                    else:
+                        high = mid
+                for l in range(self.vectorSize):
+                    self.data[low, l] += val[l]
+
+    cdef void getEntry({SCALAR_label}SSS_VectorLinearOperator self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val):
+        cdef:
+            INDEX_t low, high, i, l
+        if I == J:
+            for l in range(self.vectorSize):
+                val[l] = self.diagonal[I, l]
+                return
+        if I < J:
+            I, J = J, I
+        low = self.indptr[I]
+        high = self.indptr[I+1]
+        if high-low < 20:
+            for i in range(low, high):
+                if self.indices[i] == J:
+                    for l in range(self.vectorSize):
+                        val[l] = self.data[i, l]
+                    return
+        else:
+            # This should scale better than previous implementation,
+            # if we have a high number of non-zeros per row.
+            while self.indices[low] != J:
+                if high-low <= 1:
+                    for l in range(self.vectorSize):
+                        val[l] = 0.
+                    return
+                mid = (low+high) >> 1
+                if self.indices[mid] <= J:
+                    low = mid
+                else:
+                    high = mid
+            for l in range(self.vectorSize):
+                val[l] = self.data[low, l]
+            return
+
+    def isSparse(self):
+        return True
+
+    def getnnz(self):
+        return self.indptr[self.indptr.shape[0]-1]+self.num_rows
+
+    nnz = property(fget=getnnz)
+
+    def getMemorySize(self):
+        return ((self.indptr.shape[0]+self.indices.shape[0])*sizeof(INDEX_t) +
+                (self.data.shape[0]+self.diagonal.shape[0])*sizeof({SCALAR}_t))
+
+    def __repr__(self):
+        sizeInMB = self.getMemorySize() >> 20
+        if sizeInMB > 100:
+            return '<%dx%d %s with %d stored elements, %d MB>' % (self.num_rows,
+                                                                  self.num_columns,
+                                                                  self.__class__.__name__,
+                                                                  self.nnz,
+                                                                  sizeInMB)
+        else:
+            return '<%dx%d %s with %d stored elements>' % (self.num_rows,
+                                                           self.num_columns,
+                                                           self.__class__.__name__,
+                                                           self.nnz)
+
+    def __getstate__(self):
+        return (np.array(self.indices, dtype=INDEX),
+                np.array(self.indptr, dtype=INDEX),
+                np.array(self.data, dtype={SCALAR}),
+                np.array(self.diagonal, dtype={SCALAR}),
+                self.num_rows,
+                self.num_columns)
+
+    def __setstate__(self, state):
+        self.indices = state[0]
+        self.indptr = state[1]
+        self.data = state[2]
+        self.diagonal = state[3]
+        self.num_rows = state[4]
+        self.num_columns = state[5]
+
+    # def sort_indices(self):
+    #     sort_indices{SCALAR_label}(self.indptr, self.indices, self.data)
+    #     self.indices_sorted = True
+
+    def setZero(self):
+        cdef:
+            INDEX_t i
+
+        for i in range(self.data.shape[0]):
+            for l in range(self.vectorSize):
+                self.data[i, l] = 0.
+        for i in range(self.diagonal.shape[0]):
+            for l in range(self.vectorSize):
+                self.diagonal[i, l] = 0.
+
+    def copy(self):
+        data = np.array(self.data, copy=True)
+        diagonal = np.array(self.diagonal, copy=True)
+        other = {SCALAR_label}SSS_VectorLinearOperator(self.indices, self.indptr, data, diagonal)
+        return other

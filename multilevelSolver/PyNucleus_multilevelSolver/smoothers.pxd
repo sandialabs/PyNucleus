@@ -17,6 +17,20 @@ include "smoothers_decl_REAL.pxi"
 include "smoothers_decl_COMPLEX.pxi"
 
 
+cdef class chebyshevPreconditioner(preconditioner):
+    cdef:
+        public REAL_t[::1] coeffs
+        REAL_t[::1] temporaryMemory
+        LinearOperator A
+        algebraicOverlapManager overlap
+        BOOL_t has_overlap
+        INDEX_t lvlNo
+    cdef INDEX_t matvec(self, REAL_t[::1] x, REAL_t[::1] y) except -1
+
+
+cdef class chebyshevSmoother(separableSmoother):
+    pass
+
 
 cdef class iluPreconditioner(preconditioner):
     cdef:

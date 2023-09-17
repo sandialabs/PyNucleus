@@ -1,0 +1,6 @@
+Timers: {}
+data: {}
+meshInfo: {}
+results:
+  domain1L2err: 0.11154105433279142
+  domain2L2err: 0.12902150930986409

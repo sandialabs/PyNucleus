@@ -438,10 +438,10 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             self.num_dofs = num_dofs
         self.hmin = mesh.hmin
         self.H0 = mesh.diam/sqrt(8)
-        self.localShapeFunctions = malloc(self.DoFMap.dofs_per_element*sizeof(void*))
+        self.localShapeFunctions = <void**>malloc(self.DoFMap.dofs_per_element*sizeof(void*))
         for i in range(self.DoFMap.dofs_per_element):
             sf = dm.localShapeFunctions[i]
-            (<void**>(self.localShapeFunctions+i*sizeof(void*)))[0] = <void*>sf
+            self.localShapeFunctions[i] = <void*>sf
         self.specialQuadRules = {}
         self.distantQuadRulesPtr = <void**>malloc(MAX_PANEL*sizeof(void*))
         for i in range(MAX_PANEL):
@@ -543,7 +543,7 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
                 'kernel:                        {}\n'.format(self.kernel))
 
     cdef inline shapeFunction getLocalShapeFunction(self, INDEX_t local_dof):
-        return (<shapeFunction>((<void**>(self.localShapeFunctions+local_dof*sizeof(void*)))[0]))
+        return <shapeFunction>self.localShapeFunctions[local_dof]
 
     cdef void addQuadRule(self, panelType panel):
         cdef:

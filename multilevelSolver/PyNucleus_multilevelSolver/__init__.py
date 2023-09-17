@@ -6,8 +6,9 @@
 ###################################################################################
 
 from . hierarchies import EmptyHierarchy, hierarchy, hierarchyManager
-from . connectors import (inputConnector, repartitionConnector,
-                          )
+from . connectors import (inputConnector,
+                          repartitionConnector,
+                          pCoarsenConnector)
 from . multigrid import V, W, FMG_V, FMG_W
 from . geometricMG import paramsForMG, paramsForSerialMG
 

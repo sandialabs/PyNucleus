@@ -258,6 +258,30 @@ class hierarchy:
         return h
 
 
+class pCoarsenHierarchy(hierarchy):
+    def __init__(self, meshLevel, params, comm=None,
+                 label=''):
+        assert params['noRef']+1 == len(params['element']), 'Number of refinements does not match number of provided DoFMaps: {}+1 != len({})'.format(params['noRef'], params['element'])
+        self.elements = params['element']
+        params['element'] = self.elements[0]
+        super(pCoarsenHierarchy, self).__init__(meshLevel, params, comm, label)
+
+    def refine(self, isLastLevel=False):
+        # refine mesh level
+        self.meshLevels.append(self.meshLevels[-1].copy())
+        self.meshLevels[-1].isLastLevel = isLastLevel
+        self.meshLevels[-1].params['element'] = self.elements[len(self.meshLevels)-1]
+
+        # build algebraic level
+        buildType = self.buildType[self.meshLevels[-1].levelNo-self.meshLevels[0].levelNo]
+        self.algebraicLevels.append(self.meshLevels[-1].getAlgebraicLevel(buildType))
+
+        # clean up unneeded data
+        if len(self.meshLevels) > 1:
+            self.meshLevels[-2].clean()
+            self.algebraicLevels[-2].clean()
+
+
 class hierarchyManager(object):
     def __init__(self, hierarchyDefs, connectorDefs, params, comm=None, doDeepCopy=True):
         if doDeepCopy:

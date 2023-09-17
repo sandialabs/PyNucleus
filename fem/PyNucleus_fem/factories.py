@@ -115,7 +115,7 @@ functionFactory.register('componentVectorFunction', componentVectorFunction, ali
 
 
 # DoFMaps
-from . DoFMaps import (P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap,
+from . DoFMaps import (P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap, N1e_DoFMap,
                        Product_DoFMap)
 
 
@@ -136,6 +136,7 @@ dofmapFactory.register('P3c', P3_DoFMap, aliases=['P3'])
 for dmType, dmName in [(P0_DoFMap, 'P0d'), (P1_DoFMap, 'P1c'), (P2_DoFMap, 'P2c'), (P3_DoFMap, 'P3c')]:
     dmNameShort = dmName[:-1]
     dofmapFactory.register('vector'+dmName, vectorDoFMap(dmType), aliases=['vector'+dmNameShort, 'vector-'+dmNameShort, 'vector '+dmNameShort])
+dofmapFactory.register('N1e', N1e_DoFMap)
 
 
 # meshes

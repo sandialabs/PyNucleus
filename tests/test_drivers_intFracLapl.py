@@ -187,3 +187,42 @@ def testMatvecs(runDistOp_params, extra):
     runDriver(path, py, ranks=4, cacheDir=cacheDir, extra=extra)
 
 
+@pytest.fixture(scope='module', params=[
+    ('doubleInterval', 'fractional', 'fractional', '0.2', '0.4', '0.2', '0.2', 'exact-sin-variableSolJump-fluxJump'),
+    ('doubleInterval', 'fractional', 'fractional', '0.2', '0.4', '0.2', '0.4', 'exact-sin-variableSolJump-fluxJump'),
+    ('doubleInterval', 'indicator', 'indicator', '0.2', '0.4', '0.2', '0.2', 'exact-sin-variableSolJump-fluxJump'),
+    ('doubleInterval', 'indicator', 'indicator', '0.2', '0.4', '0.2', '0.4', 'exact-sin-variableSolJump-fluxJump'),
+    ('doubleInterval', 'indicator', 'fractional', '0.2', '0.4', '0.2', '0.2', 'exact-sin-variableSolJump-fluxJump'),
+    ('doubleInterval', 'indicator', 'fractional', '0.2', '0.4', '0.2', '0.4', 'exact-sin-variableSolJump-fluxJump'),
+    ('doubleSquare', 'fractional', 'fractional', '0.2', '0.4', '0.2', '0.2', 'sin-variableSolJump-fluxJump'),
+    ('doubleSquare', 'fractional', 'fractional', '0.2', '0.4', '0.2', '0.4', 'sin-variableSolJump-fluxJump'),
+    ('doubleSquare', 'indicator', 'indicator', '0.2', '0.4', '0.2', '0.2', 'sin-variableSolJump-fluxJump'),
+    ('doubleSquare', 'indicator', 'indicator', '0.2', '0.4', '0.2', '0.4', 'sin-variableSolJump-fluxJump'),
+    ('doubleSquare', 'indicator', 'fractional', '0.2', '0.4', '0.2', '0.2', 'sin-variableSolJump-fluxJump'),
+    ('doubleSquare', 'indicator', 'fractional', '0.2', '0.4', '0.2', '0.4', 'sin-variableSolJump-fluxJump'),
+],
+                ids=idfunc)
+def runNonlocalInterface_params(request):
+    return request.param
+
+
+@pytest.mark.slow
+def testNonlocalInterface(runNonlocalInterface_params, extra):
+    domain, kernel1, kernel2, s11, s22, horizon1, horizon2, problem = runNonlocalInterface_params
+    s12 = s11
+    s21 = s22
+    base = getPath()+'/../'
+    py = ['runNonlocalInterface.py',
+          '--domain', domain,
+          '--kernel1', kernel1,
+          '--kernel2', kernel2,
+          '--s11', s11,
+          '--s12', s12,
+          '--s21', s21,
+          '--s22', s22,
+          '--horizon1', horizon1,
+          '--horizon2', horizon2,
+          '--problem', problem]
+    path = base+'drivers'
+    cacheDir = getPath()+'/'
+    runDriver(path, py, cacheDir=cacheDir, extra=extra)

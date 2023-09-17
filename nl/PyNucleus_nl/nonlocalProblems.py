@@ -1354,6 +1354,769 @@ class transientFractionalProblem(fractionalLaplacianProblem):
         group.add('finalTime', self.finalTime)
 
 
+class nonlocalInterfaceProblem(problem):
+    def setDriverArgs(self):
+        self.setDriverFlag('domain', acceptedValues=['doubleInterval', 'doubleSquare'])
+        self.setDriverFlag('problem', acceptedValues=['polynomial-variableSolJump-fluxJump',
+                                                      'polynomial-noSolJump-noFluxJump',
+                                                      'exact-sin-variableSolJump-fluxJump',
+                                                      'exact-sin1d-variableSolJump-fluxJump',
+                                                      'sin',
+                                                      'sin-fixedSolJump-fluxJump',
+                                                      'sin-variableSolJump-fluxJump',
+                                                      'sin-nojump',
+                                                      'patch-test',
+                                                      'sin1d-fixedSolJump-fluxJump',])
+        self.setDriverFlag('element', acceptedValues=['P1', 'P0'])
+        self.setDriverFlag('kernel1Type', acceptedValues=['fractional', 'indicator', 'peridynamic'])
+        self.setDriverFlag('kernel2Type', acceptedValues=['fractional', 'indicator', 'peridynamic'])
+        self.setDriverFlag('horizon1', 0.1)
+        self.setDriverFlag('horizon2', 0.2)
+        self.setDriverFlag('hTarget', 0.05)
+
+        self.setDriverFlag('s11', 0.4)
+        self.setDriverFlag('s12', 0.4)
+        self.setDriverFlag('s21', 0.7)
+        self.setDriverFlag('s22', 0.7)
+
+        self.setDriverFlag('coeff11', 1.)
+        self.setDriverFlag('coeff12', 1.)
+        self.setDriverFlag('coeff21', 1.)
+        self.setDriverFlag('coeff22', 1.)
+
+    @generates(['dim',
+                'kernel1',
+                'kernel2',
+                'horizon1',
+                'horizon2',
+                'mesh',
+                'subdomainIndicator1',
+                'subdomainIndicator2',
+                'localSubdomainIndicator1',
+                'localInterfaceIndicator',
+                'localSubdomainIndicator2',
+                'domainIndicator1',
+                'domainIndicator2',
+                'interfaceIndicator',
+                'dirichletIndicator1',
+                'dirichletIndicator2',
+                'sol_1',
+                'sol_2',
+                'diri_left',
+                'diri_right',
+                'forcing_left',
+                'forcing_right',
+                'sol_jump',
+                'flux_jump',
+                'local_L2ex_left',
+                'local_L2ex_right',
+                'local_H10ex_left',
+                'local_H10ex_right'])
+    def processProblem(self, domain, problem, element, kernel1Type, kernel2Type, horizon1, horizon2, hTarget, s11, s12, s21, s22, coeff11, coeff12, coeff21, coeff22):
+        if domain == 'doubleInterval':
+            dim = 1
+            a, b, c = 0, 2, 1
+        elif domain == 'doubleSquare':
+            dim = 2
+            ax = 0
+            ay = 0
+            bx = 2
+            by = 1
+            cx = 1
+        else:
+            raise NotImplementedError()
+
+        kType1 = getKernelEnum(kernel1Type)
+        kType2 = getKernelEnum(kernel2Type)
+
+        if (s11 == s12) and (s21 == s22):
+            s1 = constFractionalOrder(s11)
+            s2 = constFractionalOrder(s22)
+        elif (s11 == s21) and (s12 == s22):
+            assert dim == 1
+            s1 = leftRightFractionalOrder(s11, s22, s11, s11, interface=c)
+            s2 = leftRightFractionalOrder(s11, s22, s22, s22, interface=c)
+        else:
+            raise NotImplementedError()
+
+        if (coeff11 == coeff12 == 1.0):
+            phi1 = None
+        elif (coeff11 == coeff12):
+            phi1 = constantTwoPoint(coeff11)
+        else:
+            assert dim == 1
+            phi1 = leftRightTwoPoint(coeff11, coeff12, coeff11, coeff11, interface=c)
+
+        if (coeff22 == coeff21 == 1.0):
+            phi2 = None
+        elif (coeff22 == coeff21):
+            phi2 = constantTwoPoint(coeff22)
+        else:
+            assert dim == 1
+            phi2 = leftRightTwoPoint(coeff21, coeff22, coeff22, coeff22, interface=c)
+
+        if dim == 1:
+            phi1 = interfaceTwoPoint(horizon1, horizon2, True, interface=c)
+            phi2 = interfaceTwoPoint(horizon1, horizon2, False, interface=c)
+        elif dim == 2:
+            phi1 = interfaceTwoPoint(horizon1, horizon2, True, interface=cx)
+            phi2 = interfaceTwoPoint(horizon1, horizon2, False, interface=cx)
+
+        kernel1 = getKernel(dim=dim, kernel=kType1, s=s1, horizon=constant(horizon1), phi=phi1)
+        kernel2 = getKernel(dim=dim, kernel=kType2, s=s2, horizon=constant(horizon2), phi=phi2)
+
+        self.mult = constant(1/(horizon1+horizon2))
+
+        local_L2ex_left = None
+        local_L2ex_right = None
+        local_H10ex_left = None
+        local_H10ex_right = None
+
+        if domain == 'doubleInterval':
+            from PyNucleus_fem.mesh import doubleIntervalWithInteractions
+            mesh = doubleIntervalWithInteractions(horizon1=horizon1, horizon2=horizon2, h=hTarget)
+
+            eps = 1e-9
+            subdomainIndicator1 = squareIndicator(np.array([a-horizon1+eps], dtype=REAL),
+                                                  np.array([c+horizon1-eps], dtype=REAL))
+            subdomainIndicator2 = squareIndicator(np.array([c-horizon2+eps], dtype=REAL),
+                                                  np.array([b+horizon2-eps], dtype=REAL))
+            localSubdomainIndicator1 = squareIndicator(np.array([a+eps], dtype=REAL),
+                                                       np.array([c-eps], dtype=REAL))
+            localInterfaceIndicator = squareIndicator(np.array([c-eps], dtype=REAL),
+                                                      np.array([c+eps], dtype=REAL))
+            localSubdomainIndicator2 = squareIndicator(np.array([c+eps], dtype=REAL),
+                                                       np.array([b-eps], dtype=REAL))
+            domainIndicator1 = squareIndicator(np.array([a+eps], dtype=REAL),
+                                               np.array([c-horizon2-eps], dtype=REAL))
+            domainIndicator2 = squareIndicator(np.array([c+horizon1+eps], dtype=REAL),
+                                               np.array([b-eps], dtype=REAL))
+            interfaceIndicator = squareIndicator(np.array([c-horizon2-eps], dtype=REAL),
+                                                 np.array([c+horizon1+eps], dtype=REAL))
+            dirichletIndicator1 = constant(1.)-domainIndicator1-interfaceIndicator
+            dirichletIndicator2 = constant(1.)-domainIndicator2-interfaceIndicator
+
+            if problem == 'polynomial-noSolJump-noFluxJump':
+                assert kType1 == INDICATOR
+                assert kType2 == INDICATOR
+                sol_1 = Lambda(lambda x: 1-(1-x[0])**2)
+                sol_2 = Lambda(lambda x: 1-(1-x[0])**2)
+                diri_left = sol_1
+                diri_right = sol_2
+                forcing_left = constant(2*coeff11)
+                forcing_right = constant(2*coeff22)
+                # sol_jump = constant(-1.)
+                sol_jump = sol_2-sol_1
+
+                scaling1 = kernel1.scalingValue
+                scaling2 = kernel2.scalingValue
+
+                def flux_left_lam(x):
+                    dist = 1+horizon1-x[0]
+                    return 2*scaling1 * ((x[0]-1) * (dist**2-horizon1**2) + 1/3 * (horizon1**3 + dist**3))
+
+                def flux_right_lam(x):
+                    dist = x[0]-(1-horizon2)
+                    return 2*scaling2 * ((x[0]-1) * (horizon2**2-dist**2) + 1/3 * (horizon2**3 + dist**3))
+
+                flux_left = Lambda(flux_left_lam)
+                flux_right = Lambda(flux_right_lam)
+                flux_jump = (horizon1+horizon2)*(indicatorFunctor(flux_right, localSubdomainIndicator1) + indicatorFunctor(flux_left, localSubdomainIndicator2))
+                # flux_jump = constant(0.)
+            elif problem == 'patch-test':
+                sol_1 = Lambda(lambda x: x[0])
+                sol_2 = Lambda(lambda x: x[0])
+                diri_left = sol_1
+                diri_right = sol_2
+                forcing_left = constant(0.)
+                forcing_right = constant(0.)
+                sol_jump = sol_2-sol_1
+                flux_left = constant(0.)
+                flux_right = constant(0.)
+                self.mult = constant(1.)
+                flux_jump = constant(0.)
+            elif problem == 'polynomial-variableSolJump-fluxJump':
+                sol_1 = Lambda(lambda x: x[0]**2)
+                sol_2 = Lambda(lambda x: (x[0]-1)**2)
+                diri_left = sol_1
+                diri_right = sol_2
+                forcing_left = constant(-2*coeff11)
+                forcing_right = constant(-2*coeff22)
+                # sol_jump = constant(-1.)
+                sol_jump = sol_2-sol_1
+
+                def flux_left_lam(x):
+                    dist = 1+horizon1-x[0]
+                    return -2*kernel1.scalingValue * (x[0] * (dist**2-horizon1**2) + 1/3 * (horizon1**3 + dist**3))
+
+                def flux_right_lam(x):
+                    dist = x[0]-1+horizon2
+                    return -2*kernel2.scalingValue * ((x[0]-1) * (horizon2**2-dist**2) + 1/3 * (horizon2**3 + dist**3))
+
+                flux_left = Lambda(flux_left_lam)
+                flux_right = Lambda(flux_right_lam)
+                flux_jump = (horizon1+horizon2)*(indicatorFunctor(flux_right, localSubdomainIndicator1) + indicatorFunctor(flux_left, localSubdomainIndicator2))
+            elif problem == 'polynomial-nojump':
+                sol_1 = Lambda(lambda x: (x[0]-1)**2)
+                sol_2 = Lambda(lambda x: (x[0]-1)**2)
+                diri_left = sol_1
+                diri_right = sol_2
+                forcing_left = constant(-2*coeff11)
+                forcing_right = constant(-2*coeff22)
+                sol_jump = constant(0)
+                flux_jump = constant(0)
+            elif problem == 'exact-sin-variableSolJump-fluxJump':
+                # the nonlocal problem has a know exact solution
+                assert kType1 in (INDICATOR, FRACTIONAL)
+                assert kType2 in (INDICATOR, FRACTIONAL)
+                assert coeff11 == coeff12
+                assert coeff21 == coeff22
+                sin = functionFactory('sin1d')
+                # cos = functionFactory('cos1d')
+                one = functionFactory('constant', 1)
+                sol_1 = sin
+                sol_2 = one - sin
+                diri_left = sol_1
+                diri_right = sol_2
+
+                sol_jump = sol_2-sol_1
+
+                # Get scaling values for interactions within subdomains
+                kernel1(np.array([0.5*(a+c)]),
+                        np.array([0.6*a+0.4*c]))
+                kernel2(np.array([0.5*(b+c)]),
+                        np.array([0.6*b+0.4*c]))
+                scaling1 = kernel1.scalingValue
+                scaling2 = kernel2.scalingValue
+
+                from scipy.integrate import quad
+
+                if kType1 == INDICATOR:
+                    forcing_left = -coeff11*(2.*scaling1) * 2*(np.sin(np.pi*horizon1)/np.pi-horizon1) * sin
+                elif kType1 == FRACTIONAL:
+                    assert isinstance(kernel1.s, constFractionalOrder)
+                    sBase1 = kernel1.s.value
+                    from scipy.special import gamma
+
+                    def Phi1(delta):
+                        if delta > 0:
+                            fac = delta**(-2*sBase1)
+                            integral = 0.
+                            for k in range(1, 100):
+                                integral += fac * (-1)**(k+1) * (np.pi*delta)**(2*k) / (2*k-2*sBase1) / gamma(2*k+1)
+                            return integral
+                        else:
+                            return 0.
+
+                    forcing_left = 4 * scaling1 * Phi1(horizon1) * sin
+
+                def flux_left_lam(x):
+                    # assert c < x[0] < c+horizon1
+                    u1x = sol_1(x)
+                    u2x = sol_2(x)
+                    I = 0.
+                    if x[0]-horizon1 < c-horizon2:
+                        I += 2. * quad(lambda y: (u1x-sol_1(np.array([y]))) * kernel1(x, np.array([y])), x[0]-horizon1, c-horizon2)[0]
+                    if max(c-horizon2, x[0]-horizon1) < c:
+                        I += 2. * quad(lambda y: (u1x-sol_1(np.array([y]))) * kernel1(x, np.array([y])), max(c-horizon2, x[0]-horizon1), c)[0]
+                    if max(c-horizon2, x[0]-horizon2) < c:
+                        I -= 2. * quad(lambda y: (u2x-sol_2(np.array([y]))) * kernel2(x, np.array([y])), max(c-horizon2, x[0]-horizon2), c)[0]
+                    return I
+
+                if kType2 == INDICATOR:
+                    forcing_right = -coeff22*(2.*scaling2) * 2*(np.sin(np.pi*horizon2)/np.pi-horizon2) * (-sin)
+                elif kType2 == FRACTIONAL:
+                    assert isinstance(kernel2.s, constFractionalOrder)
+                    sBase2 = kernel2.s.value
+                    from scipy.special import gamma
+
+                    def Phi2(delta):
+                        if delta > 0:
+                            fac = delta**(-2*sBase2)
+                            integral = 0.
+                            for k in range(1, 100):
+                                integral += fac * (-1)**(k+1) * (np.pi*delta)**(2*k) / (2*k-2*sBase2) / gamma(2*k+1)
+                            return integral
+                        else:
+                            return 0.
+
+                    forcing_right = 4 * scaling2 * Phi2(horizon2) * (-sin)
+
+                def flux_right_lam(x):
+                    # assert c-horizon2 < x[0] < c
+                    u1x = sol_1(x)
+                    u2x = sol_2(x)
+                    I = 0.
+                    if c+horizon1 < x[0]+horizon2:
+                        I += 2. * quad(lambda y: (u2x-sol_2(np.array([y]))) * kernel2(x, np.array([y])), c+horizon1, x[0]+horizon2)[0]
+                    if c < min(c+horizon1, x[0]+horizon2):
+                        I += 2. * quad(lambda y: (u2x-sol_2(np.array([y]))) * kernel2(x, np.array([y])), c, min(c+horizon1, x[0]+horizon2))[0]
+                    if c < min(c+horizon1, x[0]+horizon1):
+                        I -= 2. * quad(lambda y: (u1x-sol_1(np.array([y]))) * kernel1(x, np.array([y])), c, min(c+horizon1, x[0]+horizon1))[0]
+                    return I
+
+                flux_left = Lambda(flux_left_lam)
+                flux_right = Lambda(flux_right_lam)
+                self.mult = constant(1.)
+                flux_jump = indicatorFunctor(flux_right, localSubdomainIndicator1) + indicatorFunctor(flux_left, localSubdomainIndicator2)
+
+                self.nonlocal_L2ex_left = 0.5
+                self.nonlocal_L2ex_right = 1.5+4/np.pi
+            elif problem == 'sin-fixedSolJump-fluxJump':
+                # the local problem has a know exact solution
+                sin = functionFactory('sin1d')
+                one = functionFactory('constant', 1)
+                sol_1 = sin
+                sol_2 = one-2*sin
+                diri_left = sol_1
+                diri_right = sol_2
+                forcing_left = coeff11 * np.pi**2 * sin
+                forcing_right = -2*coeff22 * np.pi**2 * sin
+                sol_jump = one
+                flux_jump = constant(-np.pi*coeff11 - 2*np.pi*coeff22)
+                local_L2ex_left = 0.5
+                local_L2ex_right = 3.+8/np.pi
+                local_H10ex_left = np.pi**2 * coeff11 * 0.5
+                local_H10ex_right = np.pi**2 * coeff22 * (2.0 + 4/np.pi)
+            elif problem == 'sin-variableSolJump-fluxJump':
+                # the local problem has a know exact solution
+                sin = functionFactory('sin1d')
+                one = functionFactory('constant', 1)
+                sol_1 = sin
+                sol_2 = one-2*sin
+                diri_left = sol_1
+                diri_right = sol_2
+                forcing_left = coeff11 * np.pi**2 * sin
+                forcing_right = -2*coeff22 * np.pi**2 * sin
+                sol_jump = sol_2-sol_1
+                flux_jump = constant(-np.pi*coeff11 - 2*np.pi*coeff22)
+                local_L2ex_left = 0.5
+                local_L2ex_right = 3.+8/np.pi
+                local_H10ex_left = np.pi**2 * coeff11 * 0.5
+                local_H10ex_right = np.pi**2 * coeff22 * (2.0 + 4/np.pi)
+            elif problem == 'sin-nojump':
+                sin = functionFactory('sin1d')
+                sol_1 = sin * (1./coeff11)
+                sol_2 = sin * (1./coeff22)
+                diri_left = sol_1
+                diri_right = sol_2
+                forcing_left = np.pi**2 * sin
+                forcing_right = np.pi**2 * sin
+                sol_jump = constant(0)
+                flux_jump = constant(0)
+            else:
+                raise NotImplementedError(problem)
+
+        elif domain == 'doubleSquare':
+            from PyNucleus_fem.mesh import doubleSquareWithInteractions
+            mesh = doubleSquareWithInteractions(horizon1=horizon1, horizon2=horizon2, h=hTarget)
+
+            eps = 1e-9
+            subdomainIndicator1 = (squareIndicator(np.array([ax-horizon1-eps, ay-horizon1-eps], dtype=REAL),
+                                                   np.array([cx+eps, by+horizon1+eps], dtype=REAL)) +
+                                   squareIndicator(np.array([cx, ay], dtype=REAL),
+                                                   np.array([cx+horizon1+eps, by], dtype=REAL)) +
+                                   radialIndicator(horizon1+eps, np.array([cx, ay], dtype=REAL)) +
+                                   radialIndicator(horizon1+eps, np.array([cx, by], dtype=REAL)))
+
+            subdomainIndicator2 = (squareIndicator(np.array([cx-eps, -horizon2-eps], dtype=REAL),
+                                                   np.array([bx+horizon2+eps, by+horizon2+eps], dtype=REAL)) +
+                                   squareIndicator(np.array([cx-horizon2-eps, ay], dtype=REAL),
+                                                   np.array([cx, by], dtype=REAL)) +
+                                   radialIndicator(horizon2+eps, np.array([cx, ay], dtype=REAL)) +
+                                   radialIndicator(horizon2+eps, np.array([cx, by], dtype=REAL)))
+
+            localSubdomainIndicator1 = squareIndicator(np.array([ax+eps, ay+eps], dtype=REAL),
+                                                       np.array([cx-eps, by-eps], dtype=REAL))
+            localInterfaceIndicator = squareIndicator(np.array([cx-eps, ay+eps], dtype=REAL),
+                                                      np.array([cx+eps, by-eps], dtype=REAL))
+            localSubdomainIndicator2 = squareIndicator(np.array([cx+eps, ay+eps], dtype=REAL),
+                                                       np.array([bx-eps, by-eps], dtype=REAL))
+            domainIndicator1 = squareIndicator(np.array([ax+eps, ay+eps], dtype=REAL),
+                                               np.array([cx-horizon2-eps, by-eps], dtype=REAL))
+            domainIndicator2 = squareIndicator(np.array([cx+horizon1+eps, ay+eps], dtype=REAL),
+                                               np.array([bx-eps, by-eps], dtype=REAL))
+            interfaceIndicator = squareIndicator(np.array([cx-horizon2-eps, ay+eps], dtype=REAL),
+                                                 np.array([cx+horizon1+eps, by-eps], dtype=REAL))
+            dirichletIndicator1 = constant(1.)-domainIndicator1-interfaceIndicator
+            dirichletIndicator2 = constant(1.)-domainIndicator2-interfaceIndicator
+
+            def bnds(x1, x2, y1, horizon):
+                r = horizon**2-(y1-x1)**2
+                if r > 0:
+                    r = np.sqrt(r)
+                    lim = (max(x2-r, ay), min(x2+r, by))
+                else:
+                    lim = (x2, x2)
+                return lim
+
+            IJ1 = [lambda y1, x1, x2, horizon: bnds(x1, x2, y1, horizon),
+                   lambda x1, x2, horizon: (cx, cx+horizon1)]
+
+            IJ2 = [lambda y1, x1, x2, horizon: bnds(x1, x2, y1, horizon),
+                   lambda x1, x2, horizon: (max(x1-horizon, cx-horizon2), min(x1+horizon, cx))]
+
+            OmegaJ2 = [lambda y1, x1, x2, horizon: bnds(x1, x2, y1, horizon),
+                       lambda x1, x2, horizon: (cx+horizon1, cx+horizon2)]
+
+            if problem == 'polynomial-noSolJump-noFluxJump':
+                assert kType1 == INDICATOR
+                assert kType2 == INDICATOR
+                sol_1 = Lambda(lambda x: 1-(1-x[0])**2)
+                sol_2 = Lambda(lambda x: 1-(1-x[0])**2)
+                diri_left = sol_1
+                diri_right = sol_2
+                forcing_left = constant(2*coeff11)
+                forcing_right = constant(2*coeff22)
+                sol_jump = sol_2-sol_1
+
+                scaling1 = kernel1.scalingValue
+                scaling2 = kernel2.scalingValue
+
+                def flux_left_lam(x):
+                    dist = 1+horizon1-x[0]
+                    return 4*scaling1 * (-2/3*(x[0]-1) * (horizon1**2-dist**2)**(3/2) + 1/8 * (np.sqrt(horizon1**2 - dist**2) * dist * (2*dist**2 - horizon1**2)) + horizon1**4/8 * (np.arcsin(dist/horizon1)-np.arcsin(-1)))
+
+                def flux_right_lam(x):
+                    dist = x[0]-(1-horizon2)
+                    return 4*scaling2 * (-2/3*(x[0]-1) * (-1)*(horizon2**2-dist**2)**(3/2) + 1/8 * (np.sqrt(horizon2**2 - dist**2) * dist * (2*dist**2 - horizon2**2)) + horizon2**4/8 * (np.arcsin(1)-np.arcsin(-dist/horizon2)))
+
+                flux_left = Lambda(flux_left_lam)
+                flux_right = Lambda(flux_right_lam)
+                self.mult = constant(1.)
+                flux_jump = indicatorFunctor(flux_right, localSubdomainIndicator1) + indicatorFunctor(flux_left, localSubdomainIndicator2)
+                # flux_jump = constant(0.)
+            elif problem == 'polynomial':
+                sol_1 = Lambda(lambda x: x[0]**2)
+                sol_2 = Lambda(lambda x: (x[0]-1)**2)
+                diri_left = sol_1
+                diri_right = sol_2
+                forcing_left = constant(-2)
+                forcing_right = constant(-2)
+                # sol_jump = sol_2-sol_1
+                sol_jump = constant(-1.)
+                flux_jump = constant(2)
+            elif problem == 'sin':
+                sol_1 = Lambda(lambda x: np.sin(np.pi*x[0]))
+                sol_2 = Lambda(lambda x: np.sin(np.pi*(x[0]-1)))
+                diri_left = sol_1
+                diri_right = sol_2
+                forcing_left = Lambda(lambda x: np.pi**2*np.sin(np.pi*x[0])*coeff11)
+                forcing_right = Lambda(lambda x: np.pi**2*np.sin(np.pi*(x[0]-1))*coeff22)
+                sol_jump = constant(0)
+                flux_jump = constant(-np.pi*coeff11 - np.pi*coeff22)
+            elif problem == 'sin1d-fixedSolJump-fluxJump':
+                # the local problem has a know exact solution
+                sin = functionFactory('sin1d')
+                one = functionFactory('constant', 1)
+                sol_1 = sin
+                sol_2 = one-2*sin
+                diri_left = sol_1
+                diri_right = sol_2
+                forcing_left = coeff11 * np.pi**2 * sin
+                forcing_right = -2*coeff22 * np.pi**2 * sin
+                sol_jump = one
+                flux_jump = constant(-np.pi*coeff11 - 2*np.pi*coeff22)
+                local_L2ex_left = 0.5
+                local_L2ex_right = 3.+8/np.pi
+                local_H10ex_left = np.pi**2 * coeff11 * 0.5
+                local_H10ex_right = np.pi**2 * coeff22 * (2.0 + 4/np.pi)
+            elif problem == 'sin-fixedSolJump-fluxJump':
+                # the local problem has a know exact solution
+                sin2d = functionFactory('Lambda', lambda x: np.sin(np.pi*x[0])*np.sin(2*np.pi*x[1]))
+                sin = functionFactory('sin2d')
+                one = functionFactory('constant', 1)
+                sol_1 = 2*one+2*sin2d
+                sol_2 = one-sin
+                diri_left = sol_1
+                diri_right = sol_2
+                forcing_left = coeff11 * 2*5*np.pi**2 * sin2d
+                forcing_right = -coeff22 * 2*np.pi**2 * sin
+                sol_jump = -one
+                flux_jump = -2*np.pi*coeff11 * functionFactory('Lambda', lambda x: np.sin(2*np.pi*x[1])) - np.pi*coeff22 * functionFactory('Lambda', lambda x: np.sin(np.pi*x[1]))
+                local_L2ex_left = 5.
+                local_L2ex_right = 1.25 + 8./np.pi**2
+                local_H10ex_left = np.pi**2 * coeff11 * 5
+                local_H10ex_right = np.pi**2 * coeff22 * 0.5
+            elif problem == 'sin-variableSolJump-fluxJump':
+                # the local problem has a know exact solution
+                sin2d = functionFactory('Lambda', lambda x: np.sin(np.pi*x[0])*np.sin(2*np.pi*x[1]))
+                sin = functionFactory('sin2d')
+                one = functionFactory('constant', 1)
+                sol_1 = 2*one+2*sin2d
+                sol_2 = one-sin
+                diri_left = sol_1
+                diri_right = sol_2
+                forcing_left = coeff11 * 2*5*np.pi**2 * sin2d
+                forcing_right = -coeff22 * 2*np.pi**2 * sin
+                sol_jump = -sin-one-2*sin2d
+                flux_jump = -2*np.pi*coeff11 * functionFactory('Lambda', lambda x: np.sin(2*np.pi*x[1])) - np.pi*coeff22 * functionFactory('Lambda', lambda x: np.sin(np.pi*x[1]))
+                local_L2ex_left = 5.
+                local_L2ex_right = 1.25 + 8./np.pi**2
+                local_H10ex_left = np.pi**2 * coeff11 * 5
+                local_H10ex_right = np.pi**2 * coeff22 * 0.5
+            elif problem == 'exact-sin1d-variableSolJump-fluxJump':
+                # the nonlocal problem has a know exact solution
+                assert kType1 in (INDICATOR, FRACTIONAL)
+                assert kType2 in (INDICATOR, FRACTIONAL)
+                assert coeff11 == coeff12
+                assert coeff21 == coeff22
+                sin = functionFactory('sin1d')
+                # cos = functionFactory('cos1d')
+                one = functionFactory('constant', 1)
+                sol_1 = sin
+                sol_2 = one - sin
+                diri_left = sol_1
+                diri_right = sol_2
+
+                sol_jump = sol_2-sol_1
+
+                # Get scaling values for interactions within subdomains
+                kernel1(np.array([0.5*(ax+cx), 0.5]),
+                        np.array([0.6*ax+0.4*cx, 0.5]))
+                kernel2(np.array([0.5*(bx+cx), 0.5]),
+                        np.array([0.6*bx+0.4*cx, 0.5]))
+                scaling1 = kernel1.scalingValue
+                scaling2 = kernel2.scalingValue
+
+                from scipy.integrate import quad, nquad
+                from scipy.special import jv
+
+                from . strongForm import getStrongIntegrand
+
+                fun1 = getStrongIntegrand(sol_1, kernel1, True)
+                fun2 = getStrongIntegrand(sol_2, kernel2, True)
+
+                epsabs = 1e-4
+                epsrel = 1e-4
+
+                def int2_1(x, y):
+                    r = np.sqrt(horizon1**2-(x[0]-y)**2)
+                    J = 0.
+                    J += min(r, 1.-x[1])
+                    J += min(r, x[1])
+                    return J
+
+                def int2_2(x, y):
+                    r = np.sqrt(horizon2**2-(x[0]-y)**2)
+                    J = 0.
+                    J += min(r, 1.-x[1])
+                    J += min(r, x[1])
+                    return J
+
+                if kType1 == INDICATOR:
+                    forcing_left = coeff11*(2.*scaling1) * (np.pi*horizon1**2 - 2*horizon1*jv(1., horizon1*np.pi)) * sin
+
+                    def flux_left_lam(x):
+                        # x \in I^J_1
+                        # assert cx < x[0] < cx+horizon1
+                        u1x = sol_1(x)
+                        u2x = sol_2(x)
+
+                        I = 0.
+                        if x[0]-horizon1 < cx-horizon2:
+                            # Omega^J_1
+                            I += 2. * quad(lambda y: (u1x-sol_1(np.array([y, x[1]]))) * int2_1(x, y) * kernel1(x, np.array([y, x[1]])), x[0]-horizon1, cx-horizon2)[0]
+                        if max(cx-horizon2, x[0]-horizon1) < cx:
+                            # I^J_2
+                            I += 2. * quad(lambda y: (u1x-sol_1(np.array([y, x[1]]))) * int2_1(x, y) * kernel1(x, np.array([y, x[1]])), max(cx-horizon2, x[0]-horizon1), cx)[0]
+                        if max(cx-horizon2, x[0]-horizon2) < cx:
+                            # I^J_2
+                            I -= 2. * quad(lambda y: (u2x-sol_2(np.array([y, x[1]]))) * int2_2(x, y) * kernel2(x, np.array([y, x[1]])), max(cx-horizon2, x[0]-horizon2), cx)[0]
+                        return I
+
+                elif kType1 == FRACTIONAL:
+                    assert isinstance(kernel1.s, constFractionalOrder)
+                    sBase1 = kernel1.s.value
+
+                    fac1 = nquad(lambda rho, theta: (1-np.cos(np.pi*rho*np.cos(theta))) * rho**(-1-2*sBase1),
+                                 [(0, horizon1), (0, 2*np.pi)])[0]
+                    forcing_left = 2*scaling1 * fac1 * sin
+
+                    def flux_left_lam(x):
+                        # x in IJ1
+                        # y in IJ2 \cap B(x, horizon1)
+                        I1, err1 = nquad(fun1, IJ2, (x[0], x[1], horizon1), opts={'epsabs': epsabs, 'epsrel': epsrel})
+                        # y in IJ2 \cap B(x, horizon2)
+                        I2, err2 = nquad(fun2, IJ2, (x[0], x[1], horizon2), opts={'epsabs': epsabs, 'epsrel': epsrel})
+                        return I1-I2
+
+                if kType2 == INDICATOR:
+                    forcing_right = coeff22*(2.*scaling2) * (np.pi*horizon2**2 - 2*horizon2*jv(1., horizon2*np.pi)) * (-sin)
+
+                    def flux_right_lam(x):
+                        # x \in I^J_2
+                        # assert cx-horizon2 < x[0] < cx
+                        u1x = sol_1(x)
+                        u2x = sol_2(x)
+                        I = 0.
+                        if cx+horizon1 < x[0]+horizon2:
+                            # Omega^J_2
+                            I += 2. * quad(lambda y: (u2x-sol_2(np.array([y, x[1]]))) * int2_2(x, y) * kernel2(x, np.array([y, x[1]])), cx+horizon1, x[0]+horizon2)[0]
+                        if cx < min(cx+horizon1, x[0]+horizon2):
+                            # I^J_1
+                            I += 2. * quad(lambda y: (u2x-sol_2(np.array([y, x[1]]))) * int2_2(x, y) * kernel2(x, np.array([y, x[1]])), cx, min(cx+horizon1, x[0]+horizon2))[0]
+                        if cx < min(cx+horizon1, x[0]+horizon1):
+                            # I^J_1
+                            I -= 2. * quad(lambda y: (u1x-sol_1(np.array([y, x[1]]))) * int2_1(x, y) * kernel1(x, np.array([y, x[1]])), cx, min(cx+horizon1, x[0]+horizon1))[0]
+                        return I
+
+                elif kType2 == FRACTIONAL:
+                    assert isinstance(kernel2.s, constFractionalOrder)
+                    sBase2 = kernel2.s.value
+                    from scipy.special import gamma
+
+                    fac2 = nquad(lambda rho, theta: (1-np.cos(np.pi*rho*np.cos(theta))) * rho**(-1-2*sBase2),
+                                 [(0, horizon2), (0, 2*np.pi)])[0]
+                    forcing_right = 2*scaling2 * fac2 * (-sin)
+
+                    def flux_right_lam(x):
+                        # x in IJ2
+                        # y in IJ1 \cap B(x, horizon2)
+                        I1, err1 = nquad(fun2, IJ1, (x[0], x[1], horizon2), opts={'epsabs': epsabs, 'epsrel': epsrel})
+                        # y in OmegaJ2 \cap B(x, horizon2)
+                        I2, err2 = nquad(fun2, OmegaJ2, (x[0], x[1], horizon2), opts={'epsabs': epsabs, 'epsrel': epsrel})
+                        # y in IJ1 \cap B(x, horizon1)
+                        I3, err3 = nquad(fun1, IJ1, (x[0], x[1], horizon1), opts={'epsabs': epsabs, 'epsrel': epsrel})
+                        return I1+I2-I3
+
+                flux_left = Lambda(flux_left_lam)
+                flux_right = Lambda(flux_right_lam)
+                self.mult = constant(1.)
+                flux_jump = indicatorFunctor(flux_right, localSubdomainIndicator1) + indicatorFunctor(flux_left, localSubdomainIndicator2)
+
+                self.nonlocal_L2ex_left = 0.5
+                self.nonlocal_L2ex_right = 1.5+4/np.pi
+
+            elif problem == 'exact-sin-variableSolJump-fluxJump':
+                # the nonlocal problem has a know exact solution
+                assert kType1 in (INDICATOR, FRACTIONAL)
+                assert kType2 in (INDICATOR, FRACTIONAL)
+                assert coeff11 == coeff12
+                assert coeff21 == coeff22
+                sin2d = functionFactory('Lambda', lambda x: np.sin(np.pi*x[0])*np.sin(2*np.pi*x[1]))
+                sin = functionFactory('sin2d')
+                one = functionFactory('constant', 1)
+                one = functionFactory('constant', 1)
+                sol_1 = 2*one+2*sin2d
+                sol_2 = one-sin
+                diri_left = sol_1
+                diri_right = sol_2
+
+                sol_jump = sol_2-sol_1
+
+                # Get scaling values for interactions within subdomains
+                kernel1(np.array([0.5*(ax+cx), 0.5]),
+                        np.array([0.6*ax+0.4*cx, 0.5]))
+                kernel2(np.array([0.5*(bx+cx), 0.5]),
+                        np.array([0.6*bx+0.4*cx, 0.5]))
+                scaling1 = kernel1.scalingValue
+                scaling2 = kernel2.scalingValue
+
+                def evalRHSFac(alpha, beta, horizon, s, N=100):
+                    from scipy.special import gamma as Gamma, binom
+                    I = 0.
+                    for k in range(N):
+                        for m in range(N):
+                            if k+m > 0:
+                                I += (-1)**(k+m+1) * alpha**(2*k)/Gamma(2*k+1) * beta**(2*m)/Gamma(2*m+1) * horizon**(2*k+2*m-2*s) / (2*k+2*m-2*s) * 2. / binom(k+m, k-0.5) / (m+0.5)
+                    return I
+
+                if kType1 == INDICATOR:
+                    sBase1 = -1.
+                elif kType1 == FRACTIONAL:
+                    assert isinstance(kernel1.s, constFractionalOrder)
+                    sBase1 = kernel1.s.value
+                forcing_left = 2*(2*scaling1*evalRHSFac(np.pi, 2.*np.pi, horizon1, sBase1))*sin2d
+
+                if kType2 == INDICATOR:
+                    sBase2 = -1.
+                elif kType2 == FRACTIONAL:
+                    assert isinstance(kernel2.s, constFractionalOrder)
+                    sBase2 = kernel2.s.value
+                forcing_right = -(2*scaling2*evalRHSFac(np.pi, np.pi, horizon2, sBase2))*sin
+
+                from scipy.integrate import quad, nquad
+                from . strongForm import getStrongIntegrand
+
+                fun1 = getStrongIntegrand(sol_1, kernel1, True)
+                fun2 = getStrongIntegrand(sol_2, kernel2, True)
+
+                epsabs = 1e-4
+                epsrel = 1e-4
+
+                def flux_left_lam(x):
+                    # x in IJ1
+                    # y in IJ2 \cap B(x, horizon1)
+                    I1, err1 = nquad(fun1, IJ2, (x[0], x[1], horizon1), opts={'epsabs': epsabs, 'epsrel': epsrel})
+                    # y in IJ2 \cap B(x, horizon2)
+                    I2, err2 = nquad(fun2, IJ2, (x[0], x[1], horizon2), opts={'epsabs': epsabs, 'epsrel': epsrel})
+                    return I1-I2
+
+                def flux_right_lam(x):
+                    # x in IJ2
+                    # y in IJ1 \cap B(x, horizon2)
+                    I1, err1 = nquad(fun2, IJ1, (x[0], x[1], horizon2), opts={'epsabs': epsabs, 'epsrel': epsrel})
+                    # y in OmegaJ2 \cap B(x, horizon2)
+                    I2, err2 = nquad(fun2, OmegaJ2, (x[0], x[1], horizon2), opts={'epsabs': epsabs, 'epsrel': epsrel})
+                    # y in IJ1 \cap B(x, horizon1)
+                    I3, err3 = nquad(fun1, IJ1, (x[0], x[1], horizon1), opts={'epsabs': epsabs, 'epsrel': epsrel})
+                    return I1+I2-I3
+
+                flux_left = coeff11*Lambda(flux_left_lam)
+                flux_right = coeff22*Lambda(flux_right_lam)
+                self.mult = constant(1.)
+                flux_jump = indicatorFunctor(flux_right, localSubdomainIndicator1) + indicatorFunctor(flux_left, localSubdomainIndicator2)
+
+                self.nonlocal_L2ex_left = 5.
+                self.nonlocal_L2ex_right = 1.25+8/np.pi**2
+
+            else:
+                raise NotImplementedError(problem)
+
+        else:
+            raise NotImplementedError(domain)
+
+        self.kernel1 = kernel1
+        self.kernel2 = kernel2
+        self.mesh = mesh
+
+        self.subdomainIndicator1 = subdomainIndicator1
+        self.subdomainIndicator2 = subdomainIndicator2
+        self.localSubdomainIndicator1 = localSubdomainIndicator1
+        self.localInterfaceIndicator = localInterfaceIndicator
+        self.localSubdomainIndicator2 = localSubdomainIndicator2
+        self.domainIndicator1 = domainIndicator1
+        self.domainIndicator2 = domainIndicator2
+        self.interfaceIndicator = interfaceIndicator
+        self.dirichletIndicator1 = dirichletIndicator1
+        self.dirichletIndicator2 = dirichletIndicator2
+
+        self.sol_1 = sol_1
+        self.sol_2 = sol_2
+        self.diri_left = diri_left
+        self.diri_right = diri_right
+        self.forcing_left = forcing_left
+        self.forcing_right = forcing_right
+        self.sol_jump = sol_jump
+        self.flux_jump = flux_jump
+
+        self.local_L2ex_left = local_L2ex_left
+        self.local_L2ex_right = local_L2ex_right
+        self.local_H10ex_left = local_H10ex_left
+        self.local_H10ex_right = local_H10ex_right
+
+    def getIdentifier(self, params):
+        keys = ['domain', 'problem', 'kernel1', 'kernel2']
+        d = []
+        for k in keys:
+            try:
+                d.append((k, str(getattr(self, k))))
+            except KeyError:
+                d.append((k, str(params[k])))
+        return '/'.join(['nonlocalInterface'] + [key + '=' + v for key, v in d])
+
+
 class brusselatorProblem(problem):
     """
     Fractional order Brusselator system:

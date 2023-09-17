@@ -24,3 +24,16 @@ cdef class {SCALAR_label}SSS_LinearOperator({SCALAR_label}LinearOperator):
     cdef {SCALAR}_t getEntry({SCALAR_label}SSS_LinearOperator self, INDEX_t I, INDEX_t J)
 
 
+cdef class {SCALAR_label}SSS_VectorLinearOperator({SCALAR_label}VectorLinearOperator):
+    cdef:
+        public INDEX_t[::1] indptr, indices
+        public {SCALAR}_t[:, ::1] data, diagonal
+        public BOOL_t indices_sorted
+    cdef INDEX_t matvec(self,
+                        {SCALAR}_t[::1] x,
+                        {SCALAR}_t[:, ::1] y) except -1
+    cdef INDEX_t matvec_no_overwrite(self,
+                                     {SCALAR}_t[::1] x,
+                                     {SCALAR}_t[:, ::1] y) except -1
+    cdef void setEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val)
+    cdef void getEntry({SCALAR_label}SSS_VectorLinearOperator self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val)

@@ -474,3 +474,195 @@ cdef BOOL_t sort_indices{SCALAR_label}(INDEX_t[::1] indptr,
     return wasSorted
 
 
+cdef class {SCALAR_label}CSR_VectorLinearOperator({SCALAR_label}VectorLinearOperator):
+    def __init__(self,
+                 INDEX_t[::1] indices,
+                 INDEX_t[::1] indptr,
+                 {SCALAR}_t[:, ::1] data):
+        {SCALAR_label}VectorLinearOperator.__init__(self,
+                                                    indptr.shape[0]-1,
+                                                    indptr.shape[0]-1,
+                                                    data.shape[1])
+        self.indices = indices
+        self.indptr = indptr
+        self.data = data
+        self.indices_sorted = False
+
+    cdef INDEX_t matvec({SCALAR_label}CSR_VectorLinearOperator self,
+                        {SCALAR}_t[::1] x,
+                        {SCALAR}_t[:, ::1] y) except -1:
+        cdef:
+            INDEX_t i, j, jj, k
+        y[:, :] = 0.
+        for i in range(self.indptr.shape[0]-1):
+            for jj in range(self.indptr[i], self.indptr[i+1]):
+                j = self.indices[jj]
+                for k in range(self.data.shape[1]):
+                    y[i, k] += self.data[jj, k]*x[j]
+        return 0
+
+    cdef INDEX_t matvec_no_overwrite({SCALAR_label}CSR_VectorLinearOperator self,
+                                     {SCALAR}_t[::1] x,
+                                     {SCALAR}_t[:, ::1] y) except -1:
+        cdef:
+            INDEX_t i, j, jj, k
+        for i in range(self.indptr.shape[0]-1):
+            for jj in range(self.indptr[i], self.indptr[i+1]):
+                j = self.indices[jj]
+                for k in range(self.data.shape[1]):
+                    y[i, k] += self.data[jj, k]*x[j]
+        return 0
+
+    def isSparse(self):
+        return True
+
+    def to_csr_linear_operator(self):
+        return self
+
+    def toarray(self):
+        return self.to_csr().toarray()
+
+    cdef void setEntry({SCALAR_label}CSR_VectorLinearOperator self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val):
+        cdef:
+            INDEX_t i, low, mid, high, k
+        low = self.indptr[I]
+        high = self.indptr[I+1]
+        if high-low < 20:
+            for i in range(low, high):
+                if self.indices[i] == J:
+                    for k in range(self.vectorSize):
+                        self.data[i, k] = val[k]
+                    break
+        else:
+            while self.indices[low] != J:
+                if high-low <= 1:
+                    raise IndexError()
+                mid = (low+high) >> 1
+                if self.indices[mid] <= J:
+                    low = mid
+                else:
+                    high = mid
+            for k in range(self.vectorSize):
+                self.data[low, k] = val[k]
+
+    cdef void addToEntry({SCALAR_label}CSR_VectorLinearOperator self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val):
+        cdef:
+            INDEX_t i, low, mid, high, k
+        low = self.indptr[I]
+        high = self.indptr[I+1]
+        if high-low < 20:
+            for i in range(low, high):
+                if self.indices[i] == J:
+                    for k in range(self.vectorSize):
+                        self.data[i, k] += val[k]
+                    break
+        else:
+            while self.indices[low] != J:
+                if high-low <= 1:
+                    # raise IndexError()
+                    return
+                mid = (low+high) >> 1
+                if self.indices[mid] <= J:
+                    low = mid
+                else:
+                    high = mid
+            for k in range(self.vectorSize):
+                self.data[low, k] += val[k]
+
+    cdef void getEntry({SCALAR_label}CSR_VectorLinearOperator self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val):
+        cdef:
+            INDEX_t i, low, mid, high, k
+        low = self.indptr[I]
+        high = self.indptr[I+1]
+        if high-low < 20:
+            for i in range(low, high):
+                if self.indices[i] == J:
+                    for k in range(self.vectorSize):
+                        val[k] = self.data[i, k]
+                    return
+        else:
+            while self.indices[low] != J:
+                if high-low <= 1:
+                    for k in range(self.vectorSize):
+                        val[k] = 0.
+                    return
+                mid = (low+high) >> 1
+                if self.indices[mid] <= J:
+                    low = mid
+                else:
+                    high = mid
+            for k in range(self.vectorSize):
+                val[k] = self.data[low, k]
+            return
+
+    def getnnz(self):
+        return self.indptr[self.indptr.shape[0]-1]
+
+    nnz = property(fget=getnnz)
+
+    def getMemorySize(self):
+        return ((self.indptr.shape[0]+self.indices.shape[0])*sizeof(INDEX_t) +
+                self.data.shape[0]*sizeof({SCALAR}_t))
+
+    def __repr__(self):
+        sizeInMB = self.getMemorySize() >> 20
+        if sizeInMB > 100:
+            return '<%dx%d %s with %d stored elements, %d MB>' % (self.num_rows,
+                                                                  self.num_columns,
+                                                                  self.__class__.__name__,
+                                                                  self.nnz,
+                                                                  sizeInMB)
+        else:
+            return '<%dx%d %s with %d stored elements>' % (self.num_rows,
+                                                           self.num_columns,
+                                                           self.__class__.__name__,
+                                                           self.nnz)
+
+    def __getstate__(self):
+        return (np.array(self.indices, dtype=INDEX),
+                np.array(self.indptr, dtype=INDEX),
+                np.array(self.data, dtype={SCALAR}),
+                self.num_rows,
+                self.num_columns)
+
+    def __setstate__(self, state):
+        self.indices = state[0]
+        self.indptr = state[1]
+        self.data = state[2]
+        self.num_rows = state[3]
+        self.num_columns = state[4]
+
+    def copy(self):
+        data = np.array(self.data, copy=True)
+        other = {SCALAR_label}CSR_VectorLinearOperator(self.indices, self.indptr, data)
+        return other
+
+    # def sort_indices(self):
+    #     sort_indices{SCALAR_label}(self.indptr, self.indices, self.data)
+    #     self.indices_sorted = True
+
+    def isSorted(self):
+        """
+        Check if column indices are sorted.
+        """
+        cdef:
+            INDEX_t i, nnz, s, p, q
+        nnz = self.indptr[self.indptr.shape[0]-1]
+        for i in range(self.indptr.shape[0]-1):
+            s = self.indptr[i]
+            if s ==  nnz:
+                continue
+            p = self.indices[s]
+            for q in self.indices[self.indptr[i]+1:self.indptr[i+1]]:
+                if q <= p:
+                    return False
+                else:
+                    p = q
+        return True
+
+    def setZero(self):
+        cdef:
+            INDEX_t i, j
+        for i in range(self.data.shape[0]):
+            for j in range(self.data.shape[1]):
+                self.data[i, j] = 0.

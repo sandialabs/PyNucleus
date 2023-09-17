@@ -31,6 +31,7 @@ from PyNucleus_base.linear_operators cimport (LinearOperator,
                                               SSS_LinearOperator)
 from PyNucleus_base.sparsityPattern cimport sparsityPattern
 from . DoFMaps cimport (P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap,
+                        N1e_DoFMap,
                         DoFMap,
                         vectorShapeFunction,
                         fe_vector, complex_fe_vector,
@@ -1424,6 +1425,11 @@ include "stiffness_1D_P3.pxi"
 include "stiffness_2D_P3.pxi"
 include "stiffness_3D_P3.pxi"
 
+include "mass_2D_N1e.pxi"
+include "curlcurl_2D_N1e.pxi"
+include "discrete_gradient_2d_N1e_P1.pxi"
+include "discrete_curl_2d_P0_N1e.pxi"
+
 
 def assembleMass(DoFMap dm,
                  vector_t boundary_data=None,
@@ -1476,6 +1482,11 @@ def assembleMass(DoFMap dm,
                     local_matrix = mass_2d_sym_P3()
                 elif dim == 3:
                     local_matrix = mass_3d_sym_P3()
+                else:
+                    raise NotImplementedError()
+            elif isinstance(dm, N1e_DoFMap):
+                if dim == 2:
+                    local_matrix = mass_2d_sym_N1e()
                 else:
                     raise NotImplementedError()
             else:
@@ -1875,6 +1886,98 @@ def assembleStiffness(DoFMap dm,
                                         cellIndices=cellIndices,
                                         symLocalMatrix=True)
 
+
+def assembleCurlCurl(meshBase mesh,
+                     DoFMap DoFMap,
+                     vector_t boundary_data=None,
+                     vector_t rhs_contribution=None,
+                     LinearOperator A=None,
+                     INDEX_t start_idx=-1,
+                     INDEX_t end_idx=-1,
+                     BOOL_t sss_format=False,
+                     BOOL_t reorder=False,
+                     function diffusivity=None,
+                     INDEX_t[::1] cellIndices=None):
+    cdef:
+        INDEX_t dim = mesh.dim
+        local_matrix_t local_matrix
+    if diffusivity is None:
+        if isinstance(DoFMap, N1e_DoFMap):
+            if dim == 2:
+                local_matrix = curlcurl_2d_sym_N1e()
+            else:
+                raise NotImplementedError()
+        else:
+            raise NotImplementedError()
+    else:
+        raise NotImplementedError()
+    return assembleMatrix(mesh,
+                          DoFMap,
+                          local_matrix,
+                          boundary_data,
+                          rhs_contribution,
+                          A,
+                          start_idx,
+                          end_idx,
+                          sss_format,
+                          reorder,
+                          cellIndices=cellIndices)
+
+
+def assembleDiscreteGradient(meshBase mesh,
+                             DoFMap DoFMap1,
+                             DoFMap DoFMap2,
+                             LinearOperator A=None,
+                             INDEX_t start_idx=-1,
+                             INDEX_t end_idx=-1):
+    cdef:
+        INDEX_t dim = mesh.dim
+        local_matrix_t local_matrix
+    if isinstance(DoFMap1, N1e_DoFMap):
+        if isinstance(DoFMap2, P1_DoFMap):
+            if dim == 2:
+                local_matrix = discrete_gradient_2d_N1e_P1()
+            elif dim == 3:
+                raise NotImplementedError()
+        else:
+            raise NotImplementedError()
+    else:
+        raise NotImplementedError()
+    return assembleNonSymMatrix_CSR(mesh,
+                                    local_matrix,
+                                    DoFMap1,
+                                    DoFMap2,
+                                    A,
+                                    start_idx,
+                                    end_idx)
+
+
+def assembleDiscreteCurl(meshBase mesh,
+                         DoFMap DoFMap1,
+                         DoFMap DoFMap2,
+                         LinearOperator A=None,
+                         INDEX_t start_idx=-1,
+                         INDEX_t end_idx=-1):
+    cdef:
+        INDEX_t dim = mesh.dim
+        local_matrix_t local_matrix
+    if isinstance(DoFMap1, P0_DoFMap):
+        if isinstance(DoFMap2, N1e_DoFMap):
+            if dim == 2:
+                local_matrix = discrete_curl_2d_P0_N1e()
+            elif dim == 3:
+                raise NotImplementedError()
+        else:
+            raise NotImplementedError()
+    else:
+        raise NotImplementedError()
+    return assembleNonSymMatrix_CSR(mesh,
+                                    local_matrix,
+                                    DoFMap1,
+                                    DoFMap2,
+                                    A,
+                                    start_idx,
+                                    end_idx)
 
 
 def assembleMatrix(meshBase mesh,

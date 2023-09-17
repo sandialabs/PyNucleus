@@ -576,3 +576,28 @@ cdef class sphericalQuadRule2D(sphericalQuadRule):
         sphericalQuadRule.__init__(self, vertexOffsets, weights)
 
 
+cdef class simplexJaskowiecSukumar(simplexQuadratureRule):
+    def __init__(self, order, dim, manifold_dim=None):
+        cdef:
+            REAL_t[:, ::1] nodes, bary_nodes
+            INDEX_t i, j
+        if manifold_dim is None:
+            manifold_dim = dim
+
+        if manifold_dim == 3:
+            from . js_data import schemes
+
+            nodes = np.array(schemes[order]['points'], dtype=REAL)
+            weights = np.array(schemes[order]['weights'], dtype=REAL)
+            num_nodes = nodes.shape[0]
+            bary_nodes = uninitialized((manifold_dim+1, num_nodes), dtype=REAL)
+            for i in range(num_nodes):
+                bary_nodes[0, i] = 1.
+                for j in range(1, manifold_dim+1):
+                    bary_nodes[j, i] = nodes[i, j-1]
+                    bary_nodes[0, i] -= nodes[i, j-1]
+            self.order = order
+            super(simplexJaskowiecSukumar, self).__init__(bary_nodes, weights,
+                                                          dim, manifold_dim)
+        else:
+            raise NotImplementedError()

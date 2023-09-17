@@ -86,5 +86,3 @@ cdef class synchronousConvergenceClientSubcomm(convergenceClient):
         INDEX_t tag
         MPI.Comm comm
     cdef BOOL_t getStatus(self)
-
-

@@ -163,3 +163,6 @@ cdef class sphericalQuadRule1D(sphericalQuadRule):
 cdef class sphericalQuadRule2D(sphericalQuadRule):
     pass
 
+
+cdef class simplexJaskowiecSukumar(simplexQuadratureRule):
+    cdef public INDEX_t order
