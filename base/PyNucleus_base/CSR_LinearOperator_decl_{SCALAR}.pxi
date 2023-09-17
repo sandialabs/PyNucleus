@@ -28,3 +28,16 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
     cpdef {SCALAR_label}CSR_LinearOperator getBlockDiagonal(self, sparseGraph blocks)
 
 
+cdef class {SCALAR_label}CSR_VectorLinearOperator({SCALAR_label}VectorLinearOperator):
+    cdef:
+        public INDEX_t[::1] indptr, indices
+        public {SCALAR}_t[:, ::1] data
+        public BOOL_t indices_sorted
+    cdef INDEX_t matvec(self,
+                        {SCALAR}_t[::1] x,
+                        {SCALAR}_t[:, ::1] y) except -1
+    cdef INDEX_t matvec_no_overwrite(self,
+                                     {SCALAR}_t[::1] x,
+                                     {SCALAR}_t[:, ::1] y) except -1
+    cdef void getEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val)
+    cdef void setEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val)

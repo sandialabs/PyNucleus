@@ -64,6 +64,10 @@ cdef class P3_DoFMap(DoFMap):
     pass
 
 
+cdef class N1e_DoFMap(DoFMap):
+    pass
+
+
 cdef class shapeFunction:
     cdef:
         REAL_t[::1] bary

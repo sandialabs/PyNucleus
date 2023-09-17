@@ -21,13 +21,27 @@ from . linear_operators cimport (sort_indices,
 from . solvers cimport cg_solver, gmres_solver, complex_gmres_solver
 from . ip_norm import wrapRealInnerToComplex, wrapRealNormToComplex, ip_serial, norm_serial
 from . ip_norm cimport ipBase, normBase, complexipBase, complexNormBase
-from . utilsCy import UniformOnUnitSphere
 from . blas cimport assign, assignScaled, assign3, update, updateScaled, mydot, gemvF
 from . blas import uninitialized
 from . convergence cimport (convergenceMaster, noOpConvergenceMaster,
                             convergenceClient, noOpConvergenceClient)
+from numpy.linalg import norm as normSeq
 
 include "config.pxi"
+
+
+def UniformOnUnitSphere(dim, samples=1, norm=normSeq):
+    "Uniform distribution on the unit sphere."
+    if samples > 1:
+        shape = (dim, samples)
+        vec = np.random.normal(size=shape)
+        for i in range(samples):
+            vec[:, i] = vec[:, i]/norm(vec[:, i])
+    else:
+        shape = (dim)
+        vec = np.random.normal(size=shape)
+        vec = vec/norm(vec)
+    return vec
 
 
 cpdef REAL_t accumulate_serial(REAL_t[::1] x):

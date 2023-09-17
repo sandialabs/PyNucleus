@@ -48,6 +48,13 @@ cdef class lu_solver(solver):
         BOOL_t useTriangularSolveRoutines
 
 
+cdef class pardiso_lu_solver(solver):
+    cdef:
+        INDEX_t[::1] perm
+        object Ainv, lu
+        object Asp
+
+
 cdef class chol_solver(solver):
     cdef:
         object Ainv

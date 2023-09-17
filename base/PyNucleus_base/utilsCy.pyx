@@ -5,36 +5,6 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-from __future__ import division
-import numpy as np
-cimport numpy as np
-from numpy.linalg import norm as normSeq
-import logging
-cimport cython
-from libc.math cimport log
-
-from . myTypes import INDEX, REAL
-from . myTypes cimport INDEX_t, REAL_t
-from . blas import uninitialized_like
-
-
-LOGGER = logging.getLogger(__name__)
-
-
-def UniformOnUnitSphere(dim, samples=1, norm=normSeq):
-    "Uniform distribution on the unit sphere."
-    if samples > 1:
-        shape = (dim, samples)
-        vec = np.random.normal(size=shape)
-        for i in range(samples):
-            vec[:, i] = vec[:, i]/norm(vec[:, i])
-    else:
-        shape = (dim)
-        vec = np.random.normal(size=shape)
-        vec = vec/norm(vec)
-    return vec
-
-
 import mpi4py
 mpi4py.rc.initialize = False
 from mpi4py import MPI

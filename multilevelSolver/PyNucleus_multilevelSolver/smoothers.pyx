@@ -385,6 +385,82 @@ cdef class gaussSeidelSmoother(smoother):
                                                             self.postsmoothingSteps,
                                                             'forward' if self.postsmoother_forwardSweep else 'backward',)
 
+######################################################################
+# Chebyshev preconditioner and smoother
+
+cdef class chebyshevPreconditioner(preconditioner):
+    @cython.wraparound(True)
+    def __init__(self,
+                 INDEX_t degree,
+                 LinearOperator A,
+                 REAL_t rhoA=0.,
+                 REAL_t lowerBound=1.0/30.0,
+                 REAL_t upperBound=1.1,
+                 algebraicOverlapManager overlap=None,
+                 REAL_t eps=0.01,
+                 INDEX_t kMax=10):
+        preconditioner.__init__(self, A.shape[0], A.shape[0])
+        self.A = A
+        self.has_overlap = overlap is not None
+        self.overlap = overlap
+        if rhoA == 0.:
+            rhoA = estimateSpectralRadius(A, eps=eps, kMax=kMax)
+        self.temporaryMemory = uninitialized((A.shape[0]), dtype=REAL)
+
+        a = rhoA*lowerBound
+        b = rhoA*upperBound
+
+        # Chebyshev roots for the interval [-1,1]
+        std_roots = np.cos(np.pi * (np.arange(degree, dtype=REAL) + 0.5) / degree)
+
+        # Chebyshev roots for the interval [a,b]
+        scaled_roots = 0.5 * (b-a) * (1 + std_roots) + a
+
+        # Compute monic polynomial coefficients of polynomial with scaled roots
+        scaled_poly = np.poly(scaled_roots)
+
+        # Scale coefficients to enforce C(0) = 1.0
+        scaled_poly /= np.polyval(scaled_poly, 0.)
+        # self.coeffs = -scaled_poly[-2::-1]
+        self.coeffs = -scaled_poly[:-1]
+
+    cdef INDEX_t matvec(self, REAL_t[::1] x, REAL_t[::1] y) except -1:
+        cdef:
+            REAL_t c
+
+        assignScaled(y, x, self.coeffs[0])
+        for c in self.coeffs[1:]:
+            self.A.matvec(y, self.temporaryMemory)
+            if self.has_overlap:
+                self.overlap.accumulate(self.temporaryMemory)
+            assign3(y, x, c, self.temporaryMemory, 1.)
+        return 0
+
+
+cdef class chebyshevSmoother(separableSmoother):
+    def __init__(self,
+                 LinearOperator A,
+                 REAL_t[::1] D,
+                 dict params,
+                 np.ndarray[REAL_t, ndim=1] temporaryMemory=None,
+                 overlap=None):
+        defaults = {'degree': 3,
+                    'rhoA': 0.0,
+                    'lowerBound': 1.0/30.0,
+                    'upperBound': 1.1}
+        defaults.update(params)
+        preconditioner = chebyshevPreconditioner(defaults['degree'],
+                                                 A,
+                                                 defaults['rhoA'],
+                                                 defaults['lowerBound'],
+                                                 defaults['upperBound'],
+                                                 overlap)
+        super(chebyshevSmoother, self).__init__(A, preconditioner, params, temporaryMemory, overlap)
+
+    def __repr__(self):
+        return 'Chebyshev (degree {})'.format(self.prec.coeffs.shape[0])
+
+
 cdef class iluPreconditioner(preconditioner):
     def __init__(self,
                  LinearOperator A,

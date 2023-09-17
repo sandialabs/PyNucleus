@@ -8,12 +8,12 @@
 from shutil import move
 from os import remove
 from importlib.metadata import version
+from distutils.errors import CompileError
 
 try:
     import cython
 except ImportError as e:
     raise ImportError('PyNucleus requires \'Cython\'. Please install it.') from e
-from Cython.Compiler.Errors import CompileError
 
 try:
     from PyNucleus_packageTools import package

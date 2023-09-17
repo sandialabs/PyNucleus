@@ -3,7 +3,7 @@ from PyNucleus_base.myTypes cimport INDEX_t, BOOL_t
 
 
 cdef extern from "<bitset>" namespace "std" nogil:
-    cdef cppclass MASK_t "std::bitset<{MASK_SIZE}>":
+    cdef cppclass MASK_t "std::bitset<{MASK_SIZE}> ":
         MASK_t() except +
         bint test(int)
         bint operator[](int)

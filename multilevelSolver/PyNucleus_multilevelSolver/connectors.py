@@ -14,14 +14,11 @@ import numpy as np
 from PyNucleus_base.myTypes import REAL, INDEX, TAG
 from PyNucleus_base import uninitialized
 from . levels import meshLevel, algebraicLevel
-from . hierarchies import EmptyHierarchy, hierarchy
+from . hierarchies import EmptyHierarchy, hierarchy, pCoarsenHierarchy
 from PyNucleus_base.utilsFem import TimerManager
-from PyNucleus_fem.boundaryLayerCy import boundaryLayer
-from PyNucleus_fem.DoFMaps import P0_DoFMap
 from PyNucleus_fem.factories import meshFactory
 from PyNucleus_fem.repartitioner import Repartitioner
-from PyNucleus_fem.meshOverlaps import meshOverlap, overlapManager, interfaceManager
-from PyNucleus_fem.mesh import INTERIOR_NONOVERLAPPING, INTERIOR, NO_BOUNDARY
+from PyNucleus_fem.meshOverlaps import meshOverlap, interfaceManager
 
 LOGGER = logging.getLogger(__name__)
 
@@ -133,30 +130,23 @@ class hierarchyConnector(object):
 
 class inputConnector(hierarchyConnector):
     def __init__(self, global_comm, comm1, comm2, hierarchy1, domain,
-                 useMultiMesh=False,
                  algebraicLevelType=algebraicLevel, meshParams={}):
         super(inputConnector, self).__init__(global_comm, comm1, comm2, hierarchy1)
         self.domain = domain
         self.meshParams = meshParams
-        self.useMultiMesh = useMultiMesh
         self.algebraicLevelType = algebraicLevelType
 
     def getNewHierarchy(self, params):
         with self.Timer('Initializing mesh on \'{}\''.format(params['label'])):
-            if self.useMultiMesh and self.domain.find('Multi') < 0:
-                self.domain += 'Multi'
             mesh = meshFactory.build(self.domain, **self.meshParams)
             if self.hierarchy1 is not None:
                 startLevelNo = self.hierarchy1.meshLevels[-1].levelNo
             else:
                 startLevelNo = 0
-            if self.useMultiMesh:
-                raise NotImplementedError()
-            else:
-                level = meshLevel(mesh, params['params'], label=params['label'], comm=params['comm'], startLevelNo=startLevelNo)
-                level.setAlgebraicLevelType(self.algebraicLevelType)
-                h = hierarchy(level, params['params'], comm=params['comm'], label=params['label'])
-                h.connectorStart = self
+            level = meshLevel(mesh, params['params'], label=params['label'], comm=params['comm'], startLevelNo=startLevelNo)
+            level.setAlgebraicLevelType(self.algebraicLevelType)
+            h = hierarchy(level, params['params'], comm=params['comm'], label=params['label'])
+            h.connectorStart = self
         return h
 
 
@@ -354,3 +344,23 @@ class repartitionConnector(hierarchyConnector):
                 assert np.linalg.norm(xOld-yOld) < 1e-9, (xOld, yOld)
 
 
+class pCoarsenConnector(hierarchyConnector):
+    def __init__(self, global_comm, comm1, comm2, hierarchy1, algebraicLevelType=algebraicLevel):
+        super(pCoarsenConnector, self).__init__(global_comm, comm1, comm2, hierarchy1)
+        self.algebraicLevelType = algebraicLevelType
+
+    def getNewHierarchy(self, params):
+        startLevelNo = self.hierarchy1.meshLevels[-1].levelNo
+        self.label2 = params['label']
+        hierarchy.updateParamsFromDefaults(params['params'])
+        level = meshLevel(self.hierarchy1.meshLevels[-1].mesh,
+                          params['params'],
+                          interfaces=self.hierarchy1.meshLevels[-1].interfaces,
+                          label=params['label'],
+                          comm=params['comm'],
+                          startLevelNo=startLevelNo)
+        level.setAlgebraicLevelType(self.algebraicLevelType)
+        h = pCoarsenHierarchy(level, params['params'], comm=params['comm'], label=params['label'])
+        h.connectorStart = self
+        self.hierarchy2 = h
+        return h

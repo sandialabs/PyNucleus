@@ -78,6 +78,7 @@ cdef class synchronousConvergenceCriterion(convergenceCriterion):
         if self.hasClient and self.comm.rank == 0:
             self.clientComm.isend(converged, dest=self.clientRank, tag=200)
 
+
 ######################################################################
 # convergence master (needed if coarse grid is on separate communicator)
 
@@ -150,5 +151,3 @@ cdef class synchronousConvergenceClientSubcomm(convergenceClient):
             converged = self.masterComm.recv(source=self.masterRank, tag=self.tag)
         converged = self.comm.bcast(converged, root=0)
         return converged
-
-

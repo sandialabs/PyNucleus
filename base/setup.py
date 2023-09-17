@@ -7,12 +7,12 @@
 
 from shutil import copy
 from pathlib import Path
+from distutils.errors import CompileError
 
 try:
     import cython
 except ImportError as e:
     raise ImportError('PyNucleus requires \'Cython\'. Please install it.') from e
-from Cython.Compiler.Errors import CompileError
 
 try:
     import numpy
