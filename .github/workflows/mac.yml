@@ -82,4 +82,11 @@ jobs:
 
     - name: Run tests
       if: always()
-      run: python3 -m pytest --junit-xml=test-results-mac-${{ matrix.py-version }}.xml -k "testFractional[interval-const0.75-knownSolution-P1-cg-mg-H2" tests/
+      run: drivers/runFractional.py --hdf5Output=data.hdf5 --skipPlots  --saveOperators
+
+    - name: Archive test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: Test results
+        path: data.hdf5

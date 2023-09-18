@@ -1553,7 +1553,10 @@ cdef class tree_node:
         transferOperators = uninitialized((numNodes, M, M), dtype=REAL)
         for n in self.get_tree_nodes():
             try:
-                transferOperators[n.id, :, :] = n.transferOperator
+                if n.transferOperator.shape[0] > 0:
+                    transferOperators[n.id, :, :] = n.transferOperator
+                else:
+                    transferOperators[n.id, :, :] = 0.0
             except:
                 pass
         node.create_dataset('transferOperators', data=transferOperators,

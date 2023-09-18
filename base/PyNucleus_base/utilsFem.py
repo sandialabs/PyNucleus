@@ -343,6 +343,9 @@ def loadDictFromHDF5(f):
                     params[key] = grp
                 elif f[key].attrs['type'] == 'DoFMap':
                     params[key] = DoFMap.HDF5read(f[key])
+                elif f[key].attrs['type'] == 'h2':
+                    from PyNucleus_nl.clusterMethodCy import H2Matrix
+                    params[key] = H2Matrix.HDF5read(f[key])
                 else:
                     params[key] = LinearOperator.HDF5read(f[key])
             elif 'vertices' in f[key] and 'cells' in f[key]:

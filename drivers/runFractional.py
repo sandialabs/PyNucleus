@@ -15,6 +15,7 @@ from PyNucleus.nl import (fractionalLaplacianProblem,
 
 
 d = driver(MPI.COMM_WORLD)
+d.add('saveOperators', False)
 p = fractionalLaplacianProblem(d, False)
 discrProblem = discretizedNonlocalProblem(d, p)
 
@@ -33,6 +34,11 @@ mS = discrProblem.modelSolution
 vectors = d.addOutputGroup('vectors')
 vectors.add('u', mS.u)
 vectors.add('uInterior', mS.uInterior)
+
+if d.saveOperators:
+    matrices = d.addOutputGroup('matrices')
+    matrices.add('A', discrProblem.A)
+    matrices.add('A_BC', discrProblem.A_BC)
 
 meshes = d.addOutputGroup('meshes')
 meshes.add('fullMesh', discrProblem.finalMesh)

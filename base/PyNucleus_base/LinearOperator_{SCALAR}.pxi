@@ -221,7 +221,7 @@ cdef class {SCALAR_label}LinearOperator:
         elif node.attrs['type'] == 'diagonal':
             return diagonalOperator.HDF5read(node)
         else:
-            raise NotImplementedError()
+            raise NotImplementedError(node.attrs['type'])
 
     def __getstate__(self):
         return
