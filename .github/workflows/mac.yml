@@ -57,7 +57,7 @@ jobs:
       run: make prereq && make prereq-extra
 
     - name: Install
-      run: make install
+      run: PIP_INSTALL_FLAGS=-vvv make install
 
     - name: Remove ccache cache
       if: ${{ steps.ccache-restore.outputs.cache-hit }}
