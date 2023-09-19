@@ -74,6 +74,7 @@ cdef class shapeFunction:
     cdef REAL_t eval(self, const REAL_t[::1] lam)
     cdef REAL_t evalStrided(self, const REAL_t* lam, INDEX_t stride)
     cdef REAL_t evalGlobal(self, REAL_t[:, ::1] simplex, REAL_t[::1] x)
+    cdef void evalGrad(self, const REAL_t[::1] lam, const REAL_t[:, ::1] gradLam, REAL_t[::1] value)
 
 
 cdef class vectorShapeFunction:

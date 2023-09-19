@@ -7,14 +7,4 @@
 
 cimport numpy as np
 
-include "config.pxi"
-
-IF IDXTYPEWIDTH == 32:
-    ctypedef np.int32_t idx_t
-ELIF IDXTYPEWIDTH == 64:
-    ctypedef np.int64_t idx_t
-
-IF REALTYPEWIDTH == 32:
-    ctypedef float real_t
-ELIF REALTYPEWIDTH == 64:
-    ctypedef np.float64_t real_t
+include "metisTypes_decl.pxi"

@@ -21,7 +21,6 @@ from . convergence cimport (convergenceMaster, noOpConvergenceMaster,
                             convergenceClient, noOpConvergenceClient)
 from . performanceLogger cimport PLogger, FakePLogger
 
-include "config.pxi"
 
 cdef class solver:
     cdef:
@@ -48,12 +47,7 @@ cdef class lu_solver(solver):
         BOOL_t useTriangularSolveRoutines
 
 
-cdef class pardiso_lu_solver(solver):
-    cdef:
-        INDEX_t[::1] perm
-        object Ainv, lu
-        object Asp
-
+include "solver_pypardiso_decl.pxi"
 
 cdef class chol_solver(solver):
     cdef:
@@ -155,10 +149,7 @@ cdef class bicgstab_solver(krylov_solver):
     cdef int solve(self, REAL_t[::1] b, REAL_t[::1] x) except -1
 
 
-IF USE_PYAMG:
-    cdef class pyamg_solver(iterative_solver):
-        cdef:
-            object ml
+include "solver_pyamg_decl.pxi"
 
 
 cdef class complex_solver:

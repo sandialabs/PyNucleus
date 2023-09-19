@@ -5,7 +5,7 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-from shutil import move
+from shutil import move, copy
 from os import remove
 from importlib.metadata import version
 from distutils.errors import CompileError
@@ -29,10 +29,14 @@ try:
         int malloc_trim(size_t pad)
     """)
     have_malloc_h = True
+    if not (p.hash_file(p.folder+'malloc_linux.pxi') ==
+            p.hash_file(p.folder+'malloc.pxi')):
+        copy(p.folder+'malloc_linux.pxi', p.folder+'malloc.pxi')
 except CompileError as e:
     print('malloc.h not found, error was \"{}\". Depending on the system, this might be normal.'.format(e))
-    have_malloc_h = False
-p.addOption('HAVE_MALLOC_H', 'have_malloc_h', have_malloc_h)
+    if not (p.hash_file(p.folder+'malloc_mac.pxi') ==
+            p.hash_file(p.folder+'malloc.pxi')):
+        copy(p.folder+'malloc_mac.pxi', p.folder+'malloc.pxi')
 p.addOption(None, 'mask_size', 256)
 cython_directives = {'initializedcheck': False,
                      'boundscheck': False,

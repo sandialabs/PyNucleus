@@ -17,23 +17,8 @@ from PyNucleus_base import uninitialized
 
 ctypedef mpi.MPI_Comm MPI_Comm
 
-include "config.pxi"
-
-IF IDXTYPEWIDTH == 32:
-    idx = np.int32
-    cdef int IDX = np.NPY_INT32
-    ctypedef np.int32_t idx_t
-ELIF IDXTYPEWIDTH == 64:
-    idx = np.int64
-    cdef int IDX = np.NPY_INT64
-    ctypedef np.int64_t idx_t
-
-IF REALTYPEWIDTH == 32:
-    real = np.float32
-    ctypedef float real_t
-ELIF REALTYPEWIDTH == 64:
-    real = np.float64
-    ctypedef np.float64_t real_t
+include "metisTypes_decl.pxi"
+include "metisTypes.pxi"
 
 
 cdef extern from "parmetis.h":

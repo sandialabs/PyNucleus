@@ -111,7 +111,7 @@ class package:
                          'compiler_c++': 'detect',
                          'mpi': 'openmpi',
                          'threads': 1}
-        self.addOption('USE_OPENMP', 'useOpenMP', False)
+        self.addOption(None, 'useOpenMP', False)
         self.addOption(None, 'gitSHA', self.getGitSHA())
 
     def addOption(self, optionCy, optionPy, default, pkgDependencies=[]):
@@ -377,6 +377,36 @@ class package:
             return file_hash
         except:
             return
+
+    def emptyFile(self, filename):
+        from shutil import copy
+
+        with open('tempEmpty', 'w') as f:
+            pass
+        if Path(filename).exists():
+            if not (self.hash_file('tempEmpty') ==
+                    self.hash_file(filename)):
+                copy('tempEmpty', filename)
+        else:
+            copy('tempEmpty', filename)
+        Path('tempEmpty').unlink()
+
+    def conditionalCopy(self, target, conditional, source_if_true, source_if_false):
+        from shutil import copy
+
+        if conditional:
+            if not (self.hash_file(source_if_true) ==
+                    self.hash_file(target)):
+                copy(source_if_true,
+                     target)
+        else:
+            if source_if_false is not None:
+                if not (self.hash_file(source_if_false) ==
+                        self.hash_file(target)):
+                    copy(source_if_false,
+                         target)
+            else:
+                self.emptyFile(target)
 
 
 def fillTemplate(basedir, templates, replacements):

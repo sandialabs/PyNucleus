@@ -12,9 +12,18 @@ jobs:
   linux:
     strategy:
       matrix:
-        py-version: ['3.10', '3.11']
+        include:
+          - py-version: '3.10'
+            c-compiler: 'gcc'
+            cxx-compiler: 'g++'
+          - py-version: '3.11'
+            c-compiler: 'gcc'
+            cxx-compiler: 'g++'
+          - py-version: '3.10'
+            c-compiler: 'clang'
+            cxx-compiler: 'clang++'
       fail-fast: false
-    name: Python ${{ matrix.py-version }}
+    name: ${{ matrix.c-compiler}} Python ${{ matrix.py-version }}
 
 
     runs-on: ubuntu-latest
@@ -22,6 +31,8 @@ jobs:
     env:
       MPIEXEC_FLAGS: "--allow-run-as-root --oversubscribe"
       PYNUCLEUS_BUILD_PARALLELISM: 2
+      OMPI_CC: ${{ matrix.c-compiler }}
+      OMPI_CXX: ${{ matrix.cxx-compiler }}
 
     steps:
     - name: Check out repo
@@ -34,7 +45,7 @@ jobs:
       uses: actions/cache/restore@v3
       with:
         path: /home/runner/.cache/ccache
-        key: ccache-${{ matrix.py-version }}
+        key: ccache-${{ matrix.c-compiler }}-${{ matrix.py-version }}
 
     - uses: actions/setup-python@v4
       if: always()
@@ -57,7 +68,7 @@ jobs:
 
     - name: Install
       if: always()
-      run: python -m pip install wheel && python -m pip list && make install PIP_INSTALL_FLAGS="--no-use-pep517"
+      run: python -m pip install wheel && python -m pip list && make install PIP_INSTALL_FLAGS="--no-use-pep517 -vvv"
 
     - name: Remove ccache cache
       if: ${{ steps.ccache-restore.outputs.cache-hit }}
@@ -66,7 +77,7 @@ jobs:
         GH_TOKEN: ${{ github.token }}
       run: |
         gh extension install actions/gh-actions-cache
-        gh actions-cache delete ccache-${{ matrix.py-version }} --confirm
+        gh actions-cache delete ccache-${{ matrix.c-compiler}}-${{ matrix.py-version }} --confirm
       continue-on-error: true
 
     - name: Push ccache cache
@@ -74,7 +85,7 @@ jobs:
       uses: actions/cache/save@v3
       with:
         path: /home/runner/.cache/ccache
-        key: ccache-${{ matrix.py-version }}
+        key: ccache-${{ matrix.c-compiler }}-${{ matrix.py-version }}
 
     - name: Ccache report
       if: always()
@@ -82,27 +93,27 @@ jobs:
 
     - name: Run tests
       if: always()
-      run: python3 -m pytest --junit-xml=test-results-${{ matrix.py-version }}.xml tests/
+      run: python3 -m pytest --junit-xml=test-results-${{ matrix.c-compiler }}-${{ matrix.py-version }}.xml tests/
 
     - name: Run flake8
       if: always()
       run: |
         make flake8
-        mv flake8.xml flake8-${{ matrix.py-version }}.xml
+        mv flake8.xml flake8-${{ matrix.c-compiler }}-${{ matrix.py-version }}.xml
 
     - name: Archive test results
       uses: actions/upload-artifact@v3
       if: always()
       with:
         name: Test results
-        path: test-results-${{ matrix.py-version }}.xml
+        path: test-results-${{ matrix.c-compiler }}-${{ matrix.py-version }}.xml
 
     - name: Report test results
       uses: dorny/test-reporter@v1
       if: always()
       with:
-        name: Test report (Python ${{ matrix.py-version }})
-        path: test-results-${{ matrix.py-version }}.xml
+        name: Test report (${{ matrix.c-compiler }}, Python ${{ matrix.py-version }})
+        path: test-results-${{ matrix.c-compiler }}-${{ matrix.py-version }}.xml
         reporter: java-junit
         fail-on-error: true
 
@@ -110,7 +121,7 @@ jobs:
       uses: dorny/test-reporter@v1
       if: always()
       with:
-        name: Flake8 report (Python ${{ matrix.py-version }})
-        path: flake8-${{ matrix.py-version }}.xml
+        name: Flake8 report (${{ matrix.c-compiler }}, Python ${{ matrix.py-version }})
+        path: flake8-${{ matrix.c-compiler }}-${{ matrix.py-version }}.xml
         reporter: java-junit
         fail-on-error: false

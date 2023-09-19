@@ -1672,6 +1672,14 @@ cdef class shapeFunction:
     cdef REAL_t evalStrided(self, const REAL_t* lam, INDEX_t stride):
         raise NotImplementedError()
 
+    cdef void evalGrad(self, const REAL_t[::1] lam, const REAL_t[:, ::1] gradLam, REAL_t[::1] value):
+        pass
+
+    def evalGradPy(self, lam, gradLam):
+        value = uninitialized((gradLam.shape[1]), dtype=REAL)
+        self.evalGrad(np.array(lam), np.array(gradLam), value)
+        return value
+
     cdef REAL_t evalGlobal(self, REAL_t[:, ::1] simplex, REAL_t[::1] x):
         if simplex.shape[1] == 1:
             getBarycentricCoords1D(simplex, x, self.bary)
@@ -1817,6 +1825,13 @@ cdef class shapeFunctionP1(shapeFunction):
 
     cdef REAL_t evalStrided(self, const REAL_t* lam, INDEX_t stride):
         return lam[self.vertexNo*stride]
+
+    cdef void evalGrad(self, const REAL_t[::1] lam, const REAL_t[:, ::1] gradLam, REAL_t[::1] value):
+        cdef:
+            INDEX_t dim = gradLam.shape[1]
+            INDEX_t i
+        for i in range(dim):
+            value[i] = gradLam[self.vertexNo, i]
 
     def __getstate__(self):
         return self.vertexNo

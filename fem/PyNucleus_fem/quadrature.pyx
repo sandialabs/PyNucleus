@@ -13,8 +13,6 @@ import numpy as np
 from modepy import XiaoGimbutasSimplexQuadrature
 from modepy.tools import unit_to_barycentric
 
-include "config.pxi"
-
 
 cdef class quadratureRule:
     def __init__(self,

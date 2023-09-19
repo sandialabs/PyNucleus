@@ -8,20 +8,9 @@
 import numpy as np
 cimport numpy as np
 
-include "config.pxi"
-
 from PyNucleus_base import uninitialized
 
-IF IDXTYPEWIDTH == 32:
-    idx = np.int32
-ELIF IDXTYPEWIDTH == 64:
-    idx = np.int64
-
-IF REALTYPEWIDTH == 32:
-    real = np.float32
-ELIF REALTYPEWIDTH == 64:
-    real = np.float64
-
+include "metisTypes.pxi"
 
 cdef extern from "metis.h":
     int METIS_PartGraphRecursive(idx_t *nvtxs, idx_t *ncon, idx_t *xadj, idx_t *adjncy,
