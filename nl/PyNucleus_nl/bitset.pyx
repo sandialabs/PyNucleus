@@ -9,14 +9,7 @@
 import numpy as np
 from libc.stdlib cimport malloc, realloc, free
 
-include "config.pxi"
-
-IF HAVE_MALLOC_H:
-    cdef extern from "malloc.h" nogil:
-        int malloc_trim(size_t pad)
-ELSE:
-    cdef int malloc_trim(size_t pad):
-        pass
+include "malloc.pxi"
 
 
 cdef str MASK2Str(MASK_t a):

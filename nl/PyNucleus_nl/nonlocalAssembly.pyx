@@ -9,8 +9,6 @@ from libc.math cimport ceil
 import numpy as np
 cimport numpy as np
 
-include "config.pxi"
-
 from libc.math cimport sin, cos, M_PI as pi
 from libcpp.map cimport map
 from cpython.long cimport PyLong_FromSsize_t

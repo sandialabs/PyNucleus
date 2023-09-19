@@ -45,8 +45,6 @@ from . kernelsCy cimport (Kernel,
                           FractionalKernel)
 
 
-include "config.pxi"
-
 include "nonlocalAssembly_decl_REAL.pxi"
 include "nonlocalAssembly_decl_COMPLEX.pxi"
 

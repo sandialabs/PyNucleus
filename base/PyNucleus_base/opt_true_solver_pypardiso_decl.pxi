@@ -5,23 +5,12 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-import numpy as np
-cimport numpy as np
-from . myTypes import INDEX
+from . solvers cimport solver
+from . myTypes cimport REAL_t, INDEX_t
 
 
-cdef:
-    INDEX_t MAX_INT = np.iinfo(INDEX).max
-    REAL_t NAN = np.nan
-
-
-include "allocation.pxi"
-include "blas_routines.pxi"
-include "mkl_routines.pxi"
-
-
-cdef void updateScaledVector(REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] alpha):
+cdef class pardiso_lu_solver(solver):
     cdef:
-        INDEX_t i
-    for i in range(x.shape[0]):
-        x[i] += alpha[i]*y[i]
+        INDEX_t[::1] perm
+        object Ainv, lu
+        object Asp

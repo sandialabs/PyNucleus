@@ -35,14 +35,14 @@ except ImportError as e:
     raise ImportError('\'PyNucleus_packageTools\' needs to be installed first.') from e
 
 p = package('PyNucleus_base')
-p.addOption('USE_BLAS', 'useBLAS', True)
-p.addOption('USE_MKL', 'useMKL', False)
-p.addOption('USE_CHOLMOD', 'use_cholmod', True, ['scikit-sparse'])
-p.addOption('USE_PYAMG', 'use_pyamg', False, ['pyamg'])
-p.addOption('USE_PYPARDISO', 'use_pypardiso', False, ['pypardiso'])
-p.addOption('MKL_LIBRARY', 'mklLibrary', 'mkl_rt')
-p.addOption('USE_MKL_TRISOLVE', 'useMKL_trisolve', False)
-p.addOption('FILL_UNINITIALIZED', 'fillUninitialized', True)
+p.addOption(None, 'useBLAS', True)
+p.addOption(None, 'useMKL', False)
+p.addOption(None, 'use_cholmod', True, ['scikit-sparse'])
+p.addOption(None, 'use_pyamg', False, ['pyamg'])
+p.addOption(None, 'use_pypardiso', False, ['pypardiso'])
+p.addOption(None, 'mklLibrary', 'mkl_rt')
+p.addOption(None, 'useMKL_trisolve', False)
+p.addOption(None, 'fillUninitialized', True)
 
 try:
     cython.inline("""
@@ -50,10 +50,14 @@ try:
         int malloc_trim(size_t pad)
     """)
     have_malloc_h = True
+    if not (p.hash_file(p.folder+'malloc_linux.pxi') ==
+            p.hash_file(p.folder+'malloc.pxi')):
+        copy(p.folder+'malloc_linux.pxi', p.folder+'malloc.pxi')
 except CompileError as e:
     print('malloc.h not found, error was \"{}\". Depending on the system, this might be normal.'.format(e))
-    have_malloc_h = False
-p.addOption('HAVE_MALLOC_H', 'have_malloc_h', have_malloc_h)
+    if not (p.hash_file(p.folder+'malloc_mac.pxi') ==
+            p.hash_file(p.folder+'malloc.pxi')):
+        copy(p.folder+'malloc_mac.pxi', p.folder+'malloc.pxi')
 p.loadConfig(extra_config={'annotate': True,
                            'cythonDirectives': {'initializedcheck': False,
                                                 'boundscheck': False,
@@ -138,6 +142,19 @@ replacementGroups = [[('{VALUE}', 'INDEX'),
                       ('{INVALID}', str(numpy.iinfo(numpy.int32).max))]]
 fillTemplate(Path(p.folder), templates, replacementGroups)
 
+
+# allocation
+p.conditionalCopy(p.folder+'allocation.pxi', p.config['fillUninitialized'], p.folder+'opt_true_allocation.pxi', p.folder+'opt_false_allocation.pxi')
+p.conditionalCopy(p.folder+'blas_routines.pxi', p.config['useBLAS'], p.folder+'opt_true_blas.pxi', p.folder+'opt_false_blas.pxi')
+p.conditionalCopy(p.folder+'mkl_routines.pxi', p.config['useMKL'], p.folder+'opt_true_mkl.pxi', p.folder+'opt_false_mkl.pxi')
+
+# solvers
+p.conditionalCopy(p.folder+'solver_chol.pxi', p.config['use_cholmod'], p.folder+'opt_true_solver_cholmod.pxi', p.folder+'opt_false_solver_cholmod.pxi')
+p.conditionalCopy(p.folder+'solver_ichol.pxi', p.config['useMKL_trisolve'], p.folder+'opt_true_mkl_trisolve.pxi', p.folder+'opt_false_mkl_trisolve.pxi')
+p.conditionalCopy(p.folder+'solver_pypardiso.pxi', p.config['use_pypardiso'], p.folder+'opt_true_solver_pypardiso.pxi', None)
+p.conditionalCopy(p.folder+'solver_pypardiso_decl.pxi', p.config['use_pypardiso'], p.folder+'opt_true_solver_pypardiso_decl.pxi', None)
+p.conditionalCopy(p.folder+'solver_pyamg.pxi', p.config['use_pyamg'], p.folder+'opt_true_solver_pyamg.pxi', None)
+p.conditionalCopy(p.folder+'solver_pyamg_decl.pxi', p.config['use_pyamg'], p.folder+'opt_true_solver_pyamg_decl.pxi', None)
 
 p.addExtension("linear_operators",
                sources=[p.folder+"linear_operators.pyx"])

@@ -5,23 +5,23 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-import numpy as np
-cimport numpy as np
-from . myTypes import INDEX
+def uninitialized(*args, **kwargs):
+    return np.empty(*args, **kwargs)
 
 
-cdef:
-    INDEX_t MAX_INT = np.iinfo(INDEX).max
-    REAL_t NAN = np.nan
+def uninitialized_like(like, **kwargs):
+    return np.empty_like(like, **kwargs)
 
 
-include "allocation.pxi"
-include "blas_routines.pxi"
-include "mkl_routines.pxi"
-
-
-cdef void updateScaledVector(REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] alpha):
+cpdef carray uninitializedINDEX(tuple shape):
     cdef:
-        INDEX_t i
-    for i in range(x.shape[0]):
-        x[i] += alpha[i]*y[i]
+        carray a = carray(shape, 4, 'i')
+        Py_ssize_t s, i
+    return a
+
+
+cpdef carray uninitializedREAL(tuple shape):
+    cdef:
+        carray a = carray(shape, 8, 'd')
+        Py_ssize_t s, i
+    return a

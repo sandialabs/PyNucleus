@@ -12,8 +12,6 @@ from . blas cimport gemv
 from . blas import uninitialized
 from cython.parallel cimport prange, parallel
 
-include "config.pxi"
-
 COMPRESSION = 'gzip'
 
 include "LinearOperator_REAL.pxi"

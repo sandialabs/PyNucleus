@@ -10,14 +10,7 @@ from libc.stdlib cimport malloc, realloc, free
 from libc.stdlib cimport qsort
 from . myTypes import INDEX
 
-include "config.pxi"
-
-IF HAVE_MALLOC_H:
-    cdef extern from "malloc.h" nogil:
-        int malloc_trim(size_t pad)
-ELSE:
-    cdef int malloc_trim(size_t pad):
-        pass
+include "malloc.pxi"
 
 # def return_memory_to_OS():
 #     malloc_trim(0)

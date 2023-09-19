@@ -19,8 +19,6 @@ from . meshCy cimport (vectorProduct,
 cimport numpy as np
 from libc.math cimport sqrt
 
-include "config.pxi"
-
 
 cdef class quadratureRule:
     cdef:

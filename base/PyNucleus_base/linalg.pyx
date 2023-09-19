@@ -27,8 +27,6 @@ from . convergence cimport (convergenceMaster, noOpConvergenceMaster,
                             convergenceClient, noOpConvergenceClient)
 from numpy.linalg import norm as normSeq
 
-include "config.pxi"
-
 
 def UniformOnUnitSphere(dim, samples=1, norm=normSeq):
     "Uniform distribution on the unit sphere."
@@ -202,43 +200,6 @@ cdef void forward_solve_csc(INDEX_t[::1] indptr,
                 y[j] = (b[j]-y[j])/data[i1]
                 for i in range(i1+1, i2):
                     y[indices[i]] = y[indices[i]] + data[i]*y[j]
-
-
-IF USE_MKL_TRISOLVE:
-
-    ctypedef INDEX_t MKL_INT
-
-    cdef extern from "mkl/mkl_spblas.h":
-        void mkl_dcsrsm (const char *transa , const MKL_INT *m , const MKL_INT *n , const REAL_t *alpha , const char *matdescra ,
-                         const REAL_t *val , const MKL_INT *indx , const MKL_INT *pntrb , const MKL_INT *pntre ,
-                         const REAL_t *b , const MKL_INT *ldb , REAL_t *c , const MKL_INT *ldc );
-
-    cdef inline void trisolve_mkl(INDEX_t[::1] indptr,
-                                  INDEX_t[::1] indices,
-                                  REAL_t[::1] data,
-                                  REAL_t[::1] b,
-                                  REAL_t[::1] y,
-                                  BOOL_t forward=True,
-                                  BOOL_t unitDiagonal=False):
-        cdef:
-            char transA
-            REAL_t alpha = 1.
-            char matdscr[6]
-            INDEX_t inc = 1
-            INDEX_t n = indptr.shape[0]-1
-            INDEX_t one = 1
-        matdscr[0] = 84
-        if forward:
-            transA = 84
-        else:
-            transA = 78
-        matdscr[1] = 85
-        if unitDiagonal:
-            matdscr[2] = 85
-        else:
-            matdscr[2] = 78
-        matdscr[3] = 67
-        mkl_dcsrsm(&transA, &n, &one, &alpha, &matdscr[0], &data[0], &indices[0], &indptr[0], &indptr[1], &b[0], &one, &y[0], &one)
 
 
 # Assumes that indices are ordered
@@ -445,56 +406,6 @@ cpdef solve_cholesky(INDEX_t[::1] Lindptr,
                       unitDiagonal=False)
     backward_solve_csr(Lindptr, Lindices, Ldata, temp, temp)
     return temp_mem
-
-
-cdef class cholesky_solver:
-    cdef:
-        public INDEX_t[::1] indptr, indices
-        public REAL_t[::1] data, diagonal, temp
-        CSR_LinearOperator L
-
-    def __init__(self, num_rows):
-        self.temp = uninitialized((num_rows), dtype=REAL)
-
-    def setup(self, A):
-        cdef:
-            INDEX_t i
-        if isinstance(A, CSR_LinearOperator):
-            self.indices, self.indptr, self.data, self.diagonal = ichol_csr(A)
-        elif isinstance(A, SSS_LinearOperator):
-            # self.indices, self.indptr, self.data, self.diagonal = ichol_sss(A)
-            self.indices, self.indptr, self.data, self.diagonal = ichol_csr(A.to_csr_linear_operator())
-        elif isinstance(A, TimeStepperLinearOperator):
-            B = A.to_csr_linear_operator()
-            self.indices, self.indptr, self.data, self.diagonal = ichol_csr(B)
-        else:
-            raise NotImplementedError()
-
-        IF USE_MKL_TRISOLVE:
-            from . linear_operators import diagonalOperator
-            T = CSR_LinearOperator(self.indices, self.indptr, self.data).to_csr()+diagonalOperator(self.diagonal).to_csr()
-            self.L = CSR_LinearOperator.from_csr(T)
-        ELSE:
-            for i in range(self.diagonal.shape[0]):
-                self.diagonal[i] = 1./self.diagonal[i]
-
-    cpdef solve(self, REAL_t[::1] b, REAL_t[::1] x):
-        self.temp[:] = 0.0
-        IF USE_MKL_TRISOLVE:
-            trisolve_mkl(self.L.indptr, self.L.indices, self.L.data, b, self.temp, forward=True, unitDiagonal=False)
-            trisolve_mkl(self.L.indptr, self.L.indices, self.L.data, self.temp, x, forward=False, unitDiagonal=False)
-        ELSE:
-            forward_solve_sss_noInverse(self.indptr, self.indices,
-                                    self.data, self.diagonal,
-                                    b, self.temp, unitDiagonal=False)
-            backward_solve_sss_noInverse(self.indptr, self.indices,
-                                         self.data, self.diagonal,
-                                         self.temp, x)
-
-    def asPreconditioner(self):
-        return LinearOperator_wrapper(self.diagonal.shape[0],
-                                        self.diagonal.shape[0],
-                                        self.solve)
 
 
 cpdef void bicgstab(LinearOperator A,
