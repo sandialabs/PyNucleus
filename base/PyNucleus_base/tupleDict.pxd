@@ -72,4 +72,5 @@ cdef class bitArray(indexSet):
 cdef class bitArrayIterator(indexSetIterator):
     cdef:
         bitArray bA
-        INDEX_t k, n
+        INDEX_t k
+        size_t n

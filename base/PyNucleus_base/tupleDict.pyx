@@ -451,7 +451,7 @@ cdef class arrayIndexSetIterator(indexSetIterator):
 
 
 cdef class bitArray(indexSet):
-    def __init__(self, INDEX_t hintMaxLength=1, INDEX_t maxElement=0):
+    def __init__(self, size_t hintMaxLength=1, INDEX_t maxElement=0):
         self.length = max(hintMaxLength, maxElement/(sizeof(MEM_t)*8)+1)
         self.a = <MEM_t *>malloc(self.length*sizeof(MEM_t))
         for j in range(self.length):
@@ -562,7 +562,8 @@ cdef class bitArrayIterator(indexSetIterator):
     cdef BOOL_t step(self):
         cdef:
             bitArray bA = self.iS
-            INDEX_t k0, n0, k, n
+            INDEX_t k0, k
+            size_t n0, n
             MEM_t v
 
         if self.n == sizeof(MEM_t)*8-1:

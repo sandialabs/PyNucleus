@@ -13,6 +13,7 @@ include "config.pxi"
 
 from libc.math cimport sin, cos, M_PI as pi
 from libcpp.map cimport map
+from cpython.long cimport PyLong_FromSsize_t
 from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX, ENCODE, BOOL
 from PyNucleus_base import uninitialized
 from PyNucleus_base.intTuple cimport intTuple

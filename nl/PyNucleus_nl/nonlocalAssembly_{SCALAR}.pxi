@@ -714,7 +714,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
             self.contrib = uninitialized(((2*self.dm.dofs_per_element)*(2*self.dm.dofs_per_element+1)//2), dtype={SCALAR})
         else:
             self.contrib = uninitialized(((2*self.dm.dofs_per_element)**2), dtype={SCALAR})
-        assert self.contrib.shape[0] <= mask.size(), "Mask type size = {} is not large enough for {} entries. Please set a larger size and recompile.".format(mask.size(), self.contrib.shape[0])
+        assert self.contrib.shape[0] <= PyLong_FromSsize_t(mask.size()), "Mask type size = {} is not large enough for {} entries. Please set a larger size and recompile.".format(mask.size(), self.contrib.shape[0])
 
         self.local_matrix.setMesh1(self.dm.mesh)
         if self.dm2 is None:

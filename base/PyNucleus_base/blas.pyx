@@ -41,7 +41,7 @@ def uninitialized_like(like, **kwargs):
 cpdef carray uninitializedINDEX(tuple shape):
     cdef:
         carray a = carray(shape, 4, 'i')
-        size_t s, i
+        Py_ssize_t s, i
     IF FILL_UNINITIALIZED:
         s = 1
         for i in range(len(shape)):
@@ -54,7 +54,7 @@ cpdef carray uninitializedINDEX(tuple shape):
 cpdef carray uninitializedREAL(tuple shape):
     cdef:
         carray a = carray(shape, 8, 'd')
-        size_t s, i
+        Py_ssize_t s, i
     IF FILL_UNINITIALIZED:
         s = 1
         for i in range(len(shape)):
