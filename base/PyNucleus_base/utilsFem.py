@@ -102,7 +102,10 @@ class TimerManager:
             val = data[key]
             # (number of calls, min over calls, mean over calls, med over calls, max over calls)
             # on rank
-            data2[key] = (len(val), np.min(val), np.mean(val), np.median(val), np.max(val))
+            try:
+                data2[key] = (len(val), np.min(val), np.mean(val), np.median(val), np.max(val))
+            except:
+                pass
         data = data2
         # gather data for all ranks
         if self.comm is not None:
@@ -1475,15 +1478,21 @@ class propertyBuilder:
                 newValue = getattr(self.baseObj, prop)
                 oldValue = self.cached_args.get(prop, None)
                 args.append(newValue)
-                cached_args[prop] = newValue
                 # TODO: keep hash?
                 try:
                     if isinstance(newValue, np.ndarray):
+                        cached_args[prop] = newValue.copy()
                         if (newValue != oldValue).any():
+                            dependencyLogger.log(self.logLevel, 'Values for {} differ: \'{}\' != \'{}\', calling \'{}\''.format(prop, oldValue, newValue, self.fun.__name__))
                             needToBuild = True
+                        else:
+                            dependencyLogger.log(self.logLevel, 'Values for {} are identical: \'{}\' == \'{}\''.format(prop, oldValue, newValue))
                     elif newValue != oldValue:
+                        cached_args[prop] = newValue
                         dependencyLogger.log(self.logLevel, 'Values for {} differ: \'{}\' != \'{}\', calling \'{}\''.format(prop, oldValue, newValue, self.fun.__name__))
                         needToBuild = True
+                    else:
+                        dependencyLogger.log(self.logLevel, 'Values for {} are identical: \'{}\' == \'{}\''.format(prop, oldValue, newValue))
                 except Exception as e:
                     dependencyLogger.log(logging.WARN, 'Cannot compare values {}, {} for property \'{}\', exception {}, force call \'{}\''.format(oldValue, newValue, prop, e, self.fun.__name__))
                     needToBuild = True

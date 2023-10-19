@@ -12,10 +12,15 @@ from libc.stdlib cimport malloc, realloc, free
 include "malloc.pxi"
 
 
-cdef str MASK2Str(MASK_t a):
+cdef str MASK2Str(MASK_t a, INDEX_t length=-1):
+    cdef:
+        INDEX_t i
+        str s
+    if length < 0:
+        length = a.size()
     s = ''
-    for i in range(a.size()):
-        s+= str(int(a[i]))
+    for i in range(length):
+        s += str(int(a[i]))
     return s
 
 
@@ -198,3 +203,23 @@ cdef class tupleDictMASK:
                 i += 1
             self.i = i
         return True
+
+    def toDict(self, INDEX_t maxLength=-1):
+        cdef:
+            INDEX_t e[2]
+            MASK_t val
+            dict d = {}
+        self.startIter()
+        while self.next(e, <MASK_t*>&val):
+            d[(e[0], e[1])] = (MASK2Str(val, maxLength), val.count())
+        return d
+
+    def getMaskSum(self):
+        cdef:
+            INDEX_t e[2]
+            MASK_t val
+            INDEX_t count = 0
+        self.startIter()
+        while self.next(e, <MASK_t*>&val):
+            count += val.count()
+        return count

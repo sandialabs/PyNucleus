@@ -160,7 +160,7 @@ class nonlocalMeshFactoryClass(factory):
                     tag = NO_BOUNDARY
                 else:
                     tag = PHYSICAL
-                raise NotImplementedError()
+                raise NotImplementedError("Non-homogeneous Dirichlet conditions for infinite horizon kernels are not implemented.")
             else:
                 tag = NO_BOUNDARY
             zeroExterior = False
@@ -286,8 +286,9 @@ class nonlocalBaseProblem(problem):
         self.addProperty('phiType')
         self.addProperty('phiArgs')
         self.addProperty('admissibleParams')
+        self.addProperty('feOrder')
         self.admissibleParams = None
-        self.feFractionalOrder = None
+        self.feOrder = None
 
     def setDriverArgs(self):
         p = self.driver.addGroup('kernel')
@@ -384,7 +385,7 @@ class nonlocalBaseProblem(problem):
 
     @generates(['kernel', 'rangedKernel'])
     def processKernel(self, dim, kernelType, sType, sArgs, phiType, phiArgs, horizon, interaction, normalized, admissibleParams,
-                      discretizedOrder, dmAux, feFractionalOrder):
+                      discretizedOrder, dmAux, feOrder):
 
         if kernelType == 'local':
             self.kernel = None
@@ -399,16 +400,15 @@ class nonlocalBaseProblem(problem):
             rangedKernel = self.directlyGetWithoutChecks('rangedKernel')
             if rangedKernel is None or not isinstance(rangedKernel, RangedFractionalKernel):
                 self.rangedKernel = RangedFractionalKernel(dim,
-                                                           admissibleParams.subset({'sArgs'}),
+                                                           admissibleParams.subset({('sArgs', 's')}),
                                                            functionFactory('constant', horizon),
                                                            normalized)
             else:
                 self.rangedKernel = rangedKernel
             try:
-                self.rangedKernel.setOrder(*sArgs)
-                self.kernel = self.rangedKernel.getFrozenKernel(*sArgs)
+                self.rangedKernel.setOrder(sArgs['s'])
+                self.kernel = self.rangedKernel.getFrozenKernel(sArgs['s'])
             except TypeError:
-                sArgs = (sArgs, )
                 self.rangedKernel.setOrder(*sArgs)
                 self.kernel = self.rangedKernel.getFrozenKernel(*sArgs)
             return
@@ -416,7 +416,7 @@ class nonlocalBaseProblem(problem):
             self.rangedKernel = None
 
         if kType == FRACTIONAL:
-            if feFractionalOrder is None:
+            if feOrder is None:
                 if isinstance(sArgs, dict):
                     if discretizedOrder:
                         sFun = fractionalOrderFactory(sType, dm=dmAux, **sArgs)
@@ -433,9 +433,17 @@ class nonlocalBaseProblem(problem):
                         if discretizedOrder:
                             sFun = fractionalOrderFactory(sType, *sArgs, dm=dmAux)
                         else:
-                                sFun = fractionalOrderFactory(sType, *sArgs)
+                            sFun = fractionalOrderFactory(sType, *sArgs)
+                if discretizedOrder:
+                    self.directlySetWithoutChecks('feFractionalOrder', sFun)
             else:
-                sFun = deepcopy(feFractionalOrder)
+                if isinstance(feOrder, feFractionalOrder):
+                    sFun = deepcopy(feOrder)
+                elif isinstance(feOrder, np.ndarray):
+                    t = dmAux.fromArray(feOrder)
+                    sFun = feFractionalOrder(t, feOrder.min(), feOrder.max())
+                else:
+                    raise NotImplementedError()
         else:
             sFun = None
 
@@ -494,6 +502,7 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                                                        'residual', 'hierarchical', 'knownSolution', None],
                            argInterpreter=lambda v: None if v == 'None' else v, group=p)
         self.setDriverFlag('noRef', -1, group=p)
+        self.setDriverFlag('targetDoFsAux', 0)
 
     def processCmdline(self, params):
         noRef = params['noRef']
@@ -582,11 +591,16 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
 
             if problem == 'constant':
                 self.rhs = constant(1.)
-                if isinstance(s, (constFractionalOrder, variableConstFractionalOrder, constantNonSymFractionalOrder)):
-                    C = 2.**(-2.*s.value)*Gamma(dim/2.)/Gamma((dim+2.*s.value)/2.)/Gamma(1.+s.value)
-                    self.exactHsSquared = C * np.sqrt(np.pi)*Gamma(s.value+1)/Gamma(s.value+3/2)
-                    L2_ex = np.sqrt(C**2 * np.sqrt(np.pi) * Gamma(1+2*s.value)/Gamma(3/2+2*s.value) * radius**2)
-                    self.analyticSolution = solFractional(s.value, dim, radius)
+                if (isinstance(s, (constFractionalOrder, variableConstFractionalOrder, constantNonSymFractionalOrder)) or
+                    (isinstance(s, feFractionalOrder) and np.array(s.vec).min() == np.array(s.vec).max())):
+                    if isinstance(s, feFractionalOrder):
+                        sValue = s.vec[0]
+                    else:
+                        sValue = s.value
+                    C = 2.**(-2.*sValue)*Gamma(dim/2.)/Gamma((dim+2.*sValue)/2.)/Gamma(1.+sValue)
+                    self.exactHsSquared = C * np.sqrt(np.pi)*Gamma(sValue+1)/Gamma(sValue+3/2)
+                    L2_ex = np.sqrt(C**2 * np.sqrt(np.pi) * Gamma(1+2*sValue)/Gamma(3/2+2*sValue) * radius**2)
+                    self.analyticSolution = solFractional(sValue, dim, radius)
             elif problem == 'sin':
                 self.rhs = Lambda(lambda x: np.sin(np.pi*x[0]))
             elif problem == 'cos':
@@ -794,7 +808,7 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
         self.mesh, _ = nonlocalMeshFactory.build(mesh_domain, **mesh_params)
 
     @generates('dmAux')
-    def constructAuxiliarySpace(self, dim, domain, domainParams, kernelType, horizon):
+    def constructAuxiliarySpace(self, dim, domain, domainParams, kernelType, horizon, targetDoFsAux):
         # This is not the actual kernel that we use.
         # We just need something to get a mesh to support the fractional order.
         kType = getKernelEnum(kernelType)
@@ -804,6 +818,8 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
         else:
             kernel = getKernel(dim=dim, kernel=kType, horizon=horizon)
         mesh, _ = nonlocalMeshFactory(domain, kernel=kernel, boundaryCondition=HOMOGENEOUS_DIRICHLET, **domainParams)
+        while mesh.num_vertices < targetDoFsAux:
+            mesh = mesh.refine()
         self.dmAux = dofmapFactory('P1', mesh, NO_BOUNDARY)
 
     def getIdentifier(self, params):

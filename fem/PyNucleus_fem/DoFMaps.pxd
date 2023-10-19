@@ -19,7 +19,9 @@ cdef class DoFMap:
         public meshBase mesh  #: The underlying mesh
         readonly INDEX_t dim  #: The spatial dimension of the underlying mesh
         BOOL_t reordered
-        public list localShapeFunctions  #: List of local shape functions
+        public list _localShapeFunctions  #: List of local shape functions
+        void** _localShapeFunctionsPtr
+        BOOL_t vectorValued
         public REAL_t[:, ::1] nodes  #: The barycentric coordinates of the DoFs
         public REAL_t[:, ::1] dof_dual
         public INDEX_t num_dofs  #: The number of DoFs of the finite element space
@@ -46,6 +48,8 @@ cdef class DoFMap:
     cpdef void getVertexDoFs(self, INDEX_t[:, ::1] v2d)
     cpdef void resetUsingIndicator(self, function indicator)
     cpdef void resetUsingFEVector(self, REAL_t[::1] ind)
+    cdef shapeFunction getLocalShapeFunction(self, INDEX_t dofNo)
+    cdef vectorShapeFunction getLocalVectorShapeFunction(self, INDEX_t dofNo)
 
 
 cdef class P1_DoFMap(DoFMap):

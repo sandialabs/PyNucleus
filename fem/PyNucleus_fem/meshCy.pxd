@@ -8,6 +8,8 @@
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, ENCODE_t, BOOL_t
 from PyNucleus_base.intTuple cimport intTuple
 from PyNucleus_base.tupleDict cimport tupleDictINDEX
+from PyNucleus_base.linear_operators cimport sparseGraph
+from PyNucleus_base.intTuple cimport productIterator
 cimport numpy as np
 from . simplexMapper cimport simplexMapper, simplexMapper1D, simplexMapper2D, simplexMapper3D
 
@@ -117,12 +119,14 @@ cdef class cellFinder2:
     cdef:
         meshBase mesh
         REAL_t[::1] diamInv, x_min
-        public dict lookup
-        public dict v2c
+        faceVals lookup
         REAL_t[:, ::1] simplex
         REAL_t[::1] bary
-        INDEX_t[::1] key
-        intTuple myKey
+        INDEX_t[::1] key, key2
+        sparseGraph graph
+        sparseGraph v2c
+        INDEX_t[::1] candidates
+        productIterator pit
     cdef INDEX_t findCell(self, REAL_t[::1] vertex)
     cdef INDEX_t findCellPtr(self, REAL_t* vertex)
 

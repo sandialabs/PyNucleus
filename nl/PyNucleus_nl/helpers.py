@@ -7,6 +7,7 @@
 
 from PyNucleus_base import INDEX
 from PyNucleus_base.utilsFem import getLoggingTimer
+from PyNucleus_base.performanceLogger import FakeTimer
 from PyNucleus_base.linear_operators import (LinearOperator,
                                              multiIntervalInterpolationOperator,
                                              delayedConstructionOperator)
@@ -147,8 +148,9 @@ def getFracLapl(mesh, DoFMap, kernel=None, rangedOpParams={}, **kwargs):
     forceRebuild = kwargs.get('forceRebuild', True)
 
     if timer is None:
-        timer = getLoggingTimer(LOGGER, comm=comm, rootOutput=True)
-        kwargs['timer'] = timer
+        # timer = getLoggingTimer(LOGGER, comm=comm, rootOutput=True)
+        # kwargs['timer'] = timer
+        timer = FakeTimer
 
     if kernel is None:
         s = rangedOpParams['s']
@@ -336,7 +338,7 @@ class fractionalLevel(algebraicLevelBase):
             DoFMap = self.DoFMap
             mesh = self.meshLevel.mesh
             self.fullyAssembled = True
-            with self.Timer('Assembled matrices'):
+            with self.Timer('Assembled matrices on level {}'.format(self.levelNo)):
                 self.params.pop('mesh', None)
                 if self.comm is not None and self.comm.size > 1:
                     self.params['assemblyComm'] = self.comm

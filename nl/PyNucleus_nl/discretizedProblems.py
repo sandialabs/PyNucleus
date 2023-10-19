@@ -7,6 +7,7 @@
 
 import numpy as np
 from PyNucleus_base import solverFactory
+from PyNucleus_base.performanceLogger import PLogger
 from PyNucleus_base.utilsFem import (classWithComputedDependencies,
                                      problem,
                                      generates)
@@ -26,6 +27,7 @@ from . kernelsCy import FRACTIONAL
 from . nonlocalProblems import (DIRICHLET,
                                 NEUMANN, HOMOGENEOUS_NEUMANN,
                                 transientFractionalProblem)
+from . clusterMethodCy import H2Matrix, DistributedH2Matrix_globalData, DistributedH2Matrix_localData
 import logging
 import warnings
 
@@ -201,6 +203,17 @@ class stationaryModelSolution(classWithComputedDependencies):
         for c in range(self.u.dm.numComponents):
             pm.add(self.u.getComponent(c), label='u'+str(c))
         pm.plot()
+
+    def exportVTK(self, filename):
+        x = [self.u]
+        labels = ['numerical_solution']
+        if self.u_interp is not None:
+            x.append(self.u_interp)
+            labels.append('interpolated_analytic_solution')
+        if self.error is not None:
+            x.append(self.error)
+            labels.append('error')
+        self.u.dm.mesh.exportSolutionVTK(x, filename, labels=labels)
 
     def reportErrors(self, group):
         if self.L2_error is not None:
@@ -441,10 +454,14 @@ class discretizedNonlocalProblem(problem):
             if solverType.find('mg') >= 0:
                 for subHierarchy in hM.builtHierarchies:
                     for level in subHierarchy.algebraicLevels:
+                        level.PLogger = level.Timer.PLogger
+                        assemblyParams['PLogger'] = level.PLogger
                         level.params.update(assemblyParams)
                         level.build(ASSEMBLY)
             else:
                 level = hM.builtHierarchies[-1].algebraicLevels[-1]
+                level.PLogger = level.Timer.PLogger
+                assemblyParams['PLogger'] = level.PLogger
                 level.params.update(assemblyParams)
                 level.build(ASSEMBLY)
 
@@ -586,12 +603,30 @@ class discretizedNonlocalProblem(problem):
         self.modelSolution = stationaryModelSolution(self, u, **data)
 
     def report(self, group):
+        group.add('kernel',self.continuumProblem.kernel)
         group.add('h', self.finalMesh.h)
         group.add('hmin', self.finalMesh.hmin)
         group.add('mesh quality', self.finalMesh.delta)
         group.add('DoFMap', str(self.dm))
         group.add('Interior DoFMap', str(self.dmInterior))
         group.add('Dirichlet DoFMap', str(self.dmBC))
+        group.add('matrix', str(self.A))
+        if isinstance(self.A, (H2Matrix,
+                               DistributedH2Matrix_globalData,
+                               DistributedH2Matrix_localData)):
+            for label, key in [('near field matrix', 'Anear'),
+                               ('min cluster size', 'minSize'),
+                               ('interpolation order', 'interpolation_order'),
+                               ('numAssembledCellPairs', 'numAssembledCellPairs'),
+                               ('numIntegrations', 'numIntegrations')]:
+                group.add(label, self.hierarchy[-1]['Timer'].PLogger[key][0])
+        if isinstance(self.A, (Dense_LinearOperator,
+                               H2Matrix,
+                               DistributedH2Matrix_globalData,
+                               DistributedH2Matrix_localData)):
+            for label, key in [('useSymmetricCells', 'useSymmetricCells'),
+                               ('useSymmetricLocalMatrix', 'useSymmetricLocalMatrix')]:
+                group.add(label, self.hierarchy[-1]['Timer'].PLogger[key][0])
         group.add('matrix memory size', self.A.getMemorySize())
 
 

@@ -23,7 +23,7 @@ The singularity :math:`\beta` of the kernel depends on the family of kernels:
 
 - fractional type: :math:`\beta(x,y)=d+2s(x,y)`, where :math:`d` is the spatial dimension and :math:`s(x,y)` is the fractional order.
 - constant type :math:`\beta(x,y)=0`
-- peridynamic type :math:`\beta(x,y)=-1`
+- peridynamic type :math:`\beta(x,y)=1`
 
 At present, the only implemented interaction regions are balls in the 2-norm:
 

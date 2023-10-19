@@ -48,13 +48,17 @@ cdef enum fracOrderParams:
 
 
 cdef class fractionalOrderBase(twoPointFunction):
-    def __init__(self, REAL_t smin, REAL_t smax, BOOL_t symmetric, INDEX_t numParameters=0):
-        super(fractionalOrderBase, self).__init__(symmetric)
+    def __init__(self, REAL_t smin, REAL_t smax, BOOL_t symmetric, INDEX_t numParameters=1):
+        super(fractionalOrderBase, self).__init__(symmetric, 1)
         self.min = smin
         self.max = smax
         self.numParameters = numParameters
+        assert self.numParameters >= 1
 
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
+    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
+        raise NotImplementedError()
+
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         raise NotImplementedError()
 
     cdef void evalGrad(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] grad):
@@ -84,30 +88,36 @@ cdef class constFractionalOrder(fractionalOrderBase):
     def __setstate__(self, state):
         constFractionalOrder.__init__(self, state)
 
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
-        return self.value
+    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
+        value[0] = self.value
 
-    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
-        return self.value
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
+        value[0] = self.value
+
+    cdef void evalGrad(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] grad):
+        grad[0] = 1.
+
+    cdef REAL_t evalGradPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, INDEX_t vectorSize, REAL_t* grad):
+        grad[0] = 1.
 
     def __repr__(self):
         return '{}'.format(self.value)
 
 
 cdef class variableFractionalOrder(fractionalOrderBase):
-    def __init__(self, REAL_t smin, REAL_t smax, BOOL_t symmetric, INDEX_t numParameters=0):
+    def __init__(self, REAL_t smin, REAL_t smax, BOOL_t symmetric, INDEX_t numParameters=1):
         super(variableFractionalOrder, self).__init__(smin, smax, symmetric, numParameters)
         self.c_params = malloc(NUM_FRAC_ORDER_PARAMS*OFFSET)
 
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
+    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
         cdef:
             fun_t sFun = getFun(self.c_params, fSFUN)
-        return sFun(&x[0], &y[0], self.c_params)
+        value[0] = sFun(&x[0], &y[0], self.c_params)
 
-    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         cdef:
             fun_t sFun = getFun(self.c_params, fSFUN)
-        return sFun(x, y, self.c_params)
+        value[0] = sFun(x, y, self.c_params)
 
     cdef void setFractionalOrderFun(self, void* params):
         memcpy(params, self.c_params, NUM_FRAC_ORDER_PARAMS*OFFSET)
@@ -135,14 +145,14 @@ cdef class singleVariableTwoPointFunction(twoPointFunction):
         extendedFunction fun
 
     def __init__(self, extendedFunction fun):
-        super(singleVariableTwoPointFunction, self).__init__(False)
+        super(singleVariableTwoPointFunction, self).__init__(False, 1)
         self.fun = fun
 
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
-        return self.fun.eval(x)
+    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
+        value[0] = self.fun.eval(x)
 
-    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
-        return self.fun.evalPtr(dim, x)
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
+        value[0] = self.fun.evalPtr(dim, x)
 
     def __repr__(self):
         return '{}'.format(self.fun)
@@ -159,11 +169,11 @@ cdef class singleVariableUnsymmetricFractionalOrder(variableFractionalOrder):
         super(singleVariableUnsymmetricFractionalOrder, self).__init__(smin, smax, False, numParameters)
         self.sFun = sFun
 
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
-        return self.sFun.eval(x)
+    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
+        value[0] = self.sFun.eval(x)
 
-    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
-        return self.sFun.evalPtr(dim, x)
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
+        value[0] = self.sFun.evalPtr(dim, x)
 
     cdef void evalGrad(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] grad):
         self.sFun.evalGrad(x, grad)
@@ -583,7 +593,7 @@ cdef class lookupExtended(extendedFunction):
         for k in range(self.dm.dofs_per_element):
             dof = self.dm.cell2dof(cellNo, k)
             if dof >= 0:
-                shapeFun = self.dm.localShapeFunctions[k]
+                shapeFun = self.dm.getLocalShapeFunction(k)
                 val += shapeFun.eval(self.cellFinder.bary)*self.u[dof]
         return val
 
@@ -599,7 +609,7 @@ cdef class lookupExtended(extendedFunction):
         for k in range(self.dm.dofs_per_element):
             dof = self.dm.cell2dof(cellNo, k)
             if dof >= 0:
-                shapeFun = self.dm.localShapeFunctions[k]
+                shapeFun = self.dm.getLocalShapeFunction(k)
                 val += shapeFun.eval(self.cellFinder.bary)*self.u[dof]
         return val
 
@@ -615,7 +625,7 @@ cdef class lookupExtended(extendedFunction):
         for k in range(self.dm.dofs_per_element):
             dof = self.dm.cell2dof(cellNo, k)
             if dof >= 0:
-                shapeFun = self.dm.localShapeFunctions[k]
+                shapeFun = self.dm.getLocalShapeFunction(k)
                 grad[dof] += shapeFun.eval(self.cellFinder.bary)
 
     cdef void evalGradPtr(self, INDEX_t dim, REAL_t* x, INDEX_t vectorSize, REAL_t* grad):
@@ -630,7 +640,7 @@ cdef class lookupExtended(extendedFunction):
         for k in range(self.dm.dofs_per_element):
             dof = self.dm.cell2dof(cellNo, k)
             if dof >= 0:
-                shapeFun = self.dm.localShapeFunctions[k]
+                shapeFun = self.dm.getLocalShapeFunction(k)
                 grad[dof] += shapeFun.eval(self.cellFinder.bary)
 
     def __getstate__(self):
@@ -638,6 +648,12 @@ cdef class lookupExtended(extendedFunction):
 
     def __setstate__(self, state):
         lookupExtended.__init__(self, state[0], state[1], state[2])
+
+    def __repr__(self):
+        if self.dm.num_dofs < 10:
+            return str(np.array(self.u).tolist())
+        else:
+            return repr(self.dm)
 
 
 cdef class constantNonSymFractionalOrder(singleVariableUnsymmetricFractionalOrder):
@@ -762,8 +778,12 @@ cdef class sumFractionalOrder(variableFractionalOrder):
         self.s2 = s2
         self.fac2 = fac2
 
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
-        return self.s1.eval(x, y) + self.s2.eval(x, y)
+    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
+        cdef:
+            REAL_t val1, val2
+        self.s1.evalPtr(x.shape[0], &x[0], &y[0], &val1)
+        self.s2.evalPtr(x.shape[0], &x[0], &y[0], &val2)
+        value[0] = val1*val2
 
 
 cdef REAL_t islandsFractionalOrderFun(REAL_t *x, REAL_t *y, void *c_params):

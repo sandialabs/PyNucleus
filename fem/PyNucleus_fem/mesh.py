@@ -2024,14 +2024,14 @@ class mesh0d(meshNd):
 
 
 class mesh1d(meshNd):
-    def plot(self, boundary=None, info=False):
+    def plot(self, vertices=True, boundary=None, info=False):
         import matplotlib.pyplot as plt
         X = np.array([v[0] for v in self.vertices])
         if self.vertices.shape[1] == 1:
             Y = np.zeros_like(X)
             lenX = X.max()-X.min()
             plt.xlim([X.min()-lenX*0.1, X.max()+lenX*0.1])
-            plt.plot(X, Y, 'o-', zorder=1)
+            plt.plot(X, Y, 'o-' if vertices else '-', zorder=1)
         else:
             v = self.vertices_as_array
             c = self.cells_as_array
@@ -2040,7 +2040,8 @@ class mesh1d(meshNd):
                      [v[c[:, 0], 1],
                       v[c[:, 1], 1]],
                      c='k')
-            plt.scatter(self.vertices_as_array[:, 0], self.vertices_as_array[:, 1])
+            if vertices:
+                plt.scatter(self.vertices_as_array[:, 0], self.vertices_as_array[:, 1])
             lenX = v[:, 0].max()-v[:, 0].min()
             plt.xlim([v[:, 0].min()-lenX*0.1, v[:, 0].max()+lenX*0.1])
             lenY = v[:, 1].max()-v[:, 1].min()

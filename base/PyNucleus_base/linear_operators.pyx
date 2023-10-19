@@ -1351,12 +1351,37 @@ cdef class interpolationOperator(sumMultiplyOperator):
     def __repr__(self):
         return '<%dx%d %s with %d interpolation nodes>' % (self.num_rows, self.num_columns, self.__class__.__name__, self.numInterpolationNodes)
 
+    def HDF5write(self, node):
+        node.attrs['type'] = 'interpolationOperator'
+        node.attrs['left'] = self.left
+        node.attrs['right'] = self.right
+        node.create_dataset('nodes', data=np.array(self.nodes, copy=False))
+        for i in range(len(self.ops)):
+            grp = node.create_group(str(i))
+            self.ops[i].HDF5write(grp)
+
+    @staticmethod
+    def HDF5read(node):
+        left = node.attrs['left']
+        right = node.attrs['right']
+        nodes = np.array(node['nodes'], dtype=REAL)
+        ops = []
+        for i in range(nodes.shape[0]):
+            ops.append(LinearOperator.HDF5read(node[str(i)]))
+        return interpolationOperator(ops, nodes, left, right)
+
+    cpdef void assure_constructed(self):
+        for i in range(len(self.ops)):
+            if isinstance(self.ops[i], delayedConstructionOperator):
+                self.ops[i].assure_constructed()
+
 
 cdef class multiIntervalInterpolationOperator(LinearOperator):
     cdef:
         public list ops
         INDEX_t selected
-        REAL_t left, right
+        readonly REAL_t left
+        readonly REAL_t right
 
     def __init__(self, list intervals, list nodes, list ops):
         shape = ops[0][0].shape
@@ -1370,6 +1395,12 @@ cdef class multiIntervalInterpolationOperator(LinearOperator):
             self.right = max(self.right, right)
             self.ops.append(interpolationOperator(ops[k], nodes[k], left, right))
         self.selected = -1
+
+    def get(self):
+        if self.selected != -1:
+            return self.ops[self.selected].val
+        else:
+            return np.nan
 
     def set(self, REAL_t val, BOOL_t derivative=False):
         cdef:
@@ -1434,6 +1465,29 @@ cdef class multiIntervalInterpolationOperator(LinearOperator):
     def isSparse(self):
         return self.getSelectedOp().isSparse()
 
+    def HDF5write(self, node):
+        node.attrs['type'] = 'multiIntervalInterpolationOperator'
+        for i in range(len(self.ops)):
+            grp = node.create_group(str(i))
+            self.ops[i].HDF5write(grp)
+
+    @staticmethod
+    def HDF5read(node):
+        numOps = len(node)
+        ops = []
+        nodes = []
+        intervals = []
+        for i in range(numOps):
+            op = LinearOperator.HDF5read(node[str(i)])
+            ops.append(op.ops)
+            nodes.append(op.nodes)
+            intervals.append((op.left, op.right))
+        return multiIntervalInterpolationOperator(intervals, nodes, ops)
+
+    cpdef void assure_constructed(self):
+        for i in range(len(self.ops)):
+            self.ops[i].assure_constructed()
+
 
 cdef class delayedConstructionOperator(LinearOperator):
     def __init__(self, INDEX_t numRows, INDEX_t numCols):
@@ -1490,3 +1544,7 @@ cdef class delayedConstructionOperator(LinearOperator):
     def isSparse(self):
         self.assure_constructed()
         return self.A.isSparse()
+
+    def HDF5write(self, node):
+        self.assure_constructed()
+        self.A.HDF5write(node)

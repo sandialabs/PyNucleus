@@ -1641,7 +1641,7 @@ cdef class tree_node:
             REAL_t[:, :, ::1] boxes
             INDEX_t M
             tree_node n
-            INDEX_t k
+            INDEX_t k, start, end, my_id
             dict mapping
             INDEX_t[::1] keys
             INDEX_t[:, ::1] vals
@@ -1665,7 +1665,10 @@ cdef class tree_node:
         for n in tree.leaves():
             n._dofs = arrayIndexSet(dofs.indices[dofs.indptr[n.id]:dofs.indptr[n.id+1]], sorted=True)
             n._cells = arrayIndexSet(cells.indices[cells.indptr[n.id]:cells.indptr[n.id+1]], sorted=True)
-            n.value = np.ascontiguousarray(np.swapaxes(np.array(values[vals[mapping[n.id], 0]:vals[mapping[n.id], 1], :, :], dtype=REAL), 0, 1))
+            my_id = mapping[n.id]
+            start = vals[my_id, 0]
+            end = vals[my_id, 1]
+            n.value = np.ascontiguousarray(np.swapaxes(np.array(values[start:end, :, :], dtype=REAL), 0, 1))
         # setDoFsFromChildren(tree)
         return tree, nodes
 
@@ -2007,13 +2010,14 @@ def assembleFarFieldInteractions(Kernel kernel, dict Pfar, INDEX_t m, DoFMap dm,
                     for j in range(kiSize):
                         if kernel_variable:
                             kernel.evalParamsPtr(dim, &x[i, 0], &y[j, 0])
-                        cP.kernelInterpolant[i, j] = -2.0*kernel.evalPtr(dim, &x[i, 0], &y[j, 0])
+                        kernel.evalPtr(dim, &x[i, 0], &y[j, 0], &cP.kernelInterpolant[i, j])
+                        cP.kernelInterpolant[i, j] *= -2.0
             else:
                 for i in range(kiSize):
                     for j in range(kiSize):
                         if kernel_variable:
                             kernel.evalParamsPtr(dim, &x[i, 0], &y[j, 0])
-                        cP.kernelInterpolant[i, j] = kernel.evalPtr(dim, &x[i, 0], &y[j, 0])
+                        kernel.evalPtr(dim, &x[i, 0], &y[j, 0], &cP.kernelInterpolant[i, j])
 
 
 cdef class H2Matrix(LinearOperator):
@@ -2589,7 +2593,7 @@ cdef class DistributedLinearOperator(LinearOperator):
         cdef:
             dict gid_to_lid_rowmap
             INDEX_t[:, ::1] lcl_A_rowmap_a
-            INDEX_t k, dof, p
+            INDEX_t k, dof, p, num_dofs
             DistributedMap distRowMap
             INDEX_t[:, ::1] lcl_Anear_colmap_a
             DistributedMap distColMap
@@ -2632,10 +2636,11 @@ cdef class DistributedLinearOperator(LinearOperator):
         lcl_Anear_colmap_a[:, 0] = self.colIdx
         for k in range(self.lclRoot.num_dofs):
             lcl_Anear_colmap_a[k, 1] = commRank
+        num_dofs = self.lclRoot.num_dofs
         for p in range(commSize):
             for k in range(self.near_offsetReceives[p],
                            self.near_offsetReceives[p]+self.near_counterReceives[p]):
-                lcl_Anear_colmap_a[self.lclRoot.num_dofs+k, 1] = p
+                lcl_Anear_colmap_a[num_dofs+k, 1] = p
 
         distColMap = DistributedMap(comm, lcl_Anear_colmap_a)
 
@@ -2953,7 +2958,7 @@ cdef class DistributedH2Matrix_localData(LinearOperator):
         cdef:
             dict gid_to_lid_rowmap
             INDEX_t[:, ::1] lcl_A_rowmap_a
-            INDEX_t k, dof, p
+            INDEX_t k, dof, p, num_dofs
             DistributedMap distRowMap
             INDEX_t[:, ::1] lcl_Anear_colmap_a
             DistributedMap distColMap
@@ -2996,10 +3001,11 @@ cdef class DistributedH2Matrix_localData(LinearOperator):
         lcl_Anear_colmap_a[:, 0] = self.colIdx
         for k in range(self.lclRoot.num_dofs):
             lcl_Anear_colmap_a[k, 1] = commRank
+        num_dofs = self.lclRoot.num_dofs
         for p in range(commSize):
             for k in range(self.near_offsetReceives[p],
                            self.near_offsetReceives[p]+self.near_counterReceives[p]):
-                lcl_Anear_colmap_a[self.lclRoot.num_dofs+k, 1] = p
+                lcl_Anear_colmap_a[num_dofs+k, 1] = p
 
         distColMap = DistributedMap(comm, lcl_Anear_colmap_a)
 
@@ -3270,14 +3276,18 @@ def getFractionalOrders(variableFractionalOrder s, meshBase mesh):
     if s.symmetric:
         for cellNo1 in range(numCells):
             for cellNo2 in range(cellNo1, numCells):
-                orders[cellNo1, cellNo2] = s.eval(centers[cellNo1, :],
-                                                  centers[cellNo2, :])
+                s.evalPtr(centers.shape[1],
+                          &centers[cellNo1, 0],
+                          &centers[cellNo2, 0],
+                          &orders[cellNo1, cellNo2])
                 orders[cellNo2, cellNo1] = orders[cellNo1, cellNo2]
     else:
         for cellNo1 in range(numCells):
             for cellNo2 in range(numCells):
-                orders[cellNo1, cellNo2] = s.eval(centers[cellNo1, :],
-                                                  centers[cellNo2, :])
+                s.evalPtr(centers.shape[1],
+                          &centers[cellNo1, 0],
+                          &centers[cellNo2, 0],
+                          &orders[cellNo1, cellNo2])
     return orders
 
 

@@ -136,10 +136,12 @@ cdef class meshSplitter2(meshSplitter):
         sparseGraph subdomain2cell
 
     def __init__(self, meshBase mesh, function indicator):
+        cdef:
+            INDEX_t subdomainNo
         super(meshSplitter2, self).__init__(mesh, {})
         self.cell2subdomain, self.subdomain2cell = self.createSubdomains(indicator)
         for subdomainNo in range(self.subdomain2cell.shape[0]):
-            self.indicators[subdomainNo] = self.subdomain2cell.indices[self.subdomain2cell.indptr[subdomainNo]:self.subdomain2cell.indptr[subdomainNo+1]]
+            self.indicators[subdomainNo] = np.array(self.subdomain2cell.indices)[self.subdomain2cell.indptr[subdomainNo]:self.subdomain2cell.indptr[subdomainNo+1]]
 
     def createSubdomains(self, function indicator):
         cdef:

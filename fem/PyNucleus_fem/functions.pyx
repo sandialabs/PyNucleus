@@ -6,7 +6,8 @@
 ###################################################################################
 
 from libc.math cimport (sin, cos, sinh, cosh, tanh, sqrt, atan2,
-                        M_PI as pi, pow, exp, floor, log2)
+                        M_PI as pi, pow, exp, floor, log2, log)
+from scipy.special.cython_special cimport psi as digamma
 import numpy as np
 cimport numpy as np
 
@@ -566,6 +567,31 @@ cdef class solFractional(function):
             r2 += x[i]**2
         if r2 <= self.radius2:
             return self.fac*pow(1.-r2/self.radius2, self.s)
+        else:
+            return 0.
+
+
+cdef class solFractionalDerivative(function):
+    cdef public REAL_t s
+    cdef REAL_t fac, fac2, radius2
+    cdef INDEX_t dim
+
+    def __init__(self, REAL_t s, INDEX_t dim, REAL_t radius=1.0):
+        function.__init__(self)
+        from scipy.special import gamma
+        self.s = s
+        self.dim = dim
+        self.radius2 = radius**2
+        self.fac = self.radius2**s * 2.**(-2.*s)*gamma(dim/2.)/gamma((dim+2.*s)/2.)/gamma(1.+s)
+        self.fac2 = log(0.25*self.radius2) - digamma(0.5*dim+s) - digamma(1+s)
+
+    cdef inline REAL_t eval(self, REAL_t[::1] x):
+        cdef REAL_t r2 = 0.
+        cdef INDEX_t i
+        for i in range(self.dim):
+            r2 += x[i]**2
+        if r2 <= self.radius2:
+            return (self.fac2+log(1.-r2/self.radius2))*self.fac*pow(1.-r2/self.radius2, self.s)
         else:
             return 0.
 

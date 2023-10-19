@@ -520,7 +520,16 @@ cdef class {SCALAR_label}CSR_VectorLinearOperator({SCALAR_label}VectorLinearOper
         return self
 
     def toarray(self):
-        return self.to_csr().toarray()
+        cdef:
+            {SCALAR}_t[:, :, ::1] data
+            INDEX_t i, jj, j, k
+        data = np.zeros((self.num_rows, self.num_columns, self.vectorSize), dtype={SCALAR})
+        for i in range(self.indptr.shape[0]-1):
+            for jj in range(self.indptr[i], self.indptr[i+1]):
+                j = self.indices[jj]
+                for k in range(self.data.shape[1]):
+                    data[i, j, k] = self.data[jj, k]
+        return np.array(data, copy=False)
 
     cdef void setEntry({SCALAR_label}CSR_VectorLinearOperator self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val):
         cdef:

@@ -230,31 +230,20 @@ cdef class {SCALAR_label}double_local_matrix_t:
         self.vol2 = self.volume2(self.simplex2)
 
     def __call__(self,
-                 {SCALAR}_t[::1] contrib,
+                 {SCALAR}_t[:, ::1] contrib,
                  panelType panel):
         return self.eval(contrib, panel)
 
     cdef void eval(self,
-                   {SCALAR}_t[::1] contrib,
+                   {SCALAR}_t[:, ::1] contrib,
                    panelType panel,
                    MASK_t mask=ALL):
         raise NotImplementedError()
 
-    cdef void evalVector(self,
-                         {SCALAR}_t[:, ::1] contrib,
-                         panelType panel,
-                         MASK_t mask=ALL):
-        raise NotImplementedError()
-
     def eval_py(self,
-                {SCALAR}_t[::1] contrib,
+                {SCALAR}_t[:, ::1] contrib,
                 panel):
         self.eval(contrib, panel, ALL)
-
-    def evalVector_py(self,
-                      {SCALAR}_t[:, ::1] contrib,
-                      panel):
-        self.evalVector(contrib, panel, ALL)
 
     cdef panelType getQuadOrder(self,
                                 const REAL_t h1,
@@ -449,7 +438,10 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
 
         self.x = uninitialized((0, self.dim), dtype=REAL)
         self.y = uninitialized((0, self.dim), dtype=REAL)
-        self.temp = uninitialized((0), dtype={SCALAR})
+
+        self.vec = uninitialized((kernel.valueSize), dtype={SCALAR})
+        self.vec2 = uninitialized((kernel.valueSize), dtype={SCALAR})
+        self.temp = uninitialized((0, kernel.valueSize), dtype={SCALAR})
 
         self.n = uninitialized((self.dim), dtype=REAL)
         self.w = uninitialized((self.dim), dtype=REAL)
@@ -587,7 +579,7 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
         if numQuadNodes1 > self.y.shape[0]:
             self.y = uninitialized((numQuadNodes1, self.dim), dtype=REAL)
         if numQuadNodes0*numQuadNodes1 > self.temp.shape[0]:
-            self.temp = uninitialized((numQuadNodes0*numQuadNodes1), dtype={SCALAR})
+            self.temp = uninitialized((numQuadNodes0*numQuadNodes1, self.kernel.valueSize), dtype={SCALAR})
 
     cdef void addQuadRule_nonSym(self, panelType panel):
         cdef:
@@ -639,8 +631,8 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
         if numQuadNodes1 > self.y.shape[0]:
             self.y = uninitialized((numQuadNodes1, self.dim), dtype=REAL)
         if numQuadNodes0*numQuadNodes1 > self.temp.shape[0]:
-            self.temp = uninitialized((numQuadNodes0*numQuadNodes1), dtype={SCALAR})
-            self.temp2 = uninitialized((numQuadNodes0*numQuadNodes1), dtype={SCALAR})
+            self.temp = uninitialized((numQuadNodes0*numQuadNodes1, self.kernel.valueSize), dtype={SCALAR})
+            self.temp2 = uninitialized((numQuadNodes0*numQuadNodes1, self.kernel.valueSize), dtype={SCALAR})
 
     cdef void getNonSingularNearQuadRule(self, panelType panel):
         cdef:
@@ -689,14 +681,14 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             if numQuadNodes1 > self.y.shape[0]:
                 self.y = uninitialized((numQuadNodes1, self.dim), dtype=REAL)
             if qr2.num_nodes > self.temp.shape[0]:
-                self.temp = uninitialized((qr2.num_nodes), dtype={SCALAR})
+                self.temp = uninitialized((qr2.num_nodes, self.kernel.valueSize), dtype={SCALAR})
 
     cdef void eval_distant(self,
-                           {SCALAR}_t[::1] contrib,
+                           {SCALAR}_t[:, ::1] contrib,
                            panelType panel,
                            MASK_t mask=ALL):
         cdef:
-            INDEX_t k, i, j, I, J
+            INDEX_t k, i, j, I, J, l
             REAL_t vol, vol1 = self.vol1, vol2 = self.vol2
             {SCALAR}_t val
             doubleSimplexQuadratureRule qr2
@@ -713,6 +705,7 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             REAL_t[::1] b1
             REAL_t[:, ::1] A1, A2
             BOOL_t cutElements = False
+            INDEX_t valueSize = self.kernel.valueSize
 
         if self.kernel.finiteHorizon:
             # check if the horizon might cut the elements
@@ -740,19 +733,23 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             k = 0
             for i in range(qr2.rule1.num_nodes):
                 for j in range(qr2.rule2.num_nodes):
-                    self.temp[k] = qr2.weights[k]*self.kernel.evalPtr(dim,
-                                                                      &self.x[i, 0],
-                                                                      &self.y[j, 0])
+                    self.kernel.evalPtr(dim,
+                                        &self.x[i, 0],
+                                        &self.y[j, 0],
+                                        &self.vec[0])
+                    for l in range(valueSize):
+                        self.temp[k, l] = qr2.weights[k]*self.vec[l]
                     k += 1
 
             k = 0
             for I in range(2*self.DoFMap.dofs_per_element):
                 for J in range(I, 2*self.DoFMap.dofs_per_element):
                     if mask[k]:
-                        val = 0.
-                        for i in range(qr2.num_nodes):
-                            val += self.temp[i] * PSI[I, i] * PSI[J, i]
-                        contrib[k] = val*vol
+                        for l in range(valueSize):
+                            val = 0.
+                            for i in range(qr2.num_nodes):
+                                val += self.temp[i, l] * PSI[I, i] * PSI[J, i]
+                            contrib[k, l] = val*vol
                     k += 1
         else:
             if panel < 0:
@@ -793,7 +790,8 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
                         qr1trans.setLinearBaryTransform(A2)
                         qr1trans.nodesInGlobalCoords(simplex2, self.y)
                         for j in range(qr1trans.num_nodes):
-                            val = qr0trans.weights[i]*qr1trans.weights[j]*self.kernel.evalPtr(dim, &self.x[i, 0], &self.y[j, 0])
+                            self.kernel.evalPtr(dim, &self.x[i, 0], &self.y[j, 0], &self.vec[0])
+                            val = qr0trans.weights[i]*qr1trans.weights[j]*self.vec[0]
                             val *= c1 * c2 * vol
                             k = 0
                             for I in range(2*dofs_per_element):
@@ -807,16 +805,16 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
                                             PSI_J = self.getLocalShapeFunction(J).evalStrided(&qr0trans.nodes[0, i], numQuadNodes0)
                                         else:
                                             PSI_J = -self.getLocalShapeFunction(J-dofs_per_element).evalStrided(&qr1trans.nodes[0, j], numQuadNodes1)
-                                        contrib[k] += val * PSI_I*PSI_J
+                                        contrib[k, 0] += val * PSI_I*PSI_J
                                     k += 1
 
 
     cdef void eval_distant_nonsym(self,
-                                  {SCALAR}_t[::1] contrib,
+                                  {SCALAR}_t[:, ::1] contrib,
                                   panelType panel,
                                   MASK_t mask=ALL):
         cdef:
-            INDEX_t k, i, j, I, J
+            INDEX_t k, i, j, I, J, l
             REAL_t vol, vol1 = self.vol1, vol2 = self.vol2
             {SCALAR}_t val, val2
             doubleSimplexQuadratureRule qr2
@@ -835,6 +833,7 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             REAL_t a_A2[3][3]
             REAL_t[::1] b1
             REAL_t[:, ::1] A1, A2
+            INDEX_t valueSize = self.kernel.valueSize
 
         if self.kernel.finiteHorizon:
             # check if the horizon might cut the elements
@@ -846,7 +845,7 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
                 #       need to figure out the element
                 #       transformation.
 
-        contrib[:] = 0.
+        contrib[:, :] = 0.
 
         if not cutElements:
             vol = vol1*vol2
@@ -864,22 +863,28 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             for i in range(qr2.rule1.num_nodes):
                 for j in range(qr2.rule2.num_nodes):
                     w = qr2.weights[k]
-                    self.temp[k] = w * self.kernel.evalPtr(dim,
-                                                           &self.x[i, 0],
-                                                           &self.y[j, 0])
-                    self.temp2[k] = w * self.kernel.evalPtr(dim,
-                                                            &self.y[j, 0],
-                                                            &self.x[i, 0])
+                    self.kernel.evalPtr(dim,
+                                        &self.x[i, 0],
+                                        &self.y[j, 0],
+                                        &self.vec[0])
+                    self.kernel.evalPtr(dim,
+                                        &self.y[j, 0],
+                                        &self.x[i, 0],
+                                        &self.vec2[0])
+                    for l in range(valueSize):
+                        self.temp[k, l] = w * self.vec[l]
+                        self.temp2[k, l] = w * self.vec2[l]
                     k += 1
 
             k = 0
             for I in range(2*self.DoFMap.dofs_per_element):
                 for J in range(2*self.DoFMap.dofs_per_element):
                     if mask[k]:
-                        val = 0.
-                        for i in range(qr2.num_nodes):
-                            val += (self.temp[i] * PHI[0, I, i] - self.temp2[i] * PHI[1, I, i]) * PSI[J, i]
-                        contrib[k] = val*vol
+                        for l in range(valueSize):
+                            val = 0.
+                            for i in range(qr2.num_nodes):
+                                val += (self.temp[i, l] * PHI[0, I, i] - self.temp2[i, l] * PHI[1, I, i]) * PSI[J, i]
+                            contrib[k, l] = val*vol
                     k += 1
         else:
             if panel < 0:
@@ -921,8 +926,10 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
                         qr1trans.nodesInGlobalCoords(simplex2, self.y)
                         for j in range(qr1trans.num_nodes):
                             w = qr0trans.weights[i]*qr1trans.weights[j]*c1 * c2 * vol
-                            val = w*self.kernel.evalPtr(dim, &self.x[i, 0], &self.y[j, 0])
-                            val2 = w*self.kernel.evalPtr(dim, &self.y[j, 0], &self.x[i, 0])
+                            self.kernel.evalPtr(dim, &self.x[i, 0], &self.y[j, 0], &self.vec[0])
+                            self.kernel.evalPtr(dim, &self.y[j, 0], &self.x[i, 0], & self.vec2[0])
+                            val = w*self.vec[0]
+                            val2 = w*self.vec2[0]
                             k = 0
                             for I in range(2*dofs_per_element):
                                 if I < dofs_per_element:
@@ -937,7 +944,7 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
                                             PSI_J = self.getLocalShapeFunction(J).evalStrided(&qr0trans.nodes[0, i], numQuadNodes0)
                                         else:
                                             PSI_J = -self.getLocalShapeFunction(J-dofs_per_element).evalStrided(&qr1trans.nodes[0, j], numQuadNodes1)
-                                        contrib[k] += (val * PHI_I_0 - val2 * PHI_I_1) * PSI_J
+                                        contrib[k, 0] += (val * PHI_I_0 - val2 * PHI_I_1) * PSI_J
                                     k += 1
 
     cdef void addQuadRule_boundary(self, panelType panel):
@@ -967,14 +974,14 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
         if qr2.rule2.num_nodes > self.y.shape[0]:
             self.y = uninitialized((qr2.rule2.num_nodes, self.dim), dtype=REAL)
         if qr2.num_nodes > self.temp.shape[0]:
-            self.temp = uninitialized((qr2.num_nodes), dtype=REAL)
+            self.temp = uninitialized((qr2.num_nodes, self.kernel.valueSize), dtype=REAL)
 
     cdef void eval_distant_boundary(self,
-                                    {SCALAR}_t[::1] contrib,
+                                    {SCALAR}_t[:, ::1] contrib,
                                     panelType panel,
                                     MASK_t mask=ALL):
         cdef:
-            INDEX_t k, m, i, j, I, J
+            INDEX_t k, m, i, j, I, J, l
             REAL_t vol, valReal, vol1 = self.vol1, vol2 = self.vol2
             {SCALAR}_t val
             doubleSimplexQuadratureRule qr2
@@ -983,6 +990,7 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             REAL_t[:, ::1] simplex2 = self.simplex2
             INDEX_t dim = simplex1.shape[1]
             REAL_t normW, nw
+            INDEX_t valueSize = self.kernel.valueSize
 
         # Kernel:
         #  \Gamma(x,y) = n \dot (x-y) * C(d,s) / (2s) / |x-y|^{d+2s}
@@ -1041,15 +1049,17 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
                         self.w[j] *= normW
                     nw = mydot(self.n, self.w)
                 i = k*qr2.rule2.num_nodes+m
-                self.temp[i] = qr2.weights[i] * nw * self.kernel.evalPtr(dim, &self.x[k, 0], &self.y[m, 0])
+                self.kernel.evalPtr(dim, &self.x[k, 0], &self.y[m, 0], &self.vec[0])
+                for l in range(valueSize):
+                    self.temp[i, l] = qr2.weights[i] * nw * self.vec[l]
 
         k = 0
         for I in range(self.DoFMap.dofs_per_element):
             for J in range(I, self.DoFMap.dofs_per_element):
                 if mask[k]:
-                    val = 0.
-                    for i in range(qr2.num_nodes):
-                        val += self.temp[i] * PHI[I, i] * PHI[J, i]
-                    contrib[k] = val*vol
+                    for m in range(valueSize):
+                        val = 0.
+                        for i in range(qr2.num_nodes):
+                            val += self.temp[i, m] * PHI[I, i] * PHI[J, i]
+                        contrib[k, m] = val*vol
                 k += 1
-

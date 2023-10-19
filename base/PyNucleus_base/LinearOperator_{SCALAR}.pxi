@@ -220,6 +220,13 @@ cdef class {SCALAR_label}LinearOperator:
             return Dense_LinearOperator.HDF5read(node)
         elif node.attrs['type'] == 'diagonal':
             return diagonalOperator.HDF5read(node)
+        elif node.attrs['type'] == 'interpolationOperator':
+            return interpolationOperator.HDF5read(node)
+        elif node.attrs['type'] == 'multiIntervalInterpolationOperator':
+            return multiIntervalInterpolationOperator.HDF5read(node)
+        elif node.attrs['type'] == 'h2':
+            from PyNucleus_nl.clusterMethodCy import H2Matrix
+            return H2Matrix.HDF5read(node)
         else:
             raise NotImplementedError(node.attrs['type'])
 
@@ -532,6 +539,18 @@ cdef class {SCALAR_label}VectorLinearOperator:
             self.matvec_no_overwrite(x, y)
         else:
             self.matvec(x, y)
+
+    def __mul__(self, x):
+        cdef:
+            np.ndarray[{SCALAR}_t, ndim=2] y
+            {SCALAR}_t[::1] x_mv
+        try:
+            x_mv = x
+            y = np.zeros((self.num_rows, self.vectorSize), dtype={SCALAR})
+            self(x, y)
+            return y
+        except Exception as e:
+            raise NotImplementedError('Cannot multiply {} with {}:\n{}'.format(self, x, e))
 
     property shape:
         def __get__(self):

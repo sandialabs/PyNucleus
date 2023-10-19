@@ -17,7 +17,6 @@ from libc.stdlib cimport qsort
 from PyNucleus_base.myTypes import INDEX, REAL, ENCODE, TAG
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, ENCODE_t, TAG_t
 from PyNucleus_base.blas cimport mydot
-from PyNucleus_base.intTuple cimport productIterator
 import warnings
 
 cdef INDEX_t MAX_INT = np.iinfo(INDEX).max
@@ -2053,6 +2052,7 @@ cdef class faceVals:
         for m in range(self.counts[f[0]]):
             if self.indexL[f[0]][m] == f[1] and self.indexR[f[0]][m] == f[2]:  # J is already present
                 return self.vals[f[0]][m]
+        return -1
 
     def __getitem__(self, INDEX_t[::1] face):
         return self.getValue(face)
@@ -2145,11 +2145,16 @@ cdef class cellFinder(object):
 cdef class cellFinder2:
     def __init__(self, meshBase mesh):
         cdef:
-            INDEX_t L, j, k, cellNo, vertexNo, vertex
+            INDEX_t L, j, k, cellNo, vertexNo, vertex, idx, maxCellsPerKey, maxIdx, maxKeyPerDim
+            REAL_t[::1] x_max
             REAL_t h
-            intTuple t
             REAL_t[:, ::1] cellCenters = mesh.getCellCenters()
-        self.key = uninitialized((mesh.dim), dtype=INDEX)
+            INDEX_t[::1] rowPtr, indices
+        self.key = np.zeros((3), dtype=INDEX)
+        self.key2 = np.zeros((3), dtype=INDEX)
+        # We are mapping coordinate x to
+        #  floor((x[j]-x_min[j]) * diamInv[j]) \in [0, L/1.01]
+        # where L is O(1/h).
         L = 1
         h = mesh.h
         while L*h < 0.5:
@@ -2161,65 +2166,114 @@ cdef class cellFinder2:
             self.diamInv[j] = L / (x_max[j]-self.x_min[j]) / 1.01
         self.simplex = uninitialized((mesh.dim+1, mesh.dim), dtype=REAL)
         self.bary = uninitialized((mesh.dim+1), dtype=REAL)
-        self.lookup = {}
+
+        maxKeyPerDim = 0
+        for j in range(mesh.dim):
+            maxKeyPerDim = max(maxKeyPerDim, <INDEX_t>((x_max[j]-self.x_min[j]) * self.diamInv[j]))
+        self.lookup = faceVals(maxKeyPerDim+1, deleteHits=False)
+
+        maxIdx = 0
         for k in range(cellCenters.shape[0]):
             for j in range(mesh.dim):
                 self.key[j] = <INDEX_t>((cellCenters[k, j]-self.x_min[j]) * self.diamInv[j])
-            t = intTuple.create(self.key)
-            try:
-                self.lookup[t].add(k)
-            except KeyError:
-                self.lookup[t] = set([k])
+            idx = self.lookup.enterValue(self.key, maxIdx)
+            if idx == maxIdx:
+                maxIdx += 1
+
+        rowPtr = np.zeros((maxIdx+1), dtype=INDEX)
+        indices = np.zeros((cellCenters.shape[0]), dtype=INDEX)
+
+        for k in range(cellCenters.shape[0]):
+            for j in range(mesh.dim):
+                self.key[j] = <INDEX_t>((cellCenters[k, j]-self.x_min[j]) * self.diamInv[j])
+            idx = self.lookup.getValue(self.key)
+            rowPtr[idx+1] += 1
+        maxCellsPerKey = 0
+        for idx in range(rowPtr.shape[0]-1):
+            maxCellsPerKey = max(maxCellsPerKey, rowPtr[idx])
+            rowPtr[idx+1] += rowPtr[idx]
+        self.candidates = uninitialized(((3**mesh.dim)*maxCellsPerKey), dtype=INDEX)
+        for k in range(cellCenters.shape[0]):
+            for j in range(mesh.dim):
+                self.key[j] = <INDEX_t>((cellCenters[k, j]-self.x_min[j]) * self.diamInv[j])
+            idx = self.lookup.getValue(self.key)
+            indices[rowPtr[idx]] = k
+            rowPtr[idx] += 1
+        for idx in range(rowPtr.shape[0]-1, 0, -1):
+            rowPtr[idx] = rowPtr[idx-1]
+        rowPtr[0] = 0
+
+        self.graph = sparseGraph(indices, rowPtr, rowPtr.shape[0]-1, cellCenters.shape[0])
+
         self.mesh = mesh
 
-        self.v2c = {}
+        rowPtr = np.zeros((mesh.num_vertices+1), dtype=INDEX)
         for cellNo in range(mesh.num_cells):
             for vertexNo in range(mesh.dim+1):
                 vertex = mesh.cells[cellNo, vertexNo]
-                try:
-                    self.v2c[vertex].add(cellNo)
-                except KeyError:
-                    self.v2c[vertex] = set([cellNo])
-        self.myKey = intTuple.createNonOwning(self.key)
+                rowPtr[vertex+1] += 1
+        for vertex in range(mesh.num_vertices):
+            rowPtr[vertex+1] += rowPtr[vertex]
+        indices = np.zeros((rowPtr[mesh.num_vertices]), dtype=INDEX)
+        for cellNo in range(mesh.num_cells):
+            for vertexNo in range(mesh.dim+1):
+                vertex = mesh.cells[cellNo, vertexNo]
+                indices[rowPtr[vertex]] = cellNo
+                rowPtr[vertex] += 1
+        for idx in range(rowPtr.shape[0]-1, 0, -1):
+            rowPtr[idx] = rowPtr[idx-1]
+        rowPtr[0] = 0
+        self.v2c = sparseGraph(indices, rowPtr, mesh.num_vertices, mesh.num_cells)
+
+        self.pit = productIterator(3, self.mesh.dim)
 
     cdef INDEX_t findCell(self, REAL_t[::1] vertex):
         cdef:
-            INDEX_t j, cellNo, vertexNo, v
-            set candidates, toCheck = set()
-            productIterator pit
-            INDEX_t[::1] keyCenter
+            INDEX_t j, cellNo, vertexNo, v, idx, jj, kk
+            set toCheck
+            INDEX_t numCandidates = 0
         for j in range(self.mesh.dim):
             self.key[j] = <INDEX_t>((vertex[j]-self.x_min[j]) * self.diamInv[j])
-        try:
-            candidates = self.lookup[self.myKey]
-        except KeyError:
-            keyCenter = np.array(self.key, copy=True)
-            pit = productIterator(3, self.mesh.dim)
-            candidates = set()
-            pit.reset()
-            while pit.step():
+        idx = self.lookup.getValue(self.key)
+        if idx != -1:
+            for jj in range(self.graph.indptr[idx], self.graph.indptr[idx+1]):
+                cellNo = self.graph.indices[jj]
+                self.candidates[numCandidates] = cellNo
+                numCandidates += 1
+        else:
+            self.pit.reset()
+            while self.pit.step():
                 for j in range(self.mesh.dim):
-                    self.key[j] = keyCenter[j] + pit.idx[j]-1
-                try:
-                    candidates |= self.lookup[self.myKey]
-                except KeyError:
-                    pass
+                    self.key2[j] = self.key[j] + self.pit.idx[j]-1
+                idx = self.lookup.getValue(self.key2)
+                if idx != -1:
+                    for jj in range(self.graph.indptr[idx], self.graph.indptr[idx+1]):
+                        cellNo = self.graph.indices[jj]
+                        self.candidates[numCandidates] = cellNo
+                        numCandidates += 1
 
         # check if the vertex is in any of the cells
-        for cellNo in candidates:
+        for jj in range(numCandidates):
+            cellNo = self.candidates[jj]
             if self.mesh.vertexInCell(vertex, cellNo, self.simplex, self.bary):
                 return cellNo
         # add neighboring cells of candidate cells
-        for cellNo in candidates:
+        toCheck = set()
+        for jj in range(numCandidates):
+            cellNo = self.candidates[jj]
             for vertexNo in range(self.mesh.dim+1):
                 v = self.mesh.cells[cellNo, vertexNo]
-                toCheck |= self.v2c[v]
-        toCheck -= candidates
+                for kk in range(self.v2c.indptr[v], self.v2c.indptr[v+1]):
+                    toCheck.add(self.v2c.indices[kk])
+        for jj in range(numCandidates):
+            cellNo = self.candidates[jj]
+            toCheck.remove(cellNo)
         for cellNo in toCheck:
             if self.mesh.vertexInCell(vertex, cellNo, self.simplex, self.bary):
                 return cellNo
         # allow for some extra room
-        for cellNo in candidates:
+        for jj in range(numCandidates):
+            cellNo = self.candidates[jj]
             if self.mesh.vertexInCell(vertex, cellNo, self.simplex, self.bary, 1e-15):
                 return cellNo
         for cellNo in toCheck:
@@ -2229,42 +2283,51 @@ cdef class cellFinder2:
 
     cdef INDEX_t findCellPtr(self, REAL_t* vertex):
         cdef:
-            INDEX_t j, cellNo, vertexNo, v
-            set candidates, toCheck = set()
-            productIterator pit
-            INDEX_t[::1] keyCenter
+            INDEX_t j, cellNo, vertexNo, v, idx, jj, kk
+            set toCheck
+            INDEX_t numCandidates = 0
         for j in range(self.mesh.dim):
             self.key[j] = <INDEX_t>((vertex[j]-self.x_min[j]) * self.diamInv[j])
-        try:
-            candidates = self.lookup[self.myKey]
-        except KeyError:
-            keyCenter = np.array(self.key, copy=True)
-            pit = productIterator(3, self.mesh.dim)
-            candidates = set()
-            pit.reset()
-            while pit.step():
+        idx = self.lookup.getValue(self.key)
+        if idx != -1:
+            for jj in range(self.graph.indptr[idx], self.graph.indptr[idx+1]):
+                cellNo = self.graph.indices[jj]
+                self.candidates[numCandidates] = cellNo
+                numCandidates += 1
+        else:
+            self.pit.reset()
+            while self.pit.step():
                 for j in range(self.mesh.dim):
-                    self.key[j] = keyCenter[j] + pit.idx[j]-1
-                try:
-                    candidates |= self.lookup[self.myKey]
-                except KeyError:
-                    pass
+                    self.key2[j] = self.key[j] + self.pit.idx[j]-1
+                idx = self.lookup.getValue(self.key2)
+                if idx != -1:
+                    for jj in range(self.graph.indptr[idx], self.graph.indptr[idx+1]):
+                        cellNo = self.graph.indices[jj]
+                        self.candidates[numCandidates] = cellNo
+                        numCandidates += 1
 
         # check if the vertex is in any of the cells
-        for cellNo in candidates:
+        for jj in range(numCandidates):
+            cellNo = self.candidates[jj]
             if self.mesh.vertexInCellPtr(vertex, cellNo, self.simplex, self.bary):
                 return cellNo
         # add neighboring cells of candidate cells
-        for cellNo in candidates:
+        toCheck = set()
+        for jj in range(numCandidates):
+            cellNo = self.candidates[jj]
             for vertexNo in range(self.mesh.dim+1):
                 v = self.mesh.cells[cellNo, vertexNo]
-                toCheck |= self.v2c[v]
-        toCheck -= candidates
+                for kk in range(self.v2c.indptr[v], self.v2c.indptr[v+1]):
+                    toCheck.add(self.v2c.indices[kk])
+        for jj in range(numCandidates):
+            cellNo = self.candidates[jj]
+            toCheck.remove(cellNo)
         for cellNo in toCheck:
             if self.mesh.vertexInCellPtr(vertex, cellNo, self.simplex, self.bary):
                 return cellNo
         # allow for some extra room
-        for cellNo in candidates:
+        for jj in range(numCandidates):
+            cellNo = self.candidates[jj]
             if self.mesh.vertexInCellPtr(vertex, cellNo, self.simplex, self.bary, 1e-15):
                 return cellNo
         for cellNo in toCheck:

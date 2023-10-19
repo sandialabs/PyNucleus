@@ -30,7 +30,7 @@ cpdef void endMemRegion(str key):
 
 
 cdef class FakeTimer:
-    def __init__(self):
+    def __init__(self, str key=''):
         pass
 
     cdef void start(self):
@@ -176,7 +176,13 @@ cdef class PLogger(FakePLogger):
         s = ''
         for key in sorted(self.values.keys()):
             if totalsOnly:
-                s += '{}: {} ({} calls)\n'.format(str(key), sum(self.values[key]), len(self.values[key]))
+                try:
+                    s += '{}: {} ({} calls)\n'.format(str(key), sum(self.values[key]), len(self.values[key]))
+                except TypeError:
+                    if len(self.values[key]):
+                        s += str(key) +': ' + self.values[key][0].__repr__() + '\n'
+                    else:
+                        s += str(key) +': ' + self.values[key].__repr__() + '\n'
             else:
                 s += str(key) +': ' + self.values[key].__repr__() + '\n'
         return s

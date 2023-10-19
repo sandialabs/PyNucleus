@@ -538,3 +538,18 @@ cdef class {SCALAR_label}SSS_VectorLinearOperator({SCALAR_label}VectorLinearOper
         diagonal = np.array(self.diagonal, copy=True)
         other = {SCALAR_label}SSS_VectorLinearOperator(self.indices, self.indptr, data, diagonal)
         return other
+
+    def toarray(self):
+        cdef:
+            {SCALAR}_t[:, :, ::1] data
+            INDEX_t i, k, jj, j
+        data = np.zeros((self.num_rows, self.num_columns, self.vectorSize), dtype={SCALAR})
+        for i in range(self.indptr.shape[0]-1):
+            for k in range(self.diagonal.shape[1]):
+                data[i, i, k] = self.diagonal[i, k]
+            for jj in range(self.indptr[i], self.indptr[i+1]):
+                j = self.indices[jj]
+                for k in range(self.data.shape[1]):
+                    data[i, j, k] = self.data[jj, k]
+                    data[j, i, k] = self.data[jj, k]
+        return np.array(data, copy=False)
