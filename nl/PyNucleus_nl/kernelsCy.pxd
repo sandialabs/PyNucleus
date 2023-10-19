@@ -36,7 +36,6 @@ cdef class Kernel(twoPointFunction):
         public BOOL_t variable
         public BOOL_t piecewise
         public BOOL_t boundary
-        public INDEX_t vectorSize
         kernel_fun_t kernelFun
         void *c_kernel_params
     cdef REAL_t getSingularityValue(self)
@@ -49,10 +48,8 @@ cdef class Kernel(twoPointFunction):
     cdef void evalParamsOnSimplices(self, REAL_t[::1] center1, REAL_t[::1] center2, REAL_t[:, ::1] simplex1, REAL_t[:, ::1] simplex2)
     cdef void evalParams(self, REAL_t[::1] x, REAL_t[::1] y)
     cdef void evalParamsPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y)
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y)
-    cdef void evalVector(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] vec)
-    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y)
-    cdef void evalVectorPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, INDEX_t vectorSize, REAL_t* vec)
+    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value)
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value)
 
 
 cdef class ComplexKernel(ComplextwoPointFunction):
@@ -73,7 +70,6 @@ cdef class ComplexKernel(ComplextwoPointFunction):
         public BOOL_t variable
         public BOOL_t piecewise
         public BOOL_t boundary
-        public INDEX_t vectorSize
         complex_kernel_fun_t kernelFun
         void *c_kernel_params
     cdef REAL_t getSingularityValue(self)
@@ -86,10 +82,8 @@ cdef class ComplexKernel(ComplextwoPointFunction):
     cdef void evalParamsOnSimplices(self, REAL_t[::1] center1, REAL_t[::1] center2, REAL_t[:, ::1] simplex1, REAL_t[:, ::1] simplex2)
     cdef void evalParams(self, REAL_t[::1] x, REAL_t[::1] y)
     cdef void evalParamsPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y)
-    cdef COMPLEX_t eval(self, REAL_t[::1] x, REAL_t[::1] y)
-    cdef void evalVector(self, REAL_t[::1] x, REAL_t[::1] y, COMPLEX_t[::1] vec)
-    cdef COMPLEX_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y)
-    cdef void evalVectorPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, INDEX_t vectorSize, COMPLEX_t* vec)
+    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, COMPLEX_t[::1] value)
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, COMPLEX_t* value)
 
 
 cdef class FractionalKernel(Kernel):

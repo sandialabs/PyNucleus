@@ -203,6 +203,8 @@ cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
             REAL_t smin, smax
         super(fractionalLaplacian1D, self).__init__(kernel, mesh, DoFMap, num_dofs, **kwargs)
 
+        self.symmetricCells = True
+
         # The integrand (excluding the kernel) cancels 2 orders of the singularity within an element.
         self.singularityCancelationIntegrandWithinElement = 2.
         # The integrand (excluding the kernel) cancels 2 orders of the
@@ -288,7 +290,7 @@ cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
                 sQR = specialQuadRule(qr, PSI)
                 self.specialQuadRules[(singularityValue, panel)] = sQR
                 if qr.num_nodes > self.temp.shape[0]:
-                    self.temp = uninitialized((qr.num_nodes), dtype=REAL)
+                    self.temp = uninitialized((qr.num_nodes, self.kernel.valueSize), dtype=REAL)
             self.qrId = sQR.qr
             self.PSI_id = sQR.PSI
         elif panel == COMMON_VERTEX:
@@ -325,7 +327,7 @@ cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
                 sQR = specialQuadRule(qr, PSI)
                 self.specialQuadRules[(singularityValue, panel)] = sQR
                 if qr.num_nodes > self.temp.shape[0]:
-                    self.temp = uninitialized((qr.num_nodes), dtype=REAL)
+                    self.temp = uninitialized((qr.num_nodes, self.kernel.valueSize), dtype=REAL)
             self.qrVertex = sQR.qr
             self.PSI_vertex = sQR.PSI
         else:
@@ -340,18 +342,19 @@ cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
                 'quad_order_off_diagonal:       {}\n'.format(list(self.distantQuadRules.keys())))
 
     cdef void eval(self,
-                   REAL_t[::1] contrib,
+                   REAL_t[:, ::1] contrib,
                    panelType panel,
                    MASK_t mask=ALL):
         cdef:
-            INDEX_t k, m, i, j, I, J
-            REAL_t vol, val, vol1 = self.vol1, vol2 = self.vol2
+            INDEX_t k, m, i, j, I, J, l
+            REAL_t vol, vol1 = self.vol1, vol2 = self.vol2, val
             REAL_t[:, ::1] simplex1 = self.simplex1
             REAL_t[:, ::1] simplex2 = self.simplex2
             quadratureRule qr
             REAL_t[:, ::1] PSI
             INDEX_t dofs_per_element = self.DoFMap.dofs_per_element
             INDEX_t dim = 1
+            INDEX_t valueSize = self.kernel.valueSize
             REAL_t x[1]
             REAL_t y[1]
 
@@ -375,9 +378,14 @@ cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
                         simplex1[self.perm1[1], j]*qr.nodes[1, m])
                 y[j] = (simplex2[self.perm2[0], j]*qr.nodes[2, m] +
                         simplex2[self.perm2[1], j]*qr.nodes[3, m])
-            self.temp[m] = qr.weights[m] * self.kernel.evalPtr(dim, &x[0], &y[0])
+            self.kernel.evalPtr(dim,
+                                &x[0],
+                                &y[0],
+                                &self.vec[0])
+            for l in range(valueSize):
+                self.temp[m, l] = qr.weights[m] * self.vec[l]
 
-        contrib[:] = 0.
+        contrib[:, :] = 0.
         for I in range(PSI.shape[0]):
             i = self.perm[I]
             for J in range(I, PSI.shape[0]):
@@ -387,12 +395,11 @@ cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
                 else:
                     k = 2*dofs_per_element*i-(i*(i+1) >> 1) + j
                 if mask[k]:
-                    val = 0.
-                    for m in range(qr.num_nodes):
-                        val += self.temp[m] * PSI[I, m] * PSI[J, m]
-                    contrib[k] = val*vol
-
-
+                    for l in range(valueSize):
+                        val = 0.
+                        for m in range(qr.num_nodes):
+                            val += self.temp[m, l] * PSI[I, m] * PSI[J, m]
+                        contrib[k, l] = val*vol
 
 
 cdef class fractionalLaplacian1D_nonsym(fractionalLaplacian1D):
@@ -466,8 +473,8 @@ cdef class fractionalLaplacian1D_nonsym(fractionalLaplacian1D):
                 sQR = specialQuadRule(qr, PHI3=PHI)
                 self.specialQuadRules[(singularityValue, panel)] = sQR
                 if qr.num_nodes > self.temp.shape[0]:
-                    self.temp = uninitialized((qr.num_nodes), dtype=REAL)
-                    self.temp2 = uninitialized((qr.num_nodes), dtype=REAL)
+                    self.temp = uninitialized((qr.num_nodes, self.kernel.valueSize), dtype=REAL)
+                    self.temp2 = uninitialized((qr.num_nodes, self.kernel.valueSize), dtype=REAL)
             self.qrId = sQR.qr
             self.PHI_id = sQR.PHI3
         elif panel == COMMON_VERTEX:
@@ -508,20 +515,20 @@ cdef class fractionalLaplacian1D_nonsym(fractionalLaplacian1D):
                 sQR = specialQuadRule(qr, PHI3=PHI)
                 self.specialQuadRules[(singularityValue, panel)] = sQR
                 if qr.num_nodes > self.temp.shape[0]:
-                    self.temp = uninitialized((qr.num_nodes), dtype=REAL)
-                    self.temp2 = uninitialized((qr.num_nodes), dtype=REAL)
+                    self.temp = uninitialized((qr.num_nodes, self.kernel.valueSize), dtype=REAL)
+                    self.temp2 = uninitialized((qr.num_nodes, self.kernel.valueSize), dtype=REAL)
             self.qrVertex = sQR.qr
             self.PHI_vertex = sQR.PHI3
         else:
             raise NotImplementedError('Unknown panel type: {}'.format(panel))
 
     cdef void eval(self,
-                   REAL_t[::1] contrib,
+                   REAL_t[:, ::1] contrib,
                    panelType panel,
                    MASK_t mask=ALL):
         cdef:
-            INDEX_t k, m, i, j, I, J
-            REAL_t vol, val, vol1 = self.vol1, vol2 = self.vol2
+            INDEX_t k, m, i, j, I, J, l
+            REAL_t vol, vol1 = self.vol1, vol2 = self.vol2, val
             REAL_t[:, ::1] simplex1 = self.simplex1
             REAL_t[:, ::1] simplex2 = self.simplex2
             quadratureRule qr
@@ -530,6 +537,7 @@ cdef class fractionalLaplacian1D_nonsym(fractionalLaplacian1D):
             INDEX_t dim = 1
             REAL_t x[1]
             REAL_t y[1]
+            INDEX_t valueSize = self.kernel.valueSize
 
         if panel >= 1:
             self.eval_distant_nonsym(contrib, panel, mask)
@@ -551,21 +559,24 @@ cdef class fractionalLaplacian1D_nonsym(fractionalLaplacian1D):
                         simplex1[self.perm1[1], j]*qr.nodes[1, m])
                 y[j] = (simplex2[self.perm2[0], j]*qr.nodes[2, m] +
                         simplex2[self.perm2[1], j]*qr.nodes[3, m])
-            self.temp[m] = qr.weights[m] * self.kernel.evalPtr(dim, &x[0], &y[0])
-            self.temp2[m] = qr.weights[m] * self.kernel.evalPtr(dim, &y[0], &x[0])
+            self.kernel.evalPtr(dim, &x[0], &y[0], &self.vec[0])
+            self.kernel.evalPtr(dim, &y[0], &x[0], &self.vec2[0])
+            for l in range(valueSize):
+                self.temp[m, l] = qr.weights[m] * self.vec[l]
+                self.temp2[m, l] = qr.weights[m] * self.vec2[l]
 
-        contrib[:] = 0.
+        contrib[:, :] = 0.
         for I in range(PHI.shape[0]):
             i = self.perm[I]
             for J in range(PHI.shape[0]):
                 j = self.perm[J]
                 k = i*(2*dofs_per_element)+j
                 if mask[k]:
-                    val = 0.
-                    for m in range(qr.num_nodes):
-                        val += (self.temp[m] * PHI[I, m, 0] - self.temp2[m] * PHI[I, m, 1]) * (PHI[J, m, 0] - PHI[J, m, 1])
-                    contrib[k] = val*vol
-
+                    for l in range(valueSize):
+                        val = 0.
+                        for m in range(qr.num_nodes):
+                            val += (self.temp[m, l] * PHI[I, m, 0] - self.temp2[m, l] * PHI[I, m, 1]) * (PHI[J, m, 0] - PHI[J, m, 1])
+                        contrib[k, l] = val*vol
 
 
 cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
@@ -653,7 +664,7 @@ cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
                 sQR = specialQuadRule(qr, PHI=PHI)
                 self.specialQuadRules[(singularityValue, panel)] = sQR
                 if qr.num_nodes > self.temp.shape[0]:
-                    self.temp = uninitialized((qr.num_nodes), dtype=REAL)
+                    self.temp = uninitialized((qr.num_nodes, self.kernel.valueSize), dtype=REAL)
             self.qrVertex = sQR.qr
             self.PHI_vertex = sQR.PHI
         else:
@@ -668,12 +679,12 @@ cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
                 'quad_order_off_diagonal:       {}\n'.format(list(self.distantQuadRules.keys())))
 
     cdef void eval(self,
-                   REAL_t[::1] contrib,
+                   REAL_t[:, ::1] contrib,
                    panelType panel,
                    MASK_t mask=ALL):
         cdef:
             REAL_t vol = self.vol1, val
-            INDEX_t i, j, k, m
+            INDEX_t i, j, k, m, l
             quadratureRule qr
             REAL_t[:, ::1] PHI
             REAL_t[:, ::1] simplex1 = self.simplex1
@@ -682,6 +693,7 @@ cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
             REAL_t x[1]
             REAL_t y[1]
             INDEX_t dofs_per_element = self.DoFMap.dofs_per_element
+            INDEX_t valueSize = self.kernel.valueSize
 
         # Kernel:
         #  \Gamma(x,y) = n \dot (x-y) * C(d,s) / (2s) / |x-y|^{d+2s}
@@ -709,9 +721,11 @@ cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
                     x[j] = (simplex1[self.perm1[0], j]*qr.nodes[0, m] +
                             simplex1[self.perm1[1], j]*qr.nodes[1, m])
                     y[j] = simplex2[self.perm2[0], j]*qr.nodes[2, m]
-                self.temp[m] = qr.weights[m] * self.kernel.evalPtr(dim, &x[0], &y[0])
+                self.kernel.evalPtr(dim, &x[0], &y[0], &self.vec[0])
+                for l in range(valueSize):
+                    self.temp[m, l] = qr.weights[m] * self.vec[l]
 
-            contrib[:] = 0.
+            contrib[:, :] = 0.
 
             for I in range(dofs_per_element):
                 i = self.perm[I]
@@ -722,12 +736,12 @@ cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
                     else:
                         k = dofs_per_element*i-(i*(i+1) >> 1) + j
                     if mask[k]:
-                        val = 0.
-                        for m in range(qr.num_nodes):
-                            val += self.temp[m] * PHI[I, m] * PHI[J, m]
-                        contrib[k] = val*vol
+                        for l in range(valueSize):
+                            val = 0.
+                            for m in range(qr.num_nodes):
+                                val += self.temp[m, l] * PHI[I, m] * PHI[J, m]
+                            contrib[k, l] = val*vol
         else:
             raise NotImplementedError('Unknown panel type: {}'.format(panel))
-
 
 

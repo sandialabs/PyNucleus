@@ -15,7 +15,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
         public {SCALAR_label}double_local_matrix_t local_matrix_zeroExterior
         public {SCALAR_label}double_local_matrix_t local_matrix_surface
         BOOL_t zeroExterior
-        {SCALAR}_t[::1] contrib, contribZeroExterior
+        {SCALAR}_t[:, ::1] contrib, contribZeroExterior
         list _d2c
         public MPI.Comm comm
         public FakePLogger PLogger
@@ -24,4 +24,4 @@ cdef class {SCALAR_label}nonlocalBuilder:
     cdef inline {SCALAR_label}double_local_matrix_t getLocalMatrixBoundaryZeroExterior(self, dict params, BOOL_t infHorizon)
     cpdef {SCALAR}_t getEntry(self, INDEX_t I, INDEX_t J)
     cpdef {SCALAR}_t getEntryCluster(self, INDEX_t I, INDEX_t J)
-    cpdef LinearOperator assembleClusters(self, list Pnear, bint forceUnsymmetric=*, LinearOperator Anear=*, dict jumps=*, str prefix=*, tree_node myRoot=*, BOOL_t doDistributedAssembly=*)
+    cpdef LinearOperator assembleClusters(self, list Pnear, bint forceUnsymmetricMatrix=*, LinearOperator Anear=*, dict jumps=*, str prefix=*, tree_node myRoot=*, BOOL_t doDistributedAssembly=*)

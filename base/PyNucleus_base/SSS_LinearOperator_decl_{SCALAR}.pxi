@@ -28,6 +28,7 @@ cdef class {SCALAR_label}SSS_VectorLinearOperator({SCALAR_label}VectorLinearOper
     cdef:
         public INDEX_t[::1] indptr, indices
         public {SCALAR}_t[:, ::1] data, diagonal
+        {SCALAR}_t[::1] temp
         public BOOL_t indices_sorted
     cdef INDEX_t matvec(self,
                         {SCALAR}_t[::1] x,

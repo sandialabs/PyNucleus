@@ -19,7 +19,7 @@ from . functions import (_rhsFunSin1D, _solSin1D, _rhsFunSin2D, _cos1D, _cos2D, 
                          solCos1DHeat, rhsFunCos1DHeat,
                          rhsFunSource1D, rhsFunSource2D,
                          solCos2DHeat, rhsFunCos2DHeat,
-                         solFractional,
+                         solFractional, solFractionalDerivative,
                          rhsFractional1D, solFractional1D,
                          rhsFractional2D, solFractional2D,
                          solFractional2Dcombination,
@@ -75,6 +75,7 @@ functionFactory.register('solSin2D', _solSin2D, aliases=['sin2d'])
 functionFactory.register('solCos2D', _cos2D, aliases=['cos2d'])
 functionFactory.register('solSin3D', _solSin3D, aliases=['sin3d'])
 functionFactory.register('solFractional', solFractional)
+functionFactory.register('solFractionalDerivative', solFractionalDerivative)
 functionFactory.register('solFractional1D', solFractional1D)
 functionFactory.register('solFractional2D', solFractional2D)
 functionFactory.register('rhsFractional1D', rhsFractional1D)

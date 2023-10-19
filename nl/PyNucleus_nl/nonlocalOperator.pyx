@@ -51,6 +51,8 @@ cdef inline void getSimplexAndCenter(const INDEX_t[:, ::1] cells,
 
 cdef class PermutationIndexer:
     def __init__(self, N):
+        cdef:
+            INDEX_t i
         self.N = N
 
         self.onesCountLookup = np.zeros((1 << N) - 1, dtype=INDEX)

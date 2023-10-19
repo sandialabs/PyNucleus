@@ -10,6 +10,7 @@ cimport numpy as np
 from libc.math cimport isnan
 from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX, BOOL
 from cpython cimport Py_buffer
+from libc.stdlib cimport malloc, free
 from PyNucleus_base.blas cimport assign, assign3, assignScaled, matmat
 from PyNucleus_base.ip_norm cimport vector_t, ip_serial, norm_serial, wrapRealInnerToComplex, wrapRealNormToComplex
 from PyNucleus_base import uninitialized
@@ -329,6 +330,42 @@ cdef class DoFMap:
             fe_vector ind
         ind = self.interpolate(indicator)
         self.resetUsingFEVector(ind)
+
+    @property
+    def localShapeFunctions(self):
+        return self._localShapeFunctions
+
+    @localShapeFunctions.setter
+    def localShapeFunctions(self, list localShapeFunctions):
+        cdef:
+            INDEX_t i
+            shapeFunction sf
+            vectorShapeFunction vsf
+        if isinstance(localShapeFunctions[0], shapeFunction):
+            self.vectorValued = False
+            self._localShapeFunctions = localShapeFunctions
+            self._localShapeFunctionsPtr = <void**>malloc(len(localShapeFunctions)*sizeof(void*))
+            for i in range(len(localShapeFunctions)):
+                sf = self._localShapeFunctions[i]
+                self._localShapeFunctionsPtr[i] = <void*>sf
+        elif isinstance(localShapeFunctions[0], vectorShapeFunction):
+            self.vectorValued = True
+            self._localShapeFunctions = localShapeFunctions
+            self._localShapeFunctionsPtr = <void**>malloc(len(localShapeFunctions)*sizeof(void*))
+            for i in range(len(localShapeFunctions)):
+                vsf = self._localShapeFunctions[i]
+                self._localShapeFunctionsPtr[i] = <void*>vsf
+        else:
+            raise NotImplementedError()
+
+    cdef shapeFunction getLocalShapeFunction(self, INDEX_t dofNo):
+        return <shapeFunction>self._localShapeFunctionsPtr[dofNo]
+
+    cdef vectorShapeFunction getLocalVectorShapeFunction(self, INDEX_t dofNo):
+        return <vectorShapeFunction>self._localShapeFunctionsPtr[dofNo]
+
+    def __del__(self):
+        free(self._localShapeFunctionsPtr)
 
     cpdef void resetUsingFEVector(self, REAL_t[::1] ind):
         cdef:
@@ -2506,18 +2543,19 @@ cdef class Product_DoFMap(DoFMap):
         self.num_dofs = self.numComponents*self.scalarDM.num_dofs
         self.num_boundary_dofs = self.numComponents*self.scalarDM.num_boundary_dofs
 
-        self.localShapeFunctions = []
+        localShapeFunctions = []
         self.nodes = uninitialized((self.dofs_per_element, self.mesh.dim+1), dtype=REAL)
         self.dof_dual = np.zeros((self.dofs_per_element, numComponents), dtype=REAL)
         i = 0
         for dofNo in range(self.scalarDM.dofs_per_element):
             for component in range(numComponents):
                 phi = self.scalarDM.localShapeFunctions[dofNo]
-                self.localShapeFunctions.append(productSpaceShapeFunction(phi, numComponents, component, self.mesh.dim))
+                localShapeFunctions.append(productSpaceShapeFunction(phi, numComponents, component, self.mesh.dim))
                 for j in range(dim+1):
                     self.nodes[i, j] = self.scalarDM.nodes[dofNo, j]
                 self.dof_dual[i, component] = 1.
                 i += 1
+        self.localShapeFunctions = localShapeFunctions
 
     def __repr__(self):
         return '({})^{} with {} DoFs and {} boundary DoFs.'.format(type(self.scalarDM).__name__,

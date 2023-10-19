@@ -47,13 +47,9 @@ cdef class {SCALAR_label}double_local_matrix_t:
     cdef void setSimplex2(self, REAL_t[:, ::1] simplex2)
     cdef void swapCells(self)
     cdef void eval(self,
-                   {SCALAR}_t[::1] contrib,
+                   {SCALAR}_t[:, ::1] contrib,
                    panelType panel,
                    MASK_t mask=*)
-    cdef void evalVector(self,
-                         {SCALAR}_t[:, ::1] contrib,
-                         panelType panel,
-                         MASK_t mask=*)
     cdef panelType getQuadOrder(self,
                                 const REAL_t h1,
                                 const REAL_t h2,
@@ -78,7 +74,10 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
         public {SCALAR_label}Kernel kernel
         REAL_t[:, ::1] x, y
         void** distantQuadRulesPtr
-        {SCALAR}_t[::1] temp, temp2
+        {SCALAR}_t[::1] vec
+        {SCALAR}_t[::1] vec2
+        {SCALAR}_t[:, ::1] temp
+        {SCALAR}_t[:, ::1] temp2
         public REAL_t[::1] n, w
     cdef void getNearQuadRule(self, panelType panel)
     cdef inline shapeFunction getLocalShapeFunction(self, INDEX_t local_dof)
@@ -86,6 +85,6 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
     cdef void addQuadRule_nonSym(self, panelType panel)
     cdef void addQuadRule_boundary(self, panelType panel)
     cdef void getNonSingularNearQuadRule(self, panelType panel)
-    cdef void eval_distant(self, {SCALAR}_t[::1] contrib, panelType panel, MASK_t mask=*)
-    cdef void eval_distant_nonsym(self, {SCALAR}_t[::1] contrib, panelType panel, MASK_t mask=*)
-    cdef void eval_distant_boundary(self, {SCALAR}_t[::1] contrib, panelType panel, MASK_t mask=*)
+    cdef void eval_distant(self, {SCALAR}_t[:, ::1] contrib, panelType panel, MASK_t mask=*)
+    cdef void eval_distant_nonsym(self, {SCALAR}_t[:, ::1] contrib, panelType panel, MASK_t mask=*)
+    cdef void eval_distant_boundary(self, {SCALAR}_t[:, ::1] contrib, panelType panel, MASK_t mask=*)

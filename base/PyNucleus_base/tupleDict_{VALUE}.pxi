@@ -264,3 +264,13 @@ cdef class tupleDict{VALUE}:
                     print(i, j, self.indexL[i][j], self.indexL[i][j+1])
                     return False
         return True
+
+    def toDict(self):
+        cdef:
+            INDEX_t e[2]
+            {VALUE_t} val
+            dict d = {}
+        self.startIter()
+        while self.next(e, &val):
+            d[(e[0], e[1])] = val
+        return d

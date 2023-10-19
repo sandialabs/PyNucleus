@@ -148,25 +148,25 @@ cdef class {SCALAR_label}IndexManager:
             canSkip = canSkip and dof < 0
         return canSkip
 
-    cdef inline void addToMatrixElemSym(self, const {SCALAR}_t[::1] contrib, REAL_t fac):
+    cdef void addToMatrixElemSym(self, const {SCALAR}_t[:, ::1] contrib, REAL_t fac):
         cdef:
             INDEX_t k, p, q, I, J
         k = 0
         for p in range(self.dm.dofs_per_element):
             I = self.localDoFs[p]
             if I >= 0:
-                self.A.addToEntry(I, I, fac*contrib[k])
+                self.A.addToEntry(I, I, fac*contrib[k, 0])
                 k += 1
                 for q in range(p+1, self.dm.dofs_per_element):
                     J = self.localDoFs[q]
                     if J >= 0:
-                        self.A.addToEntry(I, J, fac*contrib[k])
-                        self.A.addToEntry(J, I, fac*contrib[k])
+                        self.A.addToEntry(I, J, fac*contrib[k, 0])
+                        self.A.addToEntry(J, I, fac*contrib[k, 0])
                     k += 1
             else:
                 k += self.dm.dofs_per_element-p
 
-    cdef inline void addToMatrixElem(self, const {SCALAR}_t[::1] contrib, REAL_t fac):
+    cdef void addToMatrixElem(self, const {SCALAR}_t[:, ::1] contrib, REAL_t fac):
         cdef:
             INDEX_t k, p, q, I, J
         k = 0
@@ -176,7 +176,7 @@ cdef class {SCALAR_label}IndexManager:
                 for q in range(self.dm.dofs_per_element):
                     J = self.localDoFs[q]
                     if J >= 0:
-                        self.A.addToEntry(I, J, fac*contrib[k])
+                        self.A.addToEntry(I, J, fac*contrib[k, 0])
                     k += 1
             else:
                 k += self.dm.dofs_per_element
@@ -200,7 +200,7 @@ cdef class {SCALAR_label}IndexManager:
             else:
                 k += 2*self.dm.dofs_per_element-p
 
-    cdef inline void addToMatrixElemElemSym(self, const {SCALAR}_t[::1] contrib, REAL_t fac):
+    cdef void addToMatrixElemElemSym(self, const {SCALAR}_t[:, ::1] contrib, REAL_t fac):
         # Add symmetric 'contrib' to elements i and j in symmetric fashion
         cdef:
             INDEX_t k, p, q, I, J
@@ -208,13 +208,13 @@ cdef class {SCALAR_label}IndexManager:
         for p in range(2*self.dm.dofs_per_element):
             I = self.localDoFs[p]
             if I >= 0:
-                self.A.addToEntry(I, I, fac*contrib[k])
+                self.A.addToEntry(I, I, fac*contrib[k, 0])
                 k += 1
                 for q in range(p+1, 2*self.dm.dofs_per_element):
                     J = self.localDoFs[q]
                     if J >= 0:
-                        self.A.addToEntry(I, J, fac*contrib[k])
-                        self.A.addToEntry(J, I, fac*contrib[k])
+                        self.A.addToEntry(I, J, fac*contrib[k, 0])
+                        self.A.addToEntry(J, I, fac*contrib[k, 0])
                     k += 1
             else:
                 k += 2*self.dm.dofs_per_element-p
@@ -235,7 +235,7 @@ cdef class {SCALAR_label}IndexManager:
             else:
                 k += 2*self.dm.dofs_per_element
 
-    cdef inline void addToMatrixElemElem(self, const {SCALAR}_t[::1] contrib, REAL_t fac):
+    cdef void addToMatrixElemElem(self, const {SCALAR}_t[:, ::1] contrib, REAL_t fac):
         # Add general 'contrib' to elements i and j
         cdef:
             INDEX_t k, p, q, I, J
@@ -246,26 +246,25 @@ cdef class {SCALAR_label}IndexManager:
                 for q in range(2*self.dm.dofs_per_element):
                     J = self.localDoFs[q]
                     if J >= 0:
-                        self.A.addToEntry(I, J, fac*contrib[k])
+                        self.A.addToEntry(I, J, fac*contrib[k, 0])
                     k += 1
             else:
                 k += 2*self.dm.dofs_per_element
 
-    def buildMasksForClusters_py(self, list clusterList, bint useSymmetricCells):
+    def buildMasksForClusters_py(self, list clusterList, bint useSymmetricCells, bint symmetricLocalMatrix):
         cdef:
             INDEX_t startCluster = 0
-        return self.buildMasksForClusters(clusterList, useSymmetricCells, &startCluster)
+        return self.buildMasksForClusters(clusterList, useSymmetricCells, symmetricLocalMatrix, &startCluster)
 
-    cdef tupleDictMASK buildMasksForClusters(self, list clusterList, bint useSymmetricCells, INDEX_t *startCluster):
+    cdef tupleDictMASK buildMasksForClusters(self, list clusterList, bint useSymmetricCells, bint symmetricLocalMatrix, INDEX_t *startCluster):
         cdef:
             nearFieldClusterPair cluster = clusterList[0]
             MASK_t cellMask1, cellMask2
             indexSet cellsUnion = cluster.cellsUnion
             indexSetIterator it = cellsUnion.getIter(), it2 = cellsUnion.getIter()
             indexSet clusterDofs1, clusterDofs2
-            INDEX_t cellNo1 = -1, cellNo2 = -1
+            INDEX_t cellNo1 = -1, cellNo2 = -1, cellNo = -1
             INDEX_t[::1] cellPair = uninitialized((2), dtype=INDEX)
-            INDEX_t[::1] cellPair2 = uninitialized((2), dtype=INDEX)
             tupleDictMASK masks = tupleDictMASK(self.dm.mesh.num_cells, deleteHits=False, logicalAndHits=True, length_inc=20)
             INDEX_t p, I
             # dict cellMasks1, cellMasks2
@@ -278,86 +277,112 @@ cdef class {SCALAR_label}IndexManager:
         cellMask2.reset()
         for cluster in clusterList[startCluster[0]:]:
             startCluster[0] += 1
-            cellsUnion = cluster.cellsUnion
-            # cellMasks1 = {}
-            # cellMasks2 = {}
+
             clusterDofs1 = cluster.n1.get_dofs()
             clusterDofs2 = cluster.n2.get_dofs()
 
+            # loop over cells in the union of the two clusters
+            cellsUnion = cluster.cellsUnion
             it.setIndexSet(cellsUnion)
-
             while it.step():
-                cellNo1 = it.i
+                # Record separately for the two clusters if local
+                # dofs on the cell.
+                cellNo = it.i
                 mask1.reset()
                 mask2.reset()
                 k = <MASK_t> 1
                 for p in range(dofs_per_element):
-                    I = self.dm.cell2dof(cellNo1, p)
+                    I = self.dm.cell2dof(cellNo, p)
                     if I >= 0:
                         if clusterDofs1.inSet(I):
                             mask1 |= k
                         if clusterDofs2.inSet(I):
                             mask2 |= k
                     k = k << 1
-                cellMasks1[cellNo1] = mask1
-                cellMasks2[cellNo1] = mask2
+                cellMasks1[cellNo] = mask1
+                cellMasks2[cellNo] = mask2
 
             if not useSymmetricCells:
-                # TODO: Think some more about this branch, maybe this can be improved.
-                it.reset()
+
+                # loop over cells in (cellsUnion x cellsUnion)
                 it2.setIndexSet(cellsUnion)
-                # it.setIndexSet(cluster.n1.cells)
-                # it2.setIndexSet(cluster.n2.cells)
+
+                it.reset()
                 while it.step():
                     cellNo1 = it.i
                     cellPair[0] = cellNo1
                     cellMask11 = cellMasks1[cellNo1]
                     cellMask12 = cellMasks2[cellNo1]
+
                     it2.reset()
                     while it2.step():
                         cellNo2 = it2.i
                         cellMask21 = cellMasks1[cellNo2]
                         cellMask22 = cellMasks2[cellNo2]
+
+                        # create the masks on (cellNo1, cellNo2)
                         cellMask1 = cellMask11 | (cellMask21 << dofs_per_element)
                         cellMask2 = cellMask12 | (cellMask22 << dofs_per_element)
+
                         if (cellMask1.none()) or (cellMask2.none()):
                             continue
+
                         cellPair[1] = cellNo2
-                        mask = self.getElemElemMask(cellMask1, cellMask2)
-                        # does a logical "and" if there already is an entry
+
+                        # Create mask for local matrix.
+                        # This is the tensor product of the two masks, but also accounts for potential symmetry of the local matrix.
+                        if symmetricLocalMatrix:
+                            mask = self.getElemElemSymMask(cellMask1, cellMask2)
+                        else:
+                            mask = self.getElemElemMask(cellMask1, cellMask2)
+
+                        # Enter/update the mask for (cellNo1, cellNo2).
+                        # This does a logical "and" if there already is an entry from another cluster pair.
                         masks.enterValue(cellPair, mask)
             else:
+
+                # loop over cells in (n1.cells x n2.cells)
                 it.setIndexSet(cluster.n1.cells)
                 it2.setIndexSet(cluster.n2.cells)
                 while it.step():
                     cellNo1 = it.i
-                    cellPair[0] = cellNo1
-                    cellPair2[1] = cellNo1
                     cellMask11 = cellMasks1[cellNo1]
                     cellMask12 = cellMasks2[cellNo1]
+
                     it2.reset()
                     while it2.step():
                         cellNo2 = it2.i
                         cellMask21 = cellMasks1[cellNo2]
                         cellMask22 = cellMasks2[cellNo2]
+
+                        # Create the masks on (cellNo1, cellNo2).
+                        # Due to symmetry we can record everything as ordered cell pairs.
                         if cellNo1 > cellNo2:
+                            # We swap cellNo1 and cellNo2.
                             cellMask1 = cellMask21 | (cellMask11 << dofs_per_element)
                             cellMask2 = cellMask22 | (cellMask12 << dofs_per_element)
                             if (cellMask1.none()) or (cellMask2.none()):
                                 continue
-                            cellPair2[0] = cellNo2
-                            mask = self.getElemElemSymMask(cellMask1, cellMask2)
-                            # does a logical "and" if there already is an entry
-                            masks.enterValue(cellPair2, mask)
+                            cellPair[0] = cellNo2
+                            cellPair[1] = cellNo1
                         else:
                             cellMask1 = cellMask11 | (cellMask21 << dofs_per_element)
                             cellMask2 = cellMask12 | (cellMask22 << dofs_per_element)
                             if (cellMask1.none()) or (cellMask2.none()):
                                 continue
+                            cellPair[0] = cellNo1
                             cellPair[1] = cellNo2
+
+                        # Create mask for local matrix.
+                        # This is the tensor product of the two masks, but also accounts for potential symmetry of the local matrix.
+                        if symmetricLocalMatrix:
                             mask = self.getElemElemSymMask(cellMask1, cellMask2)
-                            # does a logical "and" if there already is an entry
-                            masks.enterValue(cellPair, mask)
+                        else:
+                            mask = self.getElemElemMask(cellMask1, cellMask2)
+
+                        # Enter/update the mask for (cellNo1, cellNo2).
+                        # This does a logical "and" if there already is an entry from another cluster pair.
+                        masks.enterValue(cellPair, mask)
 
             if masks.nnz > 10000000:
                 break
@@ -453,7 +478,7 @@ cdef class {SCALAR_label}IndexManager:
                 k = k << 1
         return mask
 
-    cdef inline void addToMatrixElemElemSymMasked(self, const {SCALAR}_t[::1] contrib, REAL_t fac, MASK_t mask):
+    cdef inline void addToMatrixElemElemSymMasked(self, const {SCALAR}_t[:, ::1] contrib, REAL_t fac, MASK_t mask):
         # Add symmetric 'contrib' to elements i and j in symmetric fashion
         cdef:
             INDEX_t k, p, q, I, J
@@ -462,16 +487,16 @@ cdef class {SCALAR_label}IndexManager:
         for p in range(2*self.dm.dofs_per_element):
             I = self.localDoFs[p]
             if mask[k]:
-                self.A.addToEntry(I, I, fac*contrib[k])
+                self.A.addToEntry(I, I, fac*contrib[k, 0])
             k += 1
             for q in range(p+1, 2*self.dm.dofs_per_element):
                 if mask[k]:
                     J = self.localDoFs[q]
-                    self.A.addToEntry(I, J, fac*contrib[k])
-                    self.A.addToEntry(J, I, fac*contrib[k])
+                    self.A.addToEntry(I, J, fac*contrib[k, 0])
+                    self.A.addToEntry(J, I, fac*contrib[k, 0])
                 k += 1
 
-    cdef inline void addToMatrixElemElemMasked(self, const {SCALAR}_t[::1] contrib, REAL_t fac, MASK_t mask):
+    cdef inline void addToMatrixElemElemMasked(self, const {SCALAR}_t[:, ::1] contrib, REAL_t fac, MASK_t mask):
         # Add unsymmetric 'contrib' to elements i and j in unsymmetric fashion
         cdef:
             INDEX_t k, p, q, I, J
@@ -482,20 +507,20 @@ cdef class {SCALAR_label}IndexManager:
             for q in range(2*self.dm.dofs_per_element):
                 if mask[k]:
                     J = self.localDoFs[q]
-                    self.A.addToEntry(I, J, fac*contrib[k])
+                    self.A.addToEntry(I, J, fac*contrib[k, 0])
                 k += 1
 
-    cdef void addToCache(self, {SCALAR}_t[::1] contrib, INDEX_t[::1] ID, INDEX_t perm, BOOL_t inv=False):
+    cdef void addToCache(self, {SCALAR}_t[:, ::1] contrib, INDEX_t[::1] ID, INDEX_t perm, BOOL_t inv=False):
         cdef:
             intTuple hv = intTuple.create(ID)
-        contribNew = uninitialized((contrib.shape[0]), dtype=REAL)
+        contribNew = uninitialized((contrib.shape[0], contrib.shape[1]), dtype=REAL)
         self.permute(contrib, contribNew, perm, inv)
         self.cache[hv] = contribNew
 
-    cdef void permute(self, {SCALAR}_t[::1] contrib, {SCALAR}_t[::1] contribNew, INDEX_t perm, BOOL_t inv=False):
+    cdef void permute(self, {SCALAR}_t[:, ::1] contrib, {SCALAR}_t[:, ::1] contribNew, INDEX_t perm, BOOL_t inv=False):
         cdef:
             INDEX_t K, p, q
-            INDEX_t k, i, j
+            INDEX_t k, i, j, l
             INDEX_t dofs_per_element = self.dm.dofs_per_element
             INDEX_t dofs_per_element2 = 2*dofs_per_element
             BOOL_t perm0 = perm & 1
@@ -533,7 +558,8 @@ cdef class {SCALAR_label}IndexManager:
             i = permutedDoFsLocal[p]
 
             k = 2*dofs_per_element*i-(i*(i+1) >> 1) + i
-            contribNew[K] = contrib[k]
+            for l in range(contrib.shape[1]):
+                contribNew[K, l] = contrib[k, l]
             K += 1
 
             for q in range(p+1, dofs_per_element2):
@@ -543,7 +569,8 @@ cdef class {SCALAR_label}IndexManager:
                     k = dofs_per_element2*j-(j*(j+1) >> 1) + i
                 else:
                     k = dofs_per_element2*i-(i*(i+1) >> 1) + j
-                contribNew[K] = contrib[k]
+                for l in range(contrib.shape[1]):
+                    contribNew[K, l] = contrib[k, l]
                 K += 1
 
     def __repr__(self):
@@ -552,7 +579,7 @@ cdef class {SCALAR_label}IndexManager:
         return s
 
 
-cdef inline {SCALAR}_t extractElemSymMasked{SCALAR_label}(DoFMap DoFMap, const {SCALAR}_t[::1] contrib, REAL_t fac, MASK_t mask):
+cdef inline {SCALAR}_t extractElemSymMasked{SCALAR_label}(DoFMap DoFMap, const {SCALAR}_t[:, ::1] contrib, REAL_t fac, MASK_t mask):
     # Add symmetric 'contrib' to elements i and j in symmetric fashion
     cdef:
         INDEX_t k, p, q
@@ -561,12 +588,12 @@ cdef inline {SCALAR}_t extractElemSymMasked{SCALAR_label}(DoFMap DoFMap, const {
     for p in range(DoFMap.dofs_per_element):
         for q in range(p, DoFMap.dofs_per_element):
             if mask[k]:
-                s += fac*contrib[k]
+                s += fac*contrib[k, 0]
             k += 1
     return s
 
 
-cdef inline {SCALAR}_t extractElemElemSymMasked{SCALAR_label}(DoFMap DoFMap, const {SCALAR}_t[::1] contrib, REAL_t fac, MASK_t mask):
+cdef inline {SCALAR}_t extractElemElemSymMasked{SCALAR_label}(DoFMap DoFMap, const {SCALAR}_t[:, ::1] contrib, REAL_t fac, MASK_t mask):
     # Add symmetric 'contrib' to elements i and j in symmetric fashion
     cdef:
         INDEX_t k, p, q
@@ -575,7 +602,7 @@ cdef inline {SCALAR}_t extractElemElemSymMasked{SCALAR_label}(DoFMap DoFMap, con
     for p in range(2*DoFMap.dofs_per_element):
         for q in range(p, 2*DoFMap.dofs_per_element):
             if mask[k]:
-                s += fac*contrib[k]
+                s += fac*contrib[k, 0]
             k += 1
     return s
 
@@ -583,18 +610,18 @@ cdef inline {SCALAR}_t extractElemElemSymMasked{SCALAR_label}(DoFMap DoFMap, con
 cdef class {SCALAR_label}IndexManagerVector({SCALAR_label}IndexManager):
     cdef:
         {SCALAR_label}VectorLinearOperator vecA
-        INDEX_t vectorSize
+        INDEX_t valueSize
 
     def __init__(self, DoFMap dm, {SCALAR_label}VectorLinearOperator A=None, cellPairIdentifierSize=1, indexSet myDofs=None, sparsityPattern sP=None):
         super({SCALAR_label}IndexManagerVector, self).__init__(dm, None, cellPairIdentifierSize, myDofs, sP)
         self.vecA = A
-        self.vectorSize = A.vectorSize
+        self.valueSize = A.vectorSize
 
-    cdef inline void addToMatrixElemSymVector(self, {SCALAR}_t[:, ::1] contrib, REAL_t fac):
+    cdef void addToMatrixElemSym(self, {SCALAR}_t[:, ::1] contrib, REAL_t fac):
         cdef:
             INDEX_t k, p, q, I, J
         for p in range(contrib.shape[0]):
-            for q in range(self.vectorSize):
+            for q in range(self.valueSize):
                 contrib[p, q] *= fac
         k = 0
         for p in range(self.dm.dofs_per_element):
@@ -611,11 +638,11 @@ cdef class {SCALAR_label}IndexManagerVector({SCALAR_label}IndexManager):
             else:
                 k += self.dm.dofs_per_element-p
 
-    cdef inline void addToMatrixElemVector(self, {SCALAR}_t[:, ::1] contrib, REAL_t fac):
+    cdef void addToMatrixElem(self, {SCALAR}_t[:, ::1] contrib, REAL_t fac):
         cdef:
             INDEX_t k, p, q, I, J
         for p in range(contrib.shape[0]):
-            for q in range(self.vectorSize):
+            for q in range(self.valueSize):
                 contrib[p, q] *= fac
         k = 0
         for p in range(self.dm.dofs_per_element):
@@ -629,12 +656,12 @@ cdef class {SCALAR_label}IndexManagerVector({SCALAR_label}IndexManager):
             else:
                 k += self.dm.dofs_per_element
 
-    cdef inline void addToMatrixElemElemSymVector(self, {SCALAR}_t[:, ::1] contrib, REAL_t fac):
+    cdef void addToMatrixElemElemSym(self, {SCALAR}_t[:, ::1] contrib, REAL_t fac):
         # Add symmetric 'contrib' to elements i and j in symmetric fashion
         cdef:
             INDEX_t k, p, q, I, J
         for p in range(contrib.shape[0]):
-            for q in range(self.vectorSize):
+            for q in range(self.valueSize):
                 contrib[p, q] *= fac
         k = 0
         for p in range(2*self.dm.dofs_per_element):
@@ -651,12 +678,12 @@ cdef class {SCALAR_label}IndexManagerVector({SCALAR_label}IndexManager):
             else:
                 k += 2*self.dm.dofs_per_element-p
 
-    cdef inline void addToMatrixElemElemVector(self, {SCALAR}_t[:, ::1] contrib, REAL_t fac):
+    cdef void addToMatrixElemElem(self, {SCALAR}_t[:, ::1] contrib, REAL_t fac):
         # Add general 'contrib' to elements i and j
         cdef:
             INDEX_t k, p, q, I, J
         for p in range(contrib.shape[0]):
-            for q in range(self.vectorSize):
+            for q in range(self.valueSize):
                 contrib[p, q] *= fac
         k = 0
         for p in range(2*self.dm.dofs_per_element):
@@ -711,9 +738,9 @@ cdef class {SCALAR_label}nonlocalBuilder:
         self.local_matrix = self.getLocalMatrix(params)
 
         if self.local_matrix.symmetricLocalMatrix:
-            self.contrib = uninitialized(((2*self.dm.dofs_per_element)*(2*self.dm.dofs_per_element+1)//2), dtype={SCALAR})
+            self.contrib = uninitialized(((2*self.dm.dofs_per_element)*(2*self.dm.dofs_per_element+1)//2, self.kernel.valueSize), dtype={SCALAR})
         else:
-            self.contrib = uninitialized(((2*self.dm.dofs_per_element)**2), dtype={SCALAR})
+            self.contrib = uninitialized(((2*self.dm.dofs_per_element)**2, self.kernel.valueSize), dtype={SCALAR})
         assert self.contrib.shape[0] <= PyLong_FromSsize_t(mask.size()), "Mask type size = {} is not large enough for {} entries. Please set a larger size and recompile.".format(mask.size(), self.contrib.shape[0])
 
         self.local_matrix.setMesh1(self.dm.mesh)
@@ -733,14 +760,13 @@ cdef class {SCALAR_label}nonlocalBuilder:
             self.local_matrix_zeroExterior.setMesh1(self.dm.mesh)
             self.local_matrix_surface.setMesh1(self.dm.mesh)
             if self.local_matrix_zeroExterior.symmetricLocalMatrix:
-                self.contribZeroExterior = uninitialized((self.dm.dofs_per_element*(self.dm.dofs_per_element+1)//2), dtype={SCALAR})
+                self.contribZeroExterior = uninitialized((self.dm.dofs_per_element*(self.dm.dofs_per_element+1)//2, self.kernel.valueSize), dtype={SCALAR})
             else:
-                self.contribZeroExterior = uninitialized(((self.dm.dofs_per_element)**2), dtype={SCALAR})
+                self.contribZeroExterior = uninitialized(((self.dm.dofs_per_element)**2, self.kernel.valueSize), dtype={SCALAR})
             LOGGER.debug(self.local_matrix_zeroExterior)
             LOGGER.debug(self.local_matrix_surface)
         else:
-            self.contribZeroExterior = uninitialized((0), dtype={SCALAR})
-
+            self.contribZeroExterior = uninitialized((0, 0), dtype={SCALAR})
 
         if PLogger is not None:
             self.PLogger = PLogger
@@ -758,6 +784,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
             BOOL_t symmetric, forceNonSym
             fractionalOrderBase s
         target_order = params.get('target_order', None)
+        opType = params.get('opType', 'Laplacian')
         quadType = params.get('quadType', 'classical-refactored')
         assert quadType in (
             'classical-refactored'
@@ -765,39 +792,39 @@ cdef class {SCALAR_label}nonlocalBuilder:
 
         forceNonSym = params.get('forceNonSym', False)
         symmetric = not forceNonSym and self.kernel.symmetric
-        if quadType == 'classical-refactored':
-            if self.mesh.manifold_dim == 1:
-                if symmetric:
-                    local_matrix = fractionalLaplacian1D(self.kernel,
-                                                         mesh=self.mesh,
-                                                         DoFMap=self.dm,
-                                                         target_order=target_order)
-                else:
-                    local_matrix = fractionalLaplacian1D_nonsym(self.kernel,
-                                                                mesh=self.mesh,
-                                                                DoFMap=self.dm,
-                                                                target_order=target_order)
-            elif self.mesh.manifold_dim == 2:
-                if symmetric:
-                    if not isinstance(self.dm, Product_DoFMap):
+        # nonlocal Laplacians
+        if opType == 'Laplacian':
+            if quadType == 'classical-refactored':
+                if self.mesh.manifold_dim == 1:
+                    if symmetric:
+                        local_matrix = fractionalLaplacian1D(self.kernel,
+                                                             mesh=self.mesh,
+                                                             DoFMap=self.dm,
+                                                             target_order=target_order)
+                    else:
+                        local_matrix = fractionalLaplacian1D_nonsym(self.kernel,
+                                                                    mesh=self.mesh,
+                                                                    DoFMap=self.dm,
+                                                                    target_order=target_order)
+                elif self.mesh.manifold_dim == 2:
+                    if symmetric:
                         local_matrix = fractionalLaplacian2D(self.kernel,
                                                              mesh=self.mesh,
                                                              DoFMap=self.dm,
                                                              target_order=target_order)
                     else:
-                        raise NotImplementedError()
+                        local_matrix = fractionalLaplacian2D_nonsym(self.kernel,
+                                                                    mesh=self.mesh,
+                                                                    DoFMap=self.dm,
+                                                                    target_order=target_order)
                 else:
-                    local_matrix = fractionalLaplacian2D_nonsym(self.kernel,
-                                                                mesh=self.mesh,
-                                                                DoFMap=self.dm,
-                                                                target_order=target_order)
-            else:
-                raise NotImplementedError()
+                    raise NotImplementedError()
         return local_matrix
 
     cdef inline {SCALAR_label}double_local_matrix_t getLocalMatrixBoundaryZeroExterior(self, dict params, BOOL_t infHorizon):
         cdef:
             fractionalOrderBase s
+        opType = params.get('opType', 'Laplacian')
         target_order = params.get('target_order', None)
         if 'quadTypeBoundary' in params:
             quadType = params['quadTypeBoundary']
@@ -807,68 +834,39 @@ cdef class {SCALAR_label}nonlocalBuilder:
             'classical-refactored'
         )
 
-        if isinstance(self.kernel, FractionalKernel):
-            s = self.kernel.s
-            assert ((s.min < 1.) and (s.max < 1.)) or ((s.min > 1.) and (s.max > 1.))
+        # nonlocal Laplacians
+        if opType == 'Laplacian':
             assert isinstance(self.kernel.horizon, constant)
             if infHorizon:
                 kernelInfHorizon = self.kernel.getModifiedKernel(horizon=constant(np.inf))
             else:
                 kernelInfHorizon = self.kernel
+            kernelBoundary = kernelInfHorizon.getBoundaryKernel()
             if quadType == 'classical-refactored':
-                kernelBoundary = kernelInfHorizon.getBoundaryKernel()
                 if self.mesh.manifold_dim == 1:
                     local_matrix = fractionalLaplacian1D_boundary(kernelBoundary,
                                                                   mesh=self.mesh,
                                                                   DoFMap=self.dm,
                                                                   target_order=target_order)
                 elif self.mesh.manifold_dim == 2:
-                    if not isinstance(self.dm, Product_DoFMap):
-                        local_matrix = fractionalLaplacian2D_boundary(kernelBoundary,
-                                                                      mesh=self.mesh,
-                                                                      DoFMap=self.dm,
-                                                                      target_order=target_order)
-                    else:
-                        raise NotImplementedError()
+                    local_matrix = fractionalLaplacian2D_boundary(kernelBoundary,
+                                                                  mesh=self.mesh,
+                                                                  DoFMap=self.dm,
+                                                                  target_order=target_order)
                 else:
                     raise NotImplementedError()
             else:
                 raise NotImplementedError()
         else:
-            assert isinstance(self.kernel.horizon, constant)
-            if infHorizon:
-                kernelInfHorizon = self.kernel.getModifiedKernel(horizon=constant(np.inf))
-            else:
-                kernelInfHorizon = self.kernel
-            if quadType == 'classical-refactored':
-                kernelBoundary = kernelInfHorizon.getBoundaryKernel()
-                if self.mesh.manifold_dim == 1:
-                    local_matrix = fractionalLaplacian1D_boundary(kernelBoundary,
-                                                                  mesh=self.mesh,
-                                                                  DoFMap=self.dm,
-                                                                  target_order=target_order)
-                elif self.mesh.manifold_dim == 2:
-                    if not isinstance(self.dm, Product_DoFMap):
-                        local_matrix = fractionalLaplacian2D_boundary(kernelBoundary,
-                                                                      mesh=self.mesh,
-                                                                      DoFMap=self.dm,
-                                                                      target_order=target_order)
-                    else:
-                        raise NotImplementedError()
-                else:
-                    raise NotImplementedError()
-            else:
-                local_matrix = None
+            raise NotImplementedError()
         return local_matrix
 
     def getSparse(self, BOOL_t returnNearField=False, str prefix=''):
         cdef:
             INDEX_t cellNo1, cellNo2
-            {SCALAR}_t[::1] contrib = self.contrib
+            {SCALAR}_t[:, ::1] contrib = self.contrib
             {SCALAR_label}IndexManager iM
             REAL_t fac
-            BOOL_t symmetricLocalMatrix = self.local_matrix.symmetricLocalMatrix
-            BOOL_t symmetricCells = self.local_matrix.symmetricCells
             panelType panel
             BOOL_t ignoreDiagonalBlocks = False
             BOOL_t doDistributedAssembly
@@ -955,9 +953,9 @@ cdef class {SCALAR_label}nonlocalBuilder:
 
         with self.PLogger.Timer(prefix+'build near field sparsity pattern'):
             if myRoot is not None and doDistributedAssembly:
-                A = getSparseNearField(self.dm, Pnear, symmetric=useSymmetricMatrix, myRoot=myRoot)
+                A = getSparseNearField{SCALAR_label}(self.dm, Pnear, symmetric=useSymmetricMatrix, myRoot=myRoot)
             else:
-                A = getSparseNearField(self.dm, Pnear, symmetric=useSymmetricMatrix)
+                A = getSparseNearField{SCALAR_label}(self.dm, Pnear, symmetric=useSymmetricMatrix)
 
         # We are not using assembleClusters because we don't want to use surface integration
         with self.PLogger.Timer(prefix+'interior - compute'):
@@ -987,24 +985,24 @@ cdef class {SCALAR_label}nonlocalBuilder:
                         if cellNo1 == cellNo2:
                             if panel != IGNORED:
                                 self.local_matrix.eval(contrib, panel)
-                                if symmetricLocalMatrix:
+                                if self.local_matrix.symmetricLocalMatrix:
                                     iM.addToMatrixElemElemSym(contrib, 1.)
                                 else:
                                     iM.addToMatrixElemElem(contrib, 1.)
                         else:
-                            if symmetricCells:
+                            if self.local_matrix.symmetricCells:
                                 if panel != IGNORED:
                                     self.local_matrix.eval(contrib, panel)
                                     # If the kernel is symmetric, the contributions from (cellNo1, cellNo2) and (cellNo2, cellNo1)
                                     # are the same. We multiply by 2 to account for the contribution from cells (cellNo2, cellNo1).
-                                    if symmetricLocalMatrix:
+                                    if self.local_matrix.symmetricLocalMatrix:
                                         iM.addToMatrixElemElemSym(contrib, 2.)
                                     else:
                                         iM.addToMatrixElemElem(contrib, 2.)
                             else:
                                 if panel != IGNORED:
                                     self.local_matrix.eval(contrib, panel)
-                                    if symmetricLocalMatrix:
+                                    if self.local_matrix.symmetricLocalMatrix:
                                         iM.addToMatrixElemElemSym(contrib, 1.)
                                     else:
                                         iM.addToMatrixElemElem(contrib, 1.)
@@ -1014,7 +1012,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
                                     if iM.getDoFsElemElem(cellNo2, cellNo1):
                                         continue
                                     self.local_matrix.eval(contrib, panel)
-                                    if symmetricLocalMatrix:
+                                    if self.local_matrix.symmetricLocalMatrix:
                                         iM.addToMatrixElemElemSym(contrib, 1.)
                                     else:
                                         iM.addToMatrixElemElem(contrib, 1.)
@@ -1051,7 +1049,8 @@ cdef class {SCALAR_label}nonlocalBuilder:
         cdef:
             INDEX_t cellNo1, cellNo2
             {SCALAR_label}LinearOperator A = None
-            {SCALAR}_t[::1] contrib = self.contrib, contribZeroExterior = self.contribZeroExterior
+            {SCALAR_label}VectorLinearOperator vecA = None
+            {SCALAR}_t[:, ::1] contrib = self.contrib, contribZeroExterior = self.contribZeroExterior
             INDEX_t start, end
             meshBase surface
             {SCALAR_label}IndexManager iM
@@ -1059,9 +1058,10 @@ cdef class {SCALAR_label}nonlocalBuilder:
             np.int64_t explicitZeros
             REAL_t[:, ::1] data
             REAL_t sparsificationThreshold = 0.8
-            BOOL_t symmetricLocalMatrix = self.local_matrix.symmetricLocalMatrix
-            BOOL_t symmetricCells = self.local_matrix.symmetricCells
             MASK_t mask
+
+        self.PLogger.addValue('useSymmetricCells', self.local_matrix.symmetricCells)
+        self.PLogger.addValue('useSymmetricLocalMatrix', self.local_matrix.symmetricLocalMatrix)
 
         if self.comm:
             start = <INDEX_t>np.ceil(self.mesh.num_cells*self.comm.rank/self.comm.size)
@@ -1119,7 +1119,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
                                         iM.addToSparsityElemElem()
                                 self.local_matrix.swapCells()
                 indptr, indices = sP.freeze()
-                useSymmetricMatrix = self.local_matrix.symmetricLocalMatrix and self.local_matrix.symmetricCells
+                useSymmetricMatrix = self.local_matrix.symmetricLocalMatrix
                 if useSymmetricMatrix:
                     A = {SCALAR_label}SSS_LinearOperator(indices, indptr,
                                                          np.zeros((indices.shape[0]), dtype={SCALAR}),
@@ -1134,19 +1134,34 @@ cdef class {SCALAR_label}nonlocalBuilder:
                 trySparsification = False
         else:
             if self.dm2 is None:
-                A = {SCALAR_label}Dense_LinearOperator(np.zeros((self.dm.num_dofs, self.dm.num_dofs), dtype={SCALAR}))
+                if self.kernel.valueSize == 1:
+                    A = {SCALAR_label}Dense_LinearOperator(np.zeros((self.dm.num_dofs, self.dm.num_dofs), dtype={SCALAR}))
+                else:
+                    vecA = {SCALAR_label}Dense_VectorLinearOperator(np.zeros((self.dm.num_dofs, self.dm.num_dofs, self.kernel.valueSize), dtype=REAL))
             else:
-                A = {SCALAR_label}Dense_LinearOperator(np.zeros((self.dm.num_dofs, self.dm2.num_dofs), dtype={SCALAR}))
+                if self.kernel.valueSize == 1:
+                    A = {SCALAR_label}Dense_LinearOperator(np.zeros((self.dm.num_dofs, self.dm2.num_dofs), dtype={SCALAR}))
+                else:
+                    vecA = {SCALAR_label}Dense_VectorLinearOperator(np.zeros((self.dm.num_dofs, self.dm2.num_dofs, self.kernel.valueSize), dtype=REAL))
 
         if self.dm2 is None:
-            iM = {SCALAR_label}IndexManager(self.dm, A)
+            if self.kernel.valueSize == 1:
+                iM = {SCALAR_label}IndexManager(self.dm, A)
+            else:
+                iM = {SCALAR_label}IndexManagerVector(self.dm, vecA)
         else:
             LOGGER.warning('Efficiency of assembly with 2 DoFMaps is bad.')
             dmCombined = self.dm.combine(self.dm2)
-            B = SubMatrixAssemblyOperator(A,
+            if self.kernel.valueSize == 1:
+                B = SubMatrixAssemblyOperator(A,
                                           np.arange(self.dm.num_dofs, dtype=INDEX),
                                           np.arange(self.dm.num_dofs, self.dm.num_dofs+self.dm2.num_dofs, dtype=INDEX))
-            iM = {SCALAR_label}IndexManager(dmCombined, B)
+                iM = {SCALAR_label}IndexManager(dmCombined, B)
+            else:
+                vecB = SubMatrixAssemblyOperator(vecA,
+                                                 np.arange(self.dm.num_dofs, dtype=INDEX),
+                                                 np.arange(self.dm.num_dofs, self.dm.num_dofs+self.dm2.num_dofs, dtype=INDEX))
+                iM = {SCALAR_label}IndexManagerVector(dmCombined, vecB)
 
         # Omega x Omega
         with self.PLogger.Timer('interior'):
@@ -1160,24 +1175,24 @@ cdef class {SCALAR_label}nonlocalBuilder:
                     if cellNo1 == cellNo2:
                         if panel != IGNORED:
                             self.local_matrix.eval(contrib, panel)
-                            if symmetricLocalMatrix:
+                            if self.local_matrix.symmetricLocalMatrix:
                                 iM.addToMatrixElemElemSym(contrib, 1.)
                             else:
                                 iM.addToMatrixElemElem(contrib, 1.)
                     else:
-                        if symmetricCells:
+                        if self.local_matrix.symmetricCells:
                             if panel != IGNORED:
                                 self.local_matrix.eval(contrib, panel)
                                 # If the kernel is symmetric, the contributions from (cellNo1, cellNo2) and (cellNo2, cellNo1)
                                 # are the same. We multiply by 2 to account for the contribution from cells (cellNo2, cellNo1).
-                                if symmetricLocalMatrix:
+                                if self.local_matrix.symmetricLocalMatrix:
                                     iM.addToMatrixElemElemSym(contrib, 2.)
                                 else:
                                     iM.addToMatrixElemElem(contrib, 2.)
                         else:
                             if panel != IGNORED:
                                 self.local_matrix.eval(contrib, panel)
-                                if symmetricLocalMatrix:
+                                if self.local_matrix.symmetricLocalMatrix:
                                     iM.addToMatrixElemElemSym(contrib, 1.)
                                 else:
                                     iM.addToMatrixElemElem(contrib, 1.)
@@ -1187,7 +1202,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
                                 if iM.getDoFsElemElem(cellNo2, cellNo1):
                                     continue
                                 self.local_matrix.eval(contrib, panel)
-                                if symmetricLocalMatrix:
+                                if self.local_matrix.symmetricLocalMatrix:
                                     iM.addToMatrixElemElemSym(contrib, 1.)
                                 else:
                                     iM.addToMatrixElemElem(contrib, 1.)
@@ -1233,114 +1248,10 @@ cdef class {SCALAR_label}nonlocalBuilder:
                 return CSR_LinearOperator.from_dense(A)
             else:
                 LOGGER.warning('Not converting dense to sparse matrix, since only {}% of entries are zero.'.format(100.*ratio))
-        return A
-
-    def getDenseVector(self, BOOL_t trySparsification=False):
-        cdef:
-            INDEX_t cellNo1, cellNo2
-            VectorLinearOperator A = None
-            {SCALAR}_t[:, ::1] contrib = self.contribVector, contribZeroExterior = self.contribZeroExteriorVector
-            INDEX_t start, end
-            meshBase surface
-            {SCALAR_label}IndexManagerVector iM
-            INDEX_t i, j, explicitZerosRow
-            np.int64_t explicitZeros
-            REAL_t[:, ::1] data
-            REAL_t sparsificationThreshold = 0.8
-            BOOL_t symmetricLocalMatrix = self.local_matrix.symmetricLocalMatrix
-            BOOL_t symmetricCells = self.local_matrix.symmetricCells
-            MASK_t mask
-
-        if self.comm:
-            start = <INDEX_t>np.ceil(self.mesh.num_cells*self.comm.rank/self.comm.size)
-            end = <INDEX_t>np.ceil(self.mesh.num_cells*(self.comm.rank+1)/self.comm.size)
+        if self.kernel.valueSize == 1:
+            return A
         else:
-            start = 0
-            end = self.mesh.num_cells
-
-
-        if self.dm2 is None:
-            A = Dense_VectorLinearOperator(np.zeros((self.dm.num_dofs, self.dm.num_dofs, self.kernel.vectorSize), dtype=REAL))
-        else:
-            A = Dense_VectorLinearOperator(np.zeros((self.dm.num_dofs, self.dm2.num_dofs, self.kernel.vectorSize), dtype=REAL))
-
-        if self.dm2 is None:
-            iM = {SCALAR_label}IndexManagerVector(self.dm, A)
-        else:
-            LOGGER.warning('Efficiency of assembly with 2 DoFMaps is bad.')
-            dmCombined = self.dm.combine(self.dm2)
-            B = SubMatrixAssemblyOperator(A,
-                                          np.arange(self.dm.num_dofs, dtype=INDEX),
-                                          np.arange(self.dm.num_dofs, self.dm.num_dofs+self.dm2.num_dofs, dtype=INDEX))
-            iM = {SCALAR_label}IndexManagerVector(dmCombined, B)
-
-        # Omega x Omega
-        with self.PLogger.Timer('interior'):
-            for cellNo1 in range(start, end):
-                self.local_matrix.setCell1(cellNo1)
-                for cellNo2 in range(cellNo1, self.mesh.num_cells):
-                    self.local_matrix.setCell2(cellNo2)
-                    if iM.getDoFsElemElem(cellNo1, cellNo2):
-                        continue
-                    panel = self.local_matrix.getPanelType()
-                    if cellNo1 == cellNo2:
-                        if panel != IGNORED:
-                            self.local_matrix.evalVector(contrib, panel)
-                            if symmetricLocalMatrix:
-                                iM.addToMatrixElemElemSymVector(contrib, 1.)
-                            else:
-                                iM.addToMatrixElemElemVector(contrib, 1.)
-                    else:
-                        if symmetricCells:
-                            if panel != IGNORED:
-                                self.local_matrix.evalVector(contrib, panel)
-                                # If the kernel is symmetric, the contributions from (cellNo1, cellNo2) and (cellNo2, cellNo1)
-                                # are the same. We multiply by 2 to account for the contribution from cells (cellNo2, cellNo1).
-                                if symmetricLocalMatrix:
-                                    iM.addToMatrixElemElemSymVector(contrib, 2.)
-                                else:
-                                    iM.addToMatrixElemElemVector(contrib, 2.)
-                        else:
-                            if panel != IGNORED:
-                                self.local_matrix.evalVector(contrib, panel)
-                                if symmetricLocalMatrix:
-                                    iM.addToMatrixElemElemSymVector(contrib, 1.)
-                                else:
-                                    iM.addToMatrixElemElemVector(contrib, 1.)
-                            self.local_matrix.swapCells()
-                            panel = self.local_matrix.getPanelType()
-                            if panel != IGNORED:
-                                if iM.getDoFsElemElem(cellNo2, cellNo1):
-                                    continue
-                                self.local_matrix.evalVector(contrib, panel)
-                                if symmetricLocalMatrix:
-                                    iM.addToMatrixElemElemSymVector(contrib, 1.)
-                                else:
-                                    iM.addToMatrixElemElemVector(contrib, 1.)
-                            self.local_matrix.swapCells()
-
-        # Omega x Omega^C
-        if self.zeroExterior:
-            with self.PLogger.Timer('zeroExterior'):
-                surface = self.mesh.get_surface_mesh()
-
-                self.local_matrix_zeroExterior.setMesh2(surface)
-
-                for cellNo1 in range(start, end):
-                    iM.getDoFsElem(cellNo1)
-                    mask = iM.getElemSymMask()
-                    self.local_matrix_zeroExterior.setCell1(cellNo1)
-                    for cellNo2 in range(surface.num_cells):
-                        self.local_matrix_zeroExterior.setCell2(cellNo2)
-                        panel = self.local_matrix_zeroExterior.getPanelType()
-                        self.local_matrix_zeroExterior.evalVector(contribZeroExterior, panel, mask)
-                        # if local_matrix_zeroExterior.symmetricLocalMatrix:
-                        iM.addToMatrixElemSymVector(contribZeroExterior, 1.)
-                        # else:
-                        #     raise NotImplementedError()
-        if self.comm:
-            self.comm.Allreduce(MPI.IN_PLACE, A.data)
-        return A
+            return vecA
 
     cpdef {SCALAR}_t getEntryCluster(self, INDEX_t I, INDEX_t J):
         cdef:
@@ -1527,11 +1438,11 @@ cdef class {SCALAR_label}nonlocalBuilder:
                         entry += extractElemSymMasked{SCALAR_label}(dm, self.contribZeroExterior, 1., mask)
         return entry
 
-    cpdef LinearOperator assembleClusters(self, list Pnear, bint forceUnsymmetric=False, LinearOperator Anear=None, dict jumps={}, str prefix='', tree_node myRoot=None, BOOL_t doDistributedAssembly=False):
+    cpdef LinearOperator assembleClusters(self, list Pnear, bint forceUnsymmetricMatrix=False, LinearOperator Anear=None, dict jumps={}, str prefix='', tree_node myRoot=None, BOOL_t doDistributedAssembly=False):
         cdef:
             INDEX_t cellNo1, cellNo2, cellNo3
             REAL_t fac
-            {SCALAR}_t[::1] contrib = self.contrib, contribZeroExterior = self.contribZeroExterior
+            {SCALAR}_t[:, ::1] contrib = self.contrib, contribZeroExterior = self.contribZeroExterior
             meshBase surface
             INDEX_t[:, ::1] cells = self.mesh.cells, surface_cells, fake_cells
             indexSet cellsInter
@@ -1543,19 +1454,20 @@ cdef class {SCALAR_label}nonlocalBuilder:
             tupleDictMASK masks = None
             ENCODE_t hv, hv2
             MASK_t mask
-            # INDEX_t vertex1, vertex2
             bint useSymmetricMatrix
-            bint useSymmetricCells
             INDEX_t vertexNo, i
             INDEX_t[::1] edge = uninitialized((2), dtype=INDEX)
             REAL_t evalShift = 1e-9
             local_matrix_t mass
             indexSetIterator it = arrayIndexSetIterator()
             INDEX_t startCluster
-            INDEX_t numAssembledCells
+            INDEX_t numCellPairs, numAssembledCellPairs, numIntegrations
             indexSet myDofs = None
             REAL_t sValuePre, sValuePost
             BOOL_t surfaceIntegralNeedsShift
+
+        self.PLogger.addValue('useSymmetricCells', self.local_matrix.symmetricCells)
+        self.PLogger.addValue('useSymmetricLocalMatrix', self.local_matrix.symmetricLocalMatrix)
 
         mask.reset()
 
@@ -1563,24 +1475,18 @@ cdef class {SCALAR_label}nonlocalBuilder:
             myDofs = myRoot.get_dofs()
 
         if Anear is None:
-            useSymmetricMatrix = self.local_matrix.symmetricLocalMatrix and self.local_matrix.symmetricCells and not forceUnsymmetric
+            useSymmetricMatrix = self.local_matrix.symmetricLocalMatrix and not forceUnsymmetricMatrix
             with self.PLogger.Timer(prefix+'build near field sparsity pattern'):
                 # TODO: double check that this should not be
                 if myRoot is not None and doDistributedAssembly:
-                    Anear = getSparseNearField(self.dm, Pnear, symmetric=useSymmetricMatrix, myRoot=myRoot)
+                    Anear = getSparseNearField{SCALAR_label}(self.dm, Pnear, symmetric=useSymmetricMatrix, myRoot=myRoot)
                 else:
-                    Anear = getSparseNearField(self.dm, Pnear, symmetric=useSymmetricMatrix)
-            LOGGER.info('Anear: {}'.format(Anear))
-
-        if self.comm is not None and self.comm.size > 1:
-            nnz = Anear.nnz
-            counts = np.zeros((self.comm.size), dtype=INDEX)
-            self.comm.Gather(np.array([nnz], dtype=INDEX), counts)
-            LOGGER.info('Near field entries per rank: {} ({}) / {} / {} ({})'.format(counts.min(), counts.argmin(), counts.mean(), counts.max(), counts.argmax()))
+                    Anear = getSparseNearField{SCALAR_label}(self.dm, Pnear, symmetric=useSymmetricMatrix)
+        self.PLogger.addValue('Anear', repr(Anear))
+        if hasattr(Anear, 'nnz'):
+            self.PLogger.addValue('numLocalNearFieldEntries', Anear.nnz)
 
         Anear_filtered = FilteredAssemblyOperator(Anear)
-
-        useSymmetricCells = self.local_matrix.symmetricCells
 
         iM = {SCALAR_label}IndexManager(self.dm, Anear)
 
@@ -1592,6 +1498,10 @@ cdef class {SCALAR_label}nonlocalBuilder:
             # where
             #  D = (supp u) \cup (supp v).,
             # We only update unknowns that are in the cluster pair.
+
+            numCellPairs = 0
+            numIntegrations = 0
+            numAssembledCellPairs = 0
 
             if not use_masks:
                 # This loop does the correct thing, but we are wasting a lot of
@@ -1607,17 +1517,19 @@ cdef class {SCALAR_label}nonlocalBuilder:
                     for cellNo1 in cellsUnion:
                         self.local_matrix.setCell1(cellNo1)
                         for cellNo2 in cellsUnion:
+                            numCellPairs += 1
                             self.local_matrix.setCell2(cellNo2)
                             panel = self.local_matrix.getPanelType()
                             if panel != IGNORED:
-                                if useSymmetricCells and (cellNo1 != cellNo2):
+                                if self.local_matrix.symmetricCells and (cellNo1 != cellNo2):
                                     fac = 2.
                                 else:
                                     fac = 1.
                                 if iM.getDoFsElemElem(cellNo1, cellNo2):
                                     continue
+                                numAssembledCellPairs += 1
                                 self.local_matrix.eval(contrib, panel)
-                                if useSymmetricCells:
+                                if self.local_matrix.symmetricLocalMatrix:
                                     iM.addToMatrixElemElemSym(contrib, fac)
                                 else:
                                     iM.addToMatrixElemElem(contrib, fac)
@@ -1626,10 +1538,12 @@ cdef class {SCALAR_label}nonlocalBuilder:
                 # This way, we only assembly over each element x element pair once.
                 # We load balance the cells and only get the list for the local rank.
                 startCluster = 0
-                numAssembledCells = 0
+
                 while startCluster < len(Pnear):
                     with self.PLogger.Timer(prefix+'interior - build masks'):
-                        masks = iM.buildMasksForClusters(Pnear, useSymmetricCells, &startCluster)
+                        masks = iM.buildMasksForClusters(Pnear, self.local_matrix.symmetricCells, self.local_matrix.symmetricLocalMatrix, &startCluster)
+
+                    numCellPairs += masks.nnz
 
                     if (masks.getSizeInBytes() >> 20) > 20:
                         LOGGER.info('element x element pairs {}, {} MB'.format(masks.nnz, masks.getSizeInBytes() >> 20))
@@ -1643,24 +1557,23 @@ cdef class {SCALAR_label}nonlocalBuilder:
                             self.local_matrix.setCell2(cellNo2)
                             panel = self.local_matrix.getPanelType()
                             if panel != IGNORED:
-                                numAssembledCells += 1
-                                if useSymmetricCells and (cellNo1 != cellNo2):
+                                numAssembledCellPairs += 1
+                                numIntegrations += mask.count()
+                                if self.local_matrix.symmetricCells and (cellNo1 != cellNo2):
                                     fac = 2.
                                 else:
                                     fac = 1.
                                 if iM.getDoFsElemElem(cellNo1, cellNo2):
                                     continue
                                 self.local_matrix.eval(contrib, panel, mask)
-                                if useSymmetricCells:
+                                if self.local_matrix.symmetricLocalMatrix:
                                     iM.addToMatrixElemElemSymMasked(contrib, fac, mask)
                                 else:
                                     iM.addToMatrixElemElemMasked(contrib, fac, mask)
                         masks = None
-                if self.comm is not None and self.comm.size > 1:
-                    counts = np.zeros((self.comm.size), dtype=INDEX)
-                    self.comm.Gather(np.array([numAssembledCells], dtype=INDEX), counts)
-                    if self.comm.rank == 0:
-                        LOGGER.info('Num assembled cells per rank: {} ({}) / {} / {} ({}) imbalance: {}'.format(counts.min(), counts.argmin(), counts.mean(), counts.max(), counts.argmax(), counts.max()/counts.min()))
+            self.PLogger.addValue('numCellPairs', numCellPairs)
+            self.PLogger.addValue('numAssembledCellPairs', numAssembledCellPairs)
+            self.PLogger.addValue('numIntegrations', numIntegrations)
 
         if not self.kernel.variable:
             if not self.kernel.complement:
@@ -1969,10 +1882,8 @@ cdef class {SCALAR_label}nonlocalBuilder:
             LinearOperator Aother
             INDEX_t I, nnz
             indexSetIterator it = myDofs.getIter()
-        counts = np.zeros((self.comm.size), dtype=INDEX)
-        self.comm.Gather(np.array([Anear.nnz], dtype=INDEX), counts)
-        if self.comm.rank == 0:
-            LOGGER.info('Near field entries per rank: {} ({}) / {} / {} ({}) imbalance: {}'.format(counts.min(), counts.argmin(), counts.mean(), counts.max(), counts.argmax(), counts.max()/counts.min()))
+        self.PLogger.addValue('numLocalNearFieldEntries', Anear.nnz)
+
         # drop entries that are not in rows of myRoot.dofs
         Anear = self.dropOffRank(Anear, myDofs)
 
@@ -2029,9 +1940,6 @@ cdef class {SCALAR_label}nonlocalBuilder:
 
         if self.comm.rank != 0:
             Anear = None
-        else:
-            LOGGER.info('Anear reduced: {}'.format(Anear))
-        # Anear = self.comm.bcast(Anear, root=0)
         return Anear
 
     def dropOffRank(self, LinearOperator Anear, indexSet myDofs):
@@ -2251,7 +2159,9 @@ cdef class {SCALAR_label}nonlocalBuilder:
                 else:
                     for n in root.leaves():
                         n.canBeAssembled = True
-                LOGGER.info('Jumps: {}, Block sizes: {}, Leaf nodes: {}'.format(len(jumps), str({key: len(blocks[key]) for key in blocks}), len(list(root.leaves()))))
+                self.PLogger.addValue('jumps', len(jumps))
+                self.PLogger.addValue('block sizes', str({key: len(blocks[key]) for key in blocks}))
+                self.PLogger.addValue('leaf nodes', len(list(root.leaves())))
 
             if doDistributedAssembly:
                 if self.kernel.variable:
@@ -2307,12 +2217,8 @@ cdef class {SCALAR_label}nonlocalBuilder:
 
                 symmetrizeNearFieldClusters(Pnear)
 
-                counts = np.zeros((self.comm.size), dtype=INDEX)
-                self.comm.Gather(np.array([myRoot.num_dofs], dtype=INDEX), counts)
-                LOGGER.info('Unknowns per rank: {} ({}) / {} / {} ({})'.format(counts.min(), counts.argmin(), counts.mean(), counts.max(), counts.argmax()))
-
-                self.comm.Gather(np.array([len(Pnear)], dtype=INDEX), counts)
-                LOGGER.info('Near field cluster pairs per rank: {} ({}) / {} / {} ({})'.format(counts.min(), counts.argmin(), counts.mean(), counts.max(), counts.argmax()))
+                self.PLogger.addValue('numLocalUnknowns', myRoot.num_dofs)
+                self.PLogger.addValue('numLocalNearFieldClusterPairs', len(Pnear))
 
                 if assembleOnRoot:
                     # collect far field on rank 0
@@ -2322,9 +2228,10 @@ cdef class {SCALAR_label}nonlocalBuilder:
                             # "lvl+1", since the ranks are children of the global root
                             farField.append((lvl+1, cP.n1.id, cP.n2.id))
                     farField = np.array(farField, dtype=INDEX)
+                    self.PLogger.addValue('numLocalFarFieldClusterPairs', farField.shape[0])
+                    counts = uninitialized((self.comm.size), dtype=INDEX)
                     self.comm.Gather(np.array([farField.shape[0]], dtype=INDEX), counts)
                     if self.comm.rank == 0:
-                        LOGGER.info('Far field cluster pairs per rank: {} ({}) / {} / {} ({})'.format(counts.min(), counts.argmin(), counts.mean(), counts.max(), counts.argmax()))
                         N = 0
                         for rank in range(self.comm.size):
                             N += counts[rank]
@@ -2421,13 +2328,8 @@ cdef class {SCALAR_label}nonlocalBuilder:
 
                 symmetrizeNearFieldClusters(Pnear)
 
-                counts = np.zeros((self.comm.size), dtype=INDEX)
-                self.comm.Gather(np.array([myRoot.num_dofs], dtype=INDEX), counts)
-                LOGGER.info('Unknowns per rank: {} ({}) / {} / {} ({})'.format(counts.min(), counts.argmin(), counts.mean(), counts.max(), counts.argmax()))
-
-                self.comm.Gather(np.array([len(Pnear)], dtype=INDEX), counts)
-                LOGGER.info('Near field cluster pairs per rank: {} ({}) / {} / {} ({})'.format(counts.min(), counts.argmin(), counts.mean(), counts.max(), counts.argmax()))
-
+                self.PLogger.addValue('numLocalUnknowns', myRoot.num_dofs)
+                self.PLogger.addValue('numLocalNearFieldClusterPairs', len(Pnear))
             else:
                 getCoveringClusters(self.kernel, root, root,
                                     refParams,
@@ -2570,19 +2472,19 @@ cdef class {SCALAR_label}nonlocalBuilder:
             dict Pfar
             list Pnear
             LinearOperator h2 = None, Anear = None
-            BOOL_t forceUnsymmetric, doDistributedAssembly = False, assembleOnRoot = True, localFarFieldIndexing = False
+            BOOL_t forceUnsymmetricMatrix, doDistributedAssembly = False, assembleOnRoot = True, localFarFieldIndexing = False
             refinementParams refParams
             CSR_LinearOperator lclR
 
         refParams = self.getH2RefinementParams()
 
-        forceUnsymmetric = self.params.get('forceUnsymmetric', False)
         doDistributedAssembly = self.comm is not None and self.comm.size > 1 and DoFMap.num_dofs > self.comm.size
         assembleOnRoot = self.params.get('assembleOnRoot', True)
+        forceUnsymmetricMatrix = self.params.get('forceUnsymmetric', doDistributedAssembly and not assembleOnRoot)
         localFarFieldIndexing = self.params.get('localFarFieldIndexing', False)
         localFarFieldIndexing = doDistributedAssembly and not assembleOnRoot and localFarFieldIndexing
         if doDistributedAssembly and not assembleOnRoot:
-            assert forceUnsymmetric
+            assert forceUnsymmetricMatrix
 
         with self.PLogger.Timer('boxes, cells, coords'):
             boxes, cells = getDoFBoxesAndCells(self.dm.mesh, self.dm, self.comm)
@@ -2599,16 +2501,16 @@ cdef class {SCALAR_label}nonlocalBuilder:
             lenPfar = self.comm.bcast(lenPfar)
 
         if lenPfar > 0:
-            LOGGER.info('interpolation_order: {}, maxLevels: {}, minClusterSize: {}, minMixedClusterSize: {}, minFarFieldBlockSize: {}, eta: {}'.format(refParams.interpolation_order,
-                                                                                                                                                    refParams.maxLevels,
-                                                                                                                                                    refParams.minSize,
-                                                                                                                                                    refParams.minMixedSize,
-                                                                                                                                                    refParams.farFieldInteractionSize,
-                                                                                                                                                    refParams.eta))
+            self.PLogger.addValue('interpolation_order', refParams.interpolation_order)
+            self.PLogger.addValue('maxLevels', refParams.maxLevels)
+            self.PLogger.addValue('minSize', refParams.minSize)
+            self.PLogger.addValue('minMixedSize', refParams.minMixedSize)
+            self.PLogger.addValue('farFieldInteractionSize', refParams.farFieldInteractionSize)
+            self.PLogger.addValue('eta', refParams.eta)
 
             # get near field matrix
             with self.PLogger.Timer('near field'):
-                Anear = self.assembleClusters(Pnear, jumps=jumps, forceUnsymmetric=forceUnsymmetric, myRoot=myRoot, doDistributedAssembly=doDistributedAssembly)
+                Anear = self.assembleClusters(Pnear, jumps=jumps, forceUnsymmetricMatrix=forceUnsymmetricMatrix, myRoot=myRoot, doDistributedAssembly=doDistributedAssembly)
             if doDistributedAssembly and assembleOnRoot:
                 with self.PLogger.Timer('reduceNearOp'):
                     Anear = self.reduceNearOp(Anear, myRoot.get_dofs())
@@ -2652,7 +2554,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
                             h2 = DistributedH2Matrix_localData(local_h2, Pnear, self.comm, self.dm, local_dm, lclR, lclP)
             else:
                 h2 = nullOperator(self.dm.num_dofs, self.dm.num_dofs)
-            LOGGER.info('{}'.format(h2))
+            self.PLogger.addValue('H2', repr(h2))
         elif len(Pnear) == 0:
             h2 = nullOperator(self.dm.num_dofs, self.dm.num_dofs)
         else:
@@ -2673,3 +2575,60 @@ cdef class {SCALAR_label}nonlocalBuilder:
     def getH2FiniteHorizon(self, LinearOperator Ainf=None):
         A = horizonCorrected(self.mesh, self.dm, self.kernel, self.comm, Ainf, logging=isinstance(self.PLogger, (PLogger, LoggingPLogger)))
         return A
+
+
+cdef LinearOperator getSparseNearField{SCALAR_label}(DoFMap DoFMap, list Pnear, bint symmetric=False, tree_node myRoot=None):
+    cdef:
+        sparsityPattern sP
+        INDEX_t I = -1, J = -1
+        nearFieldClusterPair clusterPair
+        indexSet dofs1, dofs2
+        indexSetIterator it1 = arrayIndexSetIterator(), it2 = arrayIndexSetIterator()
+    sP = sparsityPattern(DoFMap.num_dofs)
+    if symmetric:
+        for clusterPair in Pnear:
+            dofs1 = clusterPair.n1.get_dofs()
+            dofs2 = clusterPair.n2.get_dofs()
+            it1.setIndexSet(dofs1)
+            it2.setIndexSet(dofs2)
+            while it1.step():
+                I = it1.i
+                it2.reset()
+                while it2.step():
+                    J = it2.i
+                    if I > J:
+                        sP.add(I, J)
+    elif myRoot is not None:
+        for clusterPair in Pnear:
+            if clusterPair.n1.getParent(1).id != myRoot.id:
+                continue
+            dofs1 = clusterPair.n1.get_dofs()
+            dofs2 = clusterPair.n2.get_dofs()
+            it1.setIndexSet(dofs1)
+            it2.setIndexSet(dofs2)
+            while it1.step():
+                I = it1.i
+                it2.reset()
+                while it2.step():
+                    J = it2.i
+                    sP.add(I, J)
+    else:
+        for clusterPair in Pnear:
+            dofs1 = clusterPair.n1.get_dofs()
+            dofs2 = clusterPair.n2.get_dofs()
+            it1.setIndexSet(dofs1)
+            it2.setIndexSet(dofs2)
+            while it1.step():
+                I = it1.i
+                it2.reset()
+                while it2.step():
+                    J = it2.i
+                    sP.add(I, J)
+    indptr, indices = sP.freeze()
+    data = np.zeros((indices.shape[0]), dtype={SCALAR})
+    if symmetric:
+        diagonal = np.zeros((DoFMap.num_dofs), dtype={SCALAR})
+        A = {SCALAR_label}SSS_LinearOperator(indices, indptr, data, diagonal)
+    else:
+        A = {SCALAR_label}CSR_LinearOperator(indices, indptr, data)
+    return A

@@ -1613,6 +1613,42 @@ def updateBoundary3D(INDEX_t[:, ::1] cells,
     return np.array(list(bvertices), dtype=INDEX), bedges_mem, bfaces_mem
 
 
+def getBoundaryCells(meshBase subdomain, interface, simplexMapper sM, dict v2c):
+    cdef:
+        set vertices, boundaryCells
+        INDEX_t i, cellNo, faceNo, edgeNo, vertexNo, order, v
+        INDEX_t dim = subdomain.dim
+        INDEX_t[::1] edgeVertexIndices = uninitialized((2), dtype=INDEX)
+        INDEX_t[::1] faceVertexIndices = uninitialized((3), dtype=INDEX)
+
+    vertices = set()
+    for i in range(interface.num_vertices):
+        cellNo = interface.vertices[i, 0]
+        vertexNo = interface.vertices[i, 1]
+        vertices.add(subdomain.cells[cellNo, vertexNo])
+    if dim >= 2:
+        for i in range(interface.num_edges):
+            cellNo = interface.edges[i, 0]
+            edgeNo = interface.edges[i, 1]
+            order = interface.edges[i, 2]
+            sM.getEdgeVerticesGlobal(cellNo, edgeNo, order, edgeVertexIndices)
+            for j in range(2):
+                vertices.add(edgeVertexIndices[j])
+    if dim >= 3:
+        for i in range(interface.num_faces):
+            cellNo = interface.faces[i, 0]
+            faceNo = interface.faces[i, 1]
+            order = interface.faces[i, 2]
+            sM.getFaceVerticesGlobal(cellNo, faceNo, order, faceVertexIndices)
+            for j in range(3):
+                vertices.add(faceVertexIndices[j])
+
+    boundaryCells = set()
+    for v in vertices:
+        boundaryCells |= set(v2c[v])
+    return boundaryCells
+
+
 def extendOverlap(meshBase subdomain, interfaces, interiorBL, depth, comm, debug=False):
     # extend a (depth+1) layer overlap around each subdomain
     # track depth layers for data exchange
@@ -1627,34 +1663,6 @@ def extendOverlap(meshBase subdomain, interfaces, interiorBL, depth, comm, debug
         INDEX_t boundaryVertex
         algebraicOverlap ov
     sM = subdomain.simplexMapper
-
-    def getBoundaryCells(interface):
-        vertices = set()
-        for i in range(interface.num_vertices):
-            cellNo = interface.vertices[i, 0]
-            vertexNo = interface.vertices[i, 1]
-            vertices.add(subdomain.cells[cellNo, vertexNo])
-        if dim >= 2:
-            for i in range(interface.num_edges):
-                cellNo = interface.edges[i, 0]
-                edgeNo = interface.edges[i, 1]
-                order = interface.edges[i, 2]
-                sM.getEdgeVerticesGlobal(cellNo, edgeNo, order, edgeVertexIndices)
-                for j in range(2):
-                    vertices.add(edgeVertexIndices[j])
-        if dim >= 3:
-            for i in range(interface.num_faces):
-                cellNo = interface.faces[i, 0]
-                faceNo = interface.faces[i, 1]
-                order = interface.faces[i, 2]
-                sM.getFaceVerticesGlobal(cellNo, faceNo, order, faceVertexIndices)
-                for j in range(3):
-                    vertices.add(faceVertexIndices[j])
-
-        boundaryCells = set()
-        for v in vertices:
-            boundaryCells |= set(v2c[v])
-        return boundaryCells
 
     dim = subdomain.dim
     nc = subdomain.num_cells
@@ -1701,7 +1709,7 @@ def extendOverlap(meshBase subdomain, interfaces, interiorBL, depth, comm, debug
     sharedVertices = {}
     for subdomainNo in interfaces.interfaces:
         # indices of cells that touch the interface with the other subdomain
-        interfaceBoundaryCellNos = getBoundaryCells(interfaces.interfaces[subdomainNo])
+        interfaceBoundaryCellNos = getBoundaryCells(subdomain, interfaces.interfaces[subdomainNo], sM, v2c)
         # indices of cells that are in the interior overlap
         localCellNos = interiorBL.getLayer(depth, interfaceBoundaryCellNos, returnLayerNo=True, cells=subdomain.cells)
         # get layers 1, .., depth

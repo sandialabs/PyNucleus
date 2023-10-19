@@ -235,5 +235,3 @@ def testH2(setupH2):
     else:
         refinements = 3
     h2(dim, s, refinements, element, errBnd)
-
-

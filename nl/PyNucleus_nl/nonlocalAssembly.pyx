@@ -31,6 +31,7 @@ from PyNucleus_base.linear_operators cimport (CSR_LinearOperator,
                                               VectorLinearOperator,
                                               ComplexVectorLinearOperator,
                                               Dense_VectorLinearOperator,
+                                              ComplexDense_VectorLinearOperator,
                                               Dense_SubBlock_LinearOperator,
                                               diagonalOperator,
                                               TimeStepperLinearOperator,
@@ -167,7 +168,7 @@ cdef class horizonSurfaceIntegral(function):
             for j in range(dim):
                 self.y[j] = x[j]+self.quadNodes[k, j]
             self.kernel.evalParams(x, self.y)
-            val = self.kernel.eval(x, self.y)
+            self.kernel.evalPtr(x.shape[0], &x[0], &self.y[0], &val)
             # val = self.kernel.scalingValue*pow(self.horizon, 1-dim-2*s)/s
             fac -= val * self.quadWeights[k]
         return fac
@@ -365,63 +366,6 @@ def assembleNonlocalOperator(meshBase mesh,
     kernel = getFractionalKernel(mesh.dim, s, horizon)
     builder = nonlocalBuilder(mesh, DoFMap, kernel, params, zeroExterior, comm, **kwargs)
     return builder.getDense()
-
-
-cdef LinearOperator getSparseNearField(DoFMap DoFMap, list Pnear, bint symmetric=False, tree_node myRoot=None):
-    cdef:
-        sparsityPattern sP
-        INDEX_t I = -1, J = -1
-        nearFieldClusterPair clusterPair
-        indexSet dofs1, dofs2
-        indexSetIterator it1 = arrayIndexSetIterator(), it2 = arrayIndexSetIterator()
-    sP = sparsityPattern(DoFMap.num_dofs)
-    if symmetric:
-        for clusterPair in Pnear:
-            dofs1 = clusterPair.n1.get_dofs()
-            dofs2 = clusterPair.n2.get_dofs()
-            it1.setIndexSet(dofs1)
-            it2.setIndexSet(dofs2)
-            while it1.step():
-                I = it1.i
-                it2.reset()
-                while it2.step():
-                    J = it2.i
-                    if I > J:
-                        sP.add(I, J)
-    elif myRoot is not None:
-        for clusterPair in Pnear:
-            if clusterPair.n1.getParent(1).id != myRoot.id:
-                continue
-            dofs1 = clusterPair.n1.get_dofs()
-            dofs2 = clusterPair.n2.get_dofs()
-            it1.setIndexSet(dofs1)
-            it2.setIndexSet(dofs2)
-            while it1.step():
-                I = it1.i
-                it2.reset()
-                while it2.step():
-                    J = it2.i
-                    sP.add(I, J)
-    else:
-        for clusterPair in Pnear:
-            dofs1 = clusterPair.n1.get_dofs()
-            dofs2 = clusterPair.n2.get_dofs()
-            it1.setIndexSet(dofs1)
-            it2.setIndexSet(dofs2)
-            while it1.step():
-                I = it1.i
-                it2.reset()
-                while it2.step():
-                    J = it2.i
-                    sP.add(I, J)
-    indptr, indices = sP.freeze()
-    data = np.zeros((indices.shape[0]), dtype=REAL)
-    if symmetric:
-        diagonal = np.zeros((DoFMap.num_dofs), dtype=REAL)
-        A = SSS_LinearOperator(indices, indptr, data, diagonal)
-    else:
-        A = CSR_LinearOperator(indices, indptr, data)
-    return A
 
 
 cdef class nearFieldClusterPair:

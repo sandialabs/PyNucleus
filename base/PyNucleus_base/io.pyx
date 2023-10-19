@@ -61,7 +61,7 @@ cdef class Map:
             return -1
 
     def getPIDs(self, INDEX_t gid):
-        return self.GID_PID[np.where(np.array(self.GID_PID[:, 0], copy=False) == gid), 1]
+        return np.array(self.GID_PID)[np.where(np.array(self.GID_PID[:, 0], copy=False) == gid), 1]
 
     cpdef INDEX_t getLocalNumElements(self, INDEX_t pid):
         return self.localNumElements[pid]

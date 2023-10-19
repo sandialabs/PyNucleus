@@ -207,8 +207,7 @@ if d.buildSparseReduced:
 if d.buildDistributedH2Bcast:
     with d.timer('distributed, bcast build'):
         A_distributedH2Bcast = dm.assembleNonlocal(nPP.kernel, matrixFormat='H2', comm=d.comm,
-                                                   params={'assembleOnRoot': False,
-                                                           'forceUnsymmetric': True})
+                                                   params={'assembleOnRoot': False})
     with d.timer('distributed, bcast matvec'):
         print('Distributed:     ', A_distributedH2Bcast)
         y_distributedH2Bcast = A_distributedH2Bcast*x
@@ -220,7 +219,6 @@ if d.buildDistributedH2:
     with d.timer('distributed, halo build'):
         A_distributedH2 = dm.assembleNonlocal(nPP.kernel, matrixFormat='H2', comm=d.comm,
                                               params={'assembleOnRoot': False,
-                                                      'forceUnsymmetric': True,
                                                       'localFarFieldIndexing': True},
                                               PLogger=tm.PLogger)
     t = d.addOutputGroup('TimersH2', timerOutputGroup(driver=d))
@@ -345,11 +343,12 @@ if d.doSolve and (d.buildDistributedH2 or d.buildDistributedSparse):
     cg.maxIter = 1000
     u = lcl_dm.zeros()
     with d.timer('CG solve'):
-        cg(b, u)
+        iterCG = cg(b, u)
 
     residuals = cg.residuals
     solveGroup = d.addOutputGroup('solve', tested=True, rTol=1e-1)
     solveGroup.add('residual norm', residuals[-1])
+    solveGroup.add('CG iterations', iterCG)
 
     # pure Neumann condition -> add nullspace components to match analytic solution
     if nPP.boundaryCondition in (NEUMANN, HOMOGENEOUS_NEUMANN) and nPP.analyticSolution is not None:

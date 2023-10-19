@@ -53,9 +53,9 @@ if p.dim == 2:
     if p.element != 'P0':
         plotDefaults['shading'] = 'gouraud'
 
-if d.startPlot('solution'):
+if p.dim < 3 and d.startPlot('solution'):
     mS.plotSolution()
-if mS.error is not None and d.startPlot('error'):
+if p.dim < 3 and mS.error is not None and d.startPlot('error'):
     mS.error.plot(**plotDefaults)
 
 d.finish()

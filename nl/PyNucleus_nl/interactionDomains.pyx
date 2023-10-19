@@ -25,7 +25,7 @@ cdef class interactionDomain(parametrizedTwoPointFunction):
     """Base class for all interaction domains."""
 
     def __init__(self, BOOL_t isComplement):
-        super(interactionDomain, self).__init__(True)
+        super(interactionDomain, self).__init__(True, 1)
         self.complement = isComplement
         self.intervals1 = uninitialized((4), dtype=REAL)
         self.intervals2 = uninitialized((3), dtype=REAL)
@@ -633,11 +633,11 @@ cdef class fullSpace(interactionDomain):
     cdef RELATIVE_POSITION_t getRelativePosition(self, REAL_t[:, ::1] simplex1, REAL_t[:, ::1] simplex2):
         return INTERACT
 
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
-        return 1.
+    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
+        value[0] = 1.
 
-    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
-        return 1.
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
+        value[0] = 1.
 
     def __repr__(self):
         dim = getINDEX(self.params, fKDIM)
@@ -716,7 +716,7 @@ cdef class ball2(interactionDomain):
             numIntersections += 1
         return numIntersections
 
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
+    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
         cdef:
             REAL_t s = 0.
             INDEX_t i
@@ -724,11 +724,11 @@ cdef class ball2(interactionDomain):
         for i in range(x.shape[0]):
             s += (x[i]-y[i])**2
         if s <= horizon2:
-            return 1.
+            value[0] = 1.
         else:
-            return 0.
+            value[0] = 0.
 
-    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         cdef:
             REAL_t s = 0.
             INDEX_t i
@@ -736,9 +736,9 @@ cdef class ball2(interactionDomain):
         for i in range(dim):
             s += (x[i]-y[i])**2
         if s <= horizon2:
-            return 1.
+            value[0] = 1.
         else:
-            return 0.
+            value[0] = 0.
 
     def __repr__(self):
         horizon2 = getREAL(self.params, fHORIZON2)
@@ -849,7 +849,7 @@ cdef class ballInf(interactionDomain):
                 intersections[0], intersections[1] = intersections[1], intersections[0]
         return numIntersections
 
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
+    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
         cdef:
             REAL_t s = 0.
             INDEX_t i
@@ -857,11 +857,11 @@ cdef class ballInf(interactionDomain):
         for i in range(x.shape[0]):
             s = max(s, (x[i]-y[i])**2)
         if s <= horizon2:
-            return 1.
+            value[0] = 1.
         else:
-            return 0.
+            value[0] = 0.
 
-    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         cdef:
             REAL_t s = 0.
             INDEX_t i
@@ -869,9 +869,9 @@ cdef class ballInf(interactionDomain):
         for i in range(dim):
             s = max(s, (x[i]-y[i])**2)
         if s <= horizon2:
-            return 1.
+            value[0] = 1.
         else:
-            return 0.
+            value[0] = 0.
 
     def __repr__(self):
         horizon2 = getREAL(self.params, fHORIZON2)
@@ -933,7 +933,7 @@ cdef class ball2Complement(interactionDomain):
             self.relPos = CUT
         return self.relPos
 
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
+    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
         cdef:
             REAL_t s = 0.
             INDEX_t i
@@ -941,11 +941,11 @@ cdef class ball2Complement(interactionDomain):
         for i in range(x.shape[0]):
             s += (x[i]-y[i])**2
         if s > horizon2:
-            return 1.
+            value[0] = 1.
         else:
-            return 0.
+            value[0] = 0.
 
-    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         cdef:
             REAL_t s = 0.
             INDEX_t i
@@ -953,9 +953,9 @@ cdef class ball2Complement(interactionDomain):
         for i in range(dim):
             s += (x[i]-y[i])**2
         if s > horizon2:
-            return 1.
+            value[0] = 1.
         else:
-            return 0.
+            value[0] = 0.
 
     def __repr__(self):
         horizon2 = getREAL(self.params, fHORIZON2)
@@ -979,18 +979,18 @@ cdef class linearTransformInteraction(interactionDomain):
         self.simplex1 = uninitialized((dim+1, dim), dtype=REAL)
         self.simplex2 = uninitialized((dim+1, dim), dtype=REAL)
 
-    cdef REAL_t eval(self, REAL_t[::1] x, REAL_t[::1] y):
+    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
         self.transformVectorForward(x, self.vec)
         self.transformVectorForward(y, self.vec2)
-        return self.baseInteraction.eval(self.vec, self.vec2)
+        self.baseInteraction.eval(self.vec, self.vec2, value)
 
-    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y):
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         cdef:
             REAL_t[::1] xA =<REAL_t[:dim]> x
             REAL_t[::1] yA =<REAL_t[:dim]> y
         self.transformVectorForward(xA, self.vec)
         self.transformVectorForward(yA, self.vec2)
-        return self.baseInteraction.evalPtr(dim, &self.vec[0], &self.vec2[0])
+        self.baseInteraction.evalPtr(dim, &self.vec[0], &self.vec2[0], value)
 
     def __getstate__(self):
         return self.A

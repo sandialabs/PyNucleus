@@ -151,10 +151,12 @@ def testVariableOrder(extra):
     ('interval', 'const(0.75)'),
     ('interval', 'varconst(0.25)'),
     ('interval', 'varconst(0.75)'),
+    ('interval', 'twoDomainNonSym(0.25,0.75)'),
     ('square', 'const(0.25)'),
     ('square', 'const(0.75)'),
     ('square', 'varconst(0.25)'),
     ('square', 'varconst(0.75)'),
+    ('square', 'twoDomainNonSym(0.25,0.75)'),
 ],
                 ids=idfunc)
 def runDistOp_params(request):

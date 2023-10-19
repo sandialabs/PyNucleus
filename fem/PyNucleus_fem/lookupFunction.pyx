@@ -33,7 +33,7 @@ cdef class lookupFunction(function):
         for k in range(self.dm.dofs_per_element):
             dof = self.dm.cell2dof(cellNo, k)
             if dof >= 0:
-                shapeFun = self.dm.localShapeFunctions[k]
+                shapeFun = self.dm.getLocalShapeFunction(k)
                 val += shapeFun.eval(self.cellFinder.bary)*self.u[dof]
         return val
 
@@ -75,7 +75,7 @@ cdef class vectorLookupFunction(vectorFunction):
         for k in range(self.dm.dofs_per_element):
             dof = self.dm.cell2dof(cellNo, k)
             if dof >= 0:
-                shapeFun = self.dm.localShapeFunctions[k]
+                shapeFun = self.dm.getLocalVectorShapeFunction(k)
                 shapeFun.setCell(self.mesh.cells[cellNo, :])
                 shapeFun.eval(self.cellFinder.bary, self.gradients, self.temp)
                 for componentNo in range(self.mesh.dim):

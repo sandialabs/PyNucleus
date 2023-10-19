@@ -8,13 +8,14 @@
 cdef class {SCALAR_label}twoPointFunction:
     cdef:
         public BOOL_t symmetric
-    cdef {SCALAR}_t eval(self, REAL_t[::1] x, REAL_t[::1] y)
-    cdef {SCALAR}_t evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y)
+        public INDEX_t valueSize
+    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, {SCALAR}_t[::1] value)
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, {SCALAR}_t* value)
 
 
 cdef class {SCALAR_label}productTwoPoint({SCALAR_label}twoPointFunction):
     cdef:
-        public twoPointFunction f1, f2
+        public {SCALAR_label}twoPointFunction f1, f2
 
 
 cdef class {SCALAR_label}constantTwoPoint({SCALAR_label}twoPointFunction):

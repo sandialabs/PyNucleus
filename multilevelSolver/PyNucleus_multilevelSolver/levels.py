@@ -307,7 +307,7 @@ class algebraicLevelBase(level):
 
     @classmethod
     def getKeys(cls):
-        return ['P', 'R', 'DoFMap', 'algebraicOverlaps']
+        return ['P', 'R', 'DoFMap', 'algebraicOverlaps', 'Timer']
 
     def getLevelDict(self):
         lvl = {}
