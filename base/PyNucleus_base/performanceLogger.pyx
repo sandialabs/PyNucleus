@@ -62,6 +62,8 @@ cdef class Timer(FakeTimer):
         else:
             self.memoryRegionsAreEnabled = memRegionsAreEnabled
         self.memoryProfiling = self.parent.memoryProfiling
+        self.startMem = 0.0
+        self.endMem = 0.0
         if self.sync:
             assert self.comm is not None
 
@@ -102,8 +104,15 @@ cdef class Timer(FakeTimer):
     def getIntervalUnsynced(self):
         return self.elapsed_unsynced
 
+    def getMemoryDiff(self):
+        if self.memoryProfiling:
+            return self.endMem-self.startMem
+        else:
+            return 0.0
+
     interval = property(fget=getInterval)
     interval_unsynced = property(fget=getIntervalUnsynced)
+    diffMemory = property(fget=getMemoryDiff)
 
 
 cdef class LoggingTimer(Timer):

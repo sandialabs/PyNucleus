@@ -26,10 +26,10 @@ from PyNucleus_fem.femCy import assembleMatrix, mass_1d_sym_scalar_anisotropic, 
 from PyNucleus_fem.quadrature import simplexXiaoGimbutas
 from PyNucleus_base.sparsityPattern cimport sparsityPattern
 from PyNucleus_base.linear_operators cimport (CSR_LinearOperator,
+                                              CSR_VectorLinearOperator,
                                               SSS_LinearOperator,
+                                              SSS_VectorLinearOperator,
                                               Dense_LinearOperator,
-                                              VectorLinearOperator,
-                                              ComplexVectorLinearOperator,
                                               Dense_VectorLinearOperator,
                                               ComplexDense_VectorLinearOperator,
                                               Dense_SubBlock_LinearOperator,
@@ -38,7 +38,9 @@ from PyNucleus_base.linear_operators cimport (CSR_LinearOperator,
                                               nullOperator,
                                               sparseGraph,
                                               ComplexCSR_LinearOperator,
+                                              ComplexCSR_VectorLinearOperator,
                                               ComplexSSS_LinearOperator,
+                                              ComplexSSS_VectorLinearOperator,
                                               ComplexDense_LinearOperator,
                                               ComplexdiagonalOperator)
 from PyNucleus_fem.splitting import dofmapSplitter
@@ -388,18 +390,18 @@ cdef class nearFieldClusterPair:
     def set_cells_py(self):
         self.set_cells()
 
-    def plot(self, color='red'):
+    def plot(self, color='red', edgecolor=None):
         import matplotlib.pyplot as plt
         import matplotlib.patches as patches
         dim = self.n1.box.shape[0]
         if dim == 1:
             box1 = self.n1.box
             box2 = self.n2.box
-            plt.gca().add_patch(patches.Rectangle((box1[0, 0], box2[0, 0]), box1[0, 1]-box1[0, 0], box2[0, 1]-box2[0, 0], fill=True, alpha=0.5, facecolor=color))
+            plt.gca().add_patch(patches.Rectangle((box1[0, 0], box2[0, 0]), box1[0, 1]-box1[0, 0], box2[0, 1]-box2[0, 0], fill=True, alpha=0.5, facecolor=color, edgecolor=edgecolor))
         else:
             for dof1 in self.n1.dofs:
                 for dof2 in self.n2.dofs:
-                    plt.gca().add_patch(patches.Rectangle((dof1-0.5, dof2-0.5), 1., 1., fill=True, alpha=0.5, facecolor=color))
+                    plt.gca().add_patch(patches.Rectangle((dof1-0.5, dof2-0.5), 1., 1., fill=True, alpha=0.5, facecolor=color, edgecolor=edgecolor))
 
     def HDF5write(self, node):
         node.attrs['n1'] = self.n1.id
@@ -444,6 +446,8 @@ cdef class SubMatrixAssemblyOperator(LinearOperator):
                                 A.num_rows,
                                 A.num_columns)
         self.A = A
+        assert A.shape[0] == I.shape[0]
+        assert A.shape[1] == J.shape[0]
         self.lookupI = {}
         self.lookupJ = {}
         for i in range(I.shape[0]):
@@ -458,23 +462,6 @@ cdef class SubMatrixAssemblyOperator(LinearOperator):
         j = self.lookupJ.get(J, -1)
         if i >= 0 and j >= 0:
             self.A.addToEntry(i, j, val)
-
-
-cdef class FilteredAssemblyOperator(LinearOperator):
-    cdef:
-        LinearOperator A
-        indexSet dofs1, dofs2
-
-    def __init__(self, LinearOperator A):
-        self.A = A
-
-    cdef void setFilter(self, indexSet dofs1, indexSet dofs2):
-        self.dofs1 = dofs1
-        self.dofs2 = dofs2
-
-    cdef inline void addToEntry(self, INDEX_t I, INDEX_t J, REAL_t val):
-        if self.dofs1.inSet(I) and self.dofs2.inSet(J):
-            self.A.addToEntry(I, J, val)
 
 
 cdef class LeftFilteredAssemblyOperator(LinearOperator):

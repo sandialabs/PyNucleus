@@ -33,6 +33,7 @@ cdef class fractionalLaplacian2DZeroExterior(nonlocalLaplacian2D):
         manifold_dim2 = mesh.dim-1
         super(fractionalLaplacian2DZeroExterior, self).__init__(kernel, mesh, DoFMap, num_dofs, manifold_dim2=manifold_dim2, **kwargs)
         self.symmetricCells = False
+        self.symmetricLocalMatrix = True
 
 
 cdef class singularityCancelationQuadRule2D(quadratureRule):
@@ -1146,8 +1147,9 @@ cdef class fractionalLaplacian2D_boundary(fractionalLaplacian2DZeroExterior):
 
     .. math::
 
-       \\int_{K} u(x) v(x) \\int_{e} \\Gamma(x,y) dy dx
+       \\int_{K}\\int_{e} [ u(x) v(x) n_{y} \\cdot \\frac{x-y}{|x-y|} \\Gamma(x,y) dy dx
 
+    for the 2D nonlocal Laplacian.
     """
     def __init__(self,
                  Kernel kernel,

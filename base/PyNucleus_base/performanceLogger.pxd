@@ -24,8 +24,8 @@ cdef class Timer(FakeTimer):
         double startTime_unsynced
         double elapsed
         double elapsed_unsynced
-        double startMem
-        double endMem
+        readonly double startMem
+        readonly double endMem
         str key
         FakePLogger parent
         BOOL_t manualDataEntry

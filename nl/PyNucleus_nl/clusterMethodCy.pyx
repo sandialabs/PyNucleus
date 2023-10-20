@@ -11,8 +11,7 @@ from libc.math cimport sqrt, sin, cos, atan2, M_PI as pi
 from itertools import product
 from scipy.special import gamma
 import numpy as np
-from PyNucleus_base.linear_operators cimport (LinearOperator,
-                                              CSR_LinearOperator,
+from PyNucleus_base.linear_operators cimport (CSR_LinearOperator,
                                               sparseGraph,
                                               Multiply_Linear_Operator,
                                               IJOperator,
@@ -1024,7 +1023,7 @@ cdef class tree_node:
         else:
             raise NotImplementedError(plotType)
 
-    cdef void prepareTransferOperators(self, INDEX_t m, transferMatrixBuilder tMB=None):
+    cdef void prepareTransferOperators(self, INDEX_t m, INDEX_t valueSize, transferMatrixBuilder tMB=None):
         cdef:
             tree_node c
             INDEX_t interactionSize = m**self.dim
@@ -1032,17 +1031,20 @@ cdef class tree_node:
             tMB = transferMatrixBuilder(m, self.dim)
         if not self.get_is_leaf():
             for c in self.children:
-                c.prepareTransferOperators(m, tMB)
+                c.prepareTransferOperators(m, valueSize, tMB)
         if self.parent is not None:
             self.transferOperator = uninitialized((interactionSize, interactionSize),
                                                   dtype=REAL)
             tMB.build(self.parent.box, self.box,
                       self.transferOperator)
         self.coefficientsUp = uninitialized((interactionSize), dtype=REAL)
-        self.coefficientsDown = uninitialized((interactionSize), dtype=REAL)
+        if valueSize == 1:
+            self.coefficientsDown = uninitialized((interactionSize), dtype=REAL)
+        else:
+            self.coefficientsDownVec = uninitialized((interactionSize, valueSize), dtype=REAL)
 
-    def prepareTransferOperators_py(self, INDEX_t m):
-        self.prepareTransferOperators(m)
+    def prepareTransferOperators_py(self, INDEX_t m, INDEX_t valueSize):
+        self.prepareTransferOperators(m, valueSize)
 
     cdef void upwardPass(self, REAL_t[::1] x, INDEX_t componentNo=0, BOOL_t skip_leaves=False, BOOL_t local=False):
         cdef:
@@ -1082,16 +1084,20 @@ cdef class tree_node:
     def upwardPass_py(self, REAL_t[::1] x, INDEX_t componentNo=0, BOOL_t skip_leaves=False):
         self.upwardPass(x, componentNo, skip_leaves)
 
-    cdef void resetCoefficientsDown(self):
+    cdef void resetCoefficientsDown(self, BOOL_t vecValued=False):
         cdef:
             tree_node c
-        self.coefficientsDown[:] = 0.0
+
+        if not vecValued:
+            self.coefficientsDown[:] = 0.0
+        else:
+            self.coefficientsDownVec[:, :] = 0.0
         if not self.get_is_leaf():
             for c in self.children:
-                c.resetCoefficientsDown()
+                c.resetCoefficientsDown(vecValued)
 
-    def resetCoefficientsDown_py(self):
-        self.resetCoefficientsDown()
+    def resetCoefficientsDown_py(self, BOOL_t vecValued=False):
+        self.resetCoefficientsDown(vecValued)
 
     cdef void resetCoefficientsUp(self):
         cdef:
@@ -1136,6 +1142,36 @@ cdef class tree_node:
 
     def downwardPass_py(self, REAL_t[::1] y, INDEX_t componentNo=0):
         self.downwardPass(y, componentNo)
+
+    cdef void downwardPassVec(self, REAL_t[:, ::1] y, INDEX_t componentNo=0, BOOL_t local=False):
+        cdef:
+            INDEX_t i, dof = -1, k = 0, j, l
+            tree_node c
+            indexSetIterator it
+        if self.get_is_leaf():
+            if not local:
+                it = self.get_dofs().getIter()
+                while it.step():
+                    dof = it.i
+                    for i in range(self.coefficientsDownVec.shape[0]):
+                        for l in range(self.coefficientsDownVec.shape[1]):
+                            y[dof, l] += self.value[componentNo, k, i]*self.coefficientsDownVec[i, l]
+                    k += 1
+            else:
+                it = self.get_local_dofs().getIter()
+                while it.step():
+                    dof = it.i
+                    for i in range(self.coefficientsDownVec.shape[0]):
+                        for l in range(self.coefficientsDownVec.shape[0]):
+                            y[dof, l] += self.value[componentNo, k, i]*self.coefficientsDownVec[i, l]
+                    k += 1
+        else:
+            for c in self.children:
+                for i in range(c.transferOperator.shape[0]):
+                    for j in range(c.transferOperator.shape[1]):
+                        for l in range(self.coefficientsDownVec.shape[2]):
+                            self.coefficientsDownVec[j, l] += c.transferOperator[i, j]*c.coefficientsDownVec[i, l]
+                c.downwardPassVec(y, componentNo, local)
 
     def enterLeafValues(self,
                         meshBase mesh,
@@ -1826,6 +1862,31 @@ cdef class tree_node:
         assert dm.num_dofs == num_dofs
         self._dofs = None
 
+    cpdef void relabelDoFs(self, INDEX_t[::1] translate):
+        cdef:
+            tree_node n
+            arrayIndexSet oldDoFs
+            set newDoFs
+            indexSetIterator it
+            INDEX_t old_dof, new_dof
+        for n in self.leaves():
+            oldDoFs = n._dofs
+            newDoFs = set()
+            it = oldDoFs.getIter()
+            while it.step():
+                old_dof = it.i
+                new_dof = translate[old_dof]
+                if new_dof >= 0:
+                    newDoFs.add(new_dof)
+
+            if len(newDoFs) > 0:
+                newDoFsArray = np.array(list(newDoFs), dtype=INDEX)
+                n._dofs = arrayIndexSet(newDoFsArray)
+            else:
+                n._dofs = arrayIndexSet()
+        for n in self.get_tree_nodes():
+            n._num_dofs = -1
+
 cdef tree_node readNode(list nodes, INDEX_t myId, parent, REAL_t[:, :, ::1] boxes, LinearOperator children, INDEX_t M, REAL_t[:, :, ::1] transferOperators):
     cdef:
         indexSet bA = arrayIndexSet()
@@ -1938,6 +1999,15 @@ cdef class farFieldClusterPair:
     cpdef void apply(farFieldClusterPair self, REAL_t[::1] x, REAL_t[::1] y):
         gemv(self.kernelInterpolant, x, y, 1.)
 
+    cpdef void applyVec(farFieldClusterPair self, REAL_t[::1] x, REAL_t[:, ::1] y):
+        cdef:
+            INDEX_t i, j, l
+        y[:, :] = 0.0
+        for i in range(self.kernelInterpolantVec.shape[0]):
+            for j in range(self.kernelInterpolantVec.shape[1]):
+                for l in range(self.kernelInterpolantVec.shape[2]):
+                    y[i, l] += self.kernelInterpolantVec[i, j, l]*x[j]
+
     def __repr__(self):
         return 'farFieldClusterPair<{}, {}>'.format(self.n1, self.n2)
 
@@ -1974,7 +2044,7 @@ def assembleFarFieldInteractions(Kernel kernel, dict Pfar, INDEX_t m, DoFMap dm,
     cdef:
         INDEX_t lvl
         REAL_t[:, ::1] box1, box2, x, y
-        INDEX_t k, i, j, p
+        INDEX_t k, i, j, p, l
         REAL_t[::1] eta
         REAL_t eta_p
         farFieldClusterPair cP
@@ -1988,8 +2058,8 @@ def assembleFarFieldInteractions(Kernel kernel, dict Pfar, INDEX_t m, DoFMap dm,
 
     eta = np.cos((2.0*np.arange(m, 0, -1)-1.0) / (2.0*m) * np.pi)
 
-    x = uninitialized((kiSize, dim))
-    y = uninitialized((kiSize, dim))
+    x = uninitialized((kiSize, dim), dtype=REAL)
+    y = uninitialized((kiSize, dim), dtype=REAL)
 
     for lvl in Pfar:
         for cP in Pfar[lvl]:
@@ -2004,20 +2074,37 @@ def assembleFarFieldInteractions(Kernel kernel, dict Pfar, INDEX_t m, DoFMap dm,
                     x[k, j] = (box1[j, 1]-box1[j, 0])*0.5 * eta_p + box1[j, 0]
                     y[k, j] = (box2[j, 1]-box2[j, 0])*0.5 * eta_p + box2[j, 0]
                 k += 1
-            cP.kernelInterpolant = uninitialized((kiSize, kiSize), dtype=REAL)
-            if not bemMode:
-                for i in range(kiSize):
-                    for j in range(kiSize):
-                        if kernel_variable:
-                            kernel.evalParamsPtr(dim, &x[i, 0], &y[j, 0])
-                        kernel.evalPtr(dim, &x[i, 0], &y[j, 0], &cP.kernelInterpolant[i, j])
-                        cP.kernelInterpolant[i, j] *= -2.0
+            if kernel.valueSize == 1:
+                cP.kernelInterpolant = uninitialized((kiSize, kiSize), dtype=REAL)
+                if not bemMode:
+                    for i in range(kiSize):
+                        for j in range(kiSize):
+                            if kernel_variable:
+                                kernel.evalParamsPtr(dim, &x[i, 0], &y[j, 0])
+                            kernel.evalPtr(dim, &x[i, 0], &y[j, 0], &cP.kernelInterpolant[i, j])
+                            cP.kernelInterpolant[i, j] *= -2.0
+                else:
+                    for i in range(kiSize):
+                        for j in range(kiSize):
+                            if kernel_variable:
+                                kernel.evalParamsPtr(dim, &x[i, 0], &y[j, 0])
+                            kernel.evalPtr(dim, &x[i, 0], &y[j, 0], &cP.kernelInterpolant[i, j])
             else:
-                for i in range(kiSize):
-                    for j in range(kiSize):
-                        if kernel_variable:
-                            kernel.evalParamsPtr(dim, &x[i, 0], &y[j, 0])
-                        kernel.evalPtr(dim, &x[i, 0], &y[j, 0], &cP.kernelInterpolant[i, j])
+                cP.kernelInterpolantVec = uninitialized((kiSize, kiSize, kernel.valueSize), dtype=REAL)
+                if not bemMode:
+                    for i in range(kiSize):
+                        for j in range(kiSize):
+                            if kernel_variable:
+                                kernel.evalParamsPtr(dim, &x[i, 0], &y[j, 0])
+                            kernel.evalPtr(dim, &x[i, 0], &y[j, 0], &cP.kernelInterpolantVec[i, j, 0])
+                            for l in range(kernel.valueSize):
+                                cP.kernelInterpolantVec[i, j, l] *= -2.0
+                else:
+                    for i in range(kiSize):
+                        for j in range(kiSize):
+                            if kernel_variable:
+                                kernel.evalParamsPtr(dim, &x[i, 0], &y[j, 0])
+                            kernel.evalPtr(dim, &x[i, 0], &y[j, 0], &cP.kernelInterpolantVec[i, j, 0])
 
 
 cdef class H2Matrix(LinearOperator):
@@ -2341,6 +2428,415 @@ cdef class H2Matrix(LinearOperator):
                     for j in range(dofs2.shape[0]):
                         J = dofs2[j]
                         dense[I, J] = d[i, j]
+
+            for id in delNodes[lvl]:
+                if id in coefficientsUp:
+                    del coefficientsUp[id]
+        del coefficientsUp
+        return np.array(dense, copy=False)
+
+    def plot(self, Pnear=[], fill='box', nearFieldColor='red', farFieldColor='blue', kernelApproximationColor='yellow', shiftCoefficientColor='red', rankColor=None):
+        import matplotlib.pyplot as plt
+        if self.tree.dim == 1:
+            if fill == 'box':
+                for c in Pnear:
+                    c.plot()
+                for lvl in self.Pfar:
+                    for c in self.Pfar[lvl]:
+                        c.plot()
+                plt.xlim([self.tree.box[0, 0], self.tree.box[0, 1]])
+                plt.ylim([self.tree.box[0, 0], self.tree.box[0, 1]])
+            elif fill == 'dof':
+                import matplotlib.patches as patches
+                nd = self.shape[0]
+                spacing = 0.2
+                for c in Pnear:
+                    box1 = [min(c.n1.dofs)+spacing, max(c.n1.dofs)-spacing]
+                    box2 = [nd-max(c.n2.dofs)+spacing, nd-min(c.n2.dofs)-spacing]
+                    plt.gca().add_patch(patches.Rectangle((box1[0], box2[0]), box1[1]-box1[0], box2[1]-box2[0], fill=True, facecolor=nearFieldColor))
+                for lvl in self.Pfar:
+                    for c in self.Pfar[lvl]:
+                        if farFieldColor is not None:
+                            box1 = [min(c.n1.dofs)+spacing, max(c.n1.dofs)-spacing]
+                            box2 = [nd-max(c.n2.dofs)+spacing, nd-min(c.n2.dofs)-spacing]
+                            plt.gca().add_patch(patches.Rectangle((box1[0], box2[0]), box1[1]-box1[0], box2[1]-box2[0], fill=True, facecolor=farFieldColor))
+
+                        k = c.kernelInterpolant.shape[0]
+
+                        if shiftCoefficientColor is not None:
+                            box1 = [min(c.n1.dofs), min(c.n1.dofs)+k-1]
+                            box2 = [nd-min(c.n2.dofs), nd-max(c.n2.dofs)]
+                            plt.gca().add_patch(patches.Rectangle((box1[0], box2[0]), box1[1]-box1[0], box2[1]-box2[0], fill=True, facecolor=shiftCoefficientColor))
+
+                            box1 = [min(c.n1.dofs), max(c.n1.dofs)]
+                            box2 = [nd-min(c.n2.dofs), nd-min(c.n2.dofs)-k+1]
+                            plt.gca().add_patch(patches.Rectangle((box1[0], box2[0]), box1[1]-box1[0], box2[1]-box2[0], fill=True, facecolor=shiftCoefficientColor))
+
+                        if kernelApproximationColor is not None:
+                            box1 = [min(c.n1.dofs), min(c.n1.dofs)+k-1]
+                            box2 = [nd-min(c.n2.dofs), nd-min(c.n2.dofs)-k+1]
+                            plt.gca().add_patch(patches.Rectangle((box1[0], box2[0]), box1[1]-box1[0], box2[1]-box2[0], fill=True, facecolor=kernelApproximationColor))
+
+                        if rankColor is not None:
+                            plt.text(0.5*(min(c.n1.dofs)+max(c.n1.dofs)), nd-0.5*(min(c.n2.dofs)+max(c.n2.dofs)), str(k),
+                                     color=rankColor,
+                                     horizontalalignment='center',
+                                     verticalalignment='center')
+
+                plt.xlim([0, nd])
+                plt.ylim([0, nd])
+                plt.axis('equal')
+            else:
+                 raise NotImplementedError(fill)
+        elif self.tree.dim == 2:
+            Z = np.zeros((self.num_rows, self.num_columns), dtype=INDEX)
+            for c in Pnear:
+                for dof1 in c.n1.dofs:
+                    for dof2 in c.n2.dofs:
+                        Z[dof1, dof2] = 2
+            for lvl in self.Pfar:
+                for c in self.Pfar[lvl]:
+                    for dof1 in c.n1.dofs:
+                        for dof2 in c.n2.dofs:
+                            Z[dof1, dof2] = 1
+            plt.pcolormesh(Z)
+
+
+cdef class VectorH2Matrix(VectorLinearOperator):
+    def __init__(self,
+                 tree_node tree,
+                 dict Pfar,
+                 VectorLinearOperator Anear,
+                 FakePLogger PLogger=None):
+        self.tree = tree
+        self.Pfar = Pfar
+        self.Anear = Anear
+        VectorLinearOperator.__init__(self, Anear.shape[0], Anear.shape[1], Anear.vectorSize)
+        if PLogger is not None:
+            self.PLogger = PLogger
+        else:
+            self.PLogger = FakePLogger()
+        self.skip_leaves_upward = False
+
+    def constructBasis(self):
+        num_leaves = len(list(self.tree.leaves()))
+        md = self.tree.children[0].transferOperator.shape[0]
+        B = IJOperator(num_leaves*md, self.shape[1])
+        self.leafCoefficientsUp = uninitialized((num_leaves*md), dtype=REAL)
+        self.tree.constructBasisMatrix(B, self.leafCoefficientsUp)
+        self.basis = B.to_csr_linear_operator()
+        self.skip_leaves_upward = True
+
+    def isSparse(self):
+        return False
+
+    cdef INDEX_t matvec(self,
+                        REAL_t[::1] x,
+                        REAL_t[:, ::1] y) except -1:
+        cdef:
+            INDEX_t level, componentNo
+            tree_node n1, n2
+            farFieldClusterPair clusterPair
+        if self.Anear.nnz > 0:
+            with self.PLogger.Timer("h2 matvec near"):
+                self.Anear.matvec(x, y)
+        else:
+            y[:, :] = 0.
+        if len(self.Pfar) > 0:
+            if self.skip_leaves_upward:
+                self.basis.matvec(x, self.leafCoefficientsUp)
+            for componentNo in range(next(self.tree.leaves()).value.shape[0]):
+                with self.PLogger.Timer("h2 upwardPass"):
+                    self.tree.upwardPass(x, componentNo, skip_leaves=self.skip_leaves_upward)
+                    self.tree.resetCoefficientsDown(vecValued=True)
+                with self.PLogger.Timer("h2 far field"):
+                    for level in self.Pfar:
+                        for clusterPair in self.Pfar[level]:
+                            n1, n2 = clusterPair.n1, clusterPair.n2
+                            clusterPair.applyVec(n2.coefficientsUp, n1.coefficientsDownVec)
+                with self.PLogger.Timer("h2 downwardPass"):
+                    self.tree.downwardPassVec(y, componentNo)
+        return 0
+
+    cdef INDEX_t matvec_no_overwrite(self,
+                                     REAL_t[::1] x,
+                                     REAL_t[:, ::1] y) except -1:
+        cdef:
+            INDEX_t level, componentNo
+            tree_node n1, n2
+            farFieldClusterPair clusterPair
+        self.Anear.matvec_no_overwrite(x, y)
+        if len(self.Pfar) > 0:
+            if self.skip_leaves_upward:
+                self.basis.matvec(x, self.leafCoefficientsUp)
+            for componentNo in range(next(self.tree.leaves()).value.shape[0]):
+                self.tree.upwardPass(x, componentNo, skip_leaves=self.skip_leaves_upward)
+                self.tree.resetCoefficientsDown(vecValued=True)
+                for level in self.Pfar:
+                    for clusterPair in self.Pfar[level]:
+                        n1, n2 = clusterPair.n1, clusterPair.n2
+                        clusterPair.applyVec(n2.coefficientsUp, n1.coefficientsDownVec)
+                self.tree.downwardPassVec(y, componentNo)
+        return 0
+
+    # cdef INDEX_t matvec_submat(self,
+    #                            REAL_t[::1] x,
+    #                            REAL_t[::1] y,
+    #                            list right_list,
+    #                            tree_node left) except -1:
+    #     cdef:
+    #         INDEX_t level, componentNo
+    #         tree_node n1, n2, right
+    #         farFieldClusterPair clusterPair
+    #     if self.Anear.nnz > 0:
+    #         with self.PLogger.Timer("h2 matvec near"):
+    #             self.Anear.matvec(x, y)
+    #     else:
+    #         y[:] = 0.
+    #     if len(self.Pfar) > 0:
+    #         if self.skip_leaves_upward:
+    #             self.basis.matvec(x, self.leafCoefficientsUp)
+    #         for componentNo in range(next(self.tree.leaves()).value.shape[0]):
+    #             with self.PLogger.Timer("h2 upwardPass"):
+    #                 for right in right_list:
+    #                     right.upwardPass(x, componentNo, skip_leaves=self.skip_leaves_upward)
+    #                 left.resetCoefficientsDown()
+    #             with self.PLogger.Timer("h2 far field"):
+    #                 for level in self.Pfar:
+    #                     for clusterPair in self.Pfar[level]:
+    #                         n1, n2 = clusterPair.n1, clusterPair.n2
+    #                         clusterPair.apply(n2.coefficientsUp, n1.coefficientsDown)
+    #             with self.PLogger.Timer("h2 downwardPass"):
+    #                 left.downwardPass(y, componentNo)
+    #     return 0
+
+
+    property diagonal:
+        def __get__(self):
+            return self.Anear.diagonal
+
+    property tree_size:
+        def __get__(self):
+            cdef:
+                INDEX_t transfers_size = 0
+                INDEX_t leaf_size = 0
+                tree_node n
+            # transfer operators
+            for n in self.tree.get_tree_nodes():
+                try:
+                    transfers_size += n.transferOperator.shape[0]*n.transferOperator.shape[1]
+                except AttributeError:
+                    pass
+            # leaf values
+            for n in self.tree.leaves():
+                try:
+                    leaf_size += n.value.shape[0]*n.value.shape[1]*n.value.shape[2]
+                except AttributeError:
+                    pass
+            return transfers_size + leaf_size
+
+    property num_far_field_cluster_pairs:
+        def __get__(self):
+            clusters = 0
+            for lvl in self.Pfar:
+                clusters += len(self.Pfar[lvl])
+            return clusters
+
+    property cluster_size:
+        def __get__(self):
+            cdef:
+                INDEX_t lvl
+                farFieldClusterPair cP
+                kernelInterpolantSize = 0
+            for lvl in self.Pfar:
+                for cP in self.Pfar[lvl]:
+                    kernelInterpolantSize += cP.kernelInterpolant.shape[0]*cP.kernelInterpolant.shape[1]
+            return kernelInterpolantSize
+
+    property nearField_size:
+        def __get__(self):
+            if isinstance(self.Anear, Dense_LinearOperator):
+                return self.Anear.num_rows*self.Anear.num_columns
+            elif isinstance(self.Anear, Multiply_Linear_Operator):
+                return self.Anear.A.nnz
+            else:
+                return self.Anear.nnz
+
+    def __repr__(self):
+        return '<%dx%d %s %f fill from near field, %f fill from tree, %f fill from clusters, %d tree nodes, %d far-field cluster pairs>' % (self.num_rows,
+                                                                                                                                            self.num_columns,
+                                                                                                                                            self.__class__.__name__,
+                                                                                                                                            self.nearField_size/self.num_rows/self.num_columns,
+                                                                                                                                            self.tree_size/self.num_rows/self.num_columns,
+                                                                                                                                            self.cluster_size/self.num_rows/self.num_columns,
+                                                                                                                                            self.tree.nodes,
+                                                                                                                                            self.num_far_field_cluster_pairs)
+
+    def getMemorySize(self):
+        return self.Anear.getMemorySize() + self.cluster_size*sizeof(REAL_t) + self.tree_size*sizeof(REAL_t)
+
+    def HDF5write(self, node, version=2, Pnear=None):
+        cdef:
+            INDEX_t K, S, j, lvl, d1, d2
+            farFieldClusterPair clusterPair
+            REAL_t[::1] kernelInterpolants
+            INDEX_t[:, ::1] nodeIds
+            REAL_t[:, ::1] sVals
+        node.attrs['type'] = 'h2'
+
+        node.create_group('Anear')
+        self.Anear.HDF5write(node['Anear'])
+
+        node.create_group('tree')
+        if version == 2:
+            self.tree.HDF5writeNew(node['tree'])
+        elif version == 1:
+            self.tree.HDF5write(node['tree'])
+        else:
+            raise NotImplementedError()
+        node.attrs['version'] = version
+
+        K = 0
+        j = 0
+        for lvl in self.Pfar:
+            for clusterPair in self.Pfar[lvl]:
+                K += clusterPair.kernelInterpolant.shape[0]*clusterPair.kernelInterpolant.shape[1]
+                j += 1
+        kernelInterpolants = uninitialized((K), dtype=REAL)
+        nodeIds = uninitialized((j, 5), dtype=INDEX)
+        K = 0
+        j = 0
+        for lvl in self.Pfar:
+            for clusterPair in self.Pfar[lvl]:
+                S = clusterPair.kernelInterpolant.shape[0]*clusterPair.kernelInterpolant.shape[1]
+                for d1 in range(clusterPair.kernelInterpolant.shape[0]):
+                    for d2 in range(clusterPair.kernelInterpolant.shape[1]):
+                        kernelInterpolants[K] = clusterPair.kernelInterpolant[d1, d2]
+                        K += 1
+                nodeIds[j, 0] = clusterPair.n1.id
+                nodeIds[j, 1] = clusterPair.n2.id
+                nodeIds[j, 2] = clusterPair.kernelInterpolant.shape[0]
+                nodeIds[j, 3] = clusterPair.kernelInterpolant.shape[1]
+                nodeIds[j, 4] = lvl
+                j += 1
+        g = node.create_group('Pfar')
+        g.create_dataset('kernelInterpolants', data=kernelInterpolants, compression=COMPRESSION)
+        g.create_dataset('nodeIds', data=nodeIds, compression=COMPRESSION)
+
+        if Pnear is not None:
+            node2 = node.create_group('Pnear')
+            k = 0
+            for clusterPairNear in Pnear:
+                node2.create_group(str(k))
+                clusterPairNear.HDF5write(node2[str(k)])
+                k += 1
+
+    @staticmethod
+    def HDF5read(node, returnPnear=False):
+        cdef:
+            dict Pfar
+            INDEX_t lvl, K, j, d1, d2
+            farFieldClusterPair cP
+            INDEX_t[:, ::1] nodeIds
+            REAL_t[:, ::1] sVals
+
+        Anear = LinearOperator.HDF5read(node['Anear'])
+
+        try:
+            version = node.attrs['version']
+        except:
+            version = 1
+        if version == 2:
+            tree, nodes = tree_node.HDF5readNew(node['tree'])
+        else:
+            tree, nodes = tree_node.HDF5read(node['tree'])
+
+        Pfar = {}
+        nodeIds = np.array(node['Pfar']['nodeIds'], dtype=INDEX)
+        kernelInterpolants = np.array(node['Pfar']['kernelInterpolants'], dtype=REAL)
+        K = 0
+        for j in range(nodeIds.shape[0]):
+            lvl = nodeIds[j, 4]
+            if lvl not in Pfar:
+                Pfar[lvl] = []
+            cP = farFieldClusterPair(nodes[nodeIds[j, 0]],
+                                     nodes[nodeIds[j, 1]])
+            d1 = nodeIds[j, 2]
+            d2 = nodeIds[j, 3]
+            cP.kernelInterpolant = uninitialized((d1, d2), dtype=REAL)
+            for d1 in range(cP.kernelInterpolant.shape[0]):
+                for d2 in range(cP.kernelInterpolant.shape[1]):
+                    cP.kernelInterpolant[d1, d2] = kernelInterpolants[K]
+                    K += 1
+            Pfar[lvl].append(cP)
+
+        if returnPnear:
+            Pnear = []
+            for k in node['Pnear']:
+                Pnear.append(nearFieldClusterPair.HDF5read(node['Pnear'][k], nodes))
+            return H2Matrix(tree, Pfar, Anear), Pnear
+        else:
+            return H2Matrix(tree, Pfar, Anear)
+
+    def toarray(self):
+        cdef:
+            INDEX_t minLvl, maxLvl, lvl, i, j, I, J, id, k, l
+            farFieldClusterPair cP
+            tree_node n1, n2
+            dict lvlNodes, delNodes
+            dict coefficientsUp
+            REAL_t[:, :, ::1] dense
+            REAL_t[:, ::1] tr1, tr2
+            REAL_t[:, :, ::1] d
+            INDEX_t[::1] dofs1, dofs2
+        dense = self.Anear.toarray()
+        if len(self.Pfar) > 0:
+            minLvl = min(self.Pfar)
+            maxLvl = max(self.Pfar)
+        else:
+            minLvl = 100
+            maxLvl = 0
+        lvlNodes = {lvl : set() for lvl in range(minLvl, maxLvl+1)}
+        delNodes = {lvl : set() for lvl in range(minLvl, maxLvl+1)}
+        for lvl in self.Pfar:
+            for cP in self.Pfar[lvl]:
+                lvlNodes[lvl].add(cP.n1.id)
+                lvlNodes[lvl].add(cP.n2.id)
+        for lvl in range(minLvl+1, maxLvl+1):
+            lvlNodes[lvl] |= lvlNodes[lvl-1]
+        lvlNodes[maxLvl] = set(list(range(self.tree.get_max_id()+1)))
+        for lvl in range(minLvl, maxLvl):
+            delNodes[lvl] = lvlNodes[lvl+1]-lvlNodes[lvl]
+        del lvlNodes
+
+        coefficientsUp = {}
+        for lvl in reversed(sorted(self.Pfar.keys())):
+            for cP in self.Pfar[lvl]:
+                n1 = cP.n1
+                n2 = cP.n2
+                n1.upwardPassMatrix(coefficientsUp)
+                n2.upwardPassMatrix(coefficientsUp)
+                tr1, dofs1 = coefficientsUp[n1.id]
+                tr2, dofs2 = coefficientsUp[n2.id]
+
+                temp = np.zeros((cP.kernelInterpolantVec.shape[0], tr2.shape[0], cP.kernelInterpolantVec.shape[2]), dtype=REAL)
+                for i in range(cP.kernelInterpolantVec.shape[0]):
+                    for j in range(tr2.shape[0]):
+                        for k in range(cP.kernelInterpolantVec.shape[1]):
+                            for l in range(cP.kernelInterpolantVec.shape[2]):
+                                temp[i, j, l] += cP.kernelInterpolantVec[i, k, l]*tr2[j, k]
+                d = np.zeros((tr1.shape[0], tr2.shape[0], cP.kernelInterpolantVec.shape[2]), dtype=REAL)
+                for i in range(tr1.shape[0]):
+                    for j in range(tr2.shape[0]):
+                        for k in range(tr1.shape[1]):
+                            for l in range(cP.kernelInterpolantVec.shape[2]):
+                                d[i, j, l] += tr1[i, k]*temp[k, j, l]
+                for i in range(dofs1.shape[0]):
+                    I = dofs1[i]
+                    for j in range(dofs2.shape[0]):
+                        J = dofs2[j]
+                        for l in range(cP.kernelInterpolantVec.shape[2]):
+                            dense[I, J, l] = d[i, j, l]
 
             for id in delNodes[lvl]:
                 if id in coefficientsUp:

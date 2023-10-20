@@ -411,17 +411,14 @@ def updateFromDefaults(params, defaults):
             updateFromDefaults(params[key], defaults[key])
 
 
-KEY_VAL_FORMAT = '{:<54}{}'
-
-
-def getMPIinfo():
+def getMPIinfo(grp):
     from sys import modules
     if 'mpi4py.MPI' in modules:
         import mpi4py
         mpi4py.initialize = False
         from mpi4py import MPI
         if not MPI.Is_initialized():
-            return ''
+            return
         t = {MPI.THREAD_SINGLE: 'single',
              MPI.THREAD_FUNNELED: 'funneled',
              MPI.THREAD_SERIALIZED: 'serialized',
@@ -429,7 +426,7 @@ def getMPIinfo():
         hosts = MPI.COMM_WORLD.gather(MPI.Get_processor_name())
         if MPI.COMM_WORLD.rank == 0:
             hosts = ','.join(set(hosts))
-        s = ['{}'.format(MPI.Get_library_version()[:-1])]
+        grp.add('MPI library', '{}'.format(MPI.Get_library_version()[:-1]))
         for label, value in [('MPI standard supported:', MPI.Get_version()),
                              ('Vendor:', MPI.get_vendor()),
                              ('Level of thread support:', t[MPI.Query_thread()]),
@@ -438,13 +435,10 @@ def getMPIinfo():
                              ('Thread level requested:', mpi4py.rc.thread_level),
                              ('Hosts:', hosts),
                              ('Communicator size:', MPI.COMM_WORLD.size)]:
-            s.append(KEY_VAL_FORMAT.format(label, value))
-        return '\n'.join(s)
-    else:
-        return ''
+            grp.add(label, value)
 
 
-def getEnvVariables(envVars=[('OMP_NUM_THREADS', True)]):
+def getEnvVariables(grp, envVars=[('OMP_NUM_THREADS', True)]):
     from os import environ
     s = []
     for var, printNotSet in envVars:
@@ -454,23 +448,22 @@ def getEnvVariables(envVars=[('OMP_NUM_THREADS', True)]):
             varVal = 'not set'
         else:
             continue
-        s.append(KEY_VAL_FORMAT.format(var+':', varVal))
+        grp.add(var, varVal)
     return '\n'.join(s)
 
 
-def getSystemInfo(argv=None, envVars=[('OMP_NUM_THREADS', True)]):
+def getSystemInfo(grp, argv=None, envVars=[('OMP_NUM_THREADS', True)]):
     from sys import executable
-    s = '\n'
     if argv is not None:
-        s += KEY_VAL_FORMAT.format('Running:', executable + ' ' + ' '.join(argv)) + '\n'
+        grp.add('Running', executable + ' ' + ' '.join(argv))
     else:
-        s += KEY_VAL_FORMAT.format('Running:', executable) + '\n'
+        grp.add('Running', executable)
     import mpi4py
     mpi4py.initialize = False
     from mpi4py import MPI
     if MPI.Is_initialized():
-        s += getMPIinfo()+'\n'
-    s += getEnvVariables(envVars)+'\n'
+        getMPIinfo(grp)
+    getEnvVariables(grp, envVars)
     import pkg_resources
     from PyNucleus import subpackages
     versions = {}
@@ -481,17 +474,21 @@ def getSystemInfo(argv=None, envVars=[('OMP_NUM_THREADS', True)]):
         except KeyError:
             versions[version] = [pkg]
     for version in versions:
-        s += KEY_VAL_FORMAT.format(','.join(versions[version])+':', version)+'\n'
+        grp.add(','.join(versions[version]), version)
+
+    import importlib
+
     versions = {}
     for pkg in sorted(subpackages.keys()):
         version = pkg_resources.get_distribution('PyNucleus_'+pkg).version
+        module = importlib.import_module('PyNucleus_'+pkg+'.config')
+        sha = module.gitSHA
         try:
-            versions[version].append(pkg)
+            versions[(version, sha)].append(pkg)
         except KeyError:
-            versions[version] = [pkg]
+            versions[(version, sha)] = [pkg]
     for version in versions:
-        s += KEY_VAL_FORMAT.format('PyNucleus_'+(','.join(versions[version]))+':', version)+'\n'
-    return s
+        grp.add('PyNucleus_'+(','.join(versions[version])), version)
 
 
 class MPIFileHandler(logging.Handler):
@@ -504,6 +501,7 @@ class MPIFileHandler(logging.Handler):
         # keep the absolute path, otherwise derived classes which use this
         # may come a cropper when the current directory changes
         self.baseFilename = os.path.abspath(filename)
+        assert len(self.baseFilename) <= 245, 'The length of the log file path \"{}\" is too long and will probably crash MPI. Try running with \"--disableFileLog\"'.format(self.baseFilename)
         if Path(self.baseFilename).exists() and comm.rank == 0:
             from os import remove
             remove(self.baseFilename)
@@ -1095,11 +1093,12 @@ class driver:
         if params['displayConfig']:
             from pprint import pformat
             self.logger.info('\n'+pformat(params))
+
+        from sys import argv
+        sysInfo = self.addOutputGroup('sysInfo')
+        getSystemInfo(argv=argv, grp=sysInfo)
         if not params['disableHeader']:
-            from sys import argv
-            sysInfo = getSystemInfo(argv)
-            if self.isMaster:
-                self.logger.info(sysInfo)
+            self.logger.info('\n'+str(sysInfo))
         if params['logDependencies']:
             dependencyLogger.setLevel(logging.DEBUG)
         else:

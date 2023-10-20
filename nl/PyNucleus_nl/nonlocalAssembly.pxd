@@ -17,7 +17,8 @@ from . clusterMethodCy cimport (tree_node,
                                 H2Matrix,
                                 DistributedH2Matrix_globalData,
                                 DistributedH2Matrix_localData,
-                                DistributedLinearOperator)
+                                DistributedLinearOperator,
+                                VectorH2Matrix)
 from . nonlocalOperator cimport (double_local_matrix_t,
                                  Complexdouble_local_matrix_t,
                                  nonlocalOperator,
@@ -38,6 +39,7 @@ from mpi4py import MPI
 from mpi4py cimport MPI
 from PyNucleus_base.performanceLogger cimport PLogger, FakePLogger, LoggingPLogger
 from PyNucleus_base.linear_operators cimport LinearOperator, ComplexLinearOperator
+from PyNucleus_base.linear_operators cimport VectorLinearOperator, ComplexVectorLinearOperator
 from PyNucleus_fem.meshCy cimport meshBase
 from PyNucleus_fem.DoFMaps cimport DoFMap
 from . kernelsCy cimport (Kernel,
@@ -54,6 +56,3 @@ cdef class nearFieldClusterPair:
         public tree_node n1, n2
         public indexSet cellsUnion, cellsInter
     cdef void set_cells(self)
-
-
-cdef LinearOperator getSparseNearField(DoFMap DoFMap, list Pnear, bint symmetric=*, tree_node myRoot=*)
