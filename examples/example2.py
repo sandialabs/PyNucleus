@@ -94,8 +94,8 @@ meshConst.plot()
 dmConst = dofmapFactory('P1', meshConst, nIConst['domain'])
 dmConstInteraction = dmConst.getComplementDoFMap()
 
-A_const = dmConst.assembleNonlocal(kernelConst, matrixFormat='sparsified')
-B_const = dmConst.assembleNonlocal(kernelConst, dm2=dmConstInteraction, matrixFormat='sparsified')
+A_const = dmConst.assembleNonlocal(kernelConst, matrixFormat='sparse')
+B_const = dmConst.assembleNonlocal(kernelConst, dm2=dmConstInteraction, matrixFormat='sparse')
 
 g = functionFactory('Lambda', lambda x: -(x[0]**2 + x[1]**2)/4)
 g_interp = dmConstInteraction.interpolate(g)
@@ -109,7 +109,7 @@ solver.tolerance = 1e-8
 
 solver(b, u)
 
-u_global = dmConst.augmentWithBoundaryData(u, g_interp)
+u_global = u.augmentWithBoundaryData(g_interp)
 
 plt.figure().gca().set_title('Numerical solution, constant kernel')
 u_global.plot()
@@ -121,3 +121,4 @@ print(A_const)
 
 ######################################################################
 plt.show()
+

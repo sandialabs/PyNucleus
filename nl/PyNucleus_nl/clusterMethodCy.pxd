@@ -13,6 +13,7 @@ from PyNucleus_fem.quadrature cimport (simplexDuffyTransformation,
 from PyNucleus_fem.functions cimport function
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, BOOL_t
 from PyNucleus_base.linear_operators cimport (LinearOperator,
+                                              VectorLinearOperator,
                                               Dense_LinearOperator,
                                               CSR_LinearOperator,
                                               SSS_LinearOperator)
@@ -76,6 +77,7 @@ cdef class tree_node:
         public REAL_t[:, ::1] transferOperator
         public REAL_t[:, :, ::1] value
         public REAL_t[::1] coefficientsUp, coefficientsDown
+        public REAL_t[:, ::1] coefficientsDownVec
         public BOOL_t mixed_node
         public BOOL_t canBeAssembled
         public INDEX_t levelNo
@@ -89,15 +91,17 @@ cdef class tree_node:
     cdef BOOL_t get_is_leaf(self)
     cdef INDEX_t _getLevels(self)
     cdef INDEX_t _getParentLevels(self)
-    cdef void prepareTransferOperators(self, INDEX_t m, transferMatrixBuilder tMB=*)
+    cdef void prepareTransferOperators(self, INDEX_t m, INDEX_t valueSize, transferMatrixBuilder tMB=*)
     cdef void upwardPass(self, REAL_t[::1] x, INDEX_t componentNo=*, BOOL_t skip_leaves=*, BOOL_t local=*)
-    cdef void resetCoefficientsDown(self)
+    cdef void resetCoefficientsDown(self, BOOL_t vecValued=*)
     cdef void resetCoefficientsUp(self)
     cdef void downwardPass(self, REAL_t[::1] y, INDEX_t componentNo=*, BOOL_t local=*)
+    cdef void downwardPassVec(self, REAL_t[:, ::1] y, INDEX_t componentNo=*, BOOL_t local=*)
     cpdef INDEX_t findCell(self, meshBase mesh, REAL_t[::1] vertex, REAL_t[:, ::1] simplex, REAL_t[::1] bary)
     cpdef set findCells(self, meshBase mesh, REAL_t[::1] vertex, REAL_t r, REAL_t[:, ::1] simplex)
     cdef BOOL_t trim(self, bitArray keep)
     cdef void upwardPassMatrix(self, dict coefficientsUp)
+    cpdef void relabelDoFs(self, INDEX_t[::1] translate)
 
 
 cdef class productIterator:
@@ -113,7 +117,9 @@ cdef class farFieldClusterPair:
     cdef:
         public tree_node n1, n2
         public REAL_t[:, ::1] kernelInterpolant
+        public REAL_t[:, :, ::1] kernelInterpolantVec
     cpdef void apply(self, REAL_t[::1] x, REAL_t[::1] y)
+    cpdef void applyVec(farFieldClusterPair self, REAL_t[::1] x, REAL_t[:, ::1] y)
 
 
 cdef class H2Matrix(LinearOperator):
@@ -133,6 +139,25 @@ cdef class H2Matrix(LinearOperator):
                                REAL_t[::1] y,
                                list right_list,
                                tree_node left) except -1
+
+
+cdef class VectorH2Matrix(VectorLinearOperator):
+    cdef:
+        public VectorLinearOperator Anear
+        public dict Pfar
+        public tree_node tree
+        public FakePLogger PLogger
+        public LinearOperator basis
+        public BOOL_t skip_leaves_upward
+        public REAL_t[::1] leafCoefficientsUp
+    # cdef INDEX_t matvec(self,
+    #                     REAL_t[::1] x,
+    #                     REAL_t[:, ::1] y) except -1
+    # cdef INDEX_t matvec_submat(self,
+    #                            REAL_t[::1] x,
+    #                            REAL_t[:, ::1] y,
+    #                            list right_list,
+    #                            tree_node left) except -1
 
 
 cdef class DistributedH2Matrix_globalData(LinearOperator):
