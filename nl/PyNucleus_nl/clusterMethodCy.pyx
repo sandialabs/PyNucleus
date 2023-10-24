@@ -1561,7 +1561,7 @@ cdef class tree_node:
             tree_node n
             indexSetIterator it = arrayIndexSetIterator()
             INDEX_t dim = self.box.shape[0], i, j
-        numNodes = self.nodes
+        numNodes = self.get_max_id()+1
         indptrChildren = uninitialized((numNodes+1), dtype=INDEX)
         boxes = uninitialized((numNodes, dim, 2), dtype=REAL)
         for n in self.get_tree_nodes():
