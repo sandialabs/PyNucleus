@@ -37,7 +37,7 @@ A fractional kernel
 
 We start off by creating a fractional kernel with infinite horizon and constant fractional order :math:`s=0.75`.
 
-.. literalinclude:: ../drivers/example2.py
+.. literalinclude:: ../examples/example2.py
    :start-after: Get a fractional kernel
    :end-before: #################
    :lineno-match:
@@ -66,7 +66,7 @@ Instead of the `meshFactory` used in the previous example, we now use the `nonlo
 The advantage is that this factory can generate meshes with appropriate interaction domains.
 For this particular example, the factory will not generate any interaction domain, since the homogeneous Dirichlet condition on :math:`\mathbb{R}^2\setminus\Omega` can be enforced via a boundary integral.
 
-.. literalinclude:: ../drivers/example2.py
+.. literalinclude:: ../examples/example2.py
    :start-after: Generate an appropriate mesh
    :end-before: #################
    :lineno-match:
@@ -80,7 +80,7 @@ We assemble the nonlocal operator by passing the kernel to the `assembleNonlocal
 The optional parameter `matrixFormat` determines what kind of linear operator is assembled.
 We time the assembly of the operator as a dense matrix, and as a hierarchical matrix, and inspect the resulting objects.
 
-.. literalinclude:: ../drivers/example2.py
+.. literalinclude:: ../examples/example2.py
    :start-after: Assemble the operator
    :end-before: #################
    :lineno-match:
@@ -93,7 +93,7 @@ For larger number of unknowns, we expect the hierarchical assembly scale like :m
 
 Similar to the local PDE example, we can then solve the resulting linear equation and compute the error in energy norm.
 
-.. literalinclude:: ../drivers/example2.py
+.. literalinclude:: ../examples/example2.py
    :start-after: Solve the linear system
    :end-before: #################
    :lineno-match:
@@ -116,7 +116,7 @@ We will choose :math:`\gamma(x,y) \sim \chi_{V_{\delta}^{(2)}(x)}(y)` for :math:
 
 where :math:`\mathcal{I}:=\{y\in\mathbb{R}^2\setminus\Omega | \exists x\in\Omega: \gamma(x,y)\neq 0\}` is the interaction domain.
 
-.. literalinclude:: ../drivers/example2.py
+.. literalinclude:: ../examples/example2.py
    :start-after: Solve a problem with finite horizon
    :end-before: #################
    :lineno-match:

@@ -19,7 +19,7 @@ Meshes
 The first object we need to create is a mesh to support the finite element discretization.
 We start by construction a mesh for a square domain :math:`\Omega=[0, 1] \times [0, 1]` and refining it uniformly three times:
 
-.. literalinclude:: ../drivers/example1.py
+.. literalinclude:: ../examples/example1.py
    :start-after: Get a mesh
    :end-before: #################
    :lineno-match:
@@ -41,7 +41,7 @@ In the next step, we create a finite element space on the mesh.
 By default, we assume a Dirichlet condition on the entire boundary of the domain.
 We build a piecewise linear finite element space.
 
-.. literalinclude:: ../drivers/example1.py
+.. literalinclude:: ../examples/example1.py
    :start-after: Construct a finite element space
    :end-before: #################
    :lineno-match:
@@ -76,7 +76,7 @@ We assemble the right-hand side
 of the linear system by calling the ``assembleRHS`` method of the DoFMap object, and interpolate the exact solutions into the finite element space.
 
 
-.. literalinclude:: ../drivers/example1.py
+.. literalinclude:: ../examples/example1.py
    :start-after: Construct some simple functions
    :end-before: #################
    :lineno-match:
@@ -100,7 +100,7 @@ and the stiffness matrix associated with the Laplacian
 
    \int_\Omega \nabla u \cdot \nabla v
 
-.. literalinclude:: ../drivers/example1.py
+.. literalinclude:: ../examples/example1.py
    :start-after: Assemble mass
    :end-before: #######
    :lineno-match:
@@ -113,7 +113,7 @@ Solvers
 Now that we have assembled our linear system, we want to solve it.
 We choose to solve one system using an LU solver, and the other one using a CG solver.
 
-.. literalinclude:: ../drivers/example1.py
+.. literalinclude:: ../examples/example1.py
    :start-after: Construct solvers
    :end-before: #################
    :lineno-match:
@@ -128,7 +128,7 @@ Norms and inner products
 Finally, we want to check that we actually solved the system by computing residual errors.
 We also compute errors in :math:`H^1_0` and :math:`L^2` norms.
 
-.. literalinclude:: ../drivers/example1.py
+.. literalinclude:: ../examples/example1.py
    :start-after: Inner products
    :end-before: plt.show
    :lineno-match:
