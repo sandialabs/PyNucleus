@@ -2,6 +2,10 @@
 name: CI MacOS
 
 on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
   workflow_dispatch:
 
 jobs:
@@ -33,7 +37,7 @@ jobs:
       id: ccache-restore
       uses: actions/cache/restore@v3
       with:
-        path: /home/runner/.cache/ccache
+        path: /Users/runner/Library/Caches/ccache
         key: ccache-mac-${{ matrix.py-version }}
 
     - name: Setup GNU Fortran
@@ -73,7 +77,7 @@ jobs:
       if: always()
       uses: actions/cache/save@v3
       with:
-        path: /home/runner/.cache/ccache
+        path: /Users/runner/Library/Caches/ccache
         key: ccache-mac-${{ matrix.py-version }}
 
     - name: Ccache report
@@ -82,11 +86,20 @@ jobs:
 
     - name: Run tests
       if: always()
-      run: drivers/runFractional.py --hdf5Output=data.hdf5 --skipPlots  --saveOperators
+      run: python3 -m pytest --junit-xml=test-results-Mac-${{ matrix.py-version }}.xml tests/
 
     - name: Archive test results
       uses: actions/upload-artifact@v3
       if: always()
       with:
         name: Test results
-        path: data.hdf5
+        path: test-results-${{ matrix.py-version }}.xml
+
+    - name: Report test results
+      uses: dorny/test-reporter@v1
+      if: always()
+      with:
+        name: Test report (Mac, Python ${{ matrix.py-version }})
+        path: test-results-Mac-${{ matrix.py-version }}.xml
+        reporter: java-junit
+        fail-on-error: true
