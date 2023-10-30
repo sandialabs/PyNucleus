@@ -33,7 +33,7 @@ from PyNucleus_base.sparsityPattern cimport sparsityPattern
 from . DoFMaps cimport (P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap,
                         N1e_DoFMap,
                         DoFMap,
-                        vectorShapeFunction,
+                        shapeFunction,
                         fe_vector, complex_fe_vector,
                         multi_fe_vector)
 from . quadrature cimport simplexQuadratureRule, Gauss1D, Gauss2D, Gauss3D, simplexXiaoGimbutas
@@ -925,6 +925,7 @@ cdef class mass_quadrature_matrix(local_matrix_t):
     def __init__(self, function diffusivity, DoFMap DoFMap, simplexQuadratureRule qr):
         cdef:
             INDEX_t I, k
+            shapeFunction sf
         local_matrix_t.__init__(self, DoFMap.dim)
         self.diffusivity = diffusivity
         self.qr = qr
@@ -932,8 +933,9 @@ cdef class mass_quadrature_matrix(local_matrix_t):
         # evaluate local shape functions on quadrature nodes
         self.PHI = uninitialized((DoFMap.dofs_per_element, qr.num_nodes), dtype=REAL)
         for I in range(DoFMap.dofs_per_element):
+            sf = DoFMap.localShapeFunctions[I]
             for k in range(qr.num_nodes):
-                self.PHI[I, k] = DoFMap.localShapeFunctions[I](np.ascontiguousarray(qr.nodes[:, k]))
+                sf.evalStrided(&qr.nodes[0, k], NULL, qr.nodes.shape[1], &self.PHI[I, k])
 
         self.funVals = uninitialized((qr.num_nodes), dtype=REAL)
         self.temp = uninitialized((10, DoFMap.dim), dtype=REAL)
@@ -2437,10 +2439,11 @@ def assembleRHS(FUNCTION_t fun, DoFMap dm,
                                                  dtype=REAL)
         volume_t volume
         simplexComputations sC
-        vectorShapeFunction phi
+        shapeFunction phi
         REAL_t[::1] fvals
         REAL_t[:, ::1] fvalsVector
         INDEX_t fun_rows
+        shapeFunction sf
 
     if qr is None:
         if dim == dimManifold:
@@ -2484,7 +2487,8 @@ def assembleRHS(FUNCTION_t fun, DoFMap dm,
         PHI = uninitialized((dm.dofs_per_element, qr.num_nodes), dtype=REAL)
         for i in range(dm.dofs_per_element):
             for j in range(qr.num_nodes):
-                PHI[i, j] = dm.localShapeFunctions[i](np.ascontiguousarray(qr.nodes[:, j]))
+                sf = dm.localShapeFunctions[i]
+                sf.evalStrided(&qr.nodes[0, j], NULL, qr.num_nodes, &PHI[i, j])
 
         fvals = uninitialized((num_quad_nodes), dtype=REAL)
 
@@ -2691,9 +2695,7 @@ def assembleRHSgrad(FUNCTION_t fun, DoFMap dm,
         REAL_t[:, ::1] simplex = uninitialized((mesh.manifold_dim+1, mesh.dim),
                                                  dtype=REAL)
         volume_t volume
-        vectorShapeFunction phi
         REAL_t[::1] fvals
-        REAL_t[:, ::1] fvalsVector
 
     assert isinstance(dm, P1_DoFMap)
     assert dim == 1 or dim == 2

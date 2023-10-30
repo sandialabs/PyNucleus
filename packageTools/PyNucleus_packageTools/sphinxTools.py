@@ -5,6 +5,8 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
+import logging
+
 
 class codeRegion:
     def __init__(self, mgr, label, isFinalTarget, codeTarget=''):
@@ -20,6 +22,11 @@ class codeRegion:
         self.startLine = caller.lineno
         self._stdout = sys.stdout
         sys.stdout = self._stringio = StringIO()
+        logger = logging.getLogger('__main__')
+        if self.isTarget:
+            logger.setLevel(logging.INFO)
+        else:
+            logger.setLevel(logging.CRITICAL)
 
         return self
 

@@ -23,7 +23,7 @@ from PyNucleus_fem.splitting import dofmapSplitter
 from . nonlocalOperator cimport variableFractionalOrder
 from . nonlocalAssembly cimport nearFieldClusterPair
 from . kernelsCy cimport Kernel
-from PyNucleus_fem.DoFMaps cimport DoFMap, P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap
+from PyNucleus_fem.DoFMaps cimport DoFMap, P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap, shapeFunction
 from PyNucleus_fem.meshCy cimport meshBase
 from PyNucleus_fem.functions cimport constant
 import mpi4py.rc
@@ -1192,6 +1192,7 @@ cdef class tree_node:
             productIterator pit = productIterator(order, mesh.dim)
             transferMatrixBuilder tMB
             REAL_t[:, ::1] transferOperator
+            shapeFunction sf
         dim = mesh.dim
         manifold_dim = mesh.manifold_dim
         # Sauter Schwab p. 428
@@ -1210,8 +1211,9 @@ cdef class tree_node:
         # get values of basis function in quadrature nodes
         PHI = uninitialized((DoFMap.dofs_per_element, qr.num_nodes), dtype=REAL)
         for i in range(DoFMap.dofs_per_element):
+            sf = DoFMap.getLocalShapeFunction(i)
             for j in range(qr.num_nodes):
-                PHI[i, j] = DoFMap.localShapeFunctions[i](qr.nodes[:, j])
+                sf.evalStrided(&qr.nodes[0, j], NULL, qr.num_nodes, &PHI[i, j])
 
         coeff = np.zeros((DoFMap.num_dofs, order**dim), dtype=REAL)
         simplex = uninitialized((manifold_dim+1, dim), dtype=REAL)

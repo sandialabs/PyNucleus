@@ -3,7 +3,7 @@ Example 1 - A simple PDE problem
 ================================
 
 In this first example, we will construct a finite element discretization of a classical PDE problem and solve it.
-The full code of this example can be found in ``examples/example1.py``.
+The full code of this example can be found in `examples/example1.py <https://github.com/sandialabs/PyNucleus/blob/master/examples/example1.py>`_.
 
 Factories
 ---------

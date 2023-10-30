@@ -49,7 +49,6 @@ cdef class DoFMap:
     cpdef void resetUsingIndicator(self, function indicator)
     cpdef void resetUsingFEVector(self, REAL_t[::1] ind)
     cdef shapeFunction getLocalShapeFunction(self, INDEX_t dofNo)
-    cdef vectorShapeFunction getLocalVectorShapeFunction(self, INDEX_t dofNo)
 
 
 cdef class P1_DoFMap(DoFMap):
@@ -75,20 +74,17 @@ cdef class N1e_DoFMap(DoFMap):
 cdef class shapeFunction:
     cdef:
         REAL_t[::1] bary
-    cdef REAL_t eval(self, const REAL_t[::1] lam)
-    cdef REAL_t evalStrided(self, const REAL_t* lam, INDEX_t stride)
-    cdef REAL_t evalGlobal(self, REAL_t[:, ::1] simplex, REAL_t[::1] x)
-    cdef void evalGrad(self, const REAL_t[::1] lam, const REAL_t[:, ::1] gradLam, REAL_t[::1] value)
-
-
-cdef class vectorShapeFunction:
-    cdef:
-        INDEX_t dim
         INDEX_t[::1] cell
-        public BOOL_t needsGradients
+        readonly INDEX_t dim
+        readonly INDEX_t valueSize
+        readonly BOOL_t needsGradients
     cpdef void setCell(self, INDEX_t[::1] cell)
-    cdef void eval(self, const REAL_t[::1] lam, const REAL_t[:, ::1] gradLam, REAL_t[::1] value)
-    cdef void evalGlobal(self, const REAL_t[:, ::1] simplex, const REAL_t[::1] x, REAL_t[::1] value)
+    cdef void eval(self, REAL_t[::1] lam, REAL_t[:, ::1] gradLam, REAL_t[::1] value)
+    cdef void evalPtr(self, REAL_t* lam, REAL_t* gradLam, REAL_t* value)
+    cdef void evalStrided(self, REAL_t* lam, REAL_t* gradLam, INDEX_t stride, REAL_t* value)
+    cdef void evalGrad(self, REAL_t[::1] lam, REAL_t[:, ::1] gradLam, REAL_t[::1] value)
+    cdef void evalGradPtr(self, REAL_t* lam, REAL_t* gradLam, REAL_t* value)
+    cdef void evalGlobal(self, REAL_t[:, ::1] simplex, REAL_t[::1] x, REAL_t[::1] value)
 
 
 cdef class Product_DoFMap(DoFMap):

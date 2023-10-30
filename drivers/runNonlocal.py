@@ -32,6 +32,7 @@ mS = discrProblem.modelSolution
 ##################################################
 
 vectors = d.addOutputGroup('vectors')
+vectors.add('dm', mS.u.dm)
 vectors.add('u', mS.u)
 if mS.u_interp is not None:
     vectors.add('uEx', mS.u_interp)

@@ -1028,7 +1028,7 @@ class driver:
         doTerminate = False
         if self.isMaster:
             if 'plots' in self.argGroups:
-                io = self.addGroup('input/output')
+                io = self.addGroup('plots')
                 io.add('plotFolder', '', help='folder for saving plots')
                 io.add('plotFormat', acceptedValues=['pdf', 'png', 'jpeg', 'eps', 'ps', 'svg'], help='File format for saving plots')
             try:
@@ -1450,6 +1450,12 @@ class parametrizedArg:
         m = self.regexp.match(s)
         return [p(v) for v, p in zip(m.groups(), self.params)]
 
+    def __repr__(self):
+        params = []
+        for p in self.params:
+            params.append(p.__name__)
+        return "{}({})".format(self.name, ','.join(params))
+
 
 class propertyBuilder:
     def __init__(self, baseObj, fun):
@@ -1782,7 +1788,7 @@ class driverAddon:
             for p in parametrizedArgs:
                 if self.parametrizedArg(p).match(v):
                     return v
-            raise ArgumentTypeError()
+            raise ArgumentTypeError("\"{}\" is not in list of accepted values {} or cannot be interpreted as parametrized arg {}.".format(v, acceptedValues, [repr(self.parametrizedArg(p)) for p in parametrizedArgs]))
 
         return interpreter
 

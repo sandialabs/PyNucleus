@@ -882,6 +882,16 @@ cdef class blockOperator(LinearOperator):
                   self.blockInptrRight[j]:self.blockInptrRight[j+1]] = lo.toarray()
         return B
 
+    def isSparse(self):
+        cdef:
+            BOOL_t sparse = True
+            INDEX_t i, j
+        for i in range(self.blockShape[0]):
+            for j in range(self.blockShape[1]):
+                lo = self.subblocks[i][j]
+                sparse &= lo.isSparse()
+        return sparse
+
 
 cdef class blockDiagonalOperator(blockOperator):
     def __init__(self, list diagonalBlocks):

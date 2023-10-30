@@ -356,13 +356,16 @@ class discretizedNonlocalProblem(problem):
         self.addRemote(self.continuumProblem)
 
     def setDriverArgs(self):
-        self.setDriverFlag('solverType', acceptedValues=['cg-mg', 'gmres-mg', 'lu', 'mg', 'cg-jacobi', 'gmres-jacobi'], help='solver for the linear system')
-        self.setDriverFlag('maxiter', 100, help='maximum number of iterations')
-        self.setDriverFlag('tol', 1e-6, help='solver tolerance')
-        self.setDriverFlag('quadType', acceptedValues=['auto', 'classical', 'general', 'adaptive', 'classical-refactored'])
-        self.setDriverFlag('quadTypeBoundary', acceptedValues=['auto', 'classical', 'general', 'adaptive', 'classical-refactored'])
-        self.setDriverFlag('matrixFormat', acceptedValues=['H2', 'sparse', 'sparsified', 'dense'], help='matrix format')
-        self.setDriverFlag('debugAssemblyTimes', False)
+        p = self.driver.addGroup('solver')
+        self.setDriverFlag('solverType', acceptedValues=['cg-mg', 'gmres-mg', 'lu', 'mg', 'cg-jacobi', 'gmres-jacobi'], help='solver for the linear system', group=p)
+        self.setDriverFlag('maxiter', 100, help='maximum number of iterations', group=p)
+        self.setDriverFlag('tol', 1e-6, help='solver tolerance', group=p)
+
+        p = self.driver.addGroup('assembly')
+        self.setDriverFlag('quadType', acceptedValues=['auto', 'classical', 'general', 'adaptive', 'classical-refactored'], group=p)
+        self.setDriverFlag('quadTypeBoundary', acceptedValues=['auto', 'classical', 'general', 'adaptive', 'classical-refactored'], group=p)
+        self.setDriverFlag('matrixFormat', acceptedValues=['H2', 'sparse', 'sparsified', 'dense'], help='matrix format', group=p)
+        self.setDriverFlag('debugAssemblyTimes', False, group=p)
 
     @generates(['meshHierarchy', 'finalMesh',
                 'dm', 'dmBC', 'dmInterior',
@@ -476,7 +479,7 @@ class discretizedNonlocalProblem(problem):
 
         self.hierarchy = hierarchy
         if kernel is not None:
-            assert 2*self.finalMesh.h < kernel.horizon.value, "h = {}, horizon = {}".format(self.finalMesh.h, kernel.horizon.value)
+            assert 2*self.finalMesh.h < kernel.horizon.value, "Please choose horizon bigger than two mesh sizes. h = {}, horizon = {}".format(self.finalMesh.h, kernel.horizon.value)
 
     @generates('A_BC')
     def buildBCoperator(self, dmInterior, dmBC,
@@ -547,7 +550,8 @@ class discretizedNonlocalProblem(problem):
     def buildSolver(self, solverType, tol, maxiter, hierarchy, kernel):
         from PyNucleus_base.solvers import iterative_solver
         if solverType[:2] == 'cg':
-            assert kernel.symmetric, 'CG solver requires a symmetric matrix'
+            if kernel is not None:
+                assert kernel.symmetric, 'CG solver requires a symmetric matrix'
         solver = solverFactory.build(solverType, hierarchy=hierarchy)
         if isinstance(solver, iterative_solver):
             solver.tolerance = tol
@@ -606,6 +610,10 @@ class discretizedNonlocalProblem(problem):
         group.add('kernel',self.continuumProblem.kernel)
         group.add('h', self.finalMesh.h)
         group.add('hmin', self.finalMesh.hmin)
+        if self.continuumProblem.kernel is not None:
+            group.add('horizon', self.continuumProblem.kernel.horizonValue)
+        else:
+            group.add('horizon', 0.0)
         group.add('mesh quality', self.finalMesh.delta)
         group.add('DoFMap', str(self.dm))
         group.add('Interior DoFMap', str(self.dmInterior))

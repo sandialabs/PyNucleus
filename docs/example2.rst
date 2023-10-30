@@ -3,7 +3,7 @@ Example 2 - Nonlocal problems
 =============================
 
 I this second example, we will assemble and solve several nonlocal equations.
-The full code of this example can be found in ``examples/example2.py``.
+The full code of this example can be found in `examples/example2.py <https://github.com/sandialabs/PyNucleus/blob/master/examples/example2.py>`_.
 
 PyNucleus can assemble operators of the form
 

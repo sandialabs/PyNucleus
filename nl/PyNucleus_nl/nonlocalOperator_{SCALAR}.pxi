@@ -543,9 +543,12 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             doubleSimplexQuadratureRule qr2
             specialQuadRule sQR
             REAL_t[:, ::1] PSI
-            INDEX_t I, k, i, j
+            INDEX_t I, k, i, j, m
             INDEX_t numQuadNodes0, numQuadNodes1, dofs_per_element
             shapeFunction sf
+            REAL_t lcl_bary_x[4]
+            REAL_t lcl_bary_y[4]
+            REAL_t phi_x, phi_y
         qr0 = simplexXiaoGimbutas(panel, self.dim, self.manifold_dim1)
         qr1 = qr0
         qr2 = doubleSimplexQuadratureRule(qr0, qr1)
@@ -560,7 +563,10 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             k = 0
             for i in range(numQuadNodes0):
                 for j in range(numQuadNodes1):
-                    PSI[I, k] = sf(qr0.nodes[:, i])
+                    for m in range(self.dim+1):
+                        lcl_bary_x[m] = qr0.nodes[m, i]
+                    sf.evalPtr(&lcl_bary_x[0], NULL, &phi_x)
+                    PSI[I, k] = phi_x
                     k += 1
         # phi_i(x) - phi_i(y) = -phi_i(y)
         for I in range(self.DoFMap.dofs_per_element):
@@ -568,7 +574,10 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             k = 0
             for i in range(numQuadNodes0):
                 for j in range(numQuadNodes1):
-                    PSI[I+dofs_per_element, k] = -sf(qr1.nodes[:, j])
+                    for m in range(self.dim+1):
+                        lcl_bary_y[m] = qr1.nodes[m, j]
+                    sf.evalPtr(&lcl_bary_y[0], NULL, &phi_y)
+                    PSI[I+dofs_per_element, k] = -phi_y
                     k += 1
         sQR = specialQuadRule(qr2, PSI)
         self.distantQuadRules[panel] = sQR
@@ -588,9 +597,12 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             specialQuadRule sQR
             REAL_t[:, ::1] PSI
             REAL_t[:, :, ::1] PHI
-            INDEX_t I, k, i, j
+            INDEX_t I, k, i, j, m
             INDEX_t numQuadNodes0, numQuadNodes1, dofs_per_element
             shapeFunction sf
+            REAL_t lcl_bary_x[4]
+            REAL_t lcl_bary_y[4]
+            REAL_t phi_x, phi_y
         qr0 = simplexXiaoGimbutas(panel, self.dim, self.manifold_dim1)
         qr1 = qr0
         qr2 = doubleSimplexQuadratureRule(qr0, qr1)
@@ -608,7 +620,10 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             k = 0
             for i in range(numQuadNodes0):
                 for j in range(numQuadNodes1):
-                    PHI[0, I, k] = sf(qr0.nodes[:, i])
+                    for m in range(self.dim+1):
+                        lcl_bary_x[m] = qr0.nodes[m, i]
+                    sf.evalPtr(&lcl_bary_x[0], NULL, &phi_x)
+                    PHI[0, I, k] = phi_x
                     PHI[1, I, k] = 0.
                     PSI[I, k] = PHI[0, I, k]
                     k += 1
@@ -618,8 +633,11 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             k = 0
             for i in range(numQuadNodes0):
                 for j in range(numQuadNodes1):
+                    for m in range(self.dim+1):
+                        lcl_bary_y[m] = qr1.nodes[m, j]
+                    sf.evalPtr(&lcl_bary_y[0], NULL, &phi_y)
                     PHI[0, I+dofs_per_element, k] = 0.
-                    PHI[1, I+dofs_per_element, k] = sf(qr1.nodes[:, j])
+                    PHI[1, I+dofs_per_element, k] = phi_y
                     PSI[I+dofs_per_element, k] = -PHI[1, I+dofs_per_element, k]
                     k += 1
         sQR = specialQuadRule(qr2, PSI, PHI3=PHI)
@@ -640,9 +658,12 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             doubleSimplexQuadratureRule qr2
             specialQuadRule sQR
             REAL_t[:, ::1] PSI
-            INDEX_t I, k, i, j
+            INDEX_t I, k, i, j, m
             INDEX_t numQuadNodes0, numQuadNodes1, dofs_per_element
             shapeFunction sf
+            REAL_t lcl_bary_x[4]
+            REAL_t lcl_bary_y[4]
+            REAL_t phi_x, phi_y
         try:
             sQR = <specialQuadRule>(self.distantQuadRules[MAX_PANEL+panel])
         except KeyError:
@@ -663,7 +684,10 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
                 k = 0
                 for i in range(numQuadNodes0):
                     for j in range(numQuadNodes1):
-                        PSI[I, k] = sf(qr0.nodes[:, i])
+                        for m in range(self.dim+1):
+                            lcl_bary_x[m] = qr0.nodes[m, i]
+                        sf.evalPtr(&lcl_bary_x[0], NULL, &phi_x)
+                        PSI[I, k] = phi_x
                         k += 1
             # phi_i(x) - phi_i(y) = -phi_i(y)
             for I in range(dofs_per_element):
@@ -671,7 +695,10 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
                 k = 0
                 for i in range(numQuadNodes0):
                     for j in range(numQuadNodes1):
-                        PSI[I+dofs_per_element, k] = -sf(qr1.nodes[:, j])
+                        for m in range(self.dim+1):
+                            lcl_bary_y[m] = qr1.nodes[m, j]
+                        sf.evalPtr(&lcl_bary_y[0], NULL, &phi_y)
+                        PSI[I+dofs_per_element, k] = -phi_y
                         k += 1
             sQR = specialQuadRule(qr2, PSI)
             self.distantQuadRules[MAX_PANEL+panel] = sQR
@@ -796,15 +823,17 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
                             k = 0
                             for I in range(2*dofs_per_element):
                                 if I < dofs_per_element:
-                                    PSI_I = self.getLocalShapeFunction(I).evalStrided(&qr0trans.nodes[0, i], numQuadNodes0)
+                                    self.getLocalShapeFunction(I).evalStrided(&qr0trans.nodes[0, i], NULL, numQuadNodes0, &PSI_I)
                                 else:
-                                    PSI_I = -self.getLocalShapeFunction(I-dofs_per_element).evalStrided(&qr1trans.nodes[0, j], numQuadNodes1)
+                                     self.getLocalShapeFunction(I-dofs_per_element).evalStrided(&qr1trans.nodes[0, j], NULL, numQuadNodes1, &PSI_I)
+                                     PSI_I *= -1
                                 for J in range(I, 2*dofs_per_element):
                                     if mask[k]:
                                         if J < dofs_per_element:
-                                            PSI_J = self.getLocalShapeFunction(J).evalStrided(&qr0trans.nodes[0, i], numQuadNodes0)
+                                            self.getLocalShapeFunction(J).evalStrided(&qr0trans.nodes[0, i], NULL, numQuadNodes0, &PSI_J)
                                         else:
-                                            PSI_J = -self.getLocalShapeFunction(J-dofs_per_element).evalStrided(&qr1trans.nodes[0, j], numQuadNodes1)
+                                            self.getLocalShapeFunction(J-dofs_per_element).evalStrided(&qr1trans.nodes[0, j], NULL, numQuadNodes1, &PSI_J)
+                                            PSI_J *= -1
                                         contrib[k, 0] += val * PSI_I*PSI_J
                                     k += 1
 
@@ -933,17 +962,18 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
                             k = 0
                             for I in range(2*dofs_per_element):
                                 if I < dofs_per_element:
-                                    PHI_I_0 = self.getLocalShapeFunction(I).evalStrided(&qr0trans.nodes[0, i], numQuadNodes0)
+                                    self.getLocalShapeFunction(I).evalStrided(&qr0trans.nodes[0, i], NULL, numQuadNodes0, &PHI_I_0)
                                     PHI_I_1 = 0.
                                 else:
                                     PHI_I_0 = 0.
-                                    PHI_I_1 = self.getLocalShapeFunction(I-dofs_per_element).evalStrided(&qr1trans.nodes[0, j], numQuadNodes1)
+                                    self.getLocalShapeFunction(I-dofs_per_element).evalStrided(&qr1trans.nodes[0, j], NULL, numQuadNodes1, &PHI_I_1)
                                 for J in range(2*dofs_per_element):
                                     if mask[k]:
                                         if J < dofs_per_element:
-                                            PSI_J = self.getLocalShapeFunction(J).evalStrided(&qr0trans.nodes[0, i], numQuadNodes0)
+                                            self.getLocalShapeFunction(J).evalStrided(&qr0trans.nodes[0, i], NULL, numQuadNodes0, &PSI_J)
                                         else:
-                                            PSI_J = -self.getLocalShapeFunction(J-dofs_per_element).evalStrided(&qr1trans.nodes[0, j], numQuadNodes1)
+                                            self.getLocalShapeFunction(J-dofs_per_element).evalStrided(&qr1trans.nodes[0, j], NULL, numQuadNodes1, &PSI_J)
+                                            PSI_J *= -1
                                         contrib[k, 0] += (val * PHI_I_0 - val2 * PHI_I_1) * PSI_J
                                     k += 1
 
@@ -953,8 +983,10 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             doubleSimplexQuadratureRule qr2
             specialQuadRule sQR
             REAL_t[:, ::1] PHI
-            INDEX_t i, j, k, l
+            INDEX_t i, j, k, l, m
+            REAL_t lcl_bary_x[4]
             shapeFunction sf
+            REAL_t phi_x
         qr0 = simplexXiaoGimbutas(panel, self.dim)
         qr1 = simplexDuffyTransformation(panel, self.dim, self.dim-1)
         qr2 = doubleSimplexQuadratureRule(qr0, qr1)
@@ -964,7 +996,10 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             for j in range(qr2.rule1.num_nodes):
                 for k in range(qr2.rule2.num_nodes):
                     l = j*qr2.rule2.num_nodes+k
-                    PHI[i, l] = sf(qr2.rule1.nodes[:, j])
+                    for m in range(self.dim+1):
+                        lcl_bary_x[m] = qr2.rule1.nodes[m, j]
+                    sf.evalPtr(&lcl_bary_x[0], NULL, &phi_x)
+                    PHI[i, l] = phi_x
         sQR = specialQuadRule(qr2, PHI=PHI)
         self.distantQuadRules[panel] = sQR
         self.distantQuadRulesPtr[panel] = <void*>(self.distantQuadRules[panel])

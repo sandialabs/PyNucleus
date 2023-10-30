@@ -36,6 +36,8 @@ Features
 
 * Nonlocal assembly (1D and 2D) into dense, sparse and hierarchical matrices
 
+* Operator interpolation
+
 * Solvers/preconditioners:
 
   * LU,
@@ -70,6 +72,15 @@ Examples
 
    example1
    example2
+   example3
+
+Drivers
+-------
+
+.. toctree::
+   :maxdepth: 1
+
+   drivers
 
 
 Funding
