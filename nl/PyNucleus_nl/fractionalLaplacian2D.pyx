@@ -657,6 +657,7 @@ cdef class fractionalLaplacian2D(nonlocalLaplacian2D):
             REAL_t lcl_bary_y[3]
             REAL_t[:, ::1] PSI
             INDEX_t dof
+            REAL_t phi_x = 0., phi_y = 0.
 
         if panel == COMMON_FACE:
             try:
@@ -679,7 +680,9 @@ cdef class fractionalLaplacian2D(nonlocalLaplacian2D):
                         lcl_bary_y[0] = qr.nodes[3, i]
                         lcl_bary_y[1] = qr.nodes[4, i]
                         lcl_bary_y[2] = qr.nodes[5, i]
-                        PSI[dof, i] = (sf.eval(lcl_bary_x)-sf.eval(lcl_bary_y))
+                        sf.evalPtr(&lcl_bary_x[0], NULL, &phi_x)
+                        sf.evalPtr(&lcl_bary_y[0], NULL, &phi_y)
+                        PSI[dof, i] = phi_x-phi_y
 
                 sQR = specialQuadRule(qr, PSI)
                 self.specialQuadRules[(singularityValue, panel)] = sQR
@@ -709,7 +712,9 @@ cdef class fractionalLaplacian2D(nonlocalLaplacian2D):
                         lcl_bary_y[0] = qr.nodes[3, i]
                         lcl_bary_y[1] = qr.nodes[4, i]
                         lcl_bary_y[2] = qr.nodes[5, i]
-                        PSI[dof, i] = (sf.eval(lcl_bary_x)-sf.eval(lcl_bary_y))
+                        sf.evalPtr(&lcl_bary_x[0], NULL, &phi_x)
+                        sf.evalPtr(&lcl_bary_y[0], NULL, &phi_y)
+                        PSI[dof, i] = phi_x-phi_y
 
                 for dof in range((dim+1)*dofs_per_vertex, (dim+1)*dofs_per_vertex+dofs_per_edge):
                     sf = self.getLocalShapeFunction(dof)
@@ -720,7 +725,9 @@ cdef class fractionalLaplacian2D(nonlocalLaplacian2D):
                         lcl_bary_y[0] = qr.nodes[3, i]
                         lcl_bary_y[1] = qr.nodes[4, i]
                         lcl_bary_y[2] = qr.nodes[5, i]
-                        PSI[dof, i] = (sf.eval(lcl_bary_x)-sf.eval(lcl_bary_y))
+                        sf.evalPtr(&lcl_bary_x[0], NULL, &phi_x)
+                        sf.evalPtr(&lcl_bary_y[0], NULL, &phi_y)
+                        PSI[dof, i] = phi_x-phi_y
 
                 for dof in range(2*dofs_per_vertex, (dim+1)*dofs_per_vertex):
                     sf = self.getLocalShapeFunction(dof)
@@ -731,8 +738,10 @@ cdef class fractionalLaplacian2D(nonlocalLaplacian2D):
                         lcl_bary_y[0] = qr.nodes[3, i]
                         lcl_bary_y[1] = qr.nodes[4, i]
                         lcl_bary_y[2] = qr.nodes[5, i]
-                        PSI[dof, i] = sf.eval(lcl_bary_x)
-                        PSI[dofs_per_element+dof-2*dofs_per_vertex, i] = -sf.eval(lcl_bary_y)
+                        sf.evalPtr(&lcl_bary_x[0], NULL, &phi_x)
+                        sf.evalPtr(&lcl_bary_y[0], NULL, &phi_y)
+                        PSI[dof, i] = phi_x
+                        PSI[dofs_per_element+dof-2*dofs_per_vertex, i] = -phi_y
 
                 for dof in range((dim+1)*dofs_per_vertex+dofs_per_edge, dofs_per_element):
                     sf = self.getLocalShapeFunction(dof)
@@ -743,8 +752,10 @@ cdef class fractionalLaplacian2D(nonlocalLaplacian2D):
                         lcl_bary_y[0] = qr.nodes[3, i]
                         lcl_bary_y[1] = qr.nodes[4, i]
                         lcl_bary_y[2] = qr.nodes[5, i]
-                        PSI[dof, i] = sf.eval(lcl_bary_x)
-                        PSI[dofs_per_element+dof-2*dofs_per_vertex-dofs_per_edge, i] = -sf.eval(lcl_bary_y)
+                        sf.evalPtr(&lcl_bary_x[0], NULL, &phi_x)
+                        sf.evalPtr(&lcl_bary_y[0], NULL, &phi_y)
+                        PSI[dof, i] = phi_x
+                        PSI[dofs_per_element+dof-2*dofs_per_vertex-dofs_per_edge, i] = -phi_y
 
                 sQR = specialQuadRule(qr, PSI)
                 self.specialQuadRules[(singularityValue, panel)] = sQR
@@ -774,7 +785,9 @@ cdef class fractionalLaplacian2D(nonlocalLaplacian2D):
                         lcl_bary_y[0] = qr.nodes[3, i]
                         lcl_bary_y[1] = qr.nodes[4, i]
                         lcl_bary_y[2] = qr.nodes[5, i]
-                        PSI[dof, i] = (sf.eval(lcl_bary_x)-sf.eval(lcl_bary_y))
+                        sf.evalPtr(&lcl_bary_x[0], NULL, &phi_x)
+                        sf.evalPtr(&lcl_bary_y[0], NULL, &phi_y)
+                        PSI[dof, i] = phi_x-phi_y
 
                 for dof in range(dofs_per_vertex, dofs_per_element):
                     sf = self.getLocalShapeFunction(dof)
@@ -785,8 +798,10 @@ cdef class fractionalLaplacian2D(nonlocalLaplacian2D):
                         lcl_bary_y[0] = qr.nodes[3, i]
                         lcl_bary_y[1] = qr.nodes[4, i]
                         lcl_bary_y[2] = qr.nodes[5, i]
-                        PSI[dof, i] = sf.eval(lcl_bary_x)
-                        PSI[dofs_per_element+dof-dofs_per_vertex, i] = -sf.eval(lcl_bary_y)
+                        sf.evalPtr(&lcl_bary_x[0], NULL, &phi_x)
+                        sf.evalPtr(&lcl_bary_y[0], NULL, &phi_y)
+                        PSI[dof, i] = phi_x
+                        PSI[dofs_per_element+dof-dofs_per_vertex, i] = -phi_y
 
                 sQR = specialQuadRule(qr, PSI)
                 self.specialQuadRules[(singularityValue, panel)] = sQR
@@ -923,6 +938,7 @@ cdef class fractionalLaplacian2D_nonsym(fractionalLaplacian2D):
             REAL_t lcl_bary_y[3]
             REAL_t[:, :, ::1] PHI
             INDEX_t dof
+            REAL_t phi_x = 0., phi_y = 0.
 
         if panel == COMMON_FACE:
             try:
@@ -945,8 +961,10 @@ cdef class fractionalLaplacian2D_nonsym(fractionalLaplacian2D):
                         lcl_bary_y[0] = qr.nodes[3, i]
                         lcl_bary_y[1] = qr.nodes[4, i]
                         lcl_bary_y[2] = qr.nodes[5, i]
-                        PHI[dof, i, 0] = sf.eval(lcl_bary_x)
-                        PHI[dof, i, 1] = sf.eval(lcl_bary_y)
+                        sf.evalPtr(&lcl_bary_x[0], NULL, &phi_x)
+                        sf.evalPtr(&lcl_bary_y[0], NULL, &phi_y)
+                        PHI[dof, i, 0] = phi_x
+                        PHI[dof, i, 1] = phi_y
 
                 sQR = specialQuadRule(qr, PHI3=PHI)
                 self.specialQuadRules[(singularityValue, panel)] = sQR
@@ -978,8 +996,10 @@ cdef class fractionalLaplacian2D_nonsym(fractionalLaplacian2D):
                         lcl_bary_y[0] = qr.nodes[3, i]
                         lcl_bary_y[1] = qr.nodes[4, i]
                         lcl_bary_y[2] = qr.nodes[5, i]
-                        PHI[dof, i, 0] = sf.eval(lcl_bary_x)
-                        PHI[dof, i, 1] = sf.eval(lcl_bary_y)
+                        sf.evalPtr(&lcl_bary_x[0], NULL, &phi_x)
+                        sf.evalPtr(&lcl_bary_y[0], NULL, &phi_y)
+                        PHI[dof, i, 0] = phi_x
+                        PHI[dof, i, 1] = phi_y
 
                 for dof in range((dim+1)*dofs_per_vertex, (dim+1)*dofs_per_vertex+dofs_per_edge):
                     sf = self.getLocalShapeFunction(dof)
@@ -990,8 +1010,10 @@ cdef class fractionalLaplacian2D_nonsym(fractionalLaplacian2D):
                         lcl_bary_y[0] = qr.nodes[3, i]
                         lcl_bary_y[1] = qr.nodes[4, i]
                         lcl_bary_y[2] = qr.nodes[5, i]
-                        PHI[dof, i, 0] = sf.eval(lcl_bary_x)
-                        PHI[dof, i, 1] = sf.eval(lcl_bary_y)
+                        sf.evalPtr(&lcl_bary_x[0], NULL, &phi_x)
+                        sf.evalPtr(&lcl_bary_y[0], NULL, &phi_y)
+                        PHI[dof, i, 0] = phi_x
+                        PHI[dof, i, 1] = phi_y
 
                 for dof in range(2*dofs_per_vertex, (dim+1)*dofs_per_vertex):
                     sf = self.getLocalShapeFunction(dof)
@@ -1002,10 +1024,12 @@ cdef class fractionalLaplacian2D_nonsym(fractionalLaplacian2D):
                         lcl_bary_y[0] = qr.nodes[3, i]
                         lcl_bary_y[1] = qr.nodes[4, i]
                         lcl_bary_y[2] = qr.nodes[5, i]
-                        PHI[dof, i, 0] = sf.eval(lcl_bary_x)
+                        sf.evalPtr(&lcl_bary_x[0], NULL, &phi_x)
+                        sf.evalPtr(&lcl_bary_y[0], NULL, &phi_y)
+                        PHI[dof, i, 0] = phi_x
                         PHI[dof, i, 1] = 0
                         PHI[dofs_per_element+dof-2*dofs_per_vertex, i, 0] = 0
-                        PHI[dofs_per_element+dof-2*dofs_per_vertex, i, 1] = sf.eval(lcl_bary_y)
+                        PHI[dofs_per_element+dof-2*dofs_per_vertex, i, 1] = phi_y
 
                 for dof in range((dim+1)*dofs_per_vertex+dofs_per_edge, dofs_per_element):
                     sf = self.getLocalShapeFunction(dof)
@@ -1016,10 +1040,12 @@ cdef class fractionalLaplacian2D_nonsym(fractionalLaplacian2D):
                         lcl_bary_y[0] = qr.nodes[3, i]
                         lcl_bary_y[1] = qr.nodes[4, i]
                         lcl_bary_y[2] = qr.nodes[5, i]
-                        PHI[dof, i, 0] = sf.eval(lcl_bary_x)
+                        sf.evalPtr(&lcl_bary_x[0], NULL, &phi_x)
+                        sf.evalPtr(&lcl_bary_y[0], NULL, &phi_y)
+                        PHI[dof, i, 0] = phi_x
                         PHI[dof, i, 1] = 0
                         PHI[dofs_per_element+dof-2*dofs_per_vertex-dofs_per_edge, i, 0] = 0
-                        PHI[dofs_per_element+dof-2*dofs_per_vertex-dofs_per_edge, i, 1] = sf.eval(lcl_bary_y)
+                        PHI[dofs_per_element+dof-2*dofs_per_vertex-dofs_per_edge, i, 1] = phi_y
 
                 sQR = specialQuadRule(qr, PHI3=PHI)
                 self.specialQuadRules[(singularityValue, panel)] = sQR
@@ -1051,8 +1077,10 @@ cdef class fractionalLaplacian2D_nonsym(fractionalLaplacian2D):
                         lcl_bary_y[0] = qr.nodes[3, i]
                         lcl_bary_y[1] = qr.nodes[4, i]
                         lcl_bary_y[2] = qr.nodes[5, i]
-                        PHI[dof, i, 0] = sf.eval(lcl_bary_x)
-                        PHI[dof, i, 1] = sf.eval(lcl_bary_y)
+                        sf.evalPtr(&lcl_bary_x[0], NULL, &phi_x)
+                        sf.evalPtr(&lcl_bary_y[0], NULL, &phi_y)
+                        PHI[dof, i, 0] = phi_x
+                        PHI[dof, i, 1] = phi_y
 
                 for dof in range(dofs_per_vertex, dofs_per_element):
                     sf = self.getLocalShapeFunction(dof)
@@ -1063,10 +1091,12 @@ cdef class fractionalLaplacian2D_nonsym(fractionalLaplacian2D):
                         lcl_bary_y[0] = qr.nodes[3, i]
                         lcl_bary_y[1] = qr.nodes[4, i]
                         lcl_bary_y[2] = qr.nodes[5, i]
-                        PHI[dof, i, 0] = sf.eval(lcl_bary_x)
+                        sf.evalPtr(&lcl_bary_x[0], NULL, &phi_x)
+                        sf.evalPtr(&lcl_bary_y[0], NULL, &phi_y)
+                        PHI[dof, i, 0] = phi_x
                         PHI[dof, i, 1] = 0
                         PHI[dofs_per_element+dof-dofs_per_vertex, i, 0] = 0
-                        PHI[dofs_per_element+dof-dofs_per_vertex, i, 1] = sf.eval(lcl_bary_y)
+                        PHI[dofs_per_element+dof-dofs_per_vertex, i, 1] = phi_y
 
                 sQR = specialQuadRule(qr, PHI3=PHI)
                 self.specialQuadRules[(singularityValue, panel)] = sQR
@@ -1217,6 +1247,7 @@ cdef class fractionalLaplacian2D_boundary(fractionalLaplacian2DZeroExterior):
             INDEX_t dofs_per_element = self.DoFMap.dofs_per_element
             shapeFunction sf
             REAL_t lcl_bary_x[3]
+            REAL_t phi_x = 0.
         if panel == COMMON_EDGE:
             try:
                 sQR = self.specialQuadRules[(singularityValue, panel)]
@@ -1233,7 +1264,8 @@ cdef class fractionalLaplacian2D_boundary(fractionalLaplacian2DZeroExterior):
                         lcl_bary_x[0] = qr.nodes[0, i]
                         lcl_bary_x[1] = qr.nodes[1, i]
                         lcl_bary_x[2] = qr.nodes[2, i]
-                        PHI[dof, i] = sf.eval(lcl_bary_x)
+                        sf.evalPtr(&lcl_bary_x[0], NULL, &phi_x)
+                        PHI[dof, i] = phi_x
 
                 sQR = specialQuadRule(qr, PHI=PHI)
                 self.specialQuadRules[(singularityValue, panel)] = sQR
@@ -1255,7 +1287,8 @@ cdef class fractionalLaplacian2D_boundary(fractionalLaplacian2DZeroExterior):
                         lcl_bary_x[0] = qr.nodes[0, i]
                         lcl_bary_x[1] = qr.nodes[1, i]
                         lcl_bary_x[2] = qr.nodes[2, i]
-                        PHI[dof, i] = sf.eval(lcl_bary_x)
+                        sf.evalPtr(&lcl_bary_x[0], NULL, &phi_x)
+                        PHI[dof, i] = phi_x
 
                 sQR = specialQuadRule(qr, PHI=PHI)
                 self.specialQuadRules[(singularityValue, panel)] = sQR

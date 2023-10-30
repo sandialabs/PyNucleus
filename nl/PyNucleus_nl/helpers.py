@@ -204,13 +204,12 @@ def getFracLapl(mesh, DoFMap, kernel=None, rangedOpParams={}, **kwargs):
         scaling = kernel.scaling
         normalized = not isinstance(scaling, constantTwoPoint)
 
-    dataDir = Path(dataDir)
-    dataDir.mkdir(exist_ok=True, parents=True)
-
     if tag is None or zeroExterior is None:
         tag, zeroExterior = processBC(tag, boundaryCondition, kernel)
 
     if doSave or not forceRebuild:
+        dataDir = Path(dataDir)
+        dataDir.mkdir(exist_ok=True, parents=True)
         if overrideFileName is not None:
             filename = overrideFileName
         else:

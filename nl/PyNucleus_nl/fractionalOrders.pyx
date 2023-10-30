@@ -584,7 +584,7 @@ cdef class lookupExtended(extendedFunction):
     cdef REAL_t eval(self, REAL_t[::1] x):
         cdef:
             shapeFunction shapeFun
-            REAL_t val
+            REAL_t val, val2
             INDEX_t cellNo, dof, k
         cellNo = self.cellFinder.findCell(x)
         if cellNo == -1:
@@ -594,13 +594,14 @@ cdef class lookupExtended(extendedFunction):
             dof = self.dm.cell2dof(cellNo, k)
             if dof >= 0:
                 shapeFun = self.dm.getLocalShapeFunction(k)
-                val += shapeFun.eval(self.cellFinder.bary)*self.u[dof]
+                shapeFun.evalPtr(&self.cellFinder.bary[0], NULL, &val2)
+                val += val2*self.u[dof]
         return val
 
     cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x):
         cdef:
             shapeFunction shapeFun
-            REAL_t val
+            REAL_t val, val2
             INDEX_t cellNo, dof, k
         cellNo = self.cellFinder.findCellPtr(x)
         if cellNo == -1:
@@ -610,13 +611,15 @@ cdef class lookupExtended(extendedFunction):
             dof = self.dm.cell2dof(cellNo, k)
             if dof >= 0:
                 shapeFun = self.dm.getLocalShapeFunction(k)
-                val += shapeFun.eval(self.cellFinder.bary)*self.u[dof]
+                shapeFun.evalPtr(&self.cellFinder.bary[0], NULL, &val2)
+                val += val2*self.u[dof]
         return val
 
     cdef void evalGrad(self, REAL_t[::1] x, REAL_t[::1] grad):
         cdef:
             shapeFunction shapeFun
             INDEX_t cellNo, dof, k
+            REAL_t val
         cellNo = self.cellFinder.findCell(x)
         if cellNo == -1:
             return
@@ -626,12 +629,14 @@ cdef class lookupExtended(extendedFunction):
             dof = self.dm.cell2dof(cellNo, k)
             if dof >= 0:
                 shapeFun = self.dm.getLocalShapeFunction(k)
-                grad[dof] += shapeFun.eval(self.cellFinder.bary)
+                shapeFun.evalPtr(&self.cellFinder.bary[0], NULL, &val)
+                grad[dof] += val
 
     cdef void evalGradPtr(self, INDEX_t dim, REAL_t* x, INDEX_t vectorSize, REAL_t* grad):
         cdef:
             shapeFunction shapeFun
             INDEX_t cellNo, dof, k
+            REAL_t val
         cellNo = self.cellFinder.findCellPtr(x)
         if cellNo == -1:
             return
@@ -641,7 +646,8 @@ cdef class lookupExtended(extendedFunction):
             dof = self.dm.cell2dof(cellNo, k)
             if dof >= 0:
                 shapeFun = self.dm.getLocalShapeFunction(k)
-                grad[dof] += shapeFun.eval(self.cellFinder.bary)
+                shapeFun.evalPtr(&self.cellFinder.bary[0], NULL, &val)
+                grad[dof] += val
 
     def __getstate__(self):
         return self.mesh, self.dm, self.u

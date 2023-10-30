@@ -840,17 +840,19 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
         self.addParametrizedArg('indicator', [float, float])
         self.addParametrizedArg('polynomial', [int])
         self.setDriverFlag('problem', 'poly-Dirichlet',
-                           argInterpreter=self.argInterpreter(['indicator', 'polynomial'], acceptedValues=['poly-Dirichlet', 'polynomial', 'poly-Dirichlet2', 'poly-Dirichlet3',
-                                                                                                           'poly-Neumann', 'zeroFlux', 'source', 'constant',
-                                                                                                           'exact-sin-Dirichlet', 'exact-sin-Neumann', 'discontinuous']),
+                           argInterpreter=self.argInterpreter(['indicator', 'polynomial'],
+                                                              acceptedValues=['poly-Dirichlet', 'poly-Dirichlet2', 'poly-Dirichlet3',
+                                                                              'poly-Neumann', 'zeroFlux', 'source', 'constant',
+                                                                              'exact-sin-Dirichlet', 'exact-sin-Neumann', 'sin-Dirichlet', 'discontinuous']),
                            help="select a problem to solve")
-        self.setDriverFlag('noRef', argInterpreter=int)
+        self.setDriverFlag('hTarget', argInterpreter=float, help="mesh size of initial mesh")
+        self.setDriverFlag('noRef', argInterpreter=int, help="number of uniform mesh refinements applied to initial mesh")
         self.setDriverFlag('element', acceptedValues=['P1', 'P0', 'P2'], help="finite element space")
         self.setDriverFlag('target_order', -1., help="choose quadrature rule to allow convergence of order h^{target_order}")
 
     def processCmdline(self, params):
         noRef = params['noRef']
-        if noRef is None or noRef <= 0:
+        if noRef is None or noRef < 0:
             domain = params['domain']
             if domain in ('interval', 'gradedInterval'):
                 noRef = 8
@@ -871,16 +873,22 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                 'rhs', 'rhsData', 'dirichletData', 'fluxData',
                 'analyticSolution', 'exactL2Squared', 'exactHsSquared'])
     def processProblem(self, kernel, domain, problem, normalized):
-        kType = kernel.kernelType
+        if kernel is not None:
+            kType = kernel.kernelType
+            phiFun = kernel.phi
+            interaction = kernel.interaction
+        else:
+            kType = None
+            phiFun = None
+            interaction = None
         if kType == FRACTIONAL:
             sFun = kernel.s
         else:
             sFun = None
-        phiFun = kernel.phi
+
         self.analyticSolution = None
         self.exactL2Squared = None
         self.exactHsSquared = None
-        interaction = kernel.interaction
 
         if problem in ('poly-Neumann', 'exact-sin-Neumann', 'zeroFlux'):
             self.boundaryCondition = NEUMANN
@@ -1022,6 +1030,20 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                     self.fluxData = Lambda(fluxFun)
                 self.dirichletData = sin
                 self.analyticSolution = sin
+            elif problem == 'sin-Dirichlet':
+                # forcing with known local solution
+                self.domainIndicator = domainIndicator
+                self.fluxIndicator = constant(0)
+                self.interactionIndicator = interactionIndicator+boundaryIndicator
+
+                sin = functionFactory('sin1d')
+                self.rhsData = np.pi**2 * sin
+                self.fluxData = constant(0)
+                self.dirichletData = sin
+                if kType is None:
+                    self.analyticSolution = sin
+                else:
+                    self.analyticSolution = None
             elif problem == 'poly-Neumann':
                 if kType == FRACTIONAL:
                     assert sFun.max <= 0.5, "RHS is singular, need a special quadrature rule"
@@ -1177,6 +1199,20 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
             elif problem == 'poly-Neumann':
                 self.fluxIndicator = Lambda(lambda x: 1. if (x[0] > 1) else 0.)
                 raise NotImplementedError(problem)
+            elif problem == 'sin-Dirichlet':
+                # forcing with known local solution
+                self.domainIndicator = domainIndicator
+                self.fluxIndicator = constant(0)
+                self.interactionIndicator = interactionIndicator+boundaryIndicator
+
+                sin = functionFactory('sin2d')
+                self.rhsData = 2.0*np.pi**2 * sin
+                self.fluxData = constant(0)
+                self.dirichletData = sin
+                if kType is None:
+                    self.analyticSolution = sin
+                else:
+                    self.analyticSolution = None
             elif problem == 'source':
                 self.fluxIndicator = constant(0)
                 self.rhsData = (functionFactory.build('radialIndicator', radius=0.3, center=np.array([0.2, 0.6], dtype=REAL)) -
@@ -1273,7 +1309,10 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
     @generates('eta')
     def getApproximationParams(self, dim, kernel, element, target_order):
         element = str2DoFMapOrder(element)
-        kType = kernel.kernelType
+        if kernel is not None:
+            kType = kernel.kernelType
+        else:
+            kType = 'local'
         if kType == FRACTIONAL:
             s = kernel.s
 
@@ -1299,8 +1338,11 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
             self.eta = 3.
 
     @generates('mesh')
-    def buildMesh(self, mesh_domain, mesh_params):
-        self.mesh, _ = nonlocalMeshFactory.build(mesh_domain, **mesh_params)
+    def buildMesh(self, mesh_domain, mesh_params, hTarget):
+        from copy import copy
+        myMeshParams = copy(mesh_params)
+        myMeshParams['hTarget'] = hTarget
+        self.mesh, _ = nonlocalMeshFactory.build(mesh_domain, **myMeshParams)
 
     def getIdentifier(self, params):
         keys = ['domain', 'problem', 's', 'horizon', 'phi', 'noRef']

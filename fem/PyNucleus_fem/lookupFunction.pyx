@@ -7,7 +7,7 @@
 
 from PyNucleus_base.myTypes import REAL
 from PyNucleus_base.blas import uninitialized
-from . DoFMaps cimport shapeFunction, vectorShapeFunction
+from . DoFMaps cimport shapeFunction
 from . femCy cimport simplexComputations1D, simplexComputations2D, simplexComputations3D
 
 
@@ -24,7 +24,7 @@ cdef class lookupFunction(function):
     cdef REAL_t eval(self, REAL_t[::1] x):
         cdef:
             shapeFunction shapeFun
-            REAL_t val
+            REAL_t val, val2
             INDEX_t cellNo, dof, k
         cellNo = self.cellFinder.findCell(x)
         if cellNo == -1:
@@ -34,7 +34,8 @@ cdef class lookupFunction(function):
             dof = self.dm.cell2dof(cellNo, k)
             if dof >= 0:
                 shapeFun = self.dm.getLocalShapeFunction(k)
-                val += shapeFun.eval(self.cellFinder.bary)*self.u[dof]
+                shapeFun.evalPtr(&self.cellFinder.bary[0], NULL, &val2)
+                val += val2*self.u[dof]
         return val
 
 
@@ -63,7 +64,7 @@ cdef class vectorLookupFunction(vectorFunction):
 
     cdef void eval(self, REAL_t[::1] x, REAL_t[::1] vals):
         cdef:
-            vectorShapeFunction shapeFun
+            shapeFunction shapeFun
             INDEX_t cellNo, dof, k, componentNo
         for componentNo in range(self.mesh.dim):
             vals[componentNo] = 0.
@@ -75,7 +76,7 @@ cdef class vectorLookupFunction(vectorFunction):
         for k in range(self.dm.dofs_per_element):
             dof = self.dm.cell2dof(cellNo, k)
             if dof >= 0:
-                shapeFun = self.dm.getLocalVectorShapeFunction(k)
+                shapeFun = self.dm.getLocalShapeFunction(k)
                 shapeFun.setCell(self.mesh.cells[cellNo, :])
                 shapeFun.eval(self.cellFinder.bary, self.gradients, self.temp)
                 for componentNo in range(self.mesh.dim):

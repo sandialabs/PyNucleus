@@ -340,7 +340,6 @@ cdef class DoFMap:
         cdef:
             INDEX_t i
             shapeFunction sf
-            vectorShapeFunction vsf
         if isinstance(localShapeFunctions[0], shapeFunction):
             self.vectorValued = False
             self._localShapeFunctions = localShapeFunctions
@@ -348,21 +347,11 @@ cdef class DoFMap:
             for i in range(len(localShapeFunctions)):
                 sf = self._localShapeFunctions[i]
                 self._localShapeFunctionsPtr[i] = <void*>sf
-        elif isinstance(localShapeFunctions[0], vectorShapeFunction):
-            self.vectorValued = True
-            self._localShapeFunctions = localShapeFunctions
-            self._localShapeFunctionsPtr = <void**>malloc(len(localShapeFunctions)*sizeof(void*))
-            for i in range(len(localShapeFunctions)):
-                vsf = self._localShapeFunctions[i]
-                self._localShapeFunctionsPtr[i] = <void*>vsf
         else:
             raise NotImplementedError()
 
     cdef shapeFunction getLocalShapeFunction(self, INDEX_t dofNo):
         return <shapeFunction>self._localShapeFunctionsPtr[dofNo]
-
-    cdef vectorShapeFunction getLocalVectorShapeFunction(self, INDEX_t dofNo):
-        return <vectorShapeFunction>self._localShapeFunctionsPtr[dofNo]
 
     def __del__(self):
         free(self._localShapeFunctionsPtr)
@@ -1081,7 +1070,7 @@ cdef class DoFMap:
             REAL_t[:, ::1] simplex = uninitialized((self.dim+1, self.dim), dtype=REAL)
             REAL_t[::1] bary = uninitialized((self.dim+1), dtype=REAL)
             shapeFunction shapeFun
-            REAL_t val
+            REAL_t val, val2
         self.mesh.getSimplex(cellNo, simplex)
         if self.dim == 1:
             getBarycentricCoords1D(simplex, x, bary)
@@ -1094,7 +1083,8 @@ cdef class DoFMap:
             dof = self.cell2dof(cellNo, k)
             if dof >= 0:
                 shapeFun = self.localShapeFunctions[k]
-                val += shapeFun.eval(bary)*u[dof]
+                shapeFun.evalPtr(&bary[0], NULL, &val2)
+                val += val2*u[dof]
         return val
 
     def getGlobalShapeFunction(self, INDEX_t dof):
@@ -1667,6 +1657,7 @@ cdef class globalShapeFunction(function):
             BOOL_t doEval
             REAL_t result = 0.
             shapeFunction phi
+            REAL_t val
         if dim == 1:
             for k in range(self.simplices.shape[0]):
                 getBarycentricCoords1D(self.simplices[k, :, :], x, self.bary)
@@ -1678,7 +1669,8 @@ cdef class globalShapeFunction(function):
                 if doEval:
                     dofNo = self.dofNos[k]
                     phi = self.dm.localShapeFunctions[dofNo]
-                    result += phi.eval(self.bary)
+                    phi.evalPtr(&self.bary[0], NULL, &val)
+                    result += val
         elif dim == 2:
             for k in range(self.simplices.shape[0]):
                 getBarycentricCoords2D(self.simplices[k, :, :], x, self.bary)
@@ -1690,58 +1682,19 @@ cdef class globalShapeFunction(function):
                 if doEval:
                     dofNo = self.dofNos[k]
                     phi = self.dm.localShapeFunctions[dofNo]
-                    result += phi.eval(self.bary)
+                    phi.evalPtr(&self.bary[0], NULL, &val)
+                    result += val
         return result
 
 
 cdef class shapeFunction:
     """A class to represent a finite element shape function."""
 
-    def __init__(self):
+    def __init__(self, INDEX_t dim, INDEX_t valueSize=1, BOOL_t needsGradients=False):
         self.bary = uninitialized((4), dtype=REAL)
-
-    def __call__(self, lam):
-        return self.eval(np.array(lam))
-
-    cdef REAL_t eval(self, const REAL_t[::1] lam):
-        pass
-
-    cdef REAL_t evalStrided(self, const REAL_t* lam, INDEX_t stride):
-        raise NotImplementedError()
-
-    cdef void evalGrad(self, const REAL_t[::1] lam, const REAL_t[:, ::1] gradLam, REAL_t[::1] value):
-        pass
-
-    def evalGradPy(self, lam, gradLam):
-        value = uninitialized((gradLam.shape[1]), dtype=REAL)
-        self.evalGrad(np.array(lam), np.array(gradLam), value)
-        return value
-
-    cdef REAL_t evalGlobal(self, REAL_t[:, ::1] simplex, REAL_t[::1] x):
-        if simplex.shape[1] == 1:
-            getBarycentricCoords1D(simplex, x, self.bary)
-        elif simplex.shape[1] == 2:
-            getBarycentricCoords2D(simplex, x, self.bary)
-        else:
-            raise NotImplementedError()
-        return self.eval(self.bary)
-
-    def evalGlobalPy(self, REAL_t[:, ::1] simplex, REAL_t[::1] x):
-        return self.evalGlobal(simplex, x)
-
-    def __getstate__(self):
-        return
-
-    def __setstate__(self, state):
-        self.bary = uninitialized((4), dtype=REAL)
-
-
-cdef class vectorShapeFunction:
-    """A class to represent a vector-valued finite element shape function."""
-
-    def __init__(self, INDEX_t dim, BOOL_t needsGradients):
         self.dim = dim
-        self.cell = uninitialized((dim+1), dtype=INDEX)
+        self.cell = uninitialized((self.dim+1), dtype=INDEX)
+        self.valueSize = valueSize
         self.needsGradients = needsGradients
 
     cpdef void setCell(self, INDEX_t[::1] cell):
@@ -1750,34 +1703,70 @@ cdef class vectorShapeFunction:
         for i in range(self.dim+1):
             self.cell[i] = cell[i]
 
-    def __call__(self, lam, gradLam):
-        value = uninitialized((self.dim), dtype=REAL)
-        self.eval(np.array(lam), np.array(gradLam), value)
-        return value
+    cdef void eval(self, REAL_t[::1] lam, REAL_t[:, ::1] gradLam, REAL_t[::1] value):
+        self.evalPtr(&lam[0], &gradLam[0, 0], &value[0])
 
-    cdef void eval(self, const REAL_t[::1] lam, const REAL_t[:, ::1] gradLam, REAL_t[::1] value):
-        pass
-
-    cdef void evalGlobal(self, const REAL_t[:, ::1] simplex, const REAL_t[::1] x, REAL_t[::1] value):
+    cdef void evalPtr(self, REAL_t* lam, REAL_t* gradLam, REAL_t* value):
         raise NotImplementedError()
 
-    def evalGlobalPy(self, REAL_t[:, ::1] simplex, REAL_t[::1] x):
-        value = uninitialized((self.dim), dtype=REAL)
-        self.evalGlobal(simplex, x, value)
+    cdef void evalStrided(self, REAL_t* lam, REAL_t* gradLam, INDEX_t stride, REAL_t* value):
+        raise NotImplementedError()
+
+    cdef void evalGrad(self, REAL_t[::1] lam, REAL_t[:, ::1] gradLam, REAL_t[::1] value):
+        self.evalGradPtr(&lam[0], &gradLam[0, 0], &value[0])
+
+    cdef void evalGradPtr(self, REAL_t* lam, REAL_t* gradLam, REAL_t* value):
+        raise NotImplementedError()
+
+    cdef void evalGlobal(self, REAL_t[:, ::1] simplex, REAL_t[::1] x, REAL_t[::1] value):
+        if simplex.shape[1] == 1:
+            getBarycentricCoords1D(simplex, x, self.bary)
+        elif simplex.shape[1] == 2:
+            getBarycentricCoords2D(simplex, x, self.bary)
+        else:
+            raise NotImplementedError()
+        self.evalPtr(&self.bary[0], NULL, &value[0])
+
+    def __call__(self, lam, gradLam=None):
+        value = uninitialized((self.valueSize), dtype=REAL)
+        if self.needsGradients:
+            assert gradLam is not None
+        self.eval(np.array(lam), gradLam, value)
+        if self.valueSize == 1:
+            return value[0]
+        else:
+            return value
+
+    def evalGradPy(self, lam, gradLam):
+        value = uninitialized((gradLam.shape[1]), dtype=REAL)
+        self.evalGrad(np.array(lam), np.array(gradLam), value)
         return value
+
+    def evalGlobalPy(self, REAL_t[:, ::1] simplex, REAL_t[::1] x):
+        value = uninitialized((self.valueSize), dtype=REAL)
+        self.evalGlobal(simplex, x, value)
+        if self.valueSize == 1:
+            return value[0]
+        else:
+            return value
+
+    def __getstate__(self):
+        return
+
+    def __setstate__(self, state):
+        self.bary = uninitialized((4), dtype=REAL)
 
 
 cdef class shapeFunctionP0(shapeFunction):
     """A class to represent the shape functions of a discontinuous piecewise constant finite element space."""
+    def __init__(self, INDEX_t dim):
+        super().__init__(dim)
 
-    def __call__(self, lam):
-        return 1.
+    cdef void evalPtr(self, REAL_t* lam, REAL_t* gradLam, REAL_t* value):
+        value[0] = 1.
 
-    cdef REAL_t eval(self, const REAL_t[::1] lam):
-        return 1.
-
-    cdef REAL_t evalStrided(self, const REAL_t* lam, INDEX_t stride):
-        return 1.
+    cdef void evalStrided(self, const REAL_t* lam, REAL_t* gradLam, INDEX_t stride, REAL_t* value):
+        value[0] = 1.
 
 
 cdef class P0_DoFMap(DoFMap):
@@ -1787,15 +1776,15 @@ cdef class P0_DoFMap(DoFMap):
                  INDEX_t skipCellsAfter=-1):
         self.polynomialOrder = 0
         if mesh.manifold_dim == 1:
-            self.localShapeFunctions = [shapeFunctionP0()]
+            self.localShapeFunctions = [shapeFunctionP0(mesh.manifold_dim)]
             self.nodes = np.array([[0.5, 0.5]], dtype=REAL)
             super(P0_DoFMap, self).__init__(mesh, 0, 0, 0, 1, tag, skipCellsAfter)
         elif mesh.manifold_dim == 2:
-            self.localShapeFunctions = [shapeFunctionP0()]
+            self.localShapeFunctions = [shapeFunctionP0(mesh.manifold_dim)]
             self.nodes = np.array([[1./3., 1./3., 1./3.]], dtype=REAL)
             super(P0_DoFMap, self).__init__(mesh, 0, 0, 0, 1, tag, skipCellsAfter)
         elif mesh.manifold_dim == 3:
-            self.localShapeFunctions = [shapeFunctionP0()]
+            self.localShapeFunctions = [shapeFunctionP0(mesh.manifold_dim)]
             self.nodes = np.array([[0.25, 0.25, 0.25, 0.25]], dtype=REAL)
             super(P0_DoFMap, self).__init__(mesh, 0, 0, 0, 1, tag, skipCellsAfter)
         else:
@@ -1851,31 +1840,27 @@ cdef class shapeFunctionP1(shapeFunction):
     cdef:
         INDEX_t vertexNo
 
-    def __init__(self, INDEX_t vertexNo):
+    def __init__(self, INDEX_t dim, INDEX_t vertexNo):
+        super().__init__(dim)
         self.vertexNo = vertexNo
 
-    def __call__(self, lam):
-        return lam[self.vertexNo]
+    cdef void evalPtr(self, REAL_t* lam, REAL_t* gradLam, REAL_t* value):
+        value[0] = lam[self.vertexNo]
 
-    cdef REAL_t eval(self, const REAL_t[::1] lam):
-        return lam[self.vertexNo]
+    cdef void evalStrided(self, const REAL_t* lam, REAL_t* gradLam, INDEX_t stride, REAL_t* value):
+        value[0] = lam[self.vertexNo*stride]
 
-    cdef REAL_t evalStrided(self, const REAL_t* lam, INDEX_t stride):
-        return lam[self.vertexNo*stride]
-
-    cdef void evalGrad(self, const REAL_t[::1] lam, const REAL_t[:, ::1] gradLam, REAL_t[::1] value):
+    cdef void evalGradPtr(self, REAL_t* lam, REAL_t* gradLam, REAL_t* value):
         cdef:
-            INDEX_t dim = gradLam.shape[1]
             INDEX_t i
-        for i in range(dim):
-            value[i] = gradLam[self.vertexNo, i]
+        for i in range(self.dim):
+            value[i] = gradLam[self.dim*self.vertexNo+i]
 
     def __getstate__(self):
-        return self.vertexNo
+        return (self.dim, self.vertexNo)
 
     def __setstate__(self, state):
-        self.vertexNo = state
-        self.bary = uninitialized((4), dtype=REAL)
+        shapeFunctionP1.__init__(self, *state)
 
 
 cdef class P1_DoFMap(DoFMap):
@@ -1885,25 +1870,25 @@ cdef class P1_DoFMap(DoFMap):
                  INDEX_t skipCellsAfter=-1):
         self.polynomialOrder = 1
         if mesh.manifold_dim == 0:
-            self.localShapeFunctions = [shapeFunctionP1(0)]
+            self.localShapeFunctions = [shapeFunctionP1(mesh.manifold_dim, 0)]
             self.nodes = np.array([[1.]], dtype=REAL)
         elif mesh.manifold_dim == 1:
-            self.localShapeFunctions = [shapeFunctionP1(0),
-                                        shapeFunctionP1(1)]
+            self.localShapeFunctions = [shapeFunctionP1(mesh.manifold_dim, 0),
+                                        shapeFunctionP1(mesh.manifold_dim, 1)]
             self.nodes = np.array([[1., 0.],
                                    [0., 1.]], dtype=REAL)
         elif mesh.manifold_dim == 2:
-            self.localShapeFunctions = [shapeFunctionP1(0),
-                                        shapeFunctionP1(1),
-                                        shapeFunctionP1(2)]
+            self.localShapeFunctions = [shapeFunctionP1(mesh.manifold_dim, 0),
+                                        shapeFunctionP1(mesh.manifold_dim, 1),
+                                        shapeFunctionP1(mesh.manifold_dim, 2)]
             self.nodes = np.array([[1., 0., 0.],
                                    [0., 1., 0.],
                                    [0., 0., 1.]], dtype=REAL)
         elif mesh.manifold_dim == 3:
-            self.localShapeFunctions = [shapeFunctionP1(0),
-                                        shapeFunctionP1(1),
-                                        shapeFunctionP1(2),
-                                        shapeFunctionP1(3)]
+            self.localShapeFunctions = [shapeFunctionP1(mesh.manifold_dim, 0),
+                                        shapeFunctionP1(mesh.manifold_dim, 1),
+                                        shapeFunctionP1(mesh.manifold_dim, 2),
+                                        shapeFunctionP1(mesh.manifold_dim, 3)]
             self.nodes = np.array([[1., 0., 0., 0.],
                                    [0., 1., 0., 0.],
                                    [0., 0., 1., 0.],
@@ -1934,24 +1919,21 @@ cdef class shapeFunctionP2_vertex(shapeFunction):
     cdef:
         INDEX_t vertexNo
 
-    def __init__(self, INDEX_t vertexNo):
+    def __init__(self, INDEX_t dim, INDEX_t vertexNo):
+        super().__init__(dim)
         self.vertexNo = vertexNo
 
-    def __call__(self, lam):
-        return lam[self.vertexNo]*(2.*lam[self.vertexNo]-1.)
+    cdef void evalPtr(self, REAL_t* lam, REAL_t* gradLam, REAL_t* value):
+        value[0] = lam[self.vertexNo]*(2.*lam[self.vertexNo]-1.)
 
-    cdef REAL_t eval(self, const REAL_t[::1] lam):
-        return lam[self.vertexNo]*(2.*lam[self.vertexNo]-1.)
-
-    cdef REAL_t evalStrided(self, const REAL_t* lam, INDEX_t stride):
-        return lam[self.vertexNo*stride]*(2.*lam[self.vertexNo*stride]-1.)
+    cdef void evalStrided(self, const REAL_t* lam, REAL_t* gradLam, INDEX_t stride, REAL_t* value):
+        value[0] = lam[self.vertexNo*stride]*(2.*lam[self.vertexNo*stride]-1.)
 
     def __getstate__(self):
-        return self.vertexNo
+        return (self.dim, self.vertexNo)
 
     def __setstate__(self, state):
-        self.vertexNo = state
-        self.bary = uninitialized((4), dtype=REAL)
+        shapeFunctionP2_vertex.__init__(self, *state)
 
 
 cdef class shapeFunctionP2_edge(shapeFunction):
@@ -1959,26 +1941,22 @@ cdef class shapeFunctionP2_edge(shapeFunction):
     cdef:
         INDEX_t vertexNo1, vertexNo2
 
-    def __init__(self, INDEX_t vertexNo1, INDEX_t vertexNo2):
+    def __init__(self, INDEX_t dim, INDEX_t vertexNo1, INDEX_t vertexNo2):
+        super().__init__(dim)
         self.vertexNo1 = vertexNo1
         self.vertexNo2 = vertexNo2
 
-    def __call__(self, lam):
-        return 4.*lam[self.vertexNo1]*lam[self.vertexNo2]
+    cdef void evalPtr(self, REAL_t* lam, REAL_t* gradLam, REAL_t* value):
+        value[0] = 4.*lam[self.vertexNo1]*lam[self.vertexNo2]
 
-    cdef REAL_t eval(self, const REAL_t[::1] lam):
-        return 4.*lam[self.vertexNo1]*lam[self.vertexNo2]
-
-    cdef REAL_t evalStrided(self, const REAL_t* lam, INDEX_t stride):
-        return 4.*lam[self.vertexNo1*stride]*lam[self.vertexNo2*stride]
+    cdef void evalStrided(self, const REAL_t* lam, REAL_t* gradLam, INDEX_t stride, REAL_t* value):
+        value[0] = 4.*lam[self.vertexNo1*stride]*lam[self.vertexNo2*stride]
 
     def __getstate__(self):
-        return (self.vertexNo1, self.vertexNo2)
+        return (self.dim, self.vertexNo1, self.vertexNo2)
 
     def __setstate__(self, state):
-        self.vertexNo1 = state[0]
-        self.vertexNo2 = state[1]
-        self.bary = uninitialized((4), dtype=REAL)
+        shapeFunctionP2_edge.__init__(self, *state)
 
 
 cdef class P2_DoFMap(DoFMap):
@@ -1987,21 +1965,21 @@ cdef class P2_DoFMap(DoFMap):
     def __init__(self, meshBase mesh, tag=None,
                  INDEX_t skipCellsAfter=-1):
         self.polynomialOrder = 2
-        if mesh.dim == 1:
-            self.localShapeFunctions = [shapeFunctionP2_vertex(0),
-                                        shapeFunctionP2_vertex(1),
-                                        shapeFunctionP2_edge(0, 1)]
+        if mesh.manifold_dim == 1:
+            self.localShapeFunctions = [shapeFunctionP2_vertex(mesh.manifold_dim, 0),
+                                        shapeFunctionP2_vertex(mesh.manifold_dim, 1),
+                                        shapeFunctionP2_edge(mesh.manifold_dim, 0, 1)]
             self.nodes = np.array([[1., 0.],
                                    [0., 1.],
                                    [0.5, 0.5]], dtype=REAL)
             super(P2_DoFMap, self).__init__(mesh, 1, 0, 0, 1, tag, skipCellsAfter)
-        elif mesh.dim == 2:
-            self.localShapeFunctions = [shapeFunctionP2_vertex(0),
-                                        shapeFunctionP2_vertex(1),
-                                        shapeFunctionP2_vertex(2),
-                                        shapeFunctionP2_edge(0, 1),
-                                        shapeFunctionP2_edge(1, 2),
-                                        shapeFunctionP2_edge(0, 2)]
+        elif mesh.manifold_dim == 2:
+            self.localShapeFunctions = [shapeFunctionP2_vertex(mesh.manifold_dim, 0),
+                                        shapeFunctionP2_vertex(mesh.manifold_dim, 1),
+                                        shapeFunctionP2_vertex(mesh.manifold_dim, 2),
+                                        shapeFunctionP2_edge(mesh.manifold_dim, 0, 1),
+                                        shapeFunctionP2_edge(mesh.manifold_dim, 1, 2),
+                                        shapeFunctionP2_edge(mesh.manifold_dim, 0, 2)]
             self.nodes = np.array([[1., 0., 0.],
                                    [0., 1., 0.],
                                    [0., 0., 1.],
@@ -2009,17 +1987,17 @@ cdef class P2_DoFMap(DoFMap):
                                    [0., 0.5, 0.5],
                                    [0.5, 0., 0.5]], dtype=REAL)
             super(P2_DoFMap, self).__init__(mesh, 1, 1, 0, 0, tag, skipCellsAfter)
-        elif mesh.dim == 3:
-            self.localShapeFunctions = [shapeFunctionP2_vertex(0),
-                                        shapeFunctionP2_vertex(1),
-                                        shapeFunctionP2_vertex(2),
-                                        shapeFunctionP2_vertex(3),
-                                        shapeFunctionP2_edge(0, 1),
-                                        shapeFunctionP2_edge(1, 2),
-                                        shapeFunctionP2_edge(0, 2),
-                                        shapeFunctionP2_edge(0, 3),
-                                        shapeFunctionP2_edge(1, 3),
-                                        shapeFunctionP2_edge(2, 3)]
+        elif mesh.manifold_dim == 3:
+            self.localShapeFunctions = [shapeFunctionP2_vertex(mesh.manifold_dim, 0),
+                                        shapeFunctionP2_vertex(mesh.manifold_dim, 1),
+                                        shapeFunctionP2_vertex(mesh.manifold_dim, 2),
+                                        shapeFunctionP2_vertex(mesh.manifold_dim, 3),
+                                        shapeFunctionP2_edge(mesh.manifold_dim, 0, 1),
+                                        shapeFunctionP2_edge(mesh.manifold_dim, 1, 2),
+                                        shapeFunctionP2_edge(mesh.manifold_dim, 0, 2),
+                                        shapeFunctionP2_edge(mesh.manifold_dim, 0, 3),
+                                        shapeFunctionP2_edge(mesh.manifold_dim, 1, 3),
+                                        shapeFunctionP2_edge(mesh.manifold_dim, 2, 3)]
             self.nodes = np.array([[1., 0., 0., 0.],
                                    [0., 1., 0., 0.],
                                    [0., 0., 1., 0.],
@@ -2043,21 +2021,21 @@ cdef class shapeFunctionP3_vertex(shapeFunction):
     cdef:
         INDEX_t vertexNo
 
-    def __init__(self, INDEX_t vertexNo):
+    def __init__(self, INDEX_t dim, INDEX_t vertexNo):
+        super().__init__(dim)
         self.vertexNo = vertexNo
 
-    def __call__(self, lam):
-        return 4.5*lam[self.vertexNo]*(lam[self.vertexNo]-1./3.)*(lam[self.vertexNo]-2./3.)
+    cdef void evalPtr(self, REAL_t* lam, REAL_t* gradLam, REAL_t* value):
+        value[0] = 4.5*lam[self.vertexNo]*(lam[self.vertexNo]-1./3.)*(lam[self.vertexNo]-2./3.)
 
-    cdef REAL_t eval(self, const REAL_t[::1] lam):
-        return 4.5*lam[self.vertexNo]*(lam[self.vertexNo]-1./3.)*(lam[self.vertexNo]-2./3.)
+    cdef void evalStrided(self, const REAL_t* lam, REAL_t* gradLam, INDEX_t stride, REAL_t* value):
+        value[0] = 4.5*lam[self.vertexNo*stride]*(lam[self.vertexNo*stride]-1./3.)*(lam[self.vertexNo*stride]-2./3.)
 
     def __getstate__(self):
-        return self.vertexNo
+        return (self.dim, self.vertexNo)
 
     def __setstate__(self, state):
-        self.vertexNo = state
-        self.bary = uninitialized((4), dtype=REAL)
+        shapeFunctionP3_vertex.__init__(self, *state)
 
 
 cdef class shapeFunctionP3_edge(shapeFunction):
@@ -2066,23 +2044,22 @@ cdef class shapeFunctionP3_edge(shapeFunction):
     cdef:
         INDEX_t vertexNo1, vertexNo2
 
-    def __init__(self, INDEX_t vertexNo1, INDEX_t vertexNo2):
+    def __init__(self, INDEX_t dim, INDEX_t vertexNo1, INDEX_t vertexNo2):
+        super().__init__(dim)
         self.vertexNo1 = vertexNo1
         self.vertexNo2 = vertexNo2
 
-    def __call__(self, lam):
-        return 13.5*lam[self.vertexNo1]*lam[self.vertexNo2]*(lam[self.vertexNo1]-1./3.)
+    cdef void evalPtr(self, REAL_t* lam, REAL_t* gradLam, REAL_t* value):
+        value[0] = 13.5*lam[self.vertexNo1]*lam[self.vertexNo2]*(lam[self.vertexNo1]-1./3.)
 
-    cdef REAL_t eval(self, const REAL_t[::1] lam):
-        return 13.5*lam[self.vertexNo1]*lam[self.vertexNo2]*(lam[self.vertexNo1]-1./3.)
+    cdef void evalStrided(self, const REAL_t* lam, REAL_t* gradLam, INDEX_t stride, REAL_t* value):
+        value[0] = 13.5*lam[self.vertexNo1*stride]*lam[self.vertexNo2*stride]*(lam[self.vertexNo1*stride]-1./3.)
 
     def __getstate__(self):
-        return (self.vertexNo1, self.vertexNo2)
+        return (self.dim, self.vertexNo1, self.vertexNo2)
 
     def __setstate__(self, state):
-        self.vertexNo1 = state[0]
-        self.vertexNo2 = state[1]
-        self.bary = uninitialized((4), dtype=REAL)
+        shapeFunctionP3_edge.__init__(self, *state)
 
 
 cdef class shapeFunctionP3_face(shapeFunction):
@@ -2091,25 +2068,23 @@ cdef class shapeFunctionP3_face(shapeFunction):
     cdef:
         INDEX_t vertexNo1, vertexNo2, vertexNo3
 
-    def __init__(self, INDEX_t vertexNo1, INDEX_t vertexNo2, INDEX_t vertexNo3):
+    def __init__(self, INDEX_t dim, INDEX_t vertexNo1, INDEX_t vertexNo2, INDEX_t vertexNo3):
+        super().__init__(dim)
         self.vertexNo1 = vertexNo1
         self.vertexNo2 = vertexNo2
         self.vertexNo3 = vertexNo3
 
-    def __call__(self, lam):
-        return 27.*lam[self.vertexNo1]*lam[self.vertexNo2]*lam[self.vertexNo3]
+    cdef void evalPtr(self, REAL_t* lam, REAL_t* gradLam, REAL_t* value):
+        value[0] = 27.*lam[self.vertexNo1]*lam[self.vertexNo2]*lam[self.vertexNo3]
 
-    cdef REAL_t eval(self, const REAL_t[::1] lam):
-        return 27.*lam[self.vertexNo1]*lam[self.vertexNo2]*lam[self.vertexNo3]
+    cdef void evalStrided(self, const REAL_t* lam, REAL_t* gradLam, INDEX_t stride, REAL_t* value):
+        value[0] = 27.*lam[self.vertexNo1*stride]*lam[self.vertexNo2*stride]*lam[self.vertexNo3*stride]
 
     def __getstate__(self):
-        return (self.vertexNo1, self.vertexNo2, self.vertexNo3)
+        return (self.dim, self.vertexNo1, self.vertexNo2, self.vertexNo3)
 
     def __setstate__(self, state):
-        self.vertexNo1 = state[0]
-        self.vertexNo2 = state[1]
-        self.vertexNo3 = state[2]
-        self.bary = uninitialized((4), dtype=REAL)
+        shapeFunctionP3_face.__init__(self, *state)
 
 
 cdef class P3_DoFMap(DoFMap):
@@ -2118,27 +2093,27 @@ cdef class P3_DoFMap(DoFMap):
     def __init__(self, meshBase mesh, tag=None,
                  INDEX_t skipCellsAfter=-1):
         self.polynomialOrder = 3
-        if mesh.dim == 1:
-            self.localShapeFunctions = [shapeFunctionP3_vertex(0),
-                                        shapeFunctionP3_vertex(1),
-                                        shapeFunctionP3_edge(0, 1),
-                                        shapeFunctionP3_edge(1, 0)]
+        if mesh.manifold_dim == 1:
+            self.localShapeFunctions = [shapeFunctionP3_vertex(mesh.manifold_dim, 0),
+                                        shapeFunctionP3_vertex(mesh.manifold_dim, 1),
+                                        shapeFunctionP3_edge(mesh.manifold_dim, 0, 1),
+                                        shapeFunctionP3_edge(mesh.manifold_dim, 1, 0)]
             self.nodes = np.array([[1., 0.],
                                    [0., 1.],
                                    [2./3., 1./3.],
                                    [1./3., 2./3.]], dtype=REAL)
             super(P3_DoFMap, self).__init__(mesh, 1, 0, 0, 2, tag, skipCellsAfter)
-        elif mesh.dim == 2:
-            self.localShapeFunctions = [shapeFunctionP3_vertex(0),
-                                        shapeFunctionP3_vertex(1),
-                                        shapeFunctionP3_vertex(2),
-                                        shapeFunctionP3_edge(0, 1),
-                                        shapeFunctionP3_edge(1, 0),
-                                        shapeFunctionP3_edge(1, 2),
-                                        shapeFunctionP3_edge(2, 1),
-                                        shapeFunctionP3_edge(2, 0),
-                                        shapeFunctionP3_edge(0, 2),
-                                        shapeFunctionP3_face(0, 1, 2)]
+        elif mesh.manifold_dim == 2:
+            self.localShapeFunctions = [shapeFunctionP3_vertex(mesh.manifold_dim, 0),
+                                        shapeFunctionP3_vertex(mesh.manifold_dim, 1),
+                                        shapeFunctionP3_vertex(mesh.manifold_dim, 2),
+                                        shapeFunctionP3_edge(mesh.manifold_dim, 0, 1),
+                                        shapeFunctionP3_edge(mesh.manifold_dim, 1, 0),
+                                        shapeFunctionP3_edge(mesh.manifold_dim, 1, 2),
+                                        shapeFunctionP3_edge(mesh.manifold_dim, 2, 1),
+                                        shapeFunctionP3_edge(mesh.manifold_dim, 2, 0),
+                                        shapeFunctionP3_edge(mesh.manifold_dim, 0, 2),
+                                        shapeFunctionP3_face(mesh.manifold_dim, 0, 1, 2)]
             self.nodes = np.array([[1., 0., 0.],
                                    [0., 1., 0.],
                                    [0., 0., 1.],
@@ -2150,27 +2125,27 @@ cdef class P3_DoFMap(DoFMap):
                                    [2./3., 0., 1./3.],
                                    [1./3., 1./3., 1./3.]], dtype=REAL)
             super(P3_DoFMap, self).__init__(mesh, 1, 2, 0, 1, tag, skipCellsAfter)
-        elif mesh.dim == 3:
-            self.localShapeFunctions = [shapeFunctionP3_vertex(0),
-                                        shapeFunctionP3_vertex(1),
-                                        shapeFunctionP3_vertex(2),
-                                        shapeFunctionP3_vertex(3),
-                                        shapeFunctionP3_edge(0, 1),
-                                        shapeFunctionP3_edge(1, 0),
-                                        shapeFunctionP3_edge(1, 2),
-                                        shapeFunctionP3_edge(2, 1),
-                                        shapeFunctionP3_edge(2, 0),
-                                        shapeFunctionP3_edge(0, 2),
-                                        shapeFunctionP3_edge(0, 3),
-                                        shapeFunctionP3_edge(3, 0),
-                                        shapeFunctionP3_edge(1, 3),
-                                        shapeFunctionP3_edge(3, 1),
-                                        shapeFunctionP3_edge(2, 3),
-                                        shapeFunctionP3_edge(3, 2),
-                                        shapeFunctionP3_face(0, 1, 2),
-                                        shapeFunctionP3_face(0, 1, 3),
-                                        shapeFunctionP3_face(1, 2, 3),
-                                        shapeFunctionP3_face(2, 0, 3)]
+        elif mesh.manifold_dim == 3:
+            self.localShapeFunctions = [shapeFunctionP3_vertex(mesh.manifold_dim, 0),
+                                        shapeFunctionP3_vertex(mesh.manifold_dim, 1),
+                                        shapeFunctionP3_vertex(mesh.manifold_dim, 2),
+                                        shapeFunctionP3_vertex(mesh.manifold_dim, 3),
+                                        shapeFunctionP3_edge(mesh.manifold_dim, 0, 1),
+                                        shapeFunctionP3_edge(mesh.manifold_dim, 1, 0),
+                                        shapeFunctionP3_edge(mesh.manifold_dim, 1, 2),
+                                        shapeFunctionP3_edge(mesh.manifold_dim, 2, 1),
+                                        shapeFunctionP3_edge(mesh.manifold_dim, 2, 0),
+                                        shapeFunctionP3_edge(mesh.manifold_dim, 0, 2),
+                                        shapeFunctionP3_edge(mesh.manifold_dim, 0, 3),
+                                        shapeFunctionP3_edge(mesh.manifold_dim, 3, 0),
+                                        shapeFunctionP3_edge(mesh.manifold_dim, 1, 3),
+                                        shapeFunctionP3_edge(mesh.manifold_dim, 3, 1),
+                                        shapeFunctionP3_edge(mesh.manifold_dim, 2, 3),
+                                        shapeFunctionP3_edge(mesh.manifold_dim, 3, 2),
+                                        shapeFunctionP3_face(mesh.manifold_dim, 0, 1, 2),
+                                        shapeFunctionP3_face(mesh.manifold_dim, 0, 1, 3),
+                                        shapeFunctionP3_face(mesh.manifold_dim, 1, 2, 3),
+                                        shapeFunctionP3_face(mesh.manifold_dim, 2, 0, 3)]
             self.nodes = np.array([[1., 0., 0., 0.],
                                    [0., 1., 0., 0.],
                                    [0., 0., 1., 0.],
@@ -2200,37 +2175,29 @@ cdef class P3_DoFMap(DoFMap):
                                                                      self.num_boundary_dofs)
 
 
-cdef class shapeFunctionN1e(vectorShapeFunction):
+cdef class shapeFunctionN1e(shapeFunction):
     cdef:
         INDEX_t localVertexNo1, localVertexNo2
 
     def __init__(self, INDEX_t dim, INDEX_t localVertexNo1, INDEX_t localVertexNo2):
-        super(shapeFunctionN1e, self).__init__(dim, True)
+        super(shapeFunctionN1e, self).__init__(dim, dim, True)
         self.localVertexNo1 = localVertexNo1
         self.localVertexNo2 = localVertexNo2
 
-    def __call__(self, lam, gradLam):
-        value = 0.5*(lam[self.localVertexNo1]*gradLam[self.localVertexNo2, :] - lam[self.localVertexNo2]*gradLam[self.localVertexNo1, :])
-        if self.cell[self.localVertexNo1] > self.cell[self.localVertexNo2]:
-            value = -value
-        return value
-
-    cdef void eval(self, const REAL_t[::1] lam, const REAL_t[:, ::1] gradLam, REAL_t[::1] value):
+    cdef void evalPtr(self, REAL_t* lam, REAL_t* gradLam, REAL_t* value):
         cdef:
             INDEX_t i
         for i in range(self.dim):
-            value[i] = 0.5*(lam[self.localVertexNo1]*gradLam[self.localVertexNo2, i] - lam[self.localVertexNo2]*gradLam[self.localVertexNo1, i])
+            value[i] = 0.5*(lam[self.localVertexNo1]*gradLam[self.dim*self.localVertexNo2+i] - lam[self.localVertexNo2]*gradLam[self.dim*self.localVertexNo1+i])
         if self.cell[self.localVertexNo1] > self.cell[self.localVertexNo2]:
             for i in range(self.dim):
                 value[i] = -value[i]
 
     def __getstate__(self):
-        return (self.vertexNo1, self.vertexNo2)
+        return (self.dim, self.vertexNo1, self.vertexNo2)
 
     def __setstate__(self, state):
-        self.vertexNo1 = state[0]
-        self.vertexNo2 = state[1]
-        self.bary = uninitialized((4), dtype=REAL)
+        shapeFunctionN1e.__init__(self, *state)
 
 
 cdef class N1e_DoFMap(DoFMap):
@@ -2470,7 +2437,7 @@ cdef class elementSizeFunction(function):
         return self.hVector[cellNo]
 
 
-cdef class productSpaceShapeFunction(vectorShapeFunction):
+cdef class productSpaceShapeFunction(shapeFunction):
     cdef:
         shapeFunction phi
         INDEX_t k
@@ -2482,23 +2449,12 @@ cdef class productSpaceShapeFunction(vectorShapeFunction):
         self.K = K
         self.k = k
 
-    def __call__(self, lam, gradLam):
-        cdef:
-            INDEX_t i
-        value = np.zeros((self.K), dtype=REAL)
-        for i in range(self.K):
-            if i == self.k:
-                value[i] = self.phi.eval(lam)
-            else:
-                value[i] = 0.
-        return value
-
-    cdef void eval(self, const REAL_t[::1] lam, const REAL_t[:, ::1] gradLam, REAL_t[::1] value):
+    cdef void evalPtr(self, REAL_t* lam, REAL_t* gradLam, REAL_t* value):
         cdef:
             INDEX_t i
         for i in range(self.K):
             if i == self.k:
-                value[i] = self.phi.eval(lam)
+                self.phi.evalPtr(lam, gradLam, &value[i])
             else:
                 value[i] = 0.
 
@@ -2506,10 +2462,7 @@ cdef class productSpaceShapeFunction(vectorShapeFunction):
         return (self.phi, self.K, self.k, self.dim)
 
     def __setstate__(self, state):
-        self.phi = state[0]
-        self.K = state[1]
-        self.k = state[2]
-        self.dim = state[3]
+        productSpaceShapeFunction.__init__(self, *state)
 
 
 cdef class Product_DoFMap(DoFMap):
