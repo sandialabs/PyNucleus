@@ -19,7 +19,6 @@ def latexOptions(fig_width=None, fig_height=None, ratio=None,
         else:
             fig_height = fig_width*ratio
     MPLconf = {
-        'text.usetex': True,
         'axes.titlesize': fontsize,
         'axes.labelsize': fontsize,
         'legend.fontsize': fontsize,

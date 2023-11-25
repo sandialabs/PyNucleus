@@ -328,7 +328,6 @@ cdef class {SCALAR_label}RowDistributedOperator({SCALAR_label}LinearOperator):
         self.communicateNear(x, xTemp)
         localMat.matvec_no_overwrite(xTemp, y)
 
-
     property diagonal:
         def __get__(self):
             return self.localMat.diagonal

@@ -5,22 +5,20 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-from libc.math cimport ceil
 import numpy as np
 cimport numpy as np
 
 from libc.math cimport sin, cos, M_PI as pi
 from libcpp.map cimport map
 from cpython.long cimport PyLong_FromSsize_t
-from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX, ENCODE, BOOL
+from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX
 from PyNucleus_base import uninitialized
 from PyNucleus_base.intTuple cimport intTuple
 from PyNucleus_base.ip_norm cimport (ip_distributed_nonoverlapping,
                                      norm_distributed_nonoverlapping)
-from PyNucleus_fem.mesh import mesh0d, mesh1d
 from PyNucleus_fem.functions cimport function, constant
-from PyNucleus_fem.DoFMaps cimport P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap, Product_DoFMap
-from PyNucleus_fem.meshCy cimport sortEdge, encode_edge, decode_edge, encode_face
+from PyNucleus_fem.DoFMaps cimport P0_DoFMap, P1_DoFMap, Product_DoFMap
+from PyNucleus_fem.meshCy cimport sortEdge, encode_edge, decode_edge
 from PyNucleus_fem.femCy cimport local_matrix_t
 from PyNucleus_fem.femCy import assembleMatrix, mass_1d_sym_scalar_anisotropic, mass_2d_sym_scalar_anisotropic
 from PyNucleus_fem.quadrature import simplexXiaoGimbutas
@@ -85,41 +83,41 @@ include "nonlocalAssembly_COMPLEX.pxi"
 
 # These functions are used by getEntry
 
-cdef inline MASK_t getElemSymMask(DoFMap DoFMap, INDEX_t cellNo1, INDEX_t I, INDEX_t J):
+cdef inline MASK_t getElemSymMask(DoFMap dm, INDEX_t cellNo1, INDEX_t I, INDEX_t J):
     # Add symmetric 'contrib' to elements i and j in symmetric fashion
     cdef:
         INDEX_t p, q, K, L
         MASK_t k = <MASK_t> 1
         MASK_t mask
     mask.reset()
-    for p in range(DoFMap.dofs_per_element):
-        K = DoFMap.cell2dof(cellNo1, p)
-        for q in range(p, DoFMap.dofs_per_element):
-            L = DoFMap.cell2dof(cellNo1, q)
+    for p in range(dm.dofs_per_element):
+        K = dm.cell2dof(cellNo1, p)
+        for q in range(p, dm.dofs_per_element):
+            L = dm.cell2dof(cellNo1, q)
             if (I == K and J == L) or (J == K and I == L):
                 mask |= k
             k = k << 1
     return mask
 
 
-cdef inline MASK_t getElemElemSymMask(DoFMap DoFMap, INDEX_t cellNo1, INDEX_t cellNo2, INDEX_t I, INDEX_t J):
+cdef inline MASK_t getElemElemSymMask(DoFMap dm, INDEX_t cellNo1, INDEX_t cellNo2, INDEX_t I, INDEX_t J):
     # Add symmetric 'contrib' to elements i and j in symmetric fashion
     cdef:
         INDEX_t p, q, K, L
         MASK_t k = <MASK_t> 1
         MASK_t mask
     mask.reset()
-    for p in range(2*DoFMap.dofs_per_element):
-        if p < DoFMap.dofs_per_element:
-            K = DoFMap.cell2dof(cellNo1, p)
+    for p in range(2*dm.dofs_per_element):
+        if p < dm.dofs_per_element:
+            K = dm.cell2dof(cellNo1, p)
         else:
-            K = DoFMap.cell2dof(cellNo2, p-DoFMap.dofs_per_element)
+            K = dm.cell2dof(cellNo2, p-dm.dofs_per_element)
 
-        for q in range(p, 2*DoFMap.dofs_per_element):
-            if q < DoFMap.dofs_per_element:
-                L = DoFMap.cell2dof(cellNo1, q)
+        for q in range(p, 2*dm.dofs_per_element):
+            if q < dm.dofs_per_element:
+                L = dm.cell2dof(cellNo1, q)
             else:
-                L = DoFMap.cell2dof(cellNo2, q-DoFMap.dofs_per_element)
+                L = dm.cell2dof(cellNo2, q-dm.dofs_per_element)
             if (I == K and J == L) or (J == K and I == L):
                 mask |= k
             k = k << 1
@@ -176,7 +174,6 @@ cdef class horizonSurfaceIntegral(function):
         return fac
 
 
-
 cdef class horizonCorrected(TimeStepperLinearOperator):
     cdef:
         meshBase mesh
@@ -228,9 +225,9 @@ cdef class horizonCorrected(TimeStepperLinearOperator):
             assert kernel.s.value == self.kernel.s.value
 
             if (self.initialized and
-                (self.kernel.s.value == kernel.s.value) and
-                (self.kernel.horizonValue == horizon) and
-                (self.kernel.scaling.value == C)):
+                    (self.kernel.s.value == kernel.s.value) and
+                    (self.kernel.horizonValue == horizon) and
+                    (self.kernel.scaling.value == C)):
                 return
 
         self.kernel = kernel
@@ -358,7 +355,7 @@ cdef class horizonCorrected(TimeStepperLinearOperator):
 
 
 def assembleNonlocalOperator(meshBase mesh,
-                             DoFMap DoFMap,
+                             DoFMap dm,
                              fractionalOrderBase s,
                              function horizon=constant(np.inf),
                              dict params={},
@@ -366,7 +363,7 @@ def assembleNonlocalOperator(meshBase mesh,
                              MPI.Comm comm=None,
                              **kwargs):
     kernel = getFractionalKernel(mesh.dim, s, horizon)
-    builder = nonlocalBuilder(mesh, DoFMap, kernel, params, zeroExterior, comm, **kwargs)
+    builder = nonlocalBuilder(mesh, dm, kernel, params, zeroExterior, comm, **kwargs)
     return builder.getDense()
 
 
@@ -482,7 +479,7 @@ cdef class LeftFilteredAssemblyOperator(LinearOperator):
 
 def assembleNearField(list Pnear,
                       meshBase mesh,
-                      DoFMap DoFMap,
+                      DoFMap dm,
                       fractionalOrderBase s,
                       function horizon=constant(np.inf),
                       dict params={},
@@ -490,7 +487,7 @@ def assembleNearField(list Pnear,
                       comm=None,
                       **kwargs):
     kernel = getFractionalKernel(mesh.dim, s, horizon)
-    builder = nonlocalBuilder(mesh, DoFMap, kernel, params, zeroExterior, comm, logging=True, **kwargs)
+    builder = nonlocalBuilder(mesh, dm, kernel, params, zeroExterior, comm, logging=True, **kwargs)
     A = builder.assembleClusters(Pnear)
     return A
 

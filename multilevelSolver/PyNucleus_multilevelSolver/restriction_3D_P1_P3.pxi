@@ -6,7 +6,7 @@
 ###################################################################################
 
 cdef buildRestriction_3D_P1_P3(DoFMap coarse_DoFMap,
-                                         DoFMap fine_DoFMap):
+                               DoFMap fine_DoFMap):
     cdef:
         sparsityPattern sPat
         INDEX_t cellNo, dof, k, middleEdgeDof

@@ -629,28 +629,28 @@ cdef class {SCALAR_label}IndexManager:
         return s
 
 
-cdef inline {SCALAR}_t extractElemSymMasked{SCALAR_label}(DoFMap DoFMap, const {SCALAR}_t[:, ::1] contrib, REAL_t fac, MASK_t mask):
+cdef inline {SCALAR}_t extractElemSymMasked{SCALAR_label}(DoFMap dm, const {SCALAR}_t[:, ::1] contrib, REAL_t fac, MASK_t mask):
     # Add symmetric 'contrib' to elements i and j in symmetric fashion
     cdef:
         INDEX_t k, p, q
         {SCALAR}_t s = 0.
     k = 0
-    for p in range(DoFMap.dofs_per_element):
-        for q in range(p, DoFMap.dofs_per_element):
+    for p in range(dm.dofs_per_element):
+        for q in range(p, dm.dofs_per_element):
             if mask[k]:
                 s += fac*contrib[k, 0]
             k += 1
     return s
 
 
-cdef inline {SCALAR}_t extractElemElemSymMasked{SCALAR_label}(DoFMap DoFMap, const {SCALAR}_t[:, ::1] contrib, REAL_t fac, MASK_t mask):
+cdef inline {SCALAR}_t extractElemElemSymMasked{SCALAR_label}(DoFMap dm, const {SCALAR}_t[:, ::1] contrib, REAL_t fac, MASK_t mask):
     # Add symmetric 'contrib' to elements i and j in symmetric fashion
     cdef:
         INDEX_t k, p, q
         {SCALAR}_t s = 0.
     k = 0
-    for p in range(2*DoFMap.dofs_per_element):
-        for q in range(p, 2*DoFMap.dofs_per_element):
+    for p in range(2*dm.dofs_per_element):
+        for q in range(p, 2*dm.dofs_per_element):
             if mask[k]:
                 s += fac*contrib[k, 0]
             k += 1
@@ -960,23 +960,23 @@ cdef class {SCALAR_label}nonlocalBuilder:
                     if symmetric:
                         local_matrix = fractionalLaplacian1D(self.kernel,
                                                              mesh=self.mesh,
-                                                             DoFMap=self.dm,
+                                                             dm=self.dm,
                                                              target_order=target_order)
                     else:
                         local_matrix = fractionalLaplacian1D_nonsym(self.kernel,
                                                                     mesh=self.mesh,
-                                                                    DoFMap=self.dm,
+                                                                    dm=self.dm,
                                                                     target_order=target_order)
                 elif self.mesh.manifold_dim == 2:
                     if symmetric:
                         local_matrix = fractionalLaplacian2D(self.kernel,
                                                              mesh=self.mesh,
-                                                             DoFMap=self.dm,
+                                                             dm=self.dm,
                                                              target_order=target_order)
                     else:
                         local_matrix = fractionalLaplacian2D_nonsym(self.kernel,
                                                                     mesh=self.mesh,
-                                                                    DoFMap=self.dm,
+                                                                    dm=self.dm,
                                                                     target_order=target_order)
                 else:
                     raise NotImplementedError()
@@ -1007,12 +1007,12 @@ cdef class {SCALAR_label}nonlocalBuilder:
                 if self.mesh.manifold_dim == 1:
                     local_matrix = fractionalLaplacian1D_boundary(kernelBoundary,
                                                                   mesh=self.mesh,
-                                                                  DoFMap=self.dm,
+                                                                  dm=self.dm,
                                                                   target_order=target_order)
                 elif self.mesh.manifold_dim == 2:
                     local_matrix = fractionalLaplacian2D_boundary(kernelBoundary,
                                                                   mesh=self.mesh,
-                                                                  DoFMap=self.dm,
+                                                                  dm=self.dm,
                                                                   target_order=target_order)
                 else:
                     raise NotImplementedError()
@@ -1250,11 +1250,11 @@ cdef class {SCALAR_label}nonlocalBuilder:
             end = self.mesh.num_cells
 
         if (trySparsification
-            and (self.comm is None or self.comm.size == 1)
-            and not self.zeroExterior
-            and self.dm2 is None
-            and self.kernel.finiteHorizon
-            and (self.mesh.volume*(1.-sparsificationThreshold) > self.kernel.getHorizonValue()**self.mesh.dim)):
+                and (self.comm is None or self.comm.size == 1)
+                and not self.zeroExterior
+                and self.dm2 is None
+                and self.kernel.finiteHorizon
+                and (self.mesh.volume*(1.-sparsificationThreshold) > self.kernel.getHorizonValue()**self.mesh.dim)):
 
             with self.PLogger.Timer('build sparsity pattern'):
 
@@ -1309,7 +1309,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
                                                          np.zeros((indices.shape[0]), dtype=REAL))
                     ratio = (A.nnz/REAL(A.num_rows))/REAL(A.num_columns)
                 LOGGER.warning('Assembling into sparse{} matrix, since {}% of entries are zero.'.format(', symmetric' if useSymmetricMatrix else '',
-                                                                                                     100.*(1.-ratio)))
+                                                                                                        100.*(1.-ratio)))
                 trySparsification = False
         else:
             if self.dm2 is None:
@@ -1333,8 +1333,8 @@ cdef class {SCALAR_label}nonlocalBuilder:
             dmCombined = self.dm.combine(self.dm2)
             if self.kernel.valueSize == 1:
                 B = SubMatrixAssemblyOperator(A,
-                                          np.arange(self.dm.num_dofs, dtype=INDEX),
-                                          np.arange(self.dm.num_dofs, self.dm.num_dofs+self.dm2.num_dofs, dtype=INDEX))
+                                              np.arange(self.dm.num_dofs, dtype=INDEX),
+                                              np.arange(self.dm.num_dofs, self.dm.num_dofs+self.dm2.num_dofs, dtype=INDEX))
                 iM = {SCALAR_label}IndexManager(dmCombined, B)
             else:
                 vecB = SubMatrixAssemblyOperator(vecA,
@@ -1501,7 +1501,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
     cpdef {SCALAR}_t getEntry(self, INDEX_t I, INDEX_t J):
         cdef:
             INDEX_t cellNo1, cellNo2
-            INDEX_t[:,::1] surface_cells
+            INDEX_t[:, ::1] surface_cells
             MASK_t mask
             indexSet cellsUnion = arrayIndexSet()
             indexSet cellsInter = arrayIndexSet()
@@ -2261,7 +2261,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
     def getKernelBlocksAndJumps(self):
         cdef:
             meshBase mesh = self.mesh
-            DoFMap DoFMap = self.dm
+            DoFMap dm = self.dm
             fractionalOrderBase s = self.kernel.s
             REAL_t[::1] orders = None
             REAL_t[::1] dofOrders
@@ -2276,11 +2276,11 @@ cdef class {SCALAR_label}nonlocalBuilder:
             orders = P0_DoFMap(mesh).interpolate(s.blockIndicator)
         else:
             orders = P0_DoFMap(mesh).interpolate(s.diagonal())
-        dofOrders = np.full((DoFMap.num_dofs), fill_value=UNASSIGNED, dtype=REAL)
+        dofOrders = np.full((dm.num_dofs), fill_value=UNASSIGNED, dtype=REAL)
         for cellNo in range(mesh.num_cells):
             cellOrder = orders[cellNo]
-            for dofNo in range(DoFMap.dofs_per_element):
-                dof = DoFMap.cell2dof(cellNo, dofNo)
+            for dofNo in range(dm.dofs_per_element):
+                dof = dm.cell2dof(cellNo, dofNo)
                 if dof >= 0:
                     if dofOrders[dof] == UNASSIGNED:
                         dofOrders[dof] = cellOrder
@@ -2291,7 +2291,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
         #  value fractional order -> set of dofs
         # dofs at interfaces between different fractional orders are in blocks[INTERFACE_DOF]
         blocks = {}
-        for dof in range(DoFMap.num_dofs):
+        for dof in range(dm.num_dofs):
             try:
                 blocks[dofOrders[dof]].add(dof)
             except KeyError:
@@ -2442,7 +2442,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
 
                 for n in root.children:
                     if ignoreDiagonalBlocks and (n.id == myRoot.id):
-                        pass
+                        continue
                     getAdmissibleClusters(self.local_matrix.kernel, myRoot, n,
                                           refParams,
                                           Pfar=Pfar, Pnear=Pnear,
@@ -2554,7 +2554,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
 
                 for n in root.children:
                     if ignoreDiagonalBlocks and (n.id == myRoot.id):
-                        pass
+                        continue
                     getCoveringClusters(self.local_matrix.kernel, myRoot, n,
                                         refParams,
                                         Pnear,
@@ -2719,7 +2719,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
     def getH2(self, BOOL_t returnNearField=False, returnTree=False, tree_node root=None, tree_node myRoot=None, dict jumps={}, BOOL_t ignoreDiagonalBlocks=False):
         cdef:
             meshBase mesh = self.mesh
-            DoFMap DoFMap = self.dm
+            DoFMap dm = self.dm
             REAL_t[:, :, ::1] boxes = None, local_boxes
             sparseGraph cells = None
             REAL_t[:, ::1] coords = None
@@ -2733,7 +2733,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
 
         refParams = self.getH2RefinementParams()
 
-        doDistributedAssembly = self.comm is not None and self.comm.size > 1 and DoFMap.num_dofs > self.comm.size
+        doDistributedAssembly = self.comm is not None and self.comm.size > 1 and dm.num_dofs > self.comm.size
         assembleOnRoot = self.params.get('assembleOnRoot', True)
         forceUnsymmetricMatrix = self.params.get('forceUnsymmetric', doDistributedAssembly and not assembleOnRoot)
         localFarFieldIndexing = self.params.get('localFarFieldIndexing', False)
@@ -2777,12 +2777,12 @@ cdef class {SCALAR_label}nonlocalBuilder:
                 # get leave values
                 if self.kernel.max_singularity > -self.kernel.dim-2:
                     if not localFarFieldIndexing:
-                        root.enterLeafValues(mesh, DoFMap, refParams.interpolation_order, boxes, self.comm, assembleOnRoot=assembleOnRoot)
+                        root.enterLeafValues(mesh, dm, refParams.interpolation_order, boxes, self.comm, assembleOnRoot=assembleOnRoot)
                     else:
                         myRoot.enterLeafValues(mesh, local_dm, refParams.interpolation_order, local_boxes, local=True)
                 elif (self.kernel.min_singularity < -self.kernel.dim-2) and (self.kernel.max_singularity > -self.kernel.dim-4):
                     if not localFarFieldIndexing:
-                        root.enterLeafValuesGrad(mesh, DoFMap, refParams.interpolation_order, boxes, self.comm)
+                        root.enterLeafValuesGrad(mesh, dm, refParams.interpolation_order, boxes, self.comm)
                     else:
                         raise NotImplementedError()
                 else:
@@ -2792,7 +2792,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
                 with self.PLogger.Timer('far field'):
                     # get kernel interpolations
                     bemMode = False
-                    assembleFarFieldInteractions(self.local_matrix.kernel, Pfar, refParams.interpolation_order, DoFMap, bemMode)
+                    assembleFarFieldInteractions(self.local_matrix.kernel, Pfar, refParams.interpolation_order, dm, bemMode)
 
                 with self.PLogger.Timer('transfer matrices'):
                     # get transfer matrices
@@ -2839,14 +2839,14 @@ cdef class {SCALAR_label}nonlocalBuilder:
         return A
 
 
-def getSparseNearField{SCALAR_label}(DoFMap DoFMap, list Pnear, bint symmetric=False, tree_node myRoot=None, INDEX_t valueSize=1):
+def getSparseNearField{SCALAR_label}(DoFMap dm, list Pnear, bint symmetric=False, tree_node myRoot=None, INDEX_t valueSize=1):
     cdef:
         sparsityPattern sP
         INDEX_t I = -1, J = -1
         nearFieldClusterPair clusterPair
         indexSet dofs1, dofs2
         indexSetIterator it1 = arrayIndexSetIterator(), it2 = arrayIndexSetIterator()
-    sP = sparsityPattern(DoFMap.num_dofs)
+    sP = sparsityPattern(dm.num_dofs)
     if symmetric:
         for clusterPair in Pnear:
             dofs1 = clusterPair.n1.get_dofs()
@@ -2890,7 +2890,7 @@ def getSparseNearField{SCALAR_label}(DoFMap DoFMap, list Pnear, bint symmetric=F
     if valueSize == 1:
         data = np.zeros((indices.shape[0]), dtype={SCALAR})
         if symmetric:
-            diagonal = np.zeros((DoFMap.num_dofs), dtype={SCALAR})
+            diagonal = np.zeros((dm.num_dofs), dtype={SCALAR})
             A = {SCALAR_label}SSS_LinearOperator(indices, indptr, data, diagonal)
         else:
             A = {SCALAR_label}CSR_LinearOperator(indices, indptr, data)
@@ -2898,21 +2898,21 @@ def getSparseNearField{SCALAR_label}(DoFMap DoFMap, list Pnear, bint symmetric=F
     else:
         data = np.zeros((indices.shape[0], valueSize), dtype={SCALAR})
         if symmetric:
-            diagonal = np.zeros((DoFMap.num_dofs, valueSize), dtype={SCALAR})
+            diagonal = np.zeros((dm.num_dofs, valueSize), dtype={SCALAR})
             A = {SCALAR_label}SSS_VectorLinearOperator(indices, indptr, data, diagonal)
         else:
             A = {SCALAR_label}CSR_VectorLinearOperator(indices, indptr, data)
         return A
 
 
-def getSparseNearField{SCALAR_label}2(DoFMap DoFMap, DoFMap dm2, list Pnear, tree_node myRoot=None, INDEX_t valueSize=1):
+def getSparseNearField{SCALAR_label}2(DoFMap dm, DoFMap dm2, list Pnear, tree_node myRoot=None, INDEX_t valueSize=1):
     cdef:
         sparsityPattern sP
         INDEX_t I = -1, J = -1
         nearFieldClusterPair clusterPair
         indexSet dofs1, dofs2
         indexSetIterator it1 = arrayIndexSetIterator(), it2 = arrayIndexSetIterator()
-    sP = sparsityPattern(DoFMap.num_dofs)
+    sP = sparsityPattern(dm.num_dofs)
     if myRoot is not None:
         for clusterPair in Pnear:
             if clusterPair.n1.getParent(1).id != myRoot.id:

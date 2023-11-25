@@ -11,8 +11,8 @@ from scipy.special.cython_special cimport psi as digamma
 import numpy as np
 cimport numpy as np
 
-from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX, ENCODE
-from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, COMPLEX_t, ENCODE_t
+from PyNucleus_base.myTypes import INDEX, REAL
+from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, COMPLEX_t
 from PyNucleus_base import uninitialized
 from PyNucleus_base.blas cimport norm
 
@@ -185,7 +185,6 @@ cdef class constant(function):
             return self.value == o.value
         else:
             return False
-
 
 
 cdef class monomial(function):
@@ -725,7 +724,6 @@ cdef class solFractional2Dcombination(function):
         return val
 
 
-
 cdef class rhsTestFractional_U(function):
     cdef REAL_t t
     cdef function sol
@@ -1187,6 +1185,7 @@ cdef class eigfun_disc(function):
     cdef:
         INDEX_t k, l
         REAL_t a_lk, C
+
     def __init__(self, k, l):
         function.__init__(self)
         self.k = k
@@ -1217,6 +1216,7 @@ cdef class eigfun_disc_deriv_x(function):
     cdef:
         INDEX_t k, l
         REAL_t a_lk, C
+
     def __init__(self, k, l):
         function.__init__(self)
         self.k = k
@@ -1259,6 +1259,7 @@ cdef class eigfun_disc_deriv_y(function):
     cdef:
         INDEX_t k, l
         REAL_t a_lk, C
+
     def __init__(self, k, l):
         function.__init__(self)
         self.k = k
@@ -1339,7 +1340,6 @@ cdef class radialIndicator(function):
             return True
         else:
             return False
-
 
 
 cdef class squareIndicator(function):
@@ -1952,7 +1952,6 @@ cdef class imag(function):
 
     cdef REAL_t eval(self, REAL_t[::1] x):
         return self.fun.eval(x).imag
-
 
 
 cdef class waveFunction(complexFunction):

@@ -5,7 +5,7 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-cdef void spmv(INDEX_t[::1] indptr, INDEX_t[::1] indices, SCALAR_t[::1] data, SCALAR_t[::1] x, SCALAR_t[::1] y, BOOL_t overwrite=True):
+cdef void spmv(INDEX_t[::1] indptr, INDEX_t[::1] indices, SCALAR_t[::1] data, SCALAR_t[::1] x, SCALAR_t[::1] y, BOOL_t overwrite=True, BOOL_t trans=False):
     cdef:
         INDEX_t i, jj, j
         SCALAR_t temp
@@ -20,15 +20,26 @@ cdef void spmv(INDEX_t[::1] indptr, INDEX_t[::1] indices, SCALAR_t[::1] data, SC
             else:
                 y[i] = y[i]+temp
     else:
-        for i in range(indptr.shape[0]-1):
-            temp = 0.
-            for jj in range(indptr[i], indptr[i+1]):
-                j = indices[jj]
-                temp += data[jj]*x[j]
+        if not trans:
+            for i in range(indptr.shape[0]-1):
+                temp = 0.
+                for jj in range(indptr[i], indptr[i+1]):
+                    j = indices[jj]
+                    temp += data[jj]*x[j]
+                if overwrite:
+                    y[i] = temp
+                else:
+                    y[i] += temp
+        else:
             if overwrite:
-                y[i] = temp
-            else:
-                y[i] += temp
+                for i in range(y.shape[0]):
+                    y[i] = 0.
+            for i in range(indptr.shape[0]-1):
+                temp = x[i]
+                for jj in range(indptr[i], indptr[i+1]):
+                    j = indices[jj]
+                    y[j] += data[jj]*temp
+
 
 cdef void spres(INDEX_t[::1] indptr, INDEX_t[::1] indices, SCALAR_t[::1] data, SCALAR_t[::1] x, SCALAR_t[::1] rhs, SCALAR_t[::1] result):
     cdef:

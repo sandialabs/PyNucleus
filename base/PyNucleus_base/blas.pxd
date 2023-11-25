@@ -34,11 +34,11 @@ cdef void gemvF(SCALAR_t[::1, :] A,
                 SCALAR_t[::1] y,
                 SCALAR_t beta=*)
 cdef void gemvT(SCALAR_t[:, ::1] A,
-               SCALAR_t[::1] x,
-               SCALAR_t[::1] y,
-               SCALAR_t beta=*)
+                SCALAR_t[::1] x,
+                SCALAR_t[::1] y,
+                SCALAR_t beta=*)
 cdef void matmat(SCALAR_t[:, ::1] A,
                  SCALAR_t[:, ::1] B,
                  SCALAR_t[:, ::1] C)
-cdef void spmv(INDEX_t[::1] indptr, INDEX_t[::1] indices, SCALAR_t[::1] data, SCALAR_t[::1] x, SCALAR_t[::1] y, BOOL_t overwrite=*)
+cdef void spmv(INDEX_t[::1] indptr, INDEX_t[::1] indices, SCALAR_t[::1] data, SCALAR_t[::1] x, SCALAR_t[::1] y, BOOL_t overwrite=*, BOOL_t trans=*)
 cdef void spres(INDEX_t[::1] indptr, INDEX_t[::1] indices, SCALAR_t[::1] data, SCALAR_t[::1] x, SCALAR_t[::1] rhs, SCALAR_t[::1] result)

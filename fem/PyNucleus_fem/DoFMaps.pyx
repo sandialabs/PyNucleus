@@ -544,7 +544,7 @@ cdef class DoFMap:
             complex_fe_vector complex_vec
             INDEX_t cellNo, i, dof
             REAL_t[:, ::1] simplex = uninitialized((self.mesh.manifold_dim+1,
-                                                      self.mesh.dim), dtype=REAL)
+                                                    self.mesh.dim), dtype=REAL)
             REAL_t[:, ::1] pos = uninitialized((self.dofs_per_element, self.mesh.dim), dtype=REAL)
         if isinstance(fun, function):
             real_fun = fun
@@ -627,7 +627,7 @@ cdef class DoFMap:
 
         .. math::
 
-           \int_D u(x) \\texttt{coefficient}(x) v(x) dx
+           \\int_D u(x) \\texttt{coefficient}(x) v(x) dx
 
         :param sss_format: sss_format is a Boolean parameter that
             specifies whether the assembled mass matrix should be
@@ -811,7 +811,7 @@ cdef class DoFMap:
 
            \\int_D (u(x)-u(y)) \\gamma(x, y) dy
 
-        :param kernel: The kernel function :math:`\gamma`
+        :param kernel: The kernel function :math:`\\gamma`
 
         :param matrixFormat: The matrix format for the assembly. Valid
             values are `dense`, `diagonal`, `sparsified`, `sparse`,
@@ -1202,7 +1202,7 @@ cdef class DoFMap:
             dm = type(self)(self.mesh, tag=MAX_INT)
 
         if ((isinstance(x, fe_vector) or (isinstance(x, np.ndarray) and x.dtype == REAL)) and
-            (isinstance(boundaryData, fe_vector)) or (isinstance(boundaryData, np.ndarray) and boundaryData.dtype == REAL)):
+                (isinstance(boundaryData, fe_vector)) or (isinstance(boundaryData, np.ndarray) and boundaryData.dtype == REAL)):
 
             xReal = x
             boundaryReal = boundaryData
@@ -1298,7 +1298,7 @@ cdef class DoFMap:
                         dof = self.cell2dof(i, (dim+1)*self.dofs_per_vertex+k*self.dofs_per_edge)
                         if dof < 0:
                             vertexNo = cells[i, k]
-                            vertexNo2 = cells[i, k%(dim+1)]
+                            vertexNo2 = cells[i, k % (dim+1)]
                             for m in range(dim):
                                 vertex[m] = 0.5*(vertices[vertexNo, m]+vertices[vertexNo2, m])
                             data[-dof-1] = boundaryFunction.eval(vertex)
@@ -1308,7 +1308,7 @@ cdef class DoFMap:
                         dof = self.cell2dof(i, (dim+1)*self.dofs_per_vertex+k*self.dofs_per_edge)
                         if dof < 0:
                             vertexNo = cells[i, k]
-                            vertexNo2 = cells[i, k%(dim)]
+                            vertexNo2 = cells[i, k % (dim)]
                             for m in range(dim):
                                 vertex[m] = 0.5*(vertices[vertexNo, m]+vertices[vertexNo2, m])
                             data[-dof-1] = boundaryFunction.eval(vertex)
@@ -1801,11 +1801,11 @@ cdef class P0_DoFMap(DoFMap):
             REAL_t[:, ::1] other_vertices = mesh.vertices
             INDEX_t[:, ::1] other_cells = mesh.cells
             REAL_t[:, ::1] other_simplex = uninitialized((mesh.dim+1,
-                                                       mesh.dim), dtype=REAL)
+                                                          mesh.dim), dtype=REAL)
             REAL_t[:, ::1] my_vertices = self.mesh.vertices
             INDEX_t[:, ::1] my_cells = self.mesh.cells
             REAL_t[:, ::1] my_simplex = uninitialized((self.mesh.dim+1,
-                                                    self.mesh.dim), dtype=REAL)
+                                                       self.mesh.dim), dtype=REAL)
             INDEX_t k, other_dof, i, j, my_dof, my_cell, other_cell
             REAL_t[:, ::1] coords = uninitialized((dm.dofs_per_element, mesh.vertices.shape[1]), dtype=REAL)
             REAL_t[::1] vertex
@@ -2482,8 +2482,6 @@ cdef class Product_DoFMap(DoFMap):
         self.numComponents = numComponents
         self.scalarDM = dm
 
-        dof = 0
-        bdof = -1
         for cellNo in range(self.mesh.num_cells):
             for dofNo in range(self.scalarDM.dofs_per_element):
                 scalarDoF = self.scalarDM.cell2dof(cellNo, dofNo)

@@ -11,9 +11,7 @@ cdef class {SCALAR_label}SchurComplement({SCALAR_label}LinearOperator):
                  INDEX_t[::1] indices,
                  *args, **kwargs):
         self.A = A
-        self.R1 = {SCALAR_label}CSR_LinearOperator(indices,
-                                                   np.arange((indices.shape[0]+1), dtype=INDEX),
-                                                   np.ones((indices.shape[0]), dtype={SCALAR}))
+        self.R1 = {SCALAR_label}CSR_LinearOperator(indices, np.arange((indices.shape[0]+1), dtype=INDEX), np.ones((indices.shape[0]), dtype={SCALAR}))
         self.R1.num_columns = self.A.shape[0]
         self.P1 = self.R1.transpose()
 
@@ -22,9 +20,7 @@ cdef class {SCALAR_label}SchurComplement({SCALAR_label}LinearOperator):
             temp[dof] = False
         indices2 = np.where(temp)[0].astype(INDEX)
         del temp
-        self.R2 = {SCALAR_label}CSR_LinearOperator(indices2,
-                                                   np.arange((indices2.shape[0]+1), dtype=INDEX),
-                                                   np.ones((indices2.shape[0]), dtype={SCALAR}))
+        self.R2 = {SCALAR_label}CSR_LinearOperator(indices2, np.arange((indices2.shape[0]+1), dtype=INDEX), np.ones((indices2.shape[0]), dtype={SCALAR}))
         self.R2.num_columns = self.A.shape[0]
         self.P2 = self.R2.transpose()
 
@@ -32,8 +28,7 @@ cdef class {SCALAR_label}SchurComplement({SCALAR_label}LinearOperator):
         self.A12 = self.R1 * self.A * self.P2
         self.A21 = self.R2 * self.A * self.P1
         self.A22 = self.R2 * self.A * self.P2
-        super({SCALAR_label}SchurComplement, self).__init__(self.R1.num_rows,
-                                                            self.R1.num_rows)
+        super({SCALAR_label}SchurComplement, self).__init__(self.R1.num_rows, self.R1.num_rows)
         kwargs['A'] = self.A22
         # TODO: construct complex solver
         self.invA22 = solverFactory(*args, **kwargs)

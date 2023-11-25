@@ -8,7 +8,7 @@
 import numpy as np
 cimport numpy as np
 from . myTypes import INDEX, REAL, COMPLEX
-from . blas cimport gemv
+from . blas cimport gemv, gemvT
 from . blas import uninitialized
 from cython.parallel cimport prange, parallel
 
@@ -145,8 +145,8 @@ cdef class split_CSR_LinearOperator(LinearOperator):
                  CSR_LinearOperator A1,
                  CSR_LinearOperator A2):
         LinearOperator.__init__(self,
-                                  A1.indptr.shape[0]-1,
-                                  A1.indptr.shape[0]-1)
+                                A1.indptr.shape[0]-1,
+                                A1.indptr.shape[0]-1)
         self.A1 = A1
         self.A2 = A2
 
@@ -204,9 +204,9 @@ cdef class sparseGraph(LinearOperator):
 
     def copy(self):
         return sparseGraph(self.indices.copy(),
-                              self.indptr.copy(),
-                              self.num_rows,
-                              self.num_columns)
+                           self.indptr.copy(),
+                           self.num_rows,
+                           self.num_columns)
 
     def transpose(self):
         newindices = uninitialized(self.nnz, INDEX)
@@ -258,7 +258,7 @@ cdef class sparseGraph(LinearOperator):
         nnz = self.indptr[self.indptr.shape[0]-1]
         for i in range(self.indptr.shape[0]-1):
             s = self.indptr[i]
-            if s ==  nnz:
+            if s == nnz:
                 continue
             p = self.indices[s]
             for q in self.indices[self.indptr[i]+1:self.indptr[i+1]]:
@@ -487,12 +487,12 @@ cdef class prolongationOp(sparseGraph):
 # Matrix restriction R*A*R.T for restrictionOp R
 
 cdef inline REAL_t getEntry_restr(INDEX_t i,
-                                    INDEX_t j,
-                                    INDEX_t[::1] R_indptr,
-                                    INDEX_t[::1] R_indices,
-                                    INDEX_t[::1] A_indptr,
-                                    INDEX_t[::1] A_indices,
-                                    REAL_t[::1] A_data):
+                                  INDEX_t j,
+                                  INDEX_t[::1] R_indptr,
+                                  INDEX_t[::1] R_indices,
+                                  INDEX_t[::1] A_indptr,
+                                  INDEX_t[::1] A_indices,
+                                  REAL_t[::1] A_data):
     cdef:
         INDEX_t kk, k, mm1, m1, mm2, m2
         REAL_t sum = 0., sumI
@@ -548,14 +548,14 @@ cdef inline REAL_t getEntry_restr(INDEX_t i,
 
 
 cdef inline REAL_t getEntryFromD_restr(INDEX_t i,
-                                         INDEX_t j,
-                                         INDEX_t[::1] R_indptr,
-                                         INDEX_t[::1] R_indices,
-                                         INDEX_t[::1] A_indptr,
-                                         INDEX_t[::1] A_indices,
-                                         REAL_t[::1] A_diagonal):
+                                       INDEX_t j,
+                                       INDEX_t[::1] R_indptr,
+                                       INDEX_t[::1] R_indices,
+                                       INDEX_t[::1] A_indptr,
+                                       INDEX_t[::1] A_indices,
+                                       REAL_t[::1] A_diagonal):
     cdef:
-        INDEX_t kk, k, mm1, m1, mm2, m2
+        INDEX_t mm1, m1, mm2, m2
         REAL_t sum
     # J*D*J.t
     # Find matches between (k, m1) and (j, m2)
@@ -590,8 +590,7 @@ cdef inline REAL_t getEntryFromD_restr(INDEX_t i,
 
 def multiply_restr(restrictionOp R, LinearOperator A, LinearOperator Ac):
     cdef:
-        INDEX_t i, jj, j, kk, k, mm1, m1, mm2, m2
-        REAL_t sum
+        INDEX_t i, jj, j
         INDEX_t[::1] indices = Ac.indices, indptr = Ac.indptr
         REAL_t[::1] data = Ac.data, diagonal
         INDEX_t[::1] R_indptr = R.indptr, R_indices = R.indices
@@ -652,13 +651,13 @@ def multiply_restr(restrictionOp R, LinearOperator A, LinearOperator Ac):
 # Matrix restriction R*A*R.T for CSR matrix R
 
 cdef inline REAL_t getEntry(const INDEX_t i,
-                              const INDEX_t j,
-                              const INDEX_t[::1] R_indptr,
-                              const INDEX_t[::1] R_indices,
-                              const REAL_t[::1] R_data,
-                              const INDEX_t[::1] A_indptr,
-                              const INDEX_t[::1] A_indices,
-                              const REAL_t[::1] A_data):
+                            const INDEX_t j,
+                            const INDEX_t[::1] R_indptr,
+                            const INDEX_t[::1] R_indices,
+                            const REAL_t[::1] R_data,
+                            const INDEX_t[::1] A_indptr,
+                            const INDEX_t[::1] A_indices,
+                            const REAL_t[::1] A_data):
     cdef:
         INDEX_t k, kk, mm1, m1, mm2, m2
         REAL_t sum = 0., sumI
@@ -688,13 +687,13 @@ cdef inline REAL_t getEntry(const INDEX_t i,
 
 
 cdef inline REAL_t getEntryFromD(const INDEX_t i,
-                                   const INDEX_t j,
-                                   const INDEX_t[::1] R_indptr,
-                                   const INDEX_t[::1] R_indices,
-                                   const REAL_t[::1] R_data,
-                                   const INDEX_t[::1] A_indptr,
-                                   const INDEX_t[::1] A_indices,
-                                   const REAL_t[::1] A_diagonal):
+                                 const INDEX_t j,
+                                 const INDEX_t[::1] R_indptr,
+                                 const INDEX_t[::1] R_indices,
+                                 const REAL_t[::1] R_data,
+                                 const INDEX_t[::1] A_indptr,
+                                 const INDEX_t[::1] A_indices,
+                                 const REAL_t[::1] A_diagonal):
     cdef:
         INDEX_t mm1, m1, mm2, m2
         REAL_t sum
@@ -1341,7 +1340,8 @@ cdef class interpolationOperator(sumMultiplyOperator):
             for k in range(1, numNodes):
                 for j in range(numNodes-k):
                     for i in range(numNodes):
-                        W_2prime[j, i] = (W_2prime[j, i]*(val-nodes[k+j]) + 2*W_prime[j, i] - W_2prime[1+j, i]*(val-nodes[j]) - 2*W_prime[1+j, i]) / (nodes[j] - nodes[k+j])
+                        W_2prime[j, i] = (W_2prime[j, i]*(val-nodes[k+j]) + 2*W_prime[j, i] -
+                                          W_2prime[1+j, i]*(val-nodes[j]) - 2*W_prime[1+j, i]) / (nodes[j] - nodes[k+j])
                 for j in range(numNodes-k):
                     for i in range(numNodes):
                         W_prime[j, i] = (W_prime[j, i]*(val-nodes[k+j]) + W[j, i] - W_prime[1+j, i]*(val-nodes[j]) - W[1+j, i]) / (nodes[j] - nodes[k+j])
@@ -1470,7 +1470,8 @@ cdef class multiIntervalInterpolationOperator(LinearOperator):
         return self.ops[self.selected]
 
     def __repr__(self):
-        return '<%dx%d %s with %d intervals and %d interpolation nodes>' % (self.num_rows, self.num_columns, self.__class__.__name__, len(self.ops), self.numInterpolationNodes)
+        return '<%dx%d %s with %d intervals and %d interpolation nodes>' % (self.num_rows, self.num_columns, self.__class__.__name__,
+                                                                            len(self.ops), self.numInterpolationNodes)
 
     def isSparse(self):
         return self.getSelectedOp().isSparse()

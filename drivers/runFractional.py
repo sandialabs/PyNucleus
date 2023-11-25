@@ -10,6 +10,7 @@ from mpi4py import MPI
 from PyNucleus import driver
 from PyNucleus.nl import (fractionalLaplacianProblem,
                           discretizedNonlocalProblem)
+from PyNucleus_nl.fractionalOrders import singleVariableUnsymmetricFractionalOrder
 
 ##################################################
 
@@ -23,6 +24,7 @@ discrProblem = discretizedNonlocalProblem(d, p)
 d.declareFigure('solution')
 d.declareFigure('error')
 d.declareFigure('analyticSolution')
+d.declareFigure('fractionalOrder')
 
 d.process(override={'adaptive': None})
 
@@ -68,5 +70,8 @@ if p.dim < 3 and mS.error is not None and d.startPlot('error'):
 
 if d.vtkOutput != "":
     mS.exportVTK(d.vtkOutput)
+
+if isinstance(p.kernel.s, singleVariableUnsymmetricFractionalOrder) and d.startPlot('fractionalOrder'):
+    mS.u.dm.interpolate(p.kernel.s.sFun).plot(**plotDefaults)
 
 d.finish()

@@ -7,12 +7,9 @@
 
 import numpy as np
 cimport numpy as np
-from libc.math cimport (sin, cos, sinh, cosh, tanh, sqrt, atan2,
-                        log, ceil,
-                        fabs as abs, M_PI as pi, pow,
-                        tgamma as gamma)
+from libc.math cimport sqrt, ceil, fabs as abs
 from scipy.special import factorial
-from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX, ENCODE, BOOL
+from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX
 from PyNucleus_base import uninitialized
 from PyNucleus_base.blas cimport mydot
 from libc.stdlib cimport malloc, free
@@ -85,7 +82,6 @@ cdef class PermutationIndexer:
         return self.rank(perm)
 
 
-
 include "nonlocalOperator_REAL.pxi"
 include "nonlocalOperator_COMPLEX.pxi"
 
@@ -112,8 +108,8 @@ cdef panelType MAX_PANEL = 120
 
 
 cdef class nonlocalLaplacian1D(nonlocalOperator):
-    def __init__(self, Kernel kernel, meshBase mesh, DoFMap DoFMap, num_dofs=None, manifold_dim2=-1, **kwargs):
-        super(nonlocalLaplacian1D, self).__init__(kernel, mesh, DoFMap, num_dofs, manifold_dim2, **kwargs)
+    def __init__(self, Kernel kernel, meshBase mesh, DoFMap dm, num_dofs=None, manifold_dim2=-1, **kwargs):
+        super(nonlocalLaplacian1D, self).__init__(kernel, mesh, dm, num_dofs, manifold_dim2, **kwargs)
 
     cdef REAL_t get_h_simplex(self, const REAL_t[:, ::1] simplex):
         cdef:
@@ -150,8 +146,8 @@ cdef class nonlocalLaplacian1D(nonlocalOperator):
 
 
 cdef class nonlocalLaplacian2D(nonlocalOperator):
-    def __init__(self, Kernel kernel, meshBase mesh, DoFMap DoFMap, num_dofs=None, manifold_dim2=-1, **kwargs):
-        super(nonlocalLaplacian2D, self).__init__(kernel, mesh, DoFMap, num_dofs, manifold_dim2, **kwargs)
+    def __init__(self, Kernel kernel, meshBase mesh, DoFMap dm, num_dofs=None, manifold_dim2=-1, **kwargs):
+        super(nonlocalLaplacian2D, self).__init__(kernel, mesh, dm, num_dofs, manifold_dim2, **kwargs)
 
     cdef REAL_t get_h_simplex(self, const REAL_t[:, ::1] simplex):
         cdef:
@@ -299,7 +295,6 @@ cdef class nonlocalLaplacian2D(nonlocalOperator):
             v11 = self.simplex1[1, 1]-self.center1[1]
             v20 = self.simplex1[2, 0]-self.center1[0]
             v21 = self.simplex1[2, 1]-self.center1[1]
-
 
         c00 = v00*d1 + v01*d2
         c10 = v10*d1 + v11*d2

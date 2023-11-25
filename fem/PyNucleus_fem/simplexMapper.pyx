@@ -5,9 +5,7 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-import numpy as np
-cimport numpy as np
-from PyNucleus_base.myTypes import INDEX, REAL, ENCODE, TAG
+from PyNucleus_base.myTypes import INDEX
 from PyNucleus_base import uninitialized
 
 from . meshCy cimport (sortEdge, sortFace,
@@ -80,7 +78,9 @@ cdef class simplexMapper:
 
     cdef BOOL_t loopOverCellFaces(self, INDEX_t[::1] face):
         if self.iteration_counter < self.temp_faces.shape[0]:
-            face[0], face[1], face[2] = self.temp_faces[self.iteration_counter, 0], self.temp_faces[self.iteration_counter, 1], self.temp_faces[self.iteration_counter, 2]
+            face[0], face[1], face[2] = (self.temp_faces[self.iteration_counter, 0],
+                                         self.temp_faces[self.iteration_counter, 1],
+                                         self.temp_faces[self.iteration_counter, 2])
             self.iteration_counter += 1
             return True
         else:

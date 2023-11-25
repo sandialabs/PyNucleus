@@ -24,16 +24,16 @@ ctypedef COMPLEX_t[::1] complex_vector_t
 
 cdef class ipBase:
     cdef REAL_t eval(self,
-                       vector_t v1, vector_t v2,
-                       BOOL_t acc1=*, BOOL_t acc2=*,
-                       BOOL_t asynchronous=*)
+                     vector_t v1, vector_t v2,
+                     BOOL_t acc1=*, BOOL_t acc2=*,
+                     BOOL_t asynchronous=*)
 
 
 cdef class normBase:
     cdef REAL_t eval(self,
-                       vector_t v,
-                       BOOL_t acc=*,
-                       BOOL_t asynchronous=*)
+                     vector_t v,
+                     BOOL_t acc=*,
+                     BOOL_t asynchronous=*)
 
 
 cdef class norm_serial(normBase):
@@ -83,9 +83,9 @@ cdef class complexipBase:
 
 cdef class complexNormBase:
     cdef REAL_t eval(self,
-                       complex_vector_t v,
-                       BOOL_t acc=*,
-                       BOOL_t asynchronous=*)
+                     complex_vector_t v,
+                     BOOL_t acc=*,
+                     BOOL_t asynchronous=*)
 
 
 cdef class wrapRealNormToComplex(complexNormBase):

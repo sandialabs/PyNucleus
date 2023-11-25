@@ -11,15 +11,12 @@ from mpi4py import MPI
 import numpy as np
 cimport numpy as np
 import logging
-from PyNucleus_base.myTypes import INDEX, REAL, BOOL
-from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, BOOL_t
+from PyNucleus_base.myTypes import REAL
+from PyNucleus_base.myTypes cimport REAL_t, BOOL_t
 from PyNucleus_base import uninitialized
 from PyNucleus_base.performanceLogger cimport PLogger, FakePLogger
 from PyNucleus_base.linear_operators cimport LinearOperator
 from PyNucleus_base import solverFactory
-from PyNucleus_fem.meshOverlaps import overlapManager
-from time import sleep
-from sys import stdout
 include "config.pxi"
 LOGGER = logging.getLogger(__name__)
 MPI_BOOL = MPI.BOOL

@@ -13,7 +13,7 @@ from . DoFMaps cimport DoFMap
 from . mesh import INTERIOR_NONOVERLAPPING, INTERIOR
 from . boundaryLayerCy import boundaryLayer
 from PyNucleus_base.linear_operators import (LinearOperator_wrapper,
-                                              diagonalOperator)
+                                             diagonalOperator)
 import numpy as np
 cimport numpy as np
 from numpy.linalg import norm
@@ -406,7 +406,6 @@ cdef class algebraicOverlapOneSidedPut(algebraicOverlap):
                                 MPI.REAL))
         self.Window.Unlock(self.mySubdomainNo)
 
-
     cdef void accumulateProcess(self,
                                 REAL_t[::1] vec,
                                 INDEX_t vecNo=0):
@@ -579,29 +578,29 @@ cdef class algebraicOverlapManager:
             k += 1
         self.distribute_is_prepared = True
 
-    def prepareDistributeRepartitionSend(self, DoFMap DoFMap):
+    def prepareDistributeRepartitionSend(self, DoFMap dm):
         cdef:
             REAL_t[::1] x
-        x = np.ones((DoFMap.num_dofs), dtype=REAL)
+        x = np.ones((dm.num_dofs), dtype=REAL)
         self.send(x, asynchronous=False)
 
-    def prepareDistributeRepartition(self, DoFMap DoFMap, BOOL_t doSend=True):
+    def prepareDistributeRepartition(self, DoFMap dm, BOOL_t doSend=True):
         cdef:
             INDEX_t i
             INDEX_t dofCount = 0
             REAL_t[::1] y
         if doSend:
-            self.prepareDistributeRepartitionSend(DoFMap)
-        y = np.zeros((DoFMap.num_dofs), dtype=REAL)
+            self.prepareDistributeRepartitionSend(dm)
+        y = np.zeros((dm.num_dofs), dtype=REAL)
         self.receive(y, asynchronous=False)
-        for i in range(DoFMap.num_dofs):
+        for i in range(dm.num_dofs):
             if abs(y[i]-1.0) > 1e-8:
                 dofCount += 1
         assert np.array(y, copy=False).min() >= 1.0, (self.mySubdomainNo, np.array(y, copy=False), np.array(y, copy=False).min())
         self.Didx = uninitialized((dofCount), dtype=INDEX)
         self.Dval = uninitialized((dofCount), dtype=REAL)
         dofCount = 0
-        for i in range(DoFMap.num_dofs):
+        for i in range(dm.num_dofs):
             if abs(y[i]-1.0) > 1e-8:
                 self.Didx[dofCount] = i
                 self.Dval[dofCount] = 1.0/y[i]
@@ -610,12 +609,12 @@ cdef class algebraicOverlapManager:
 
     # returns 1-(distance from original subdomain)/meshsize
     # only sets the vertex dofs
-    def getProtoPartition(self, REAL_t[::1] x, DoFMap DoFMap, vertexLayers, INDEX_t depth):
+    def getProtoPartition(self, REAL_t[::1] x, DoFMap dm, vertexLayers, INDEX_t depth):
         cdef:
             INDEX_t d, cellNo, vertexNo, dof
         for d in range(1, len(vertexLayers)+1):
             for cellNo, vertexNo in vertexLayers[d-1]:
-                dof = DoFMap.cell2dof(cellNo, vertexNo*DoFMap.dofs_per_vertex)
+                dof = dm.cell2dof(cellNo, vertexNo*dm.dofs_per_vertex)
                 if dof >= 0:
                     if depth > 1:
                         x[dof] = max(1.0 - (<REAL_t>d)/(<REAL_t>(depth-1)), 0.)
@@ -625,12 +624,12 @@ cdef class algebraicOverlapManager:
 
     # returns 1 on initial domain, 0 otherwise
     # only sets the vertex dofs
-    def getProtoPartitionNonOverlapping(self, REAL_t[::1] x, DoFMap DoFMap, vertexLayers, INDEX_t depth):
+    def getProtoPartitionNonOverlapping(self, REAL_t[::1] x, DoFMap dm, vertexLayers, INDEX_t depth):
         cdef:
             INDEX_t d, cellNo, vertexNo, dof
         for d in range(1, len(vertexLayers)+1):
             for cellNo, vertexNo in vertexLayers[d-1]:
-                dof = DoFMap.cell2dof(cellNo, vertexNo*DoFMap.dofs_per_vertex)
+                dof = dm.cell2dof(cellNo, vertexNo*dm.dofs_per_vertex)
                 if dof >= 0:
                     x[dof] = 0.
 
@@ -675,7 +674,7 @@ cdef class algebraicOverlapManager:
                 for cell in cellLayer:
                     for vertexNo in range(cells.shape[1]):
                         localVertexNo = cells[nc+cell, vertexNo]
-                        if not localVertexNo in alreadyAdded:
+                        if localVertexNo not in alreadyAdded:
                             boundaryVertices2[len(boundaryVertices2)-1].append((nc+cell, vertexNo))
                             alreadyAdded.add(localVertexNo)
             return boundaryVertices2
@@ -1298,7 +1297,7 @@ cdef class algebraicOverlapManager:
         cdef:
             INDEX_t rank = self.comm.rank
             REAL_t[::1] v = rank*np.ones((self.num_subdomain_dofs),
-                                          dtype=REAL)
+                                         dtype=REAL)
             INDEX_t i, k, m
 
         self.unique(v)
@@ -1470,10 +1469,10 @@ cdef class algebraicOverlapManager:
         # Takes local vector.
         # Returns the elementwise minimum in each overlap, i.e. a dict of vectors.
         cdef:
-           algebraicOverlap ov
-           INDEX_t j, subdomainNo, dof
-           dict localIndicators
-           REAL_t[::1] myLocalIndicator, otherLocalIndicator
+            algebraicOverlap ov
+            INDEX_t j, subdomainNo, dof
+            dict localIndicators
+            REAL_t[::1] myLocalIndicator, otherLocalIndicator
         # FIXME: We don't really want to accumulate into a temporary vector here.
         indicatorTmp = uninitialized((indicator.shape[0]), dtype=REAL)
         self.accumulate(indicator, indicatorTmp, asynchronous=False)
@@ -1569,7 +1568,8 @@ cdef class multilevelAlgebraicOverlapManager:
             if self.levels[level].num_subdomain_dofs == n:
                 return level
         else:
-            raise NotImplementedError("Cannot find a level of size {}.\nLevel sizes: {}".format(n, [self.levels[level].num_subdomain_dofs for level in range(len(self.levels))]))
+            raise NotImplementedError("Cannot find a level of size {}.\nLevel sizes: {}".format(n, [self.levels[level].num_subdomain_dofs
+                                                                                                    for level in range(len(self.levels))]))
 
     def accumulate(self,
                    REAL_t[::1] vec,
@@ -1581,12 +1581,13 @@ cdef class multilevelAlgebraicOverlapManager:
             INDEX_t n
             algebraicOverlapManager ovM
         if level == -1:
-            n  = vec.shape[0]
+            n = vec.shape[0]
             for level in range(len(self.levels)-1, -1, -1):
                 if self.levels[level].num_subdomain_dofs == n:
                     break
             else:
-                raise NotImplementedError("Cannot find a level of size {}.\nLevel sizes: {}".format(n, [self.levels[level].num_subdomain_dofs for level in range(len(self.levels))]))
+                raise NotImplementedError("Cannot find a level of size {}.\nLevel sizes: {}".format(n, [self.levels[level].num_subdomain_dofs
+                                                                                                        for level in range(len(self.levels))]))
         ovM = self.levels[level]
         ovM.accumulate(vec, return_vec, asynchronous=asynchronous, vecNo=vecNo)
 
@@ -1600,12 +1601,13 @@ cdef class multilevelAlgebraicOverlapManager:
             INDEX_t n
             algebraicOverlapManager ovM
         if level == -1:
-            n  = vec.shape[0]
+            n = vec.shape[0]
             for level in range(len(self.levels)-1, -1, -1):
                 if self.levels[level].num_subdomain_dofs == n:
                     break
             else:
-                raise NotImplementedError("Cannot find a level of size {}.\nLevel sizes: {}".format(n, [self.levels[level].num_subdomain_dofs for level in range(len(self.levels))]))
+                raise NotImplementedError("Cannot find a level of size {}.\nLevel sizes: {}".format(n, [self.levels[level].num_subdomain_dofs
+                                                                                                        for level in range(len(self.levels))]))
         ovM = self.levels[level]
         ovM.accumulateComplex(vec, return_vec, asynchronous=asynchronous, vecNo=vecNo)
 
@@ -1624,10 +1626,10 @@ cdef class multilevelAlgebraicOverlapManager:
         for i in range(len(self.levels)):
             self.levels[i].prepareDistribute()
 
-    def prepareDistributeMeshOverlap(self, mesh, nc, DoFMap DoFMap, depth, meshOverlaps):
+    def prepareDistributeMeshOverlap(self, mesh, nc, DoFMap dm, depth, meshOverlaps):
         for i in range(len(self.levels)-1):
             self.levels[i].prepareDistribute()
-        self.levels[len(self.levels)-1].prepareDistributeMeshOverlap(mesh, nc, DoFMap, depth, meshOverlaps)
+        self.levels[len(self.levels)-1].prepareDistributeMeshOverlap(mesh, nc, dm, depth, meshOverlaps)
 
     def distribute(self,
                    REAL_t[::1] vec,
@@ -1638,7 +1640,7 @@ cdef class multilevelAlgebraicOverlapManager:
             INDEX_t n
             algebraicOverlapManager ovM
         if level == -1:
-            n  = vec.shape[0]
+            n = vec.shape[0]
             for level in range(len(self.levels)-1, -1, -1):
                 if self.levels[level].num_subdomain_dofs == n:
                     break
@@ -1656,7 +1658,7 @@ cdef class multilevelAlgebraicOverlapManager:
             INDEX_t n
             algebraicOverlapManager ovM
         if level == -1:
-            n  = vec.shape[0]
+            n = vec.shape[0]
             for level in range(len(self.levels)-1, -1, -1):
                 if self.levels[level].num_subdomain_dofs == n:
                     break

@@ -11,7 +11,7 @@ from tabulate import tabulate
 from PyNucleus_base import INDEX, REAL, COMPLEX, uninitialized
 from PyNucleus_base.performanceLogger cimport FakeTimer
 from PyNucleus_base.ip_norm cimport (ip_serial, ip_distributed,
-                                      norm_serial, norm_distributed)
+                                     norm_serial, norm_distributed)
 from PyNucleus_base.blas cimport assign, update
 from PyNucleus_base.solvers cimport {SCALAR_label_lc_}preconditioner
 from PyNucleus_base.linear_operators cimport {SCALAR_label}LinearOperator, CSR_LinearOperator, wrapRealToComplexCSR
@@ -180,9 +180,7 @@ cdef class {SCALAR_label}multigrid({SCALAR_label_lc_}iterative_solver):
             if not smoother[0] in ('ilu', 'block_jacobi'):
                 if self.overlap:
                     lvl.D = uninitialized((lvl.A.num_rows), dtype={SCALAR})
-                    self.overlap.accumulate{SCALAR_label}(lvl.A.diagonal,
-                                                          lvl.D,
-                                                          level=lvlNo)
+                    self.overlap.accumulate{SCALAR_label}(lvl.A.diagonal, lvl.D, level=lvlNo)
                 else:
                     lvl.D = lvl.A.diagonal
             tempMem = np.array(lvl.temp, copy=False)
@@ -321,7 +319,7 @@ cdef class {SCALAR_label}multigrid({SCALAR_label_lc_}iterative_solver):
         res = lvl.temp
 
         # if isinstance(self.coarse_solver, coarseSolver_MG):
-            # self._tol = 0.
+        #     self._tol = 0.
         # else:
         self._tol = tol
 

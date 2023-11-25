@@ -5,7 +5,7 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-from PyNucleus_base.myTypes import INDEX, REAL, ENCODE, TAG, BOOL
+from PyNucleus_base.myTypes import INDEX, REAL, TAG, BOOL
 from PyNucleus_base import uninitialized, uninitialized_like
 from PyNucleus_base.tupleDict cimport tupleDictINDEX
 from . meshCy cimport (meshBase,
@@ -13,7 +13,7 @@ from . meshCy cimport (meshBase,
                        encode_face, decode_face,
                        sortEdge, sortFace,
                        faceVals)
-from . DoFMaps cimport DoFMap, P0_DoFMap, P1_DoFMap, P2_DoFMap
+from . DoFMaps cimport DoFMap
 from . mesh import mesh1d, mesh2d, mesh3d
 from . mesh import INTERIOR_NONOVERLAPPING, INTERIOR, NO_BOUNDARY
 from . meshPartitioning import PartitionerException
@@ -23,10 +23,7 @@ from . algebraicOverlaps cimport (algebraicOverlapManager,
                                   algebraicOverlapOneSidedPut,
                                   algebraicOverlapOneSidedGet,
                                   algebraicOverlapOneSidedPutLockAll)
-from . boundaryLayerCy import boundaryLayer
 from . simplexMapper cimport simplexMapper, simplexMapper2D, simplexMapper3D
-from PyNucleus_base.linear_operators import (LinearOperator_wrapper,
-                                              diagonalOperator)
 from copy import deepcopy
 import numpy as np
 cimport numpy as np
@@ -240,7 +237,7 @@ cdef class dofCheckerSet(dofChecker):
         self.orderedDoFs = list()
 
     cdef void add(self, INDEX_t dof):
-        if dof >= 0 and not dof in self.dofs:
+        if dof >= 0 and dof not in self.dofs:
             self.dofs.add(dof)
             self.orderedDoFs.append(dof)
 
@@ -382,7 +379,7 @@ cdef class sharedMesh:
                     if edgeNo < 3:
                         edges[2*i, 0] = 8*cellNo + edgeNo
                         edges[2*i, 1] = edgeNo
-                        edges[2*i+1, 0] = 8*cellNo + (edgeNo+1)%3
+                        edges[2*i+1, 0] = 8*cellNo + (edgeNo+1) % 3
                         edges[2*i+1, 1] = edgeNo
                     else:
                         edges[2*i, 0] = 8*cellNo + edgeNo-3
@@ -393,7 +390,7 @@ cdef class sharedMesh:
                     if edgeNo < 3:
                         edges[2*i+1, 0] = 8*cellNo + edgeNo
                         edges[2*i+1, 1] = edgeNo
-                        edges[2*i, 0] = 8*cellNo + (edgeNo+1)%3
+                        edges[2*i, 0] = 8*cellNo + (edgeNo+1) % 3
                         edges[2*i, 1] = edgeNo
                     else:
                         edges[2*i+1, 0] = 8*cellNo + edgeNo-3
@@ -475,7 +472,7 @@ cdef class sharedMesh:
             simplexMapper sM
             INDEX_t i, j, k, dof, dofOverlap, cellNo, cellNoOverlap, vertexNo, edgeNo, faceNo, edgeOrder, faceOrder
             INDEX_t vertices_per_element, edges_per_element, edgeOffset, faceOffset
-            INDEX_t dofs_per_vertex, dofs_per_edge, dofs_per_face, dofs_per_cell
+            INDEX_t dofs_per_vertex, dofs_per_edge, dofs_per_face #, dofs_per_cell
             INDEX_t[::1] edgeVertexIndices = uninitialized((2), dtype=INDEX)
             INDEX_t[::1] faceVertexIndices = uninitialized((3), dtype=INDEX)
             INDEX_t[::1] faceEdgeIndices = uninitialized((3), dtype=INDEX)
@@ -488,7 +485,7 @@ cdef class sharedMesh:
         dofs_per_vertex = dm.dofs_per_vertex
         dofs_per_edge = dm.dofs_per_edge
         dofs_per_face = dm.dofs_per_face
-        dofs_per_cell = dm.dofs_per_cell
+        # dofs_per_cell = dm.dofs_per_cell
         dofs_per_element = dm.dofs_per_element
 
         vertices_per_element = mesh.dim+1
@@ -777,7 +774,7 @@ cdef class sharedMesh:
             cellNo = self.vertices[i, 0]
             vertexNo = self.vertices[i, 1]
             sVertexNo = mesh.cells[cellNo, vertexNo]
-            if not sVertexNo in sharedVerticesSet:
+            if sVertexNo not in sharedVerticesSet:
                 sharedVerticesSet.add(sVertexNo)
                 sharedVertices.append((cellNo, vertexNo))
         for i in range(self.num_edges):
@@ -787,7 +784,7 @@ cdef class sharedMesh:
             sM.getEdgeVerticesLocal(edgeNo, order, edgeVertexIndices)
             for j in range(2):
                 sVertexNo = mesh.cells[cellNo, edgeVertexIndices[j]]
-                if not sVertexNo in sharedVerticesSet:
+                if sVertexNo not in sharedVerticesSet:
                     sharedVerticesSet.add(sVertexNo)
                     sharedVertices.append((cellNo, edgeVertexIndices[j]))
         for i in range(self.num_faces):
@@ -797,7 +794,7 @@ cdef class sharedMesh:
             sM.getFaceVerticesLocal(faceNo, order, faceVertexIndices)
             for j in range(3):
                 sVertexNo = mesh.cells[cellNo, faceVertexIndices[j]]
-                if not sVertexNo in sharedVerticesSet:
+                if sVertexNo not in sharedVerticesSet:
                     sharedVerticesSet.add(sVertexNo)
                     sharedVertices.append((cellNo, faceVertexIndices[j]))
         return np.array(sharedVertices, dtype=INDEX)
@@ -1014,17 +1011,17 @@ cdef class sharedMeshManager:
                         print(('Rank {} has incorrect overlap with {} ' +
                                '(Diff sorted: {}, wrong vertices {}/{}, edges {}/{}, ' +
                                'faces {}/{}, cells {}/{}).{}').format(comm.rank,
-                                                                    subdomainNo,
-                                                                    np.sum(diffSorted),
-                                                                    incorrectVertices,
-                                                                    numVertices,
-                                                                    incorrectEdges,
-                                                                    numEdges,
-                                                                    incorrectFaces,
-                                                                    numFaces,
-                                                                    incorrectCells,
-                                                                    numCells,
-                                                                    s))
+                                                                      subdomainNo,
+                                                                      np.sum(diffSorted),
+                                                                      incorrectVertices,
+                                                                      numVertices,
+                                                                      incorrectEdges,
+                                                                      numEdges,
+                                                                      incorrectFaces,
+                                                                      numFaces,
+                                                                      incorrectCells,
+                                                                      numCells,
+                                                                      s))
                         validationPassed = False
         MPI.Request.Waitall(requests)
         comm.Barrier()
@@ -1474,7 +1471,7 @@ class vertexMapManager:
         self.mesh.cells = np.vstack((self.mesh.cells,
                                      *self.newCells,
                                      # *self.newCellsLastLayer
-        ))
+                                     ))
         self.mesh.init()
         numberCellsLastLayer = sum([len(c) for c in self.newCellsLastLayer])
         self.newVertices = []
@@ -1699,7 +1696,6 @@ def extendOverlap(meshBase subdomain, interfaces, interiorBL, depth, comm, debug
                 boundaryFaceLookup[boundaryVertex].append(faceNo)
             except KeyError:
                 boundaryFaceLookup[boundaryVertex] = [faceNo]
-
 
     # dict: subdomainNo -> cells that are send there
     cellsToSend = {}
@@ -1954,7 +1950,6 @@ def extendOverlap(meshBase subdomain, interfaces, interiorBL, depth, comm, debug
         newReceivedFaceTags[newKey] = tag
     receivedFaceTags = newReceivedFaceTags
 
-
     allOK = True
 
     if debug:
@@ -1967,7 +1962,6 @@ def extendOverlap(meshBase subdomain, interfaces, interiorBL, depth, comm, debug
 
     # append vertices and cells to mesh
     numberCellsLastLayer = vMM.writeOverlapToMesh()
-
 
     if debug:
         # Have we added already present vectors?

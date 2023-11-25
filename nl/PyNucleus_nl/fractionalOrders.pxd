@@ -48,7 +48,6 @@ cdef class singleVariableUnsymmetricFractionalOrder(variableFractionalOrder):
     cdef REAL_t evalGradPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, INDEX_t vectorSize, REAL_t* grad)
 
 
-
 cdef class piecewiseConstantFractionalOrder(variableFractionalOrder):
     cdef:
         public function blockIndicator

@@ -17,13 +17,16 @@ cdef class intTuple:
     cdef void assign(self, INDEX_t * t)
     cdef void assignNonOwning(self, INDEX_t * t)
     cdef void get(self, INDEX_t * t)
+
     @staticmethod
     cdef intTuple create(INDEX_t[::1] t)
+
     @staticmethod
     cdef intTuple createNonOwning(INDEX_t[::1] t)
-    @staticmethod
+
     @staticmethod
     cdef intTuple create2(INDEX_t a, INDEX_t b)
+
     @staticmethod
     cdef intTuple create3(INDEX_t a, INDEX_t b, INDEX_t c)
 

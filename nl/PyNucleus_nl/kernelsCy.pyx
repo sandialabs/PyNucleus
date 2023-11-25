@@ -6,9 +6,9 @@
 ###################################################################################
 
 from libc.stdlib cimport malloc
-from libc.math cimport (sin, cos, sinh, cosh, tanh, sqrt, atan, atan2,
-                        log, ceil,
-                        fabs as abs, M_PI as pi, pow,
+from libc.math cimport (sin, cos, sqrt,
+                        log,
+                        fabs as abs, pow,
                         exp)
 from PyNucleus_base.blas cimport mydot
 from scipy.special.cython_special cimport gammaincc, gamma, hankel1
@@ -16,7 +16,7 @@ import numpy as np
 cimport numpy as np
 from PyNucleus_base.myTypes import REAL
 from PyNucleus_fem.functions cimport constant
-from . interactionDomains cimport ball1, ball2, ballInf, fullSpace
+from . interactionDomains cimport ball2, fullSpace
 from . twoPointFunctions cimport (constantTwoPoint,
                                   productTwoPoint,
                                   inverseTwoPoint,
@@ -520,8 +520,6 @@ cdef COMPLEX_t updateAndEvalIntegrableComplex(REAL_t *x, REAL_t *y, void *c_para
     return kernel(x, y, c_params)
 
 
-
-
 cdef REAL_t updateAndEvalFractional(REAL_t *x, REAL_t *y, void *c_params):
     cdef:
         INDEX_t dim = getINDEX(c_params, fKDIM)
@@ -918,9 +916,9 @@ cdef class Kernel(twoPointFunction):
                 for j in range(x.shape[0]):
                     y = x0+np.array([x[i], x[j]], dtype=REAL)
                     if np.linalg.norm(x0-y) > 1e-9 or self.singularityValue >= 0:
-                        Z[i,j] = self(x0, y)
+                        Z[i, j] = self(x0, y)
                     else:
-                        Z[i,j] = np.nan
+                        Z[i, j] = np.nan
             levels = np.logspace(np.log10(Z[np.absolute(Z)>0].min()),
                                  np.log10(Z[np.absolute(Z)>0].max()), 10)
             if levels[0] < levels[levels.shape[0]-1]:
@@ -1248,9 +1246,9 @@ cdef class ComplexKernel(ComplextwoPointFunction):
                 for j in range(x.shape[0]):
                     y = x0+np.array([x[i], x[j]], dtype=REAL)
                     if np.linalg.norm(x0-y) > 1e-9 or self.singularityValue >= 0:
-                        Z[i,j] = self(x0, y)
+                        Z[i, j] = self(x0, y)
                     else:
-                        Z[i,j] = np.nan
+                        Z[i, j] = np.nan
             levels = np.logspace(np.log10(Z[np.absolute(Z)>0].min()),
                                  np.log10(Z[np.absolute(Z)>0].max()), 10)
             if levels[0] < levels[levels.shape[0]-1]:
@@ -1286,7 +1284,6 @@ cdef class ComplexKernel(ComplextwoPointFunction):
                                         boundary=True)
         setREAL(newKernel.c_kernel_params, fEXPONENTINVERSE, getREAL(self.c_kernel_params, fEXPONENTINVERSE))
         return newKernel
-
 
 
 cdef class FractionalKernel(Kernel):
@@ -1630,7 +1627,6 @@ cdef class FractionalKernel(Kernel):
     def getBoundaryKernel(self):
         "Get the boundary kernel. This is the kernel that corresponds to the elimination of a subdomain via Gauss theorem."
         cdef:
-            constantFractionalLaplacianScaling scalConst
             constantFractionalLaplacianScalingDerivative scal
             variableFractionalLaplacianScalingWithDifferentHorizon scalVarDiffHorizon
             variableFractionalLaplacianScaling scalVar

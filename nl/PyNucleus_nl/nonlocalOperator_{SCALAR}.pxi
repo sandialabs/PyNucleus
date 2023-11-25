@@ -825,8 +825,8 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
                                 if I < dofs_per_element:
                                     self.getLocalShapeFunction(I).evalStrided(&qr0trans.nodes[0, i], NULL, numQuadNodes0, &PSI_I)
                                 else:
-                                     self.getLocalShapeFunction(I-dofs_per_element).evalStrided(&qr1trans.nodes[0, j], NULL, numQuadNodes1, &PSI_I)
-                                     PSI_I *= -1
+                                    self.getLocalShapeFunction(I-dofs_per_element).evalStrided(&qr1trans.nodes[0, j], NULL, numQuadNodes1, &PSI_I)
+                                    PSI_I *= -1
                                 for J in range(I, 2*dofs_per_element):
                                     if mask[k]:
                                         if J < dofs_per_element:
@@ -836,7 +836,6 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
                                             PSI_J *= -1
                                         contrib[k, 0] += val * PSI_I*PSI_J
                                     k += 1
-
 
     cdef void eval_distant_nonsym(self,
                                   {SCALAR}_t[:, ::1] contrib,

@@ -9,9 +9,9 @@ from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, COMPLEX_t, BOOL_t
 from PyNucleus_base.linear_operators cimport LinearOperator, ComplexLinearOperator
 from PyNucleus_fem.algebraicOverlaps cimport algebraicOverlapManager
 from PyNucleus_fem.distributed_operators cimport (DistributedLinearOperator,
-                                        ComplexDistributedLinearOperator,
-                                        CSR_DistributedLinearOperator,
-                                        ComplexCSR_DistributedLinearOperator)
+                                                  ComplexDistributedLinearOperator,
+                                                  CSR_DistributedLinearOperator,
+                                                  ComplexCSR_DistributedLinearOperator)
 
 include "smoothers_decl_REAL.pxi"
 include "smoothers_decl_COMPLEX.pxi"

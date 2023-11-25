@@ -5,8 +5,7 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-import numpy as np
-from . myTypes import INDEX, REAL, COMPLEX
+from . myTypes import REAL
 from . blas import uninitialized
 
 import mpi4py.rc
@@ -28,9 +27,9 @@ cdef class ipBase:
         return self.eval(v1, v2, acc1, acc2, asynchronous)
 
     cdef REAL_t eval(self,
-                       vector_t v1, vector_t v2,
-                       BOOL_t acc1=False, BOOL_t acc2=False,
-                       BOOL_t asynchronous=False):
+                     vector_t v1, vector_t v2,
+                     BOOL_t acc1=False, BOOL_t acc2=False,
+                     BOOL_t asynchronous=False):
         raise NotImplementedError()
 
 
@@ -45,41 +44,41 @@ cdef class normBase:
         return self.eval(v, acc, asynchronous)
 
     cdef REAL_t eval(self,
-                       vector_t v,
-                       BOOL_t acc=False,
-                       BOOL_t asynchronous=False):
+                     vector_t v,
+                     BOOL_t acc=False,
+                     BOOL_t asynchronous=False):
         raise NotImplementedError()
 
 
 cdef class ip_noop(ipBase):
     cdef REAL_t eval(self,
-                       vector_t v1, vector_t v2,
-                       BOOL_t acc1=False, BOOL_t acc2=False,
-                       BOOL_t asynchronous=False):
+                     vector_t v1, vector_t v2,
+                     BOOL_t acc1=False, BOOL_t acc2=False,
+                     BOOL_t asynchronous=False):
         return 10.
 
 
 cdef class norm_noop(normBase):
     cdef REAL_t eval(self,
-                       vector_t v,
-                       BOOL_t acc=False,
-                       BOOL_t asynchronous=False):
+                     vector_t v,
+                     BOOL_t acc=False,
+                     BOOL_t asynchronous=False):
         return 10.
 
 
 cdef class ip_serial(ipBase):
     cdef REAL_t eval(self,
-                       vector_t v1, vector_t v2,
-                       BOOL_t acc1=False, BOOL_t acc2=False,
-                       BOOL_t asynchronous=False):
+                     vector_t v1, vector_t v2,
+                     BOOL_t acc1=False, BOOL_t acc2=False,
+                     BOOL_t asynchronous=False):
         return mydot(v1, v2)
 
 
 cdef class norm_serial(normBase):
     cdef REAL_t eval(self,
-                       vector_t v,
-                       BOOL_t acc=False,
-                       BOOL_t asynchronous=False):
+                     vector_t v,
+                     BOOL_t acc=False,
+                     BOOL_t asynchronous=False):
         return norm(v)
 
 
@@ -89,9 +88,9 @@ cdef class ip_distributed_nonoverlapping(ipBase):
         self.localIP = ip_serial()
 
     cdef REAL_t eval(self,
-                       vector_t v1, vector_t v2,
-                       BOOL_t acc1=False, BOOL_t acc2=False,
-                       BOOL_t asynchronous=False):
+                     vector_t v1, vector_t v2,
+                     BOOL_t acc1=False, BOOL_t acc2=False,
+                     BOOL_t asynchronous=False):
         cdef:
             REAL_t temp_mem[1]
             REAL_t[::1] temp = temp_mem
@@ -106,16 +105,15 @@ cdef class norm_distributed_nonoverlapping(normBase):
         self.localIP = ip_serial()
 
     cdef REAL_t eval(self,
-                       vector_t v,
-                       BOOL_t acc=False,
-                       BOOL_t asynchronous=False):
+                     vector_t v,
+                     BOOL_t acc=False,
+                     BOOL_t asynchronous=False):
         cdef:
             REAL_t temp_mem[1]
             REAL_t[::1] temp = temp_mem
         temp[0] = self.localIP.eval(v, v)
         self.comm.Allreduce(MPI.IN_PLACE, temp)
         return sqrt(temp[0])
-
 
 
 cdef class ip_distributed(ipBase):
@@ -127,9 +125,9 @@ cdef class ip_distributed(ipBase):
         self.localIP = ip_serial()
 
     cdef REAL_t eval(self,
-                       vector_t v1, vector_t v2,
-                       BOOL_t acc1=False, BOOL_t acc2=False,
-                       BOOL_t asynchronous=False):
+                     vector_t v1, vector_t v2,
+                     BOOL_t acc1=False, BOOL_t acc2=False,
+                     BOOL_t asynchronous=False):
         cdef:
             REAL_t n
             vector_t u = self.temporaryMemory
@@ -167,9 +165,9 @@ cdef class norm_distributed(normBase):
         self.localIP = ip_serial()
 
     cdef REAL_t eval(self,
-                       vector_t v,
-                       BOOL_t acc=False,
-                       BOOL_t asynchronous=False):
+                     vector_t v,
+                     BOOL_t acc=False,
+                     BOOL_t asynchronous=False):
         cdef:
             vector_t u = self.temporaryMemory
             REAL_t n, nb
@@ -216,9 +214,9 @@ cdef class complexNormBase:
         return self.eval(v, acc, asynchronous)
 
     cdef REAL_t eval(self,
-                       complex_vector_t v,
-                       BOOL_t acc=False,
-                       BOOL_t asynchronous=False):
+                     complex_vector_t v,
+                     BOOL_t acc=False,
+                     BOOL_t asynchronous=False):
         return 10.
 
 
@@ -228,9 +226,9 @@ cdef class wrapRealNormToComplex(complexNormBase):
         self.temporaryMemory = uninitialized((0), dtype=REAL)
 
     cdef REAL_t eval(self,
-                       complex_vector_t x,
-                       BOOL_t acc=False,
-                       BOOL_t asynchronous=False):
+                     complex_vector_t x,
+                     BOOL_t acc=False,
+                     BOOL_t asynchronous=False):
         cdef:
             INDEX_t i
             REAL_t s = 0.0

@@ -481,6 +481,18 @@ class discretizedNonlocalProblem(problem):
         if kernel is not None:
             assert 2*self.finalMesh.h < kernel.horizon.value, "Please choose horizon bigger than two mesh sizes. h = {}, horizon = {}".format(self.finalMesh.h, kernel.horizon.value)
 
+    @generates('adjointHierarchy')
+    def buildAdjointHierarchy(self, hierarchy):
+        adjointHierarchy = []
+        for lvl in range(len(hierarchy)):
+            adjointHierarchy.append({})
+            for label in hierarchy[lvl]:
+                if label in ('A', 'S'):
+                    adjointHierarchy[lvl][label] = hierarchy[lvl][label].T
+                else:
+                    adjointHierarchy[lvl][label] = hierarchy[lvl][label]
+        self.adjointHierarchy = adjointHierarchy
+
     @generates('A_BC')
     def buildBCoperator(self, dmInterior, dmBC,
                         kernel, sArgs, rangedKernel, solverType, matrixFormat, tag, boundaryCondition,
@@ -563,6 +575,23 @@ class discretizedNonlocalProblem(problem):
         solver.setup()
         self.solver = solver
 
+    @generates('adjointSolver')
+    def buildAdjointSolver(self, solverType, tol, maxiter, adjointHierarchy, kernel):
+        from PyNucleus_base.solvers import iterative_solver
+        if solverType[:2] == 'cg':
+            if kernel is not None:
+                assert kernel.symmetric, 'CG solver requires a symmetric matrix'
+        solver = solverFactory.build(solverType, hierarchy=adjointHierarchy)
+        if isinstance(solver, iterative_solver):
+            solver.tolerance = tol
+            solver.maxIter = maxiter
+            comm = self.driver.comm
+            if comm is not None and comm.size > 1:
+                solver.setNormInner(norm_distributed_nonoverlapping(comm),
+                                    ip_distributed_nonoverlapping(comm))
+        solver.setup()
+        self.adjointSolver = solver
+
     @generates('modelSolution')
     def solve(self, b, dm, dmInterior, dmBC, P_interior, P_bc, solver, boundaryCondition, analyticSolution, dirichletData, tol, maxiter):
         uInterior = dmInterior.zeros()
@@ -605,6 +634,35 @@ class discretizedNonlocalProblem(problem):
         if hasattr(self.continuumProblem, 'exactL2Squared'):
             data['exactL2Squared'] = self.continuumProblem.exactL2Squared
         self.modelSolution = stationaryModelSolution(self, u, **data)
+
+    @generates('adjointModelSolution')
+    def adjointSolve(self, b, dm, dmInterior, P_interior, adjointSolver, tol, maxiter):
+        uInterior = dmInterior.zeros()
+        with self.timer('solve {}'.format(self.__class__.__name__)):
+            its = adjointSolver(b, uInterior)
+
+        resError = (b-adjointSolver.A*uInterior).norm(False)
+
+        if isinstance(adjointSolver, iterative_solver):
+            if its >= maxiter-1:
+                self.driver.logger.warn("WARNING: Only reached residual error {} > tol = {} in {} iterations".format(resError, tol, its))
+
+        u = dm.fromArray(P_interior*uInterior)
+
+        data = {'iterations': its,
+                'uInterior': uInterior,
+                'explicitResidualError': resError,
+                'b': b}
+        if isinstance(adjointSolver, iterative_solver):
+            data['tol'] = adjointSolver.tolerance
+            data['maxIterations'] = adjointSolver.maxIter
+            data['residuals'] = copy(adjointSolver.residuals)
+            data['preconditionedResidualError'] = adjointSolver.residuals[-1]
+        data['analyticSolution'] = None
+        data['exactL2Squared'] = None
+        data['exactHsSquared'] = None
+        data['dirichletData'] = None
+        self.adjointModelSolution = stationaryModelSolution(self, u, **data)
 
     def report(self, group):
         group.add('kernel',self.continuumProblem.kernel)

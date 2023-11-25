@@ -5,23 +5,13 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-from PyNucleus_base.myTypes import INDEX, REAL, ENCODE
-from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, ENCODE_t, BOOL_t
+from PyNucleus_base.myTypes import REAL
+from PyNucleus_base.myTypes cimport INDEX_t, REAL_t
 from PyNucleus_base import uninitialized
-import numpy as np
-cimport numpy as np
-from PyNucleus_fem.meshCy cimport decode_edge
-from PyNucleus_base.linear_operators cimport (restrictionOp,
-                                               prolongationOp,
-                                               sparseGraph,
-                                               LinearOperator,
-                                               LinearOperator_wrapper,
-                                               CSR_LinearOperator,
-                                               SSS_LinearOperator)
+from PyNucleus_base.linear_operators cimport CSR_LinearOperator
 from PyNucleus_base.sparsityPattern cimport sparsityPattern
 from PyNucleus_fem.DoFMaps cimport (DoFMap,
-                          P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap)
-
+                                    P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap)
 
 
 def buildRestrictionProlongation(DoFMap coarse_DoFMap,
@@ -37,7 +27,7 @@ def buildRestrictionProlongation(DoFMap coarse_DoFMap,
             else:
                 raise NotImplementedError()
         else:
-                raise NotImplementedError()
+            raise NotImplementedError()
     elif isinstance(coarse_DoFMap, P1_DoFMap):
         if isinstance(fine_DoFMap, P1_DoFMap):
             if coarse_DoFMap.mesh.manifold_dim == 1:

@@ -10,7 +10,6 @@ cimport numpy as np
 from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX
 from PyNucleus_base.blas cimport assign
 from PyNucleus_base import uninitialized
-cimport cython
 
 
 include "distributed_operators_REAL.pxi"

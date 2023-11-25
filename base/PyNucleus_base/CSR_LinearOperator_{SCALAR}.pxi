@@ -11,9 +11,7 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
                  INDEX_t[::1] indptr,
                  {SCALAR}_t[::1] data,
                  int NoThreads=1):
-        {SCALAR_label}LinearOperator.__init__(self,
-                                  indptr.shape[0]-1,
-                                  indptr.shape[0]-1)
+        {SCALAR_label}LinearOperator.__init__(self, indptr.shape[0]-1, indptr.shape[0]-1)
         self.indices = indices
         self.indptr = indptr
         self.data = data
@@ -40,6 +38,18 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
                                      {SCALAR}_t[::1] x,
                                      {SCALAR}_t[::1] y) except -1:
         spmv(self.indptr, self.indices, self.data, x, y, overwrite=False)
+        return 0
+
+    cdef INDEX_t matvecTrans({SCALAR_label}CSR_LinearOperator self,
+                             {SCALAR}_t[::1] x,
+                             {SCALAR}_t[::1] y) except -1:
+        spmv(self.indptr, self.indices, self.data, x, y, overwrite=True, trans=True)
+        return 0
+
+    cdef INDEX_t matvecTrans_no_overwrite({SCALAR_label}CSR_LinearOperator self,
+                                          {SCALAR}_t[::1] x,
+                                          {SCALAR}_t[::1] y) except -1:
+        spmv(self.indptr, self.indices, self.data, x, y, overwrite=False, trans=True)
         return 0
 
     cdef INDEX_t matvec_multi({SCALAR_label}CSR_LinearOperator self,
@@ -220,8 +230,7 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
     def get_diagonal(self):
         cdef:
             INDEX_t i, jj
-            np.ndarray[{SCALAR}_t, ndim=1] diag_mem = np.zeros((self.num_rows),
-                                                             dtype={SCALAR})
+            np.ndarray[{SCALAR}_t, ndim=1] diag_mem = np.zeros((self.num_rows), dtype={SCALAR})
             {SCALAR}_t[::1] d = diag_mem
 
         for i in range(self.num_rows):
@@ -273,8 +282,8 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
     @staticmethod
     def HDF5read(node):
         B = {SCALAR_label}CSR_LinearOperator(np.array(node['indices'], dtype=INDEX),
-                                  np.array(node['indptr'], dtype=INDEX),
-                                  np.array(node['data'], dtype={SCALAR}))
+                                             np.array(node['indptr'], dtype=INDEX),
+                                             np.array(node['data'], dtype={SCALAR}))
         B.num_rows = node.attrs['num_rows']
         B.num_columns = node.attrs['num_columns']
         assert B.indptr.shape[0]-1 == B.num_rows
@@ -312,7 +321,7 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
         nnz = self.indptr[self.indptr.shape[0]-1]
         for i in range(self.indptr.shape[0]-1):
             s = self.indptr[i]
-            if s ==  nnz:
+            if s == nnz:
                 continue
             p = self.indices[s]
             for q in self.indices[self.indptr[i]+1:self.indptr[i+1]]:
@@ -440,9 +449,7 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
         return blockA
 
 
-cdef BOOL_t sort_indices{SCALAR_label}(INDEX_t[::1] indptr,
-                       INDEX_t[::1] indices,
-                       {SCALAR}_t[::1] data):
+cdef BOOL_t sort_indices{SCALAR_label}(INDEX_t[::1] indptr, INDEX_t[::1] indices, {SCALAR}_t[::1] data):
     cdef:
         INDEX_t n, i, jj, j, kk
         {SCALAR}_t d
@@ -479,10 +486,7 @@ cdef class {SCALAR_label}CSR_VectorLinearOperator({SCALAR_label}VectorLinearOper
                  INDEX_t[::1] indices,
                  INDEX_t[::1] indptr,
                  {SCALAR}_t[:, ::1] data):
-        {SCALAR_label}VectorLinearOperator.__init__(self,
-                                                    indptr.shape[0]-1,
-                                                    indptr.shape[0]-1,
-                                                    data.shape[1])
+        {SCALAR_label}VectorLinearOperator.__init__(self, indptr.shape[0]-1, indptr.shape[0]-1, data.shape[1])
         self.indices = indices
         self.indptr = indptr
         self.data = data
@@ -659,7 +663,7 @@ cdef class {SCALAR_label}CSR_VectorLinearOperator({SCALAR_label}VectorLinearOper
         nnz = self.indptr[self.indptr.shape[0]-1]
         for i in range(self.indptr.shape[0]-1):
             s = self.indptr[i]
-            if s ==  nnz:
+            if s == nnz:
                 continue
             p = self.indices[s]
             for q in self.indices[self.indptr[i]+1:self.indptr[i+1]]:

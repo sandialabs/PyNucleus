@@ -7,7 +7,7 @@
 
 import numpy as np
 cimport numpy as np
-from libc.stdlib cimport malloc, realloc, free
+from libc.stdlib cimport malloc
 from libc.string cimport memcpy
 from . myTypes import INDEX
 

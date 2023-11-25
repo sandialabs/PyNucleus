@@ -12,19 +12,14 @@ from . myTypes import INDEX, REAL, COMPLEX
 from . myTypes cimport INDEX_t, REAL_t, COMPLEX_t
 from . linear_operators cimport (sort_indices,
                                  LinearOperator,
-                                 CSR_LinearOperator,
                                  SSS_LinearOperator,
                                  LinearOperator_wrapper,
-                                 TimeStepperLinearOperator,
-                                 ComplexLinearOperator,
-                                 wrapRealToComplex)
+                                 ComplexLinearOperator)
 from . solvers cimport cg_solver, gmres_solver, complex_gmres_solver
 from . ip_norm import wrapRealInnerToComplex, wrapRealNormToComplex, ip_serial, norm_serial
 from . ip_norm cimport ipBase, normBase, complexipBase, complexNormBase
-from . blas cimport assign, assignScaled, assign3, update, updateScaled, mydot, gemvF
 from . blas import uninitialized
-from . convergence cimport (convergenceMaster, noOpConvergenceMaster,
-                            convergenceClient, noOpConvergenceClient)
+from . convergence cimport convergenceMaster, convergenceClient
 from numpy.linalg import norm as normSeq
 
 
@@ -113,7 +108,7 @@ def ichol_sss(SSS_LinearOperator A):
         REAL_t[::1] Adata = A.data, Adiagonal = A.diagonal
         INDEX_t[::1] indptr = indptr_mem, indices
         REAL_t[::1] data, diagonal = diagonal_mem
-        INDEX_t i, ii, jj, j, nnz, kk, k, hh
+        INDEX_t i, jj, j, nnz, kk, k, hh
         INDEX_t num_rows = A.num_rows
     # step 1: build indptr
     for i in range(num_rows):
@@ -330,7 +325,7 @@ cpdef solve_LU(INDEX_t[::1] Lindptr, INDEX_t[::1] Lindices, REAL_t[::1] Ldata,
                INDEX_t[::1] perm_r, INDEX_t[::1] perm_c,
                REAL_t[::1] b):
     cdef:
-        INDEX_t n = b.shape[0], i, j
+        INDEX_t n = b.shape[0], i
         np.ndarray[REAL_t, ndim=1] temp1_mem = np.zeros((n), dtype=REAL)
         np.ndarray[REAL_t, ndim=1] temp2_mem = uninitialized((n), dtype=REAL)
         REAL_t[::1] temp1 = temp1_mem
@@ -344,7 +339,6 @@ cpdef solve_LU(INDEX_t[::1] Lindptr, INDEX_t[::1] Lindices, REAL_t[::1] Ldata,
     for i in range(n):
         temp1[i] = temp2[perm_c[i]]
     return temp1_mem
-
 
 
 cdef class ILU_solver:
@@ -389,8 +383,8 @@ cdef class ILU_solver:
 
     def asPreconditioner(self):
         return LinearOperator_wrapper(self.temp1.shape[0],
-                                        self.temp1.shape[0],
-                                        self.solve)
+                                      self.temp1.shape[0],
+                                      self.solve)
 
 
 # Assumes that indices are ordered
@@ -399,7 +393,7 @@ cpdef solve_cholesky(INDEX_t[::1] Lindptr,
                      REAL_t[::1] Ldata,
                      REAL_t[::1] b):
     cdef:
-        INDEX_t n = b.shape[0], i, j
+        INDEX_t n = b.shape[0]
         np.ndarray[REAL_t, ndim=1] temp_mem = np.zeros((n), dtype=REAL)
         REAL_t[::1] temp = temp_mem
     forward_solve_csc(Lindptr, Lindices, Ldata, b, temp,
@@ -444,7 +438,7 @@ cpdef void bicgstab(LinearOperator A,
     cdef:
         INDEX_t i, k, dim = A.shape[0]
         REAL_t[::1] r0, r, p, p2, s, s2, temp, temp2
-        REAL_t kapppa, kappaNew, alpha, omega, beta
+        REAL_t kappa, kappaNew, alpha, omega, beta
 
     if temporaryMemory is None:
         temporaryMemory = uninitialized((8*dim), dtype=REAL)
@@ -467,7 +461,6 @@ cpdef void bicgstab(LinearOperator A,
     else:
         p2 = p
         s2 = s
-
 
     if residuals is None:
         residuals = []
@@ -558,7 +551,7 @@ cpdef flexible_cg(A,
                   inner=ip_serial):
     cdef:
         np.ndarray[REAL_t, ndim=1] rold_mem = uninitialized(b.shape[0],
-                                                         dtype=REAL)
+                                                            dtype=REAL)
         REAL_t beta, beta2, alpha
         REAL_t[::1] r, rold = rold_mem, p, Ap, Br, x
         int dim = b.shape[0]
@@ -746,7 +739,7 @@ cpdef void bicgstabComplex(ComplexLinearOperator A,
     cdef:
         INDEX_t i, k, dim = A.shape[0]
         COMPLEX_t[::1] r0, r, p, p2, s, s2, temp, temp2
-        COMPLEX_t kapppa, kappaNew, alpha, omega, beta
+        COMPLEX_t kappa, kappaNew, alpha, omega, beta
 
     if temporaryMemory is None:
         temporaryMemory = uninitialized((8*dim), dtype=COMPLEX)
@@ -769,7 +762,6 @@ cpdef void bicgstabComplex(ComplexLinearOperator A,
     else:
         p2 = p
         s2 = s
-
 
     if residuals is None:
         residuals = []
@@ -877,12 +869,12 @@ cpdef arnoldi(LinearOperator A,
         r = uninitialized((dim), dtype=REAL)
         Ar = uninitialized((dim), dtype=REAL)
     if ((temporaryMemoryQ.shape[0] == dim) and
-        (temporaryMemoryQ.shape[1] >= maxiter+1)):
+            (temporaryMemoryQ.shape[1] >= maxiter+1)):
         Q = temporaryMemoryQ
     else:
         Q = uninitialized((dim, maxiter+1), dtype=REAL, order='F')
     if ((temporaryMemoryH.shape[0] >= maxiter+1) and
-        (temporaryMemoryH.shape[1] >= maxiter)):
+            (temporaryMemoryH.shape[1] >= maxiter)):
         H = temporaryMemoryH
     else:
         H = np.zeros((maxiter+1, maxiter), dtype=REAL, order='F')
@@ -954,6 +946,7 @@ def lanczos(A, x=None, numIter=5):
         H[1, m] = inner(w, x)
         w -= H[1, m]*x
     return H
+
 
 def lanczos2(A, M, Minv, x=None, numIter=5):
     z = uninitialized((A.shape[0]))

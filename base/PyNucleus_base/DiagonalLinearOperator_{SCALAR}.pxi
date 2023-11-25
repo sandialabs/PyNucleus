@@ -7,9 +7,7 @@
 
 cdef class {SCALAR_label}diagonalOperator({SCALAR_label}LinearOperator):
     def __init__(self, {SCALAR}_t[::1] diagonal):
-        {SCALAR_label}LinearOperator.__init__(self,
-                                  diagonal.shape[0],
-                                  diagonal.shape[0])
+        {SCALAR_label}LinearOperator.__init__(self, diagonal.shape[0], diagonal.shape[0])
         self.data = diagonal
 
     cdef INDEX_t matvec(self,
@@ -87,5 +85,4 @@ cdef class {SCALAR_label}diagonalOperator({SCALAR_label}LinearOperator):
 
 cdef class {SCALAR_label}invDiagonal({SCALAR_label}diagonalOperator):
     def __init__(self, {SCALAR_label}LinearOperator A):
-        {SCALAR_label}diagonalOperator.__init__(self,
-                                  1./np.array(A.diagonal))
+        {SCALAR_label}diagonalOperator.__init__(self, 1./np.array(A.diagonal))
