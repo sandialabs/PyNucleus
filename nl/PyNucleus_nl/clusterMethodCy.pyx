@@ -9,17 +9,15 @@ from PyNucleus_base.myTypes import INDEX, REAL
 from PyNucleus_base import uninitialized
 from libc.math cimport sqrt, sin, cos, atan2, M_PI as pi
 from itertools import product
-from scipy.special import gamma
 import numpy as np
 from PyNucleus_base.linear_operators cimport (CSR_LinearOperator,
                                               sparseGraph,
                                               Multiply_Linear_Operator,
                                               IJOperator,
                                               sparseGraph)
-from PyNucleus_base.blas cimport gemv, gemvT, mydot, matmat, norm, assign
+from PyNucleus_base.blas cimport gemv, gemvT, mydot
 from PyNucleus_base.io cimport DistributedMap, Import
 from PyNucleus_base.sparsityPattern cimport sparsityPattern
-from PyNucleus_fem.splitting import dofmapSplitter
 from . nonlocalOperator cimport variableFractionalOrder
 from . nonlocalAssembly cimport nearFieldClusterPair
 from . kernelsCy cimport Kernel
@@ -117,7 +115,7 @@ cdef inline bint inBox(const REAL_t[:, ::1] box,
 
 
 cdef inline REAL_t minDist2FromBox(const REAL_t[:, ::1] box,
-                                     const REAL_t[::1] vector):
+                                   const REAL_t[::1] vector):
     cdef:
         INDEX_t i
         REAL_t d2min = 0.
@@ -245,7 +243,7 @@ cdef class tree_node:
     def __eq__(self, tree_node other):
         for j in range(self.dim):
             if ((abs(self.box[j, 0]-other.box[j, 0]) > 1e-10) or
-                (abs(self.box[j, 1]-other.box[j, 1]) > 1e-10)):
+                    (abs(self.box[j, 1]-other.box[j, 1]) > 1e-10)):
                 return False
         return True
 
@@ -818,10 +816,10 @@ cdef class tree_node:
                         mesh.vertices[k, j] += offset[j]*level
                 mesh.plot(vertices=False)
                 plt.gca().add_patch(patches.Rectangle((self.box[0, 0]+offset[0]*level, self.box[1, 0]+offset[1]*level),
-                                                          self.box[0, 1]-self.box[0, 0],
-                                                          self.box[1, 1]-self.box[1, 0],
-                                                          fill=False,
-                                                          color='red' if self.mixed_node else 'blue'))
+                                                      self.box[0, 1]-self.box[0, 0],
+                                                      self.box[1, 1]-self.box[1, 0],
+                                                      fill=False,
+                                                      color='red' if self.mixed_node else 'blue'))
 
                 level = level+levelSkip
 
@@ -1175,17 +1173,19 @@ cdef class tree_node:
 
     def enterLeafValues(self,
                         meshBase mesh,
-                        DoFMap DoFMap,
+                        DoFMap dm,
                         INDEX_t order,
                         REAL_t[:, :, ::1] boxes,
                         comm=None,
                         BOOL_t assembleOnRoot=True,
                         BOOL_t local=False):
         cdef:
-            INDEX_t i, k, I, l, j, p, dim, manifold_dim, dof = -1, r, start, end
+            INDEX_t i, k, I, l, m, j, q, dim, manifold_dim, dof = -1, r, start, end
             REAL_t[:, ::1] coeff, simplex, local_vals, PHI, xi, x
-            REAL_t[::1] eta, fvals
-            REAL_t vol, beta, omega
+            REAL_t[::1] eta
+            REAL_t vol, temp, betaSC, omegaSC
+            REAL_t[:, ::1] beta = uninitialized((order, mesh.dim), dtype=REAL)
+            REAL_t[:, ::1] omega = uninitialized((order, mesh.dim), dtype=REAL)
             tree_node n
             simplexQuadratureRule qr
             indexSetIterator it = arrayIndexSetIterator()
@@ -1196,33 +1196,32 @@ cdef class tree_node:
         dim = mesh.dim
         manifold_dim = mesh.manifold_dim
         # Sauter Schwab p. 428
-        if isinstance(DoFMap, P0_DoFMap):
+        if isinstance(dm, P0_DoFMap):
             quadOrder = order+1
-        elif isinstance(DoFMap, P1_DoFMap):
+        elif isinstance(dm, P1_DoFMap):
             quadOrder = order+2
-        elif isinstance(DoFMap, P2_DoFMap):
+        elif isinstance(dm, P2_DoFMap):
             quadOrder = order+3
-        elif isinstance(DoFMap, P3_DoFMap):
+        elif isinstance(dm, P3_DoFMap):
             quadOrder = order+4
         else:
             raise NotImplementedError()
         qr = simplexXiaoGimbutas(quadOrder, dim, manifold_dim)
 
         # get values of basis function in quadrature nodes
-        PHI = uninitialized((DoFMap.dofs_per_element, qr.num_nodes), dtype=REAL)
-        for i in range(DoFMap.dofs_per_element):
-            sf = DoFMap.getLocalShapeFunction(i)
+        PHI = uninitialized((dm.dofs_per_element, qr.num_nodes), dtype=REAL)
+        for i in range(dm.dofs_per_element):
+            sf = dm.getLocalShapeFunction(i)
             for j in range(qr.num_nodes):
                 sf.evalStrided(&qr.nodes[0, j], NULL, qr.num_nodes, &PHI[i, j])
 
-        coeff = np.zeros((DoFMap.num_dofs, order**dim), dtype=REAL)
+        coeff = np.zeros((dm.num_dofs, order**dim), dtype=REAL)
         simplex = uninitialized((manifold_dim+1, dim), dtype=REAL)
-        local_vals = uninitialized((DoFMap.dofs_per_element, order**dim), dtype=REAL)
+        local_vals = uninitialized((dm.dofs_per_element, order**dim), dtype=REAL)
 
         eta = np.cos((2.0*np.arange(order, 0, -1, dtype=REAL)-1.0) / (2.0*order) * np.pi)
         xi = uninitialized((order, dim), dtype=REAL)
         x = uninitialized((qr.num_nodes, dim), dtype=REAL)
-        fvals = uninitialized((qr.num_nodes), dtype=REAL)
 
         if comm:
             start = <INDEX_t>np.ceil(mesh.num_cells*comm.rank/comm.size)
@@ -1239,45 +1238,51 @@ cdef class tree_node:
             qr.nodesInGlobalCoords(simplex, x)
 
             # loop over element dofs
-            for k in range(DoFMap.dofs_per_element):
-                I = DoFMap.cell2dof(i, k)
+            for k in range(dm.dofs_per_element):
+                I = dm.cell2dof(i, k)
                 if I >= 0:
+                    local_vals[k, :] = 0.
+
                     # get Chebyshev nodes of box associated with DoF
                     for j in range(order):
                         for l in range(dim):
                             xi[j, l] = (boxes[I, l, 1]-boxes[I, l, 0])*0.5 * (eta[j]+1.0) + boxes[I, l, 0]
-                    # loop over interpolating polynomial basis
-                    r = 0
-                    pit.reset()
-                    while pit.step():
-                        # evaluation of the pit.idx-Chebyshev polynomial
-                        # at the quadrature nodes are saved in fvals
-                        fvals[:] = 1.0
-                        for q in range(dim):
-                            l = pit.idx[q]
-                            beta = 1.0
-                            for j in range(order):
-                                if j != l:
-                                    beta *= xi[l, q]-xi[j, q]
 
-                            # loop over quadrature nodes
-                            for j in range(qr.num_nodes):
-                                # evaluate l-th polynomial at j-th quadrature node
+                    for l in range(order):
+                        for q in range(dim):
+                            temp = 1.0
+                            for m in range(order):
+                                if m != l:
+                                    temp *= xi[l, q]-xi[m, q]
+                            beta[l, q] = temp
+
+                    for j in range(qr.num_nodes):
+
+                        for l in range(order):
+                            for q in range(dim):
                                 if abs(x[j, q]-xi[l, q]) > 1e-9:
-                                    omega = 1.0
-                                    for p in range(order):
-                                        if p != l:
-                                            omega *= x[j, q]-xi[p, q]
-                                    fvals[j] *= omega/beta
-                        # integrate chebyshev polynomial * local basis function over element
-                        local_vals[k, r] = 0.0
-                        for j in range(qr.num_nodes):
-                            local_vals[k, r] += vol*fvals[j]*PHI[k, j]*qr.weights[j]
-                        r += 1
+                                    temp = 1.0
+                                    for m in range(order):
+                                        if m != l:
+                                            temp *= x[j, q]-xi[m, q]
+                                    omega[l, q] = temp
+                                else:
+                                    omega[l, q] = beta[l, q]
+
+                        r = 0
+                        pit.reset()
+                        while pit.step():
+                            betaSC = 1.0
+                            omegaSC = 1.0
+                            for q in range(dim):
+                                omegaSC *= omega[pit.idx[q], q]
+                                betaSC *= beta[pit.idx[q], q]
+                            local_vals[k, r] += vol*(omegaSC/betaSC)*PHI[k, j]*qr.weights[j]
+                            r += 1
 
             # enter data into vector coeff
-            for k in range(DoFMap.dofs_per_element):
-                I = DoFMap.cell2dof(i, k)
+            for k in range(dm.dofs_per_element):
+                I = dm.cell2dof(i, k)
                 if I >= 0:
                     for l in range(order**dim):
                         coeff[I, l] += local_vals[k, l]
@@ -1311,7 +1316,7 @@ cdef class tree_node:
 
     def enterLeafValuesGrad(self,
                             meshBase mesh,
-                            DoFMap DoFMap,
+                            DoFMap dm,
                             INDEX_t order,
                             REAL_t[:, :, ::1] boxes,
                             comm=None):
@@ -1327,16 +1332,16 @@ cdef class tree_node:
             REAL_t[:, ::1] vertices = mesh.vertices
         dim = mesh.dim
         # Sauter Schwab p. 428
-        if isinstance(DoFMap, P1_DoFMap):
+        if isinstance(dm, P1_DoFMap):
             quadOrder = order+1
         else:
             raise NotImplementedError()
         qr = simplexXiaoGimbutas(quadOrder, dim)
 
-        coeff = np.zeros((DoFMap.num_dofs, dim, order**dim), dtype=REAL)
+        coeff = np.zeros((dm.num_dofs, dim, order**dim), dtype=REAL)
         simplex = uninitialized((dim+1, dim), dtype=REAL)
-        local_vals = uninitialized((DoFMap.dofs_per_element, order**dim), dtype=REAL)
-        gradients = uninitialized((DoFMap.dofs_per_element, dim), dtype=REAL)
+        local_vals = uninitialized((dm.dofs_per_element, order**dim), dtype=REAL)
+        gradients = uninitialized((dm.dofs_per_element, dim), dtype=REAL)
 
         eta = np.cos((2.0*np.arange(order, 0, -1, dtype=REAL)-1.0) / (2.0*order) * np.pi)
         xi = uninitialized((order, dim), dtype=REAL)
@@ -1358,8 +1363,8 @@ cdef class tree_node:
             qr.nodesInGlobalCoords(simplex, x)
 
             # loop over element dofs
-            for k in range(DoFMap.dofs_per_element):
-                I = DoFMap.cell2dof(i, k)
+            for k in range(dm.dofs_per_element):
+                I = dm.cell2dof(i, k)
                 if I >= 0:
                     # get box for dof
                     # TODO: avoid slicing
@@ -1391,7 +1396,7 @@ cdef class tree_node:
                                             omega *= x[j, q]-xi[p, q]
                                     fvals[j] *= omega/beta
                         # integrate chebyshev polynomial * local basis function over element
-                        #TODO: deal with multiple components, get gradient
+                        # TODO: deal with multiple components, get gradient
                         local_vals[k, r] = 0.0
                         for j in range(qr.num_nodes):
                             local_vals[k, r] += vol*fvals[j]*qr.weights[j]
@@ -1411,8 +1416,8 @@ cdef class tree_node:
                 gradients[2, 1] = -gradients[0, 1]-gradients[1, 1]
 
             # enter data into vector coeff
-            for k in range(DoFMap.dofs_per_element):
-                I = DoFMap.cell2dof(i, k)
+            for k in range(dm.dofs_per_element):
+                I = dm.cell2dof(i, k)
                 if I >= 0:
                     for j in range(dim):
                         for l in range(order**dim):
@@ -1838,10 +1843,6 @@ cdef class tree_node:
 
         if 'user-provided partition' in params:
             part = params['user-provided partition']
-            assert part.shape[0] == dm.num_dofs, "User provided partitioning does not match number of degrees of freedom: {} != {}".format(part.shape[0], dm.num_dofs)
-            assert np.min(part) == 0, "User provided partitioning leaves ranks empty."
-            assert np.max(part) == comm.size-1, "User provided partitioning leaves ranks empty."
-            assert np.unique(part).shape[0] == comm.size, "User provided partitioning leaves ranks empty."
         else:
             partitioner = params.get('partitioner', 'regular')
             if partitioner == 'regular':
@@ -1854,6 +1855,10 @@ cdef class tree_node:
                 del dP
             else:
                 raise NotImplementedError(partitioner)
+        assert part.shape[0] == dm.num_dofs, "Partitioning does not match number of degrees of freedom: {} != {}".format(part.shape[0], dm.num_dofs)
+        assert np.min(part) == 0, "Partitioning leaves ranks empty."
+        assert np.max(part) == comm.size-1, "Partitioning leaves ranks empty."
+        assert np.unique(part).shape[0] == comm.size, "Partitioning leaves ranks empty."
 
         num_dofs = 0
         for p in range(comm.size):
@@ -1861,7 +1866,7 @@ cdef class tree_node:
             num_dofs += subDofs.getNumEntries()
             self.children.append(tree_node(self, subDofs, boxes, canBeAssembled=canBeAssembled, mixed_node=mixed_node))
             self.children[p].id = p+1
-        assert dm.num_dofs == num_dofs
+        assert dm.num_dofs == num_dofs, "Partitioning error: dm has {} dofs, but clusters only have {}.".format(dm.num_dofs, num_dofs)
         self._dofs = None
 
     cpdef void relabelDoFs(self, INDEX_t[::1] translate):
@@ -2000,6 +2005,9 @@ cdef class farFieldClusterPair:
 
     cpdef void apply(farFieldClusterPair self, REAL_t[::1] x, REAL_t[::1] y):
         gemv(self.kernelInterpolant, x, y, 1.)
+
+    cpdef void applyTrans(farFieldClusterPair self, REAL_t[::1] x, REAL_t[::1] y):
+        gemvT(self.kernelInterpolant, x, y, 1.)
 
     cpdef void applyVec(farFieldClusterPair self, REAL_t[::1] x, REAL_t[:, ::1] y):
         cdef:
@@ -2217,6 +2225,54 @@ cdef class H2Matrix(LinearOperator):
                     left.downwardPass(y, componentNo)
         return 0
 
+    cdef INDEX_t matvecTrans(self,
+                             REAL_t[::1] x,
+                             REAL_t[::1] y) except -1:
+        cdef:
+            INDEX_t level, componentNo
+            tree_node n1, n2
+            farFieldClusterPair clusterPair
+        if self.Anear.nnz > 0:
+            with self.PLogger.Timer("h2 matvec near"):
+                self.Anear.matvecTrans(x, y)
+        else:
+            y[:] = 0.
+        if len(self.Pfar) > 0:
+            if self.skip_leaves_upward:
+                self.basis.matvecTrans(x, self.leafCoefficientsUp)
+            for componentNo in range(next(self.tree.leaves()).value.shape[0]):
+                with self.PLogger.Timer("h2 upwardPass"):
+                    self.tree.upwardPass(x, componentNo, skip_leaves=self.skip_leaves_upward)
+                    self.tree.resetCoefficientsDown()
+                with self.PLogger.Timer("h2 far field"):
+                    for level in self.Pfar:
+                        for clusterPair in self.Pfar[level]:
+                            n1, n2 = clusterPair.n1, clusterPair.n2
+                            clusterPair.applyTrans(n1.coefficientsUp, n2.coefficientsDown)
+                with self.PLogger.Timer("h2 downwardPass"):
+                    self.tree.downwardPass(y, componentNo)
+        return 0
+
+    cdef INDEX_t matvecTrans_no_overwrite(self,
+                                          REAL_t[::1] x,
+                                          REAL_t[::1] y) except -1:
+        cdef:
+            INDEX_t level, componentNo
+            tree_node n1, n2
+            farFieldClusterPair clusterPair
+        self.Anear.matvecTrans_no_overwrite(x, y)
+        if len(self.Pfar) > 0:
+            if self.skip_leaves_upward:
+                self.basis.matvecTrans(x, self.leafCoefficientsUp)
+            for componentNo in range(next(self.tree.leaves()).value.shape[0]):
+                self.tree.upwardPass(x, componentNo, skip_leaves=self.skip_leaves_upward)
+                self.tree.resetCoefficientsDown()
+                for level in self.Pfar:
+                    for clusterPair in self.Pfar[level]:
+                        n1, n2 = clusterPair.n1, clusterPair.n2
+                        clusterPair.applyTrans(n1.coefficientsUp, n2.coefficientsDown)
+                self.tree.downwardPass(y, componentNo)
+        return 0
 
     property diagonal:
         def __get__(self):
@@ -2489,7 +2545,7 @@ cdef class H2Matrix(LinearOperator):
                 plt.ylim([0, nd])
                 plt.axis('equal')
             else:
-                 raise NotImplementedError(fill)
+                raise NotImplementedError(fill)
         elif self.tree.dim == 2:
             Z = np.zeros((self.num_rows, self.num_columns), dtype=INDEX)
             for c in Pnear:
@@ -2611,7 +2667,6 @@ cdef class VectorH2Matrix(VectorLinearOperator):
     #             with self.PLogger.Timer("h2 downwardPass"):
     #                 left.downwardPass(y, componentNo)
     #     return 0
-
 
     property diagonal:
         def __get__(self):
@@ -2898,7 +2953,7 @@ cdef class VectorH2Matrix(VectorLinearOperator):
                 plt.ylim([0, nd])
                 plt.axis('equal')
             else:
-                 raise NotImplementedError(fill)
+                raise NotImplementedError(fill)
         elif self.tree.dim == 2:
             Z = np.zeros((self.num_rows, self.num_columns), dtype=INDEX)
             for c in Pnear:
@@ -3162,6 +3217,8 @@ cdef class DistributedH2Matrix_localData(LinearOperator):
         cdef:
             tree_node n
         super(DistributedH2Matrix_localData, self).__init__(local_dm.num_dofs, local_dm.num_dofs)
+        if isinstance(localMat.Anear, SSS_LinearOperator):
+            localMat.Anear = localMat.Anear.to_csr_linear_operator()
         assert isinstance(localMat.Anear, CSR_LinearOperator)
         self.localMat = localMat
         self.Pnear = Pnear
@@ -3315,7 +3372,8 @@ cdef class DistributedH2Matrix_localData(LinearOperator):
             for j in range(counterReceives[p]):
                 remoteReceives[k+j] = sublist[j]
             k += counterReceives[p]
-        assert np.min(remoteReceives) > 0, remoteReceives
+        if remoteReceives.shape[0] > 0:
+            assert np.min(remoteReceives) > 0, remoteReceives
 
         counterSends = np.zeros((commSize), dtype=INDEX)
         self.comm.Alltoall(counterReceives, counterSends)
@@ -3325,7 +3383,8 @@ cdef class DistributedH2Matrix_localData(LinearOperator):
         offsetsSends = np.concatenate(([0], np.cumsum(counterSends)[:commSize-1])).astype(INDEX)
         self.comm.Alltoallv([remoteReceives, (counterReceives, offsetsReceives)],
                             [remoteSends, (counterSends, offsetsSends)])
-        assert np.min(remoteSends) > 0, remoteSends
+        if remoteSends.shape[0] > 0:
+            assert np.min(remoteSends) > 0, remoteSends
 
         dataCounterReceives = np.zeros((commSize), dtype=INDEX)
         k = 0
@@ -3703,15 +3762,14 @@ cdef class DistributedH2Matrix_localData(LinearOperator):
             return self.localMat.Anear.diagonal
 
 
-
-def getDoFBoxesAndCells(meshBase mesh, DoFMap DoFMap, comm=None):
+def getDoFBoxesAndCells(meshBase mesh, DoFMap dm, comm=None):
     cdef:
         INDEX_t i, j, I, k, start, end, dim = mesh.dim, manifold_dim = mesh.manifold_dim
-        REAL_t[:, :, ::1] boxes = uninitialized((DoFMap.num_dofs, dim, 2), dtype=REAL)
+        REAL_t[:, :, ::1] boxes = uninitialized((dm.num_dofs, dim, 2), dtype=REAL)
         REAL_t[:, ::1] boxes2
         REAL_t[:, ::1] simplex = uninitialized((manifold_dim+1, dim), dtype=REAL)
         REAL_t[::1] m = uninitialized((dim), dtype=REAL), M = uninitialized((dim), dtype=REAL)
-        sparsityPattern cells_pre = sparsityPattern(DoFMap.num_dofs)
+        sparsityPattern cells_pre = sparsityPattern(dm.num_dofs)
 
     boxes[:, :, 0] = np.inf
     boxes[:, :, 1] = -np.inf
@@ -3732,33 +3790,33 @@ def getDoFBoxesAndCells(meshBase mesh, DoFMap DoFMap, comm=None):
             for k in range(dim):
                 m[k] = min(m[k], simplex[j+1, k])
                 M[k] = max(M[k], simplex[j+1, k])
-        for j in range(DoFMap.dofs_per_element):
-            I = DoFMap.cell2dof(i, j)
+        for j in range(dm.dofs_per_element):
+            I = dm.cell2dof(i, j)
             if I >= 0:
                 for k in range(dim):
                     boxes[I, k, 0] = min(boxes[I, k, 0], m[k])
                     boxes[I, k, 1] = max(boxes[I, k, 1], M[k])
     if comm:
-        boxes2 = uninitialized((DoFMap.num_dofs, dim), dtype=REAL)
-        for i in range(DoFMap.num_dofs):
+        boxes2 = uninitialized((dm.num_dofs, dim), dtype=REAL)
+        for i in range(dm.num_dofs):
             for j in range(dim):
                 boxes2[i, j] = boxes[i, j, 0]
         comm.Allreduce(MPI.IN_PLACE, boxes2, op=MPI.MIN)
-        for i in range(DoFMap.num_dofs):
+        for i in range(dm.num_dofs):
             for j in range(dim):
                 boxes[i, j, 0] = boxes2[i, j]
                 boxes2[i, j] = boxes[i, j, 1]
         comm.Allreduce(MPI.IN_PLACE, boxes2, op=MPI.MAX)
-        for i in range(DoFMap.num_dofs):
+        for i in range(dm.num_dofs):
             for j in range(dim):
                 boxes[i, j, 1] = boxes2[i, j]
     for i in range(mesh.num_cells):
-        for j in range(DoFMap.dofs_per_element):
-            I = DoFMap.cell2dof(i, j)
+        for j in range(dm.dofs_per_element):
+            I = dm.cell2dof(i, j)
             if I >= 0:
                 cells_pre.add(I, i)
     indptr, indices = cells_pre.freeze()
-    cells = sparseGraph(indices, indptr, DoFMap.num_dofs, mesh.num_cells)
+    cells = sparseGraph(indices, indptr, dm.num_dofs, mesh.num_cells)
     return np.array(boxes, copy=False), cells
 
 
@@ -3787,7 +3845,6 @@ def getFractionalOrders(variableFractionalOrder s, meshBase mesh):
                           &centers[cellNo2, 0],
                           &orders[cellNo1, cellNo2])
     return orders
-
 
 
 cpdef BOOL_t getAdmissibleClusters(Kernel kernel,

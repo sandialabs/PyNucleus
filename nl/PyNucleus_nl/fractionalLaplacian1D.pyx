@@ -9,15 +9,11 @@ from libc.math cimport (log, ceil, fabs as abs, pow)
 import numpy as np
 cimport numpy as np
 
-from PyNucleus_base.myTypes import INDEX, REAL
-from PyNucleus_base import uninitialized, uninitialized_like
+from PyNucleus_base.myTypes import REAL
+from PyNucleus_base import uninitialized
 from PyNucleus_fem.meshCy cimport meshBase
-from PyNucleus_fem.quadrature cimport (simplexQuadratureRule,
-                                       transformQuadratureRule,
-                                       doubleSimplexQuadratureRule,
-                                       GaussJacobi,
-                                       simplexXiaoGimbutas)
-from PyNucleus_fem.DoFMaps cimport DoFMap, P1_DoFMap, P2_DoFMap, P0_DoFMap, shapeFunction
+from PyNucleus_fem.quadrature cimport GaussJacobi
+from PyNucleus_fem.DoFMaps cimport DoFMap, P1_DoFMap, P0_DoFMap, shapeFunction
 
 include "kernel_params.pxi"
 include "panelTypes.pxi"
@@ -29,9 +25,9 @@ ALL.set()
 
 
 cdef class fractionalLaplacian1DZeroExterior(nonlocalLaplacian1D):
-    def __init__(self, Kernel kernel, meshBase mesh, DoFMap DoFMap, num_dofs=None, **kwargs):
+    def __init__(self, Kernel kernel, meshBase mesh, DoFMap dm, num_dofs=None, **kwargs):
         manifold_dim2 = mesh.dim-1
-        super(fractionalLaplacian1DZeroExterior, self).__init__(kernel, mesh, DoFMap, num_dofs, manifold_dim2=manifold_dim2, **kwargs)
+        super(fractionalLaplacian1DZeroExterior, self).__init__(kernel, mesh, dm, num_dofs, manifold_dim2=manifold_dim2, **kwargs)
         self.symmetricCells = False
         self.symmetricLocalMatrix = True
 
@@ -195,14 +191,14 @@ cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
     def __init__(self,
                  Kernel kernel,
                  meshBase mesh,
-                 DoFMap DoFMap,
+                 DoFMap dm,
                  quad_order_diagonal=None,
                  target_order=None,
                  num_dofs=None,
                  **kwargs):
         cdef:
             REAL_t smin, smax
-        super(fractionalLaplacian1D, self).__init__(kernel, mesh, DoFMap, num_dofs, **kwargs)
+        super(fractionalLaplacian1D, self).__init__(kernel, mesh, dm, num_dofs, **kwargs)
 
         self.symmetricCells = True
 
@@ -210,7 +206,7 @@ cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
         self.singularityCancelationIntegrandWithinElement = 2.
         # The integrand (excluding the kernel) cancels 2 orders of the
         # singularity across elements for continuous finite elements.
-        if isinstance(DoFMap, P0_DoFMap):
+        if isinstance(dm, P0_DoFMap):
             assert self.kernel.max_singularity > -2., "Discontinuous finite elements are not conforming for singularity order {} <= -2.".format(self.kernel.max_singularity)
             self.singularityCancelationIntegrandAcrossElements = 0.
         else:
@@ -606,12 +602,12 @@ cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
     def __init__(self,
                  Kernel kernel,
                  meshBase mesh,
-                 DoFMap DoFMap,
+                 DoFMap dm,
                  quad_order_diagonal=None,
                  target_order=None,
                  num_dofs=None,
                  **kwargs):
-        super(fractionalLaplacian1D_boundary, self).__init__(kernel, mesh, DoFMap, num_dofs, **kwargs)
+        super(fractionalLaplacian1D_boundary, self).__init__(kernel, mesh, dm, num_dofs, **kwargs)
 
         smin = max(0.5*(-self.kernel.min_singularity), 0.)
         smax = max(0.5*(-self.kernel.max_singularity), 0.)

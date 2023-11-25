@@ -22,6 +22,12 @@ cdef class {SCALAR_label}LinearOperator:
     cdef INDEX_t matvec_multi(self,
                               {SCALAR}_t[:, ::1] x,
                               {SCALAR}_t[:, ::1] y) except -1
+    cdef INDEX_t matvecTrans(self,
+                             {SCALAR}_t[::1] x,
+                             {SCALAR}_t[::1] y) except -1
+    cdef INDEX_t matvecTrans_no_overwrite(self,
+                                          {SCALAR}_t[::1] x,
+                                          {SCALAR}_t[::1] y) except -1
     cdef void residual(self,
                        {SCALAR}_t[::1] x,
                        {SCALAR}_t[::1] rhs,
@@ -107,3 +113,16 @@ cdef class {SCALAR_label}VectorLinearOperator:
     cdef void addToEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val)
     cdef void getEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val)
     cdef void setEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val)
+
+
+cdef class {SCALAR_label}Transpose_Linear_Operator({SCALAR_label}LinearOperator):
+    cdef:
+        public {SCALAR_label}LinearOperator A
+    cdef INDEX_t matvec(self,
+                        {SCALAR}_t[::1] x,
+                        {SCALAR}_t[::1] y) except -1
+    cdef void _residual(self,
+                        {SCALAR}_t[::1] x,
+                        {SCALAR}_t[::1] rhs,
+                        {SCALAR}_t[::1] result,
+                        BOOL_t simpleResidual=*)

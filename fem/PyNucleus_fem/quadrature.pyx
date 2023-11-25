@@ -5,7 +5,7 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX, BOOL
+from PyNucleus_base.myTypes import REAL
 from PyNucleus_base import uninitialized
 from PyNucleus_base.blas cimport uninitializedREAL
 from libc.math cimport sin, cos, M_PI as pi
@@ -31,8 +31,8 @@ cdef class quadratureRule:
         self.weights = weights
 
     cdef inline REAL_t eval(self,
-                              const REAL_t[::1] fun_vals,
-                              const REAL_t vol):
+                            const REAL_t[::1] fun_vals,
+                            const REAL_t vol):
         cdef:
             INDEX_t i
             REAL_t I
@@ -155,7 +155,7 @@ cdef class simplexQuadratureRule(quadratureRule):
             fun_vals[i] = fun.eval(self.tempVec)
 
     cdef REAL_t getSimplexVolume(self,
-                                   const REAL_t[:, ::1] simplexVertices):
+                                 const REAL_t[:, ::1] simplexVertices):
         cdef INDEX_t k, j
         for k in range(self.manifold_dim):
             for j in range(self.dim):
@@ -180,7 +180,7 @@ cdef class simplexQuadratureRule(quadratureRule):
 cdef class transformQuadratureRule(simplexQuadratureRule):
     def __init__(self, simplexQuadratureRule qr):
         nodes = uninitializedREAL((qr.nodes.shape[0],
-                                     qr.nodes.shape[1]))
+                                   qr.nodes.shape[1]))
         weights = qr.weights
         super(transformQuadratureRule, self).__init__(nodes, weights, qr.dim, qr.manifold_dim)
         self.qr = qr
@@ -296,7 +296,7 @@ weights2D_order5 = np.array([9.0/40.0, w1, w1, w1, w2, w2, w2], dtype=REAL)
 quad_point3D_order3 = np.array([[0.25, 0.5,     1.0/6.0, 1.0/6.0, 1.0/6.0],
                                 [0.25, 1.0/6.0, 0.5,     1.0/6.0, 1.0/6.0],
                                 [0.25, 1.0/6.0, 1.0/6.0, 0.5,     1.0/6.0],
-                                [0.25, 1.0/6.0, 1.0/6.0, 1.0/6.0, 0.5    ]], dtype=REAL)
+                                [0.25, 1.0/6.0, 1.0/6.0, 1.0/6.0, 0.5]], dtype=REAL)
 weights3D_order3 = np.array([-0.8, 9.0/20.0, 9.0/20.0, 9.0/20.0, 9.0/20.0], dtype=REAL)
 
 
@@ -399,7 +399,7 @@ cdef class quadQuadratureRule(quadratureRule):
                     fun_vals[i] = fun(x)
 
     cpdef REAL_t getQuadVolume(self,
-                                 const REAL_t[:, ::1] quadVertices):
+                               const REAL_t[:, ::1] quadVertices):
         cdef:
             INDEX_t k, j
             REAL_t[:, ::1] span = uninitializedREAL((self.dim, self.dim))
@@ -418,7 +418,6 @@ cdef class quadQuadratureRule(quadratureRule):
                   function fun,
                   const REAL_t[:, ::1] quadVertices):
         cdef:
-            INDEX_t i, k, m
             REAL_t[::1] fun_vals = uninitializedREAL((self.num_nodes, ))
         self.evalFun(fun, quadVertices, fun_vals)
         vol = self.getQuadVolume(quadVertices)

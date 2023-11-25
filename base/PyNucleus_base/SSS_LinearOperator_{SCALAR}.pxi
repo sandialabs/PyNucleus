@@ -15,9 +15,7 @@ cdef class {SCALAR_label}SSS_LinearOperator({SCALAR_label}LinearOperator):
                  {SCALAR}_t[::1] data,
                  {SCALAR}_t[::1] diagonal,
                  int NoThreads=1):
-        {SCALAR_label}LinearOperator.__init__(self,
-                                  indptr.shape[0]-1,
-                                  indptr.shape[0]-1)
+        {SCALAR_label}LinearOperator.__init__(self, indptr.shape[0]-1, indptr.shape[0]-1)
         self.indices = indices
         self.indptr = indptr
         self.data = data
@@ -66,6 +64,16 @@ cdef class {SCALAR_label}SSS_LinearOperator({SCALAR_label}LinearOperator):
                 y[k] += self.data[j]*x[i]
             y[i] += temp
         return 0
+
+    cdef INDEX_t matvecTrans({SCALAR_label}SSS_LinearOperator self,
+                             {SCALAR}_t[::1] x,
+                             {SCALAR}_t[::1] y) except -1:
+        return self.matvec(x, y)
+
+    cdef INDEX_t matvecTrans_no_overwrite({SCALAR_label}SSS_LinearOperator self,
+                                          {SCALAR}_t[::1] x,
+                                          {SCALAR}_t[::1] y) except -1:
+        return self.matvec_no_overwrite(x, y)
 
     cdef void setEntry({SCALAR_label}SSS_LinearOperator self, INDEX_t I, INDEX_t J, {SCALAR}_t val):
         cdef:
@@ -280,9 +288,9 @@ cdef class {SCALAR_label}SSS_LinearOperator({SCALAR_label}LinearOperator):
     @staticmethod
     def HDF5read(node):
         return {SCALAR_label}SSS_LinearOperator(np.array(node['indices'], dtype=INDEX),
-                                  np.array(node['indptr'], dtype=INDEX),
-                                  np.array(node['data'], dtype={SCALAR}),
-                                  np.array(node['diagonal'], dtype={SCALAR}))
+                                                np.array(node['indptr'], dtype=INDEX),
+                                                np.array(node['data'], dtype={SCALAR}),
+                                                np.array(node['diagonal'], dtype={SCALAR}))
 
     def __getstate__(self):
         return (np.array(self.indices, dtype=INDEX),
@@ -327,6 +335,10 @@ cdef class {SCALAR_label}SSS_LinearOperator({SCALAR_label}LinearOperator):
         for i in range(self.data.shape[0]):
             self.data[i] *= scaling
 
+    @property
+    def T(self):
+        return self
+
 
 cdef class {SCALAR_label}SSS_VectorLinearOperator({SCALAR_label}VectorLinearOperator):
     """
@@ -337,10 +349,7 @@ cdef class {SCALAR_label}SSS_VectorLinearOperator({SCALAR_label}VectorLinearOper
                  INDEX_t[::1] indptr,
                  {SCALAR}_t[:, ::1] data,
                  {SCALAR}_t[:, ::1] diagonal):
-        {SCALAR_label}VectorLinearOperator.__init__(self,
-                                                    indptr.shape[0]-1,
-                                                    indptr.shape[0]-1,
-                                                    data.shape[1])
+        {SCALAR_label}VectorLinearOperator.__init__(self, indptr.shape[0]-1, indptr.shape[0]-1, data.shape[1])
         self.indices = indices
         self.indptr = indptr
         self.data = data

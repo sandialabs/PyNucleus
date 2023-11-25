@@ -119,6 +119,7 @@ cdef class farFieldClusterPair:
         public REAL_t[:, ::1] kernelInterpolant
         public REAL_t[:, :, ::1] kernelInterpolantVec
     cpdef void apply(self, REAL_t[::1] x, REAL_t[::1] y)
+    cpdef void applyTrans(self, REAL_t[::1] x, REAL_t[::1] y)
     cpdef void applyVec(farFieldClusterPair self, REAL_t[::1] x, REAL_t[:, ::1] y)
 
 
@@ -134,6 +135,9 @@ cdef class H2Matrix(LinearOperator):
     cdef INDEX_t matvec(self,
                         REAL_t[::1] x,
                         REAL_t[::1] y) except -1
+    cdef INDEX_t matvecTrans(self,
+                             REAL_t[::1] x,
+                             REAL_t[::1] y) except -1
     cdef INDEX_t matvec_submat(self,
                                REAL_t[::1] x,
                                REAL_t[::1] y,

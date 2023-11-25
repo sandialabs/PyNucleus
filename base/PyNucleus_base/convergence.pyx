@@ -5,14 +5,9 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-from . myTypes import INDEX, REAL
-from . ip_norm cimport ip_serial
-from libc.math cimport sqrt
-import numpy as np
 import mpi4py.rc
 mpi4py.rc.initialize = False
 from mpi4py import MPI
-from . blas import uninitialized
 
 cdef:
     INDEX_t TAG_CONVERGED = 32012

@@ -43,7 +43,6 @@ cdef class Map:
             for k in range(size):
                 self.lcl_to_gbl_array[self.lcl_to_gbl_offsets[rank]+k] = lcl[k]
 
-
     cpdef INDEX_t getGlobalElement(self, INDEX_t pid, INDEX_t lid):
         cdef:
             INDEX_t offset1, offset2
@@ -84,7 +83,7 @@ cdef class Map:
 
 
 cdef class DistributedMap:
-    def __init__(self, comm, INDEX_t[:,::1] GIDs):
+    def __init__(self, comm, INDEX_t[:, ::1] GIDs):
         self.comm = comm
         assert GIDs.shape[1] == 2
         self.GIDs = GIDs

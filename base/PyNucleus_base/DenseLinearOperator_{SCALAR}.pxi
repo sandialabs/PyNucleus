@@ -8,9 +8,7 @@
 cdef class {SCALAR_label}Dense_LinearOperator({SCALAR_label}LinearOperator):
     def __init__(self,
                  {SCALAR}_t[:, ::1] data):
-        {SCALAR_label}LinearOperator.__init__(self,
-                                  data.shape[0],
-                                  data.shape[1])
+        {SCALAR_label}LinearOperator.__init__(self, data.shape[0], data.shape[1])
         self.data = data
 
     cdef INDEX_t matvec(self,
@@ -42,11 +40,23 @@ cdef class {SCALAR_label}Dense_LinearOperator({SCALAR_label}LinearOperator):
                 y[i, k] = temp[k]
         return 0
 
+    cdef INDEX_t matvecTrans(self,
+                             {SCALAR}_t[::1] x,
+                             {SCALAR}_t[::1] y) except -1:
+        gemvT(self.data, x, y)
+        return 0
+
+    cdef INDEX_t matvecTrans_no_overwrite(self,
+                                          {SCALAR}_t[::1] x,
+                                          {SCALAR}_t[::1] y) except -1:
+        gemvT(self.data, x, y, 1.)
+        return 0
+
     property diagonal:
         def __get__(self):
             cdef INDEX_t i
             diag = uninitialized((min(self.num_rows, self.num_columns)),
-                            dtype={SCALAR})
+                                 dtype={SCALAR})
             for i in range(min(self.num_rows, self.num_columns)):
                 diag[i] = self.data[i, i]
             return diag
@@ -105,13 +115,13 @@ cdef class {SCALAR_label}Dense_LinearOperator({SCALAR_label}LinearOperator):
         sizeInMB = self.getMemorySize() >> 20
         if sizeInMB > 100:
             return '<%dx%d %s, %d MB>' % (self.num_rows,
-                               self.num_columns,
-                               self.__class__.__name__,
-                               sizeInMB)
+                                          self.num_columns,
+                                          self.__class__.__name__,
+                                          sizeInMB)
         else:
             return '<%dx%d %s>' % (self.num_rows,
-                               self.num_columns,
-                               self.__class__.__name__)
+                                   self.num_columns,
+                                   self.__class__.__name__)
 
 
 cdef class {SCALAR_label}Dense_SubBlock_LinearOperator({SCALAR_label}LinearOperator):
@@ -121,9 +131,7 @@ cdef class {SCALAR_label}Dense_SubBlock_LinearOperator({SCALAR_label}LinearOpera
         if mem is None:
             mem = np.zeros((I.shape[0], J.shape[0]), dtype={SCALAR})
         self.data = mem
-        {SCALAR_label}LinearOperator.__init__(self,
-                                              num_rows,
-                                              num_columns)
+        {SCALAR_label}LinearOperator.__init__(self, num_rows, num_columns)
         self.lookupI = {}
         self.lookupJ = {}
         for i in range(I.shape[0]):
@@ -161,10 +169,7 @@ cdef class {SCALAR_label}Dense_SubBlock_LinearOperator({SCALAR_label}LinearOpera
 cdef class {SCALAR_label}Dense_VectorLinearOperator({SCALAR_label}VectorLinearOperator):
     def __init__(self,
                  {SCALAR}_t[:, :, ::1] data):
-        {SCALAR_label}VectorLinearOperator.__init__(self,
-                                                    data.shape[0],
-                                                    data.shape[1],
-                                                    data.shape[2])
+        {SCALAR_label}VectorLinearOperator.__init__(self, data.shape[0], data.shape[1], data.shape[2])
         self.data = data
 
     cdef INDEX_t matvec(self,

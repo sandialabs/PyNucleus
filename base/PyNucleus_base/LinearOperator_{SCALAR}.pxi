@@ -25,19 +25,32 @@ cdef class {SCALAR_label}LinearOperator:
                               {SCALAR}_t[:, ::1] y) except -1:
         return -1
 
+    cdef INDEX_t matvecTrans(self,
+                             {SCALAR}_t[::1] x,
+                             {SCALAR}_t[::1] y) except -1:
+        return -1
+
+    cdef INDEX_t matvecTrans_no_overwrite(self,
+                                          {SCALAR}_t[::1] x,
+                                          {SCALAR}_t[::1] y) except -1:
+        return -1
+
     def __call__(self,
                  {SCALAR}_t[::1] x,
                  {SCALAR}_t[::1] y,
-                 BOOL_t no_overwrite=False):
-        if no_overwrite:
-            self.matvec_no_overwrite(x, y)
+                 BOOL_t no_overwrite=False,
+                 BOOL_t trans=False):
+        if not trans:
+            if no_overwrite:
+                self.matvec_no_overwrite(x, y)
+            else:
+                self.matvec(x, y)
         else:
-            self.matvec(x, y)
+            self.matvecTrans(x, y)
 
     def dot(self, {SCALAR}_t[::1] x):
         cdef:
-            np.ndarray[{SCALAR}_t, ndim=1] y = np.zeros(self.num_rows,
-                                                      dtype={SCALAR})
+            np.ndarray[{SCALAR}_t, ndim=1] y = np.zeros(self.num_rows, dtype={SCALAR})
         self(x, y)
         return y
 
@@ -274,6 +287,10 @@ cdef class {SCALAR_label}LinearOperator:
     def getMemorySize(self):
         return -1
 
+    @property
+    def T(self):
+        return {SCALAR_label}Transpose_Linear_Operator(self)
+
 
 cdef class {SCALAR_label}TimeStepperLinearOperator({SCALAR_label}LinearOperator):
     def __init__(self,
@@ -283,8 +300,7 @@ cdef class {SCALAR_label}TimeStepperLinearOperator({SCALAR_label}LinearOperator)
                  {SCALAR}_t facM=1.0):
         assert M.num_columns == S.num_columns
         assert M.num_rows == S.num_rows
-        super({SCALAR_label}TimeStepperLinearOperator, self).__init__(M.num_rows,
-                                                        M.num_columns)
+        super({SCALAR_label}TimeStepperLinearOperator, self).__init__(M.num_rows, M.num_columns)
         self.M = M
         self.S = S
         self.facM = facM
@@ -306,8 +322,8 @@ cdef class {SCALAR_label}TimeStepperLinearOperator({SCALAR_label}LinearOperator)
         return 0
 
     cdef INDEX_t matvec_no_overwrite(self,
-                        {SCALAR}_t[::1] x,
-                        {SCALAR}_t[::1] y) except -1:
+                                     {SCALAR}_t[::1] x,
+                                     {SCALAR}_t[::1] y) except -1:
         if self.facS == 1.0:
             self.S.matvec_no_overwrite(x, y)
         elif self.facS != 0.:
@@ -374,8 +390,7 @@ cdef class {SCALAR_label}Multiply_Linear_Operator({SCALAR_label}LinearOperator):
     def __init__(self,
                  {SCALAR_label}LinearOperator A,
                  {SCALAR}_t factor):
-        super({SCALAR_label}Multiply_Linear_Operator, self).__init__(A.num_rows,
-                                                       A.num_columns)
+        super({SCALAR_label}Multiply_Linear_Operator, self).__init__(A.num_rows, A.num_columns)
         self.A = A
         self.factor = factor
 
@@ -420,7 +435,7 @@ cdef class {SCALAR_label}Multiply_Linear_Operator({SCALAR_label}LinearOperator):
         elif isinstance(x, {SCALAR_label}Multiply_Linear_Operator) and isinstance(self, ({SCALAR}, float)):
             return {SCALAR_label}Multiply_Linear_Operator(x.A, x.factor*self)
         elif isinstance(x, COMPLEX):
-                return ComplexMultiply_Linear_Operator(wrapRealToComplex(self.A), self.factor*x)
+            return ComplexMultiply_Linear_Operator(wrapRealToComplex(self.A), self.factor*x)
         else:
             return super({SCALAR_label}Multiply_Linear_Operator, self).__mul__(x)
 
@@ -442,8 +457,7 @@ cdef class {SCALAR_label}Product_Linear_Operator({SCALAR_label}LinearOperator):
                  {SCALAR_label}LinearOperator B,
                  {SCALAR}_t[::1] temporaryMemory=None):
         assert A.num_columns == B.num_rows, '{} and {} are not compatible'.format(A.num_columns, B.num_rows)
-        super({SCALAR_label}Product_Linear_Operator, self).__init__(A.num_rows,
-                                                      B.num_columns)
+        super({SCALAR_label}Product_Linear_Operator, self).__init__(A.num_rows, B.num_columns)
         self.A = A
         self.B = B
         if temporaryMemory is not None:
@@ -626,3 +640,52 @@ cdef class {SCALAR_label}VectorLinearOperator:
 
     def getEntry_py(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val):
         return self.getEntry(I, J, val)
+
+
+cdef class {SCALAR_label}Transpose_Linear_Operator({SCALAR_label}LinearOperator):
+    def __init__(self,
+                 {SCALAR_label}LinearOperator A):
+        super({SCALAR_label}Transpose_Linear_Operator, self).__init__(A.num_columns, A.num_rows)
+        self.A = A
+
+    cdef INDEX_t matvec(self,
+                        {SCALAR}_t[::1] x,
+                        {SCALAR}_t[::1] y) except -1:
+        self.A.matvecTrans(x, y)
+        return 0
+
+    cdef INDEX_t matvec_no_overwrite(self,
+                                     {SCALAR}_t[::1] x,
+                                     {SCALAR}_t[::1] y) except -1:
+        self.A.matvecTrans_no_overwrite(x, y)
+        return 0
+
+    def isSparse(self):
+        return self.A.isSparse()
+
+    def to_csr(self):
+        return self.A.to_csr().T
+
+    def to_csr_linear_operator(self):
+        if isinstance(self.A, {SCALAR_label}Dense_LinearOperator):
+            return {SCALAR_label}Dense_LinearOperator(self.A.transpose())
+        else:
+            B = self.A.transpose()
+            Bcsr = {SCALAR_label}CSR_LinearOperator(B.indices, B.indptr, B.data)
+            Bcsr.num_rows = B.shape[0]
+            Bcsr.num_columns = B.shape[1]
+            return Bcsr
+
+    def toarray(self):
+        return self.A.transpose().toarray()
+
+    def get_diagonal(self):
+        return np.array(self.A.diagonal, copy=False)
+
+    diagonal = property(fget=get_diagonal)
+
+    def __repr__(self):
+        return 'transpose({})'.format(self.A)
+
+    def getMemorySize(self):
+        return self.A.getMemorySize()

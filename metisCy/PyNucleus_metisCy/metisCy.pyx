@@ -22,24 +22,24 @@ cdef extern from "metis.h":
                             real_t *ubvec, idx_t *options, idx_t *objval, idx_t *part)
 
     int METIS_MeshToDual(idx_t *ne, idx_t *nn, idx_t *eptr, idx_t *eind,
-                         idx_t *ncommon, idx_t *numflag, idx_t **r_xadj, idx_t **r_adjncy);
+                         idx_t *ncommon, idx_t *numflag, idx_t **r_xadj, idx_t **r_adjncy)
 
     int METIS_MeshToNodal(idx_t *ne, idx_t *nn, idx_t *eptr, idx_t *eind,
-                          idx_t *numflag, idx_t **r_xadj, idx_t **r_adjncy);
+                          idx_t *numflag, idx_t **r_xadj, idx_t **r_adjncy)
 
     int METIS_PartMeshNodal(idx_t *ne, idx_t *nn, idx_t *eptr, idx_t *eind,
                             idx_t *vwgt, idx_t *vsize, idx_t *nparts, real_t *tpwgts,
-                            idx_t *options, idx_t *objval, idx_t *epart, idx_t *npart);
+                            idx_t *options, idx_t *objval, idx_t *epart, idx_t *npart)
 
     int METIS_PartMeshDual(idx_t *ne, idx_t *nn, idx_t *eptr, idx_t *eind,
                            idx_t *vwgt, idx_t *vsize, idx_t *ncommon, idx_t *nparts,
                            real_t *tpwgts, idx_t *options, idx_t *objval, idx_t *epart,
-                           idx_t *npart);
+                           idx_t *npart)
 
     int METIS_NodeND(idx_t *nvtxs, idx_t *xadj, idx_t *adjncy, idx_t *vwgt,
-                     idx_t *options, idx_t *perm, idx_t *iperm);
+                     idx_t *options, idx_t *perm, idx_t *iperm)
 
-    int METIS_Free(void *ptr);
+    int METIS_Free(void *ptr)
 
     idx_t METIS_NOPTIONS
 
@@ -113,65 +113,65 @@ cdef extern from "metis.h":
 NOPTIONS = METIS_NOPTIONS
 
 # Options codes
-OPTION_PTYPE	 = METIS_OPTION_PTYPE
-OPTION_OBJTYPE	 = METIS_OPTION_OBJTYPE
-OPTION_CTYPE	 = METIS_OPTION_CTYPE
-OPTION_IPTYPE	 = METIS_OPTION_IPTYPE
-OPTION_RTYPE	 = METIS_OPTION_RTYPE
-OPTION_DBGLVL	 = METIS_OPTION_DBGLVL
-OPTION_NITER	 = METIS_OPTION_NITER
-OPTION_NCUTS	 = METIS_OPTION_NCUTS
-OPTION_SEED	 = METIS_OPTION_SEED
-OPTION_NO2HOP	 = METIS_OPTION_NO2HOP
-OPTION_MINCONN	 = METIS_OPTION_MINCONN
-OPTION_CONTIG	 = METIS_OPTION_CONTIG
-OPTION_COMPRESS	 = METIS_OPTION_COMPRESS
-OPTION_CCORDER	 = METIS_OPTION_CCORDER
-OPTION_PFACTOR	 = METIS_OPTION_PFACTOR
-OPTION_NSEPS	 = METIS_OPTION_NSEPS
-OPTION_UFACTOR	 = METIS_OPTION_UFACTOR
+OPTION_PTYPE = METIS_OPTION_PTYPE
+OPTION_OBJTYPE = METIS_OPTION_OBJTYPE
+OPTION_CTYPE = METIS_OPTION_CTYPE
+OPTION_IPTYPE = METIS_OPTION_IPTYPE
+OPTION_RTYPE = METIS_OPTION_RTYPE
+OPTION_DBGLVL = METIS_OPTION_DBGLVL
+OPTION_NITER = METIS_OPTION_NITER
+OPTION_NCUTS = METIS_OPTION_NCUTS
+OPTION_SEED = METIS_OPTION_SEED
+OPTION_NO2HOP = METIS_OPTION_NO2HOP
+OPTION_MINCONN = METIS_OPTION_MINCONN
+OPTION_CONTIG = METIS_OPTION_CONTIG
+OPTION_COMPRESS = METIS_OPTION_COMPRESS
+OPTION_CCORDER = METIS_OPTION_CCORDER
+OPTION_PFACTOR = METIS_OPTION_PFACTOR
+OPTION_NSEPS = METIS_OPTION_NSEPS
+OPTION_UFACTOR = METIS_OPTION_UFACTOR
 OPTION_NUMBERING = METIS_OPTION_NUMBERING
 
 # Partitioning Schemes
-PTYPE_RB   = METIS_PTYPE_RB
+PTYPE_RB = METIS_PTYPE_RB
 PTYPE_KWAY = METIS_PTYPE_KWAY
 
 # Graph types for meshes
-GTYPE_DUAL  = METIS_GTYPE_DUAL
+GTYPE_DUAL = METIS_GTYPE_DUAL
 GTYPE_NODAL = METIS_GTYPE_NODAL
 
 # Coarsening Schemes
-CTYPE_RM   = METIS_CTYPE_RM
+CTYPE_RM = METIS_CTYPE_RM
 CTYPE_SHEM = METIS_CTYPE_SHEM
 
 # Initial partitioning schemes
-IPTYPE_GROW    = METIS_IPTYPE_GROW
-IPTYPE_RANDOM  = METIS_IPTYPE_RANDOM
-IPTYPE_EDGE    = METIS_IPTYPE_EDGE
-IPTYPE_NODE    = METIS_IPTYPE_NODE
+IPTYPE_GROW = METIS_IPTYPE_GROW
+IPTYPE_RANDOM = METIS_IPTYPE_RANDOM
+IPTYPE_EDGE = METIS_IPTYPE_EDGE
+IPTYPE_NODE = METIS_IPTYPE_NODE
 IPTYPE_METISRB = METIS_IPTYPE_METISRB
 
 # Refinement schemes
-RTYPE_FM	= METIS_RTYPE_FM
-RTYPE_GREEDY	= METIS_RTYPE_GREEDY
+RTYPE_FM = METIS_RTYPE_FM
+RTYPE_GREEDY = METIS_RTYPE_GREEDY
 RTYPE_SEP2SIDED = METIS_RTYPE_SEP2SIDED
 RTYPE_SEP1SIDED = METIS_RTYPE_SEP1SIDED
 
 # Debug Levels
-DBG_INFO       = METIS_DBG_INFO
-DBG_TIME       = METIS_DBG_TIME
-DBG_COARSEN    = METIS_DBG_COARSEN
-DBG_REFINE     = METIS_DBG_REFINE
-DBG_IPART      = METIS_DBG_IPART
-DBG_MOVEINFO   = METIS_DBG_MOVEINFO
-DBG_SEPINFO    = METIS_DBG_SEPINFO
-DBG_CONNINFO   = METIS_DBG_CONNINFO
+DBG_INFO = METIS_DBG_INFO
+DBG_TIME = METIS_DBG_TIME
+DBG_COARSEN = METIS_DBG_COARSEN
+DBG_REFINE = METIS_DBG_REFINE
+DBG_IPART = METIS_DBG_IPART
+DBG_MOVEINFO = METIS_DBG_MOVEINFO
+DBG_SEPINFO = METIS_DBG_SEPINFO
+DBG_CONNINFO = METIS_DBG_CONNINFO
 DBG_CONTIGINFO = METIS_DBG_CONTIGINFO
-DBG_MEMORY     = METIS_DBG_MEMORY
+DBG_MEMORY = METIS_DBG_MEMORY
 
 # Types of objectives
-OBJTYPE_CUT  = METIS_OBJTYPE_CUT
-OBJTYPE_VOL  = METIS_OBJTYPE_VOL
+OBJTYPE_CUT = METIS_OBJTYPE_CUT
+OBJTYPE_VOL = METIS_OBJTYPE_VOL
 OBJTYPE_NODE = METIS_OBJTYPE_NODE
 
 
@@ -344,7 +344,6 @@ cpdef PartMeshNodal(idx_t[::1] eptr,
                                     &objval, &epart_mv[0], &npart_mv[0])
     process_return(returnVal)
     return epart, npart, objval
-
 
 
 cpdef NodeND(idx_t[::1] xadj,

@@ -8,11 +8,11 @@
 import numpy as np
 cimport numpy as np
 from libc.math cimport sqrt
-from . myTypes import INDEX, REAL, COMPLEX
-from . blas cimport assign, assignScaled, assign3, update, updateScaled, mydot, gemvF
+from . myTypes import REAL, COMPLEX
+from . blas cimport assign, assignScaled, assign3, update, updateScaled, gemvF
 from . blas import uninitialized
 from . ip_norm cimport vector_t, complex_vector_t, ip_serial, norm_serial, ip_distributed, norm_distributed, wrapRealInnerToComplex, wrapRealNormToComplex
-from . linalg import ichol_csr, ichol_sss
+from . linalg import ichol_csr
 from . linalg cimport (forward_solve_csc, backward_solve_csc,
                        forward_solve_sss_noInverse,
                        backward_solve_sss_noInverse)
@@ -117,7 +117,7 @@ cdef class lu_solver(solver):
                 B = CSR_LinearOperator.from_dense(B)
         self.useTriangularSolveRoutines = False
         if isinstance(B, (SSS_LinearOperator,
-                               CSR_LinearOperator)):
+                          CSR_LinearOperator)):
             from scipy.sparse.linalg import splu
             try:
                 if isinstance(B, SSS_LinearOperator):
@@ -661,7 +661,8 @@ cdef class gmres_solver(krylov_solver):
         return allIter
 
     def __str__(self):
-        s = 'GMRES(tolerance={},relTol={},maxIter={},restarts={},2-norm={},flexible={})'.format(self.tolerance, self.relativeTolerance, self.maxIter, self.restarts, self.use2norm, self.flexible)
+        s = 'GMRES(tolerance={},relTol={},maxIter={},restarts={},2-norm={},flexible={})'.format(self.tolerance, self.relativeTolerance, self.maxIter,
+                                                                                                self.restarts, self.use2norm, self.flexible)
         if self.prec is not None:
             if self.isLeftPrec:
                 return s+', left preconditioned by '+str(self.prec)
@@ -669,7 +670,6 @@ cdef class gmres_solver(krylov_solver):
                 return s+', right preconditioned by '+str(self.prec)
         else:
             return s
-
 
 
 cdef class bicgstab_solver(krylov_solver):
@@ -1212,7 +1212,8 @@ cdef class complex_gmres_solver(complex_krylov_solver):
         return allIter
 
     def __str__(self):
-        s = 'GMRES(tolerance={},relTol={},maxIter={},restarts={},2-norm={},flexible={})'.format(self.tolerance, self.relativeTolerance, self.maxIter, self.restarts, self.use2norm, self.flexible)
+        s = 'GMRES(tolerance={},relTol={},maxIter={},restarts={},2-norm={},flexible={})'.format(self.tolerance, self.relativeTolerance, self.maxIter,
+                                                                                                self.restarts, self.use2norm, self.flexible)
         if self.prec is not None:
             if self.isLeftPrec:
                 return s+', left preconditioned by '+str(self.prec)

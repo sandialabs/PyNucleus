@@ -7,7 +7,7 @@
 
 import numpy as np
 from PyNucleus_base import INDEX
-from PyNucleus_base.myTypes cimport INDEX_t, REAL_t
+from PyNucleus_base.myTypes cimport INDEX_t
 from . meshCy cimport meshBase
 from . DoFMaps cimport DoFMap, P0_DoFMap
 from . meshCy import getSubmesh
@@ -129,7 +129,6 @@ cdef class meshSplitter:
             plt.title(label)
 
 
-
 cdef class meshSplitter2(meshSplitter):
     cdef:
         INDEX_t[::1] cell2subdomain
@@ -145,7 +144,6 @@ cdef class meshSplitter2(meshSplitter):
 
     def createSubdomains(self, function indicator):
         cdef:
-            REAL_t[:, ::1] centers
             INDEX_t[::1] cell2subdomain
             INDEX_t[::1] subdomains
             INDEX_t cellNo, num_subdomains, subdomainNo

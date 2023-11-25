@@ -238,7 +238,8 @@ cdef class {SCALAR_label_lc_}fe_vector:
             import matplotlib.pyplot as plt
             coords = self.dm.scalarDM.getDoFCoordinates()
             ax = plt.gcf().add_subplot(projection='3d')
-            return plt.quiver(coords[:, 0], coords[:, 1], coords[:, 2], self.getComponent(0).toarray(), self.getComponent(1).toarray(), self.getComponent(2).toarray())
+            return plt.quiver(coords[:, 0], coords[:, 1], coords[:, 2],
+                              self.getComponent(0).toarray(), self.getComponent(1).toarray(), self.getComponent(2).toarray())
         else:
             y = self.linearPart()
             return mesh.plotFunction(y.toarray(), DoFMap=y.dm, **kwargs)

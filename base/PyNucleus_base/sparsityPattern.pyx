@@ -8,7 +8,7 @@
 from libc.stdlib cimport malloc, realloc, free
 import numpy as np
 cimport numpy as np
-from . myTypes import INDEX, REAL
+from . myTypes import INDEX
 from . blas import uninitialized
 
 

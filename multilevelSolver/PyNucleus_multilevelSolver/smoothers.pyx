@@ -9,15 +9,14 @@ import numpy as np
 cimport numpy as np
 cimport cython
 from scipy.sparse import csr_matrix
-from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX
+from PyNucleus_base.myTypes import REAL, COMPLEX
 from PyNucleus_base import uninitialized
-from PyNucleus_base.blas cimport (update, updateScaled,
-                                   assignScaled, assign3)
-from PyNucleus_base.linear_operators cimport (Product_Linear_Operator,
-                                               CSR_LinearOperator,
-                                               ComplexCSR_LinearOperator,
-                                               SSS_LinearOperator,
-                                               TimeStepperLinearOperator)
+from PyNucleus_base.blas cimport (update,
+                                  assignScaled, assign3)
+from PyNucleus_base.linear_operators cimport (CSR_LinearOperator,
+                                              ComplexCSR_LinearOperator,
+                                              SSS_LinearOperator,
+                                              TimeStepperLinearOperator)
 from PyNucleus_base.linalg import estimateSpectralRadius
 from PyNucleus_base.linalg import ILU_solver
 import logging

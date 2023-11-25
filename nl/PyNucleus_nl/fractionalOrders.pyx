@@ -9,12 +9,7 @@
 
 import numpy as np
 cimport numpy as np
-from libc.math cimport (sin, cos, sinh, cosh, tanh, sqrt, atan, atan2,
-                        log, ceil,
-                        fabs as abs, M_PI as pi, pow,
-                        exp, erf)
-from PyNucleus_base.myTypes import INDEX, REAL, BOOL
-from PyNucleus_fem.functions cimport constant
+from libc.math cimport sqrt, atan, fabs as abs, pow
 from PyNucleus_fem.meshCy cimport meshBase, cellFinder2
 from PyNucleus_fem.DoFMaps cimport shapeFunction, fe_vector, DoFMap
 from libc.stdlib cimport malloc
@@ -255,7 +250,7 @@ cdef REAL_t piecewiseConstantFractionalOrderFun(REAL_t *x, REAL_t *y, void *c_pa
 
 
 cdef class piecewiseConstantFractionalOrder(variableFractionalOrder):
-    def __init__(self, INDEX_t dim, function blockIndicator, REAL_t[:,::1] sVals):
+    def __init__(self, INDEX_t dim, function blockIndicator, REAL_t[:, ::1] sVals):
         cdef:
             INDEX_t numBlocks = sVals.shape[0]
         assert sVals.shape[0] == sVals.shape[1]
@@ -564,7 +559,6 @@ cdef class smoothStepRadial(extendedFunction):
         return '{}(sl={},sr={},r={},radius={})'.format(self.__class__.__name__, self.sl, self.sr, self.r, self.radius)
 
 
-
 cdef class lookupExtended(extendedFunction):
     cdef:
         meshBase mesh
@@ -769,7 +763,8 @@ cdef class innerOuterFractionalOrder(variableFractionalOrder):
         innerOuterFractionalOrder.__init__(self, state[0], state[1], state[2], state[3], state[4], state[5], state[6])
 
     def __repr__(self):
-        return '{}(ii={},oo={},io={},oi={},r={},sym={})'.format(self.__class__.__name__, self.sii, self.soo, self.sio, self.soi, np.sqrt(self.r2), self.symmetric)
+        return '{}(ii={},oo={},io={},oi={},r={},sym={})'.format(self.__class__.__name__,
+                                                                self.sii, self.soo, self.sio, self.soi, np.sqrt(self.r2), self.symmetric)
 
 
 cdef class sumFractionalOrder(variableFractionalOrder):

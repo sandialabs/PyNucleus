@@ -8,20 +8,28 @@
 ctypedef INDEX_t MKL_INT
 
 cdef extern from "mkl/mkl_spblas.h":
-    void mkl_cspblas_dcsrgemv (const char *transa , const MKL_INT *m , const REAL_t *a , const MKL_INT *ia , const MKL_INT *ja , const REAL_t *x , REAL_t *y );
+    void mkl_cspblas_dcsrgemv (const char *transa , const MKL_INT *m , const REAL_t *a , const MKL_INT *ia , const MKL_INT *ja , const REAL_t *x , REAL_t *y)
     void mkl_dcsrmv (const char *transa , const MKL_INT *m , const MKL_INT *k , const REAL_t *alpha , const char *matdescra ,
                      const REAL_t *val , const MKL_INT *indx , const MKL_INT *pntrb , const MKL_INT *pntre ,
-                     const REAL_t *x , const REAL_t *beta , REAL_t *y );
+                     const REAL_t *x , const REAL_t *beta , REAL_t *y)
     # void mkl_zcsrmv (const char *transa , const MKL_INT *m , const MKL_INT *k , const COMPLEX_t *alpha , const char *matdescra ,
     #                  const COMPLEX_t *val , const MKL_INT *indx , const MKL_INT *pntrb , const MKL_INT *pntre ,
-    #                  const COMPLEX_t *x , const COMPLEX_t *beta , COMPLEX_t *y );
+    #                  const COMPLEX_t *x , const COMPLEX_t *beta , COMPLEX_t *y )
 
-cdef void spmv(INDEX_t[::1] indptr, INDEX_t[::1] indices, SCALAR_t[::1] data, SCALAR_t[::1] x, SCALAR_t[::1] y, BOOL_t overwrite=True):
+cdef void spmv(INDEX_t[::1] indptr, INDEX_t[::1] indices, SCALAR_t[::1] data, SCALAR_t[::1] x, SCALAR_t[::1] y, BOOL_t overwrite=True, BOOL_t trans=False):
     cdef:
-        char transA = 78
+        char transA
         INDEX_t num_rows = indptr.shape[0]-1
 
     assert overwrite
+
+    if not transA:
+        transA = 78
+    else:
+        if SCALAR_t is COMPLEX_t:
+            transA = 67
+        else:
+            transA = 84
 
     if SCALAR_t is COMPLEX_t:
         # mkl_cspblas_zcsrgemv(&transA, &num_rows, &data[0], &indptr[0], &indices[0], &x[0], &y[0])

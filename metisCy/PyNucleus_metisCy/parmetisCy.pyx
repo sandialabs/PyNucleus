@@ -24,21 +24,21 @@ include "metisTypes.pxi"
 cdef extern from "parmetis.h":
     int ParMETIS_V3_PartMeshKway(
         idx_t *elmdist, idx_t *eptr, idx_t *eind, idx_t *elmwgt,
-	idx_t *wgtflag, idx_t *numflag, idx_t *ncon, idx_t *ncommonnodes, idx_t *nparts,
-	real_t *tpwgts, real_t *ubvec, idx_t *options, idx_t *edgecut, idx_t *part,
-	MPI_Comm *comm);
+        idx_t *wgtflag, idx_t *numflag, idx_t *ncon, idx_t *ncommonnodes, idx_t *nparts,
+        real_t *tpwgts, real_t *ubvec, idx_t *options, idx_t *edgecut, idx_t *part,
+        MPI_Comm *comm)
 
     int ParMETIS_V3_Mesh2Dual(
         idx_t *elmdist, idx_t *eptr, idx_t *eind, idx_t *numflag,
-	idx_t *ncommonnodes, idx_t **xadj, idx_t **adjncy, MPI_Comm *comm);
+        idx_t *ncommonnodes, idx_t **xadj, idx_t **adjncy, MPI_Comm *comm)
 
     int ParMETIS_V3_RefineKway(
         idx_t *vtxdist, idx_t *xadj, idx_t *adjncy, idx_t *vwgt,
         idx_t *adjwgt, idx_t *wgtflag, idx_t *numflag, idx_t *ncon, idx_t *nparts,
         real_t *tpwgts, real_t *ubvec, idx_t *options, idx_t *edgecut,
-        idx_t *part, MPI_Comm *comm);
+        idx_t *part, MPI_Comm *comm)
 
-    int METIS_Free(void *ptr);
+    int METIS_Free(void *ptr)
 
     idx_t METIS_OK, METIS_ERROR_INPUT, METIS_ERROR_MEMORY, METIS_ERROR
     idx_t PARMETIS_PSR_COUPLED, PARMETIS_PSR_UNCOUPLED

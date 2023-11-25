@@ -32,20 +32,20 @@ from functools import lru_cache
 
 cdef class Repartitioner:
     cdef:
-         meshBase subdomain
-         interfaceManager interfaces
-         INDEX_t dim
-         MPI.Comm globalComm
-         MPI.Comm oldComm
-         MPI.Comm newComm
-         MPI.Comm interComm
-         BOOL_t is_overlapping
-         INDEX_t[::1] _newSubdomainGlobalRank
-         INDEX_t[::1] _oldSubdomainGlobalRank
-         dict _newRankSubdomainNo
-         dict _oldRankSubdomainNo
-         INDEX_t[::1] cells, part
-         INDEX_t cell_offset
+        meshBase subdomain
+        interfaceManager interfaces
+        INDEX_t dim
+        MPI.Comm globalComm
+        MPI.Comm oldComm
+        MPI.Comm newComm
+        MPI.Comm interComm
+        BOOL_t is_overlapping
+        INDEX_t[::1] _newSubdomainGlobalRank
+        INDEX_t[::1] _oldSubdomainGlobalRank
+        dict _newRankSubdomainNo
+        dict _oldRankSubdomainNo
+        INDEX_t[::1] cells, part
+        INDEX_t cell_offset
 
     def __init__(self, meshBase subdomain, interfaceManager interfaces, MPI.Comm globalComm, MPI.Comm oldComm, MPI.Comm newComm):
         cdef:
@@ -295,10 +295,10 @@ cdef class Repartitioner:
         partition q are on each subdomain p. Then we solve a linear
         program
 
-        max_n \sum_{p=1}^P \sum_{q=1}^Q f_{p,q} * n_{p,q}
+        max_n \\sum_{p=1}^P \\sum_{q=1}^Q f_{p,q} * n_{p,q}
         subject to
-        sum_q n_{p,q}  = 1  \forall p = 1,..,P  (each subdomain gets one partition)
-        sum_p n_{p,q} <= 1  \forall q = 1,..,Q  (each partition gets at most one subdomain)
+        sum_q n_{p,q}  = 1  \\forall p = 1,..,P  (each subdomain gets one partition)
+        sum_p n_{p,q} <= 1  \\forall q = 1,..,Q  (each partition gets at most one subdomain)
 
         """
         cdef:
@@ -674,7 +674,6 @@ cdef class Repartitioner:
                         sendRequests.append(globalComm.isend(0, dest=rank, tag=57))
             else:
                 raise NotImplementedError()
-
 
         ######################################################################
         # recv all interface information from old partition

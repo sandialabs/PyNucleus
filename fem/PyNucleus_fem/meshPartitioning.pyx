@@ -28,7 +28,7 @@ def partition2sparseGraph(const INDEX_t[::1] partition,
         np.ndarray[INDEX_t, ndim=1] indptr_mem = np.zeros((numPartitions+1),
                                                           dtype=INDEX)
         np.ndarray[INDEX_t, ndim=1] indices_mem = uninitialized((numVertices),
-                                                           dtype=INDEX)
+                                                                dtype=INDEX)
         INDEX_t[::1] indptr = indptr_mem, indices = indices_mem
         INDEX_t i, pos
     for i in range(numVertices):
@@ -167,7 +167,7 @@ class regularVertexPartitioner(vertexPartitioner):
                     n //= d
                 d += 1
             if n > 1:
-               primfac.append(n)
+                primfac.append(n)
             return primfac
 
         numPartitionsPerDim = np.ones((dim), dtype=INDEX)
@@ -231,7 +231,7 @@ class regularVertexPartitioner(vertexPartitioner):
             REAL_t[::1] boundaries
             list idx_lists
             INDEX_t[::1] idx2
-            INDEX_t numPart2
+            INDEX_t numPart2, numPartCreated
         for k in range(idx.shape[0]):
             c[k] = coord[idx[k], d]
         boundaries = np.quantile(c, np.linspace(0, 1, numPartitionsPerDim[d]+1)[1:numPartitionsPerDim[d]])
@@ -257,11 +257,13 @@ class regularVertexPartitioner(vertexPartitioner):
                         break
                 else:
                     idx_lists[numPartitionsPerDim[d]-1].append(idx[k])
+            numPartCreated = 0
             for j in range(numPartitionsPerDim[d]):
                 idx2 = np.array(idx_lists[j], dtype=INDEX)
                 numPart2 = self.partitionDim(coord, part, numPartitionsPerDim, idx2, d+1, offset)
                 offset += numPart2
-            return offset
+                numPartCreated += numPart2
+            return numPartCreated
 
     def partitionVerticesIrregular(self, INDEX_t numPartitions):
         cdef:
@@ -310,6 +312,7 @@ class regularMeshPartitioner(meshPartitioner):
     def __repr__(self):
         return 'Regular-Mesh'
 
+
 class regularDofPartitioner(dofPartitioner):
     def partitionDofs(self, numPartitions, partitionedDimensions=None, partition_weights=None, irregular=False):
         assert self.dm is not None
@@ -327,7 +330,6 @@ class regularDofPartitioner(dofPartitioner):
 
     def __call__(self, numPartitions):
         return self.inversePartitionDofs(numPartitions)
-
 
 
 IF USE_METIS:
@@ -362,7 +364,6 @@ IF USE_METIS:
 
         def __call__(self, numPartitions):
             return self.inversePartitionDofs(numPartitions)
-
 
     class metisMeshPartitioner(meshPartitioner):
         def partitionVertices(self, numPartitions, interiorOnly=True, ufactor=30):

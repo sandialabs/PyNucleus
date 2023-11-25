@@ -5,16 +5,13 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-from . myTypes import INDEX, REAL
+from . myTypes import INDEX
 import numpy as np
 from . myTypes cimport INDEX_t, REAL_t
 from . blas import uninitialized
 cimport numpy as np
 from . linear_operators cimport (LinearOperator,
-                                 CSR_LinearOperator,
-                                 sparseGraph,
-                                 restrictionOp,
-                                 prolongationOp)
+                                 sparseGraph)
 
 
 class combinedOperator(LinearOperator):
@@ -229,7 +226,7 @@ cpdef void cuthill_mckee(sparseGraph graph,
                         level_len += 1
 
                     # Do insertion sort for nodes from lowest to highest degree
-                    for kk in range(1,level_len):
+                    for kk in range(1, level_len):
                         temp = temp_degrees[kk]
                         temp2 = order[N_old+kk]
                         ll = kk

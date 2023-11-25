@@ -31,7 +31,7 @@ cdef class interactionDomain(parametrizedTwoPointFunction):
         BOOL_t identityMapping
         REAL_t[:, ::1] specialOffsets
     cdef BOOL_t isInside(self, REAL_t[::1] x, REAL_t[::1] y)
-    cdef RELATIVE_POSITION_t getRelativePosition(self, REAL_t[:,::1] simplex1, REAL_t[:,::1] simplex2)
+    cdef RELATIVE_POSITION_t getRelativePosition(self, REAL_t[:, ::1] simplex1, REAL_t[:, ::1] simplex2)
     cdef INDEX_t findIntersections(self, REAL_t[::1] x, REAL_t[:, ::1] simplex, INDEX_t start, INDEX_t end, REAL_t[::1] intersections)
     cdef void startLoopSubSimplices_Simplex(self, REAL_t[:, ::1] simplex1, REAL_t[:, ::1] simplex2)
     cdef BOOL_t nextSubSimplex_Simplex(self, REAL_t[:, ::1] A, REAL_t[::1] b, REAL_t *vol)

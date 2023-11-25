@@ -47,7 +47,7 @@ cdef class tupleDictMASK:
             self.indexL[i] = <INDEX_t *>malloc(self.initial_length *
                                                sizeof(INDEX_t))
             self.vals[i] = <MASK_t *>malloc(self.initial_length *
-                                               sizeof(MASK_t))
+                                            sizeof(MASK_t))
         self.deleteHits = deleteHits
         self.logicalAndHits = logicalAndHits
         MASK_INVALID.set()
@@ -105,8 +105,8 @@ cdef class tupleDictMASK:
                                             (self.lengths[I]) *
                                             sizeof(INDEX_t))
         self.vals[I] = <MASK_t *>realloc(self.vals[I],
-                                            (self.lengths[I]) *
-                                            sizeof(MASK_t))
+                                         (self.lengths[I]) *
+                                         sizeof(MASK_t))
 
     cdef MASK_t enterValue(self, const INDEX_t[::1] e, MASK_t val):
         cdef:
@@ -161,8 +161,6 @@ cdef class tupleDictMASK:
         return self.invalid
 
     cdef MASK_t getValue(self, const INDEX_t[::1] e):
-        cdef:
-            INDEX_t m
         if self.findIndex(e[0], e[1]):  # J is already present
             return self.vals[e[0]][self.index]
         else:

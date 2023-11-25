@@ -121,7 +121,8 @@ cdef class LoggingTimer(Timer):
         object loggerLevel
         str StartMessage
 
-    def __init__(self, logger, loggerLevel, str key, FakePLogger parent, BOOL_t manualDataEntry=False, MPI.Comm comm=None, BOOL_t sync=False, str StartMessage=''):
+    def __init__(self, logger, loggerLevel, str key, FakePLogger parent, BOOL_t manualDataEntry=False,
+                 MPI.Comm comm=None, BOOL_t sync=False, str StartMessage=''):
         super(LoggingTimer, self).__init__(key, parent, manualDataEntry, comm, sync)
         self.logger = logger
         self.loggerLevel = loggerLevel

@@ -5,18 +5,15 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-from libc.math cimport (sqrt, log, ceil, fabs as abs, pow)
+from libc.math cimport sqrt, log, ceil, fabs as abs
 import numpy as np
 cimport numpy as np
-from libc.stdlib cimport malloc
 
-from PyNucleus_base.myTypes import INDEX, REAL, BOOL
-from PyNucleus_base import uninitialized, uninitialized_like
+from PyNucleus_base.myTypes import INDEX, REAL
+from PyNucleus_base import uninitialized
 from PyNucleus_base.blas cimport mydot
-from PyNucleus_fem.quadrature cimport (simplexQuadratureRule,
-                                       transformQuadratureRule,
-                                       doubleSimplexQuadratureRule, GaussJacobi,
-                                       simplexXiaoGimbutas)
+from PyNucleus_fem.quadrature cimport (transformQuadratureRule,
+                                       doubleSimplexQuadratureRule, GaussJacobi)
 from PyNucleus_fem.DoFMaps cimport DoFMap, P0_DoFMap, P1_DoFMap, shapeFunction
 from PyNucleus_nl.fractionalOrders cimport constFractionalOrder
 
@@ -29,9 +26,9 @@ ALL.set()
 
 
 cdef class fractionalLaplacian2DZeroExterior(nonlocalLaplacian2D):
-    def __init__(self, Kernel kernel, meshBase mesh, DoFMap DoFMap, num_dofs=None, **kwargs):
+    def __init__(self, Kernel kernel, meshBase mesh, DoFMap dm, num_dofs=None, **kwargs):
         manifold_dim2 = mesh.dim-1
-        super(fractionalLaplacian2DZeroExterior, self).__init__(kernel, mesh, DoFMap, num_dofs, manifold_dim2=manifold_dim2, **kwargs)
+        super(fractionalLaplacian2DZeroExterior, self).__init__(kernel, mesh, dm, num_dofs, manifold_dim2=manifold_dim2, **kwargs)
         self.symmetricCells = False
         self.symmetricLocalMatrix = True
 
@@ -578,12 +575,12 @@ cdef class fractionalLaplacian2D(nonlocalLaplacian2D):
     def __init__(self,
                  Kernel kernel,
                  meshBase mesh,
-                 DoFMap DoFMap,
+                 DoFMap dm,
                  target_order=None,
                  quad_order_diagonal=None,
                  num_dofs=None,
                  **kwargs):
-        super(fractionalLaplacian2D, self).__init__(kernel, mesh, DoFMap, num_dofs, **kwargs)
+        super(fractionalLaplacian2D, self).__init__(kernel, mesh, dm, num_dofs, **kwargs)
 
         self.symmetricCells = True
 
@@ -591,7 +588,7 @@ cdef class fractionalLaplacian2D(nonlocalLaplacian2D):
         self.singularityCancelationIntegrandWithinElement = 2.
         # The integrand (excluding the kernel) cancels 2 orders of the
         # singularity across elements for continuous finite elements.
-        if isinstance(DoFMap, P0_DoFMap):
+        if isinstance(dm, P0_DoFMap):
             assert self.kernel.max_singularity > -3., "Discontinuous finite elements are not conforming for singularity order {} <= -3.".format(self.kernel.max_singularity)
             self.singularityCancelationIntegrandAcrossElements = 0.
         else:
@@ -626,7 +623,7 @@ cdef class fractionalLaplacian2D(nonlocalLaplacian2D):
         cdef:
             panelType panel, panel2
             REAL_t logdh1 = log(d/h1), logdh2 = log(d/h2)
-            REAL_t c = (0.5*self.target_order+0.5)*log(self.num_dofs*self.H0**2) #-4.
+            REAL_t c = (0.5*self.target_order+0.5)*log(self.num_dofs*self.H0**2)  # -4.
             REAL_t logh1H0 = abs(log(h1/self.H0)), logh2H0 = abs(log(h2/self.H0))
             REAL_t loghminH0 = max(logh1H0, logh2H0)
             REAL_t s = max(-0.5*(self.kernel.getSingularityValue()+2), 0.)
@@ -907,7 +904,7 @@ cdef class fractionalLaplacian2D_nonsym(fractionalLaplacian2D):
         cdef:
             panelType panel, panel2
             REAL_t logdh1 = log(d/h1), logdh2 = log(d/h2)
-            REAL_t c = (0.5*self.target_order+0.5)*log(self.num_dofs*self.H0**2) #-4.
+            REAL_t c = (0.5*self.target_order+0.5)*log(self.num_dofs*self.H0**2)  # -4.
             REAL_t logh1H0 = abs(log(h1/self.H0)), logh2H0 = abs(log(h2/self.H0))
             REAL_t loghminH0 = max(logh1H0, logh2H0)
             REAL_t s = max(-0.5*(self.kernel.getSingularityValue()+2), 0.)
@@ -1184,12 +1181,12 @@ cdef class fractionalLaplacian2D_boundary(fractionalLaplacian2DZeroExterior):
     def __init__(self,
                  Kernel kernel,
                  meshBase mesh,
-                 DoFMap DoFMap,
+                 DoFMap dm,
                  target_order=None,
                  quad_order_diagonal=None,
                  num_dofs=None,
                  **kwargs):
-        super(fractionalLaplacian2D_boundary, self).__init__(kernel, mesh, DoFMap, num_dofs, **kwargs)
+        super(fractionalLaplacian2D_boundary, self).__init__(kernel, mesh, dm, num_dofs, **kwargs)
 
         smax = max(0.5*(-self.kernel.max_singularity-1.), 0.)
         if target_order is None:

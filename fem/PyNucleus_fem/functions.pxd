@@ -9,7 +9,6 @@ from PyNucleus_base.myTypes cimport REAL_t, INDEX_t, COMPLEX_t, BOOL_t
 from numpy cimport uint8_t
 
 
-
 cdef class function:
     cdef REAL_t eval(self, REAL_t[::1] x)
 

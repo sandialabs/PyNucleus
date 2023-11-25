@@ -169,7 +169,7 @@ if d.buildSparsified:
 
 if d.buildH2:
     if d.isMaster:
-        with d.timer('H2 rank build'):
+        with d.timer('H2 rank 0 build'):
             A_h2 = dm.assembleNonlocal(nPP.kernel, matrixFormat='H2')
         d.logger.info('H2: {}'.format(A_h2))
         with d.timer('H2 matvec'):

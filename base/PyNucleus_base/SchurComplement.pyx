@@ -7,7 +7,6 @@
 
 import numpy as np
 cimport numpy as np
-cimport cython
 from . myTypes import INDEX, REAL, COMPLEX
 from . import solverFactory
 from . blas import uninitialized

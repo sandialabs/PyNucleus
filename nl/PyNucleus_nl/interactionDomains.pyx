@@ -9,7 +9,7 @@
 
 import numpy as np
 cimport numpy as np
-from libc.math cimport sqrt, M_PI as pi, pow
+from libc.math cimport sqrt, M_PI as pi
 import warnings
 from PyNucleus_base.myTypes import REAL
 from PyNucleus_base import uninitialized
@@ -76,17 +76,17 @@ cdef class interactionDomain(parametrizedTwoPointFunction):
             vol1 = abs(simplex1[0, 0]-simplex1[1, 0])
             invVol1 = 1./vol1
             if lr:
-                self.intervals1[0] = simplex1[0,0]*invVol1
-                self.intervals1[1] = max(simplex1[0,0], simplex2[0,0]-horizon)*invVol1
-                self.intervals1[2] = min(simplex1[1,0], simplex2[1,0]-horizon)*invVol1
-                self.intervals1[3] = simplex1[1,0]*invVol1
+                self.intervals1[0] = simplex1[0, 0]*invVol1
+                self.intervals1[1] = max(simplex1[0, 0], simplex2[0, 0]-horizon)*invVol1
+                self.intervals1[2] = min(simplex1[1, 0], simplex2[1, 0]-horizon)*invVol1
+                self.intervals1[3] = simplex1[1, 0]*invVol1
                 self.iter_Simplex = 1
                 self.iterEnd_Simplex = 3
             else:
-                self.intervals1[0] = simplex1[0,0]*invVol1
-                self.intervals1[1] = max(simplex1[0,0], simplex2[0,0]+horizon)*invVol1
-                self.intervals1[2] = min(simplex1[1,0], simplex2[1,0]+horizon)*invVol1
-                self.intervals1[3] = simplex1[1,0]*invVol1
+                self.intervals1[0] = simplex1[0, 0]*invVol1
+                self.intervals1[1] = max(simplex1[0, 0], simplex2[0, 0]+horizon)*invVol1
+                self.intervals1[2] = min(simplex1[1, 0], simplex2[1, 0]+horizon)*invVol1
+                self.intervals1[3] = simplex1[1, 0]*invVol1
                 self.iter_Simplex = 0
                 self.iterEnd_Simplex = 2
         elif dim == 2:
@@ -114,8 +114,8 @@ cdef class interactionDomain(parametrizedTwoPointFunction):
                 inside = 0
                 while not insideI[inside]:
                     inside += 1
-                outside1 = (inside+1)%3
-                outside2 = (inside+2)%3
+                outside1 = (inside+1) % 3
+                outside2 = (inside+2) % 3
                 c1 = 0
                 c2 = 0
                 for j in range(3):
@@ -143,8 +143,8 @@ cdef class interactionDomain(parametrizedTwoPointFunction):
                 outside = 0
                 while insideI[outside]:
                     outside += 1
-                inside1 = (outside+1)%3
-                inside2 = (outside+2)%3
+                inside1 = (outside+1) % 3
+                inside2 = (outside+2) % 3
                 c1 = 1
                 c2 = 1
                 for j in range(3):
@@ -293,7 +293,7 @@ cdef class interactionDomain(parametrizedTwoPointFunction):
                 inside = 0
                 while not ind[inside]:
                     inside += 1
-                outside = (inside+1)%(dim+1)
+                outside = (inside+1) % (dim+1)
 
                 self.findIntersections(node1, simplex2, inside, outside, intersections)
 
@@ -327,8 +327,8 @@ cdef class interactionDomain(parametrizedTwoPointFunction):
                 if haveSpecialPoint:
                     for j in range(dim+1):
                         v0 = j
-                        v1 = (j+1)%(dim+1)
-                        v2 = (j+2)%(dim+1)
+                        v1 = (j+1) % (dim+1)
+                        v2 = (j+2) % (dim+1)
                         numIntersections = self.findIntersections(node1, simplex2, v0, v1, intersections)
                         if numIntersections > 0:
                             self.A_Node[self.iterEnd_Node, :, :] = 0.
@@ -348,8 +348,8 @@ cdef class interactionDomain(parametrizedTwoPointFunction):
                 inside = 0
                 while not ind[inside]:
                     inside += 1
-                outside1 = (inside+1)%(dim+1)
-                outside2 = (inside+2)%(dim+1)
+                outside1 = (inside+1) % (dim+1)
+                outside2 = (inside+2) % (dim+1)
                 self.findIntersections(node1, simplex2, inside, outside1, intersections)
                 c1 = intersections[0]
                 self.findIntersections(node1, simplex2, inside, outside2, intersections)
@@ -409,8 +409,8 @@ cdef class interactionDomain(parametrizedTwoPointFunction):
                 outside = 0
                 while ind[outside]:
                     outside += 1
-                inside1 = (outside+1)%3
-                inside2 = (outside+2)%3
+                inside1 = (outside+1) % 3
+                inside2 = (outside+2) % 3
                 self.findIntersections(node1, simplex2, outside, inside1, intersections)
                 c1 = intersections[0]
                 self.findIntersections(node1, simplex2, outside, inside2, intersections)
@@ -516,7 +516,6 @@ cdef class interactionDomain(parametrizedTwoPointFunction):
         import matplotlib.pyplot as plt
         cdef:
             REAL_t horizon2 = getREAL(self.params, fHORIZON2)
-            REAL_t horizon = sqrt(horizon2)
             INDEX_t dim = getINDEX(self.params, fKDIM)
             REAL_t vol
 

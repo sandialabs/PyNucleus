@@ -10,12 +10,8 @@ import numpy as np
 from PyNucleus_base.myTypes import INDEX
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, ENCODE_t, BOOL_t
 from PyNucleus_base import uninitialized
-from . meshCy cimport decode_edge, encode_edge, encode_face, decode_face
+from . meshCy cimport encode_edge
 from . meshCy cimport sortEdge, sortFace, faceVals
-
-import mpi4py
-mpi4py.rc.initialize = False
-from mpi4py import MPI
 
 
 cdef class boundaryLayer(object):

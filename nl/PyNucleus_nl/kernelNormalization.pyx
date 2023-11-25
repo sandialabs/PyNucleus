@@ -8,8 +8,8 @@
 """Defines normalizations for different types of kernels."""
 import numpy as np
 cimport numpy as np
-from libc.math cimport (sin, cos, sinh, cosh, tanh, sqrt, atan, atan2,
-                        log, ceil,
+from libc.math cimport (sqrt,
+                        log,
                         fabs as abs, M_PI as pi, pow,
                         exp, erf)
 from scipy.special.cython_special cimport psi as digamma
@@ -18,7 +18,7 @@ from scipy.special.cython_special cimport gamma as cgamma
 from PyNucleus_fem.functions cimport constant
 from libc.stdlib cimport malloc
 from libc.string cimport memcpy
-from . interactionDomains cimport ball1, ball2, ballInf
+from . interactionDomains cimport ball2, ballInf
 
 include "kernel_params.pxi"
 

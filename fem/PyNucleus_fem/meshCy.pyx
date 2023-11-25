@@ -14,7 +14,7 @@ cimport numpy as np
 from libc.stdlib cimport malloc, realloc, free
 from libc.stdlib cimport qsort
 
-from PyNucleus_base.myTypes import INDEX, REAL, ENCODE, TAG
+from PyNucleus_base.myTypes import INDEX, REAL, TAG
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, ENCODE_t, TAG_t
 from PyNucleus_base.blas cimport mydot
 import warnings
@@ -66,7 +66,7 @@ cdef class radialMeshTransformer(meshTransformer):
                     r = 0.5*r1 + 0.5*r2
 
                     for i in range(dim):
-                            mesh.vertices[vertexNo, i] *= r/r3
+                        mesh.vertices[vertexNo, i] *= r/r3
         else:
             for encodeVal in lookup:
                 decode_edge(encodeVal, e)
@@ -796,6 +796,7 @@ cdef void sortEdge(const INDEX_t c0, const INDEX_t c1, INDEX_t[::1] e):
 def sortEdge_py(const INDEX_t c0, const INDEX_t c1, INDEX_t[::1] e):
     sortEdge(c0, c1, e)
 
+
 # Encoding, decoding and sorting of faces
 
 cdef tuple encode_face(const INDEX_t[::1] f):
@@ -968,7 +969,7 @@ def refineCy2Dsort(const REAL_t[:, ::1] vertices,
         INDEX_t c0, c1, c2, i, j, new_num_vertices, k, nv0, nv1, nv2
         ENCODE_t hv, hvOld
         np.ndarray[INDEX_t, ndim=2] new_cells_mem = uninitialized((4*num_cells, 3),
-                                                             dtype=INDEX)
+                                                                  dtype=INDEX)
         INDEX_t[:, ::1] new_cells = new_cells_mem
         # INDEX_t[:, ::1] cells_mv = cells
         REAL_t[:, ::1] new_vertices
@@ -979,7 +980,7 @@ def refineCy2Dsort(const REAL_t[:, ::1] vertices,
         INDEX_t[::1] e2 = temp[2, :]
         np.ndarray[REAL_t, ndim=2] new_vertices_mem
         np.ndarray[INDEX_t, ndim=2] edges_mem = uninitialized((3*num_cells, 2),
-                                                         dtype=INDEX)
+                                                              dtype=INDEX)
         INDEX_t[:, ::1] edges = edges_mem
     for i in range(num_cells):
         c0, c1, c2 = cells[i, 0], cells[i, 1], cells[i, 2]
@@ -1032,7 +1033,7 @@ def refineCy2DedgeVals(const REAL_t[:, ::1] vertices,
         INDEX_t num_cells = cells.shape[0]
         INDEX_t c0, c1, c2, i, nv = 0, new_num_vertices, k, nv0, nv1, nv2
         np.ndarray[INDEX_t, ndim=2] new_cells_mem = uninitialized((4*num_cells, 3),
-                                                             dtype=INDEX)
+                                                                  dtype=INDEX)
         INDEX_t[:, ::1] new_cells = new_cells_mem
         REAL_t[:, ::1] new_vertices
         INDEX_t dim = vertices.shape[1]
@@ -1092,7 +1093,7 @@ def refineCy2Dhash(const REAL_t[:, ::1] vertices,
         INDEX_t num_cells = cells.shape[0]
         INDEX_t c0, c1, c2, i, nv = 0, new_num_vertices, k, nv0, nv1, nv2
         np.ndarray[INDEX_t, ndim=2] new_cells_mem = uninitialized((4*num_cells, 3),
-                                                             dtype=INDEX)
+                                                                  dtype=INDEX)
         INDEX_t[:, ::1] new_cells = new_cells_mem
         REAL_t[:, ::1] new_vertices
         np.ndarray[REAL_t, ndim=2] new_vertices_mem
@@ -1316,7 +1317,7 @@ def refineCy3DedgeVals(const REAL_t[:, ::1] vertices,
         INDEX_t[::1] f123 = faces[3, :]
         REAL_t l0123, l0213, l0312
         np.ndarray[INDEX_t, ndim=2] new_cells_mem = uninitialized((8*num_cells, 4),
-                                                             dtype=INDEX)
+                                                                  dtype=INDEX)
         REAL_t[:, ::1] temp = uninitialized((3, 3), dtype=REAL)
         INDEX_t[:, ::1] new_cells = new_cells_mem
         tupleDictINDEX eV = tupleDictINDEX(num_vertices, deleteHits=False)
@@ -1418,12 +1419,12 @@ def newBoundaryAndTags3D(dict lookup,
         INDEX_t i, nv, nv01, nv02, nv12, I
         TAG_t t
         np.ndarray[INDEX_t, ndim=2] new_boundaryEdges_mem = uninitialized((2*boundaryEdges.shape[0] +
-                                                                      3*boundaryFaces.shape[0], 2), dtype=INDEX)
+                                                                           3*boundaryFaces.shape[0], 2), dtype=INDEX)
         np.ndarray[INDEX_t, ndim=1] new_boundaryVertices_mem = uninitialized((boundaryEdges.shape[0]), dtype=INDEX)
         np.ndarray[INDEX_t, ndim=2] new_boundaryFaces_mem = uninitialized((4*boundaryFaces.shape[0], 3), dtype=INDEX)
         np.ndarray[TAG_t, ndim=1] new_boundaryFaceTags_mem = uninitialized((4*boundaryFaces.shape[0]), dtype=TAG)
         np.ndarray[TAG_t, ndim=1] new_boundaryEdgeTags_mem = uninitialized((2*boundaryEdges.shape[0] +
-                                                                       3*boundaryFaces.shape[0]), dtype=TAG)
+                                                                            3*boundaryFaces.shape[0]), dtype=TAG)
         np.ndarray[TAG_t, ndim=1] new_boundaryVertexTags_mem = uninitialized((boundaryEdges.shape[0]), dtype=TAG)
         INDEX_t[:, ::1] new_boundaryFaces = new_boundaryFaces_mem
         INDEX_t[:, ::1] new_boundaryEdges = new_boundaryEdges_mem
@@ -1616,7 +1617,7 @@ def hdeltaCy(meshBase mesh):
         INDEX_t i, j
         REAL_t delta = 0, h = 0, hl, he, hS, vol, volS, hmin = 100.
         REAL_t[:, ::1] local_vertices = uninitialized((num_vertices, space_dim),
-                                                        dtype=REAL)
+                                                      dtype=REAL)
         INDEX_t num_edges = 6
         REAL_t[:, ::1] temp = uninitialized((num_edges, dim), dtype=REAL)
         REAL_t[::1] v01 = temp[0, :]
@@ -2150,6 +2151,7 @@ cdef class cellFinder2:
             REAL_t h
             REAL_t[:, ::1] cellCenters = mesh.getCellCenters()
             INDEX_t[::1] rowPtr, indices
+            INDEX_t nnz
         self.key = np.zeros((3), dtype=INDEX)
         self.key2 = np.zeros((3), dtype=INDEX)
         # We are mapping coordinate x to
@@ -2189,9 +2191,12 @@ cdef class cellFinder2:
             idx = self.lookup.getValue(self.key)
             rowPtr[idx+1] += 1
         maxCellsPerKey = 0
+        nnz = 0
         for idx in range(rowPtr.shape[0]-1):
-            maxCellsPerKey = max(maxCellsPerKey, rowPtr[idx])
+            maxCellsPerKey = max(maxCellsPerKey, rowPtr[idx+1])
+            nnz += rowPtr[idx+1]
             rowPtr[idx+1] += rowPtr[idx]
+        assert nnz == mesh.num_cells, (nnz, mesh.num_cells)
         self.candidates = uninitialized(((3**mesh.dim)*maxCellsPerKey), dtype=INDEX)
         for k in range(cellCenters.shape[0]):
             for j in range(mesh.dim):
@@ -2350,8 +2355,8 @@ cdef void getBarycentricCoords1D(REAL_t[:, ::1] simplex, REAL_t[::1] x, REAL_t[:
 cdef void getBarycentricCoords2D(REAL_t[:, ::1] simplex, REAL_t[::1] x, REAL_t[::1] bary):
     cdef:
         REAL_t vol
-    vol = ((simplex[0, 0]-simplex[1,0])*(simplex[2, 1]-simplex[1,1]) -
-           (simplex[0, 1]-simplex[1,1])*(simplex[2, 0]-simplex[1,0]))
+    vol = ((simplex[0, 0]-simplex[1, 0])*(simplex[2, 1]-simplex[1, 1]) -
+           (simplex[0, 1]-simplex[1, 1])*(simplex[2, 0]-simplex[1, 0]))
     bary[0] = ((x[0]-simplex[1, 0])*(simplex[2, 1]-simplex[1, 1]) -
                (x[1]-simplex[1, 1])*(simplex[2, 0]-simplex[1, 0]))/vol
     bary[1] = ((x[0]-simplex[2, 0])*(simplex[0, 1]-simplex[2, 1]) -
@@ -2370,8 +2375,8 @@ cdef void getBarycentricCoords1DPtr(REAL_t[:, ::1] simplex, REAL_t* x, REAL_t[::
 cdef void getBarycentricCoords2DPtr(REAL_t[:, ::1] simplex, REAL_t* x, REAL_t[::1] bary):
     cdef:
         REAL_t vol
-    vol = ((simplex[0, 0]-simplex[1,0])*(simplex[2, 1]-simplex[1,1]) -
-           (simplex[0, 1]-simplex[1,1])*(simplex[2, 0]-simplex[1,0]))
+    vol = ((simplex[0, 0]-simplex[1, 0])*(simplex[2, 1]-simplex[1, 1]) -
+           (simplex[0, 1]-simplex[1, 1])*(simplex[2, 0]-simplex[1, 0]))
     bary[0] = ((x[0]-simplex[1, 0])*(simplex[2, 1]-simplex[1, 1]) -
                (x[1]-simplex[1, 1])*(simplex[2, 0]-simplex[1, 0]))/vol
     bary[1] = ((x[0]-simplex[2, 0])*(simplex[0, 1]-simplex[2, 1]) -

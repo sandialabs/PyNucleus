@@ -29,8 +29,8 @@ cdef class quadratureRule:
         readonly INDEX_t manifold_dim
 
     cdef inline REAL_t eval(self,
-                              const REAL_t[::1] fun_vals,
-                              const REAL_t vol)
+                            const REAL_t[::1] fun_vals,
+                            const REAL_t vol)
 
 
 cdef class simplexQuadratureRule(quadratureRule):
@@ -59,7 +59,7 @@ cdef class simplexQuadratureRule(quadratureRule):
                               const REAL_t[:, ::1] simplexVertices,
                               COMPLEX_t[::1] fun_vals)
     cdef REAL_t getSimplexVolume(self,
-                                   const REAL_t[:, ::1] simplexVertices)
+                                 const REAL_t[:, ::1] simplexVertices)
 
 
 cdef class transformQuadratureRule(simplexQuadratureRule):
@@ -90,10 +90,10 @@ cdef class doubleSimplexQuadratureRule(quadratureRule):
 
     # cdef inline REAL_t eval(self, const REAL_t[::1] fun_vals, const REAL_t vol)
     cpdef void evalFun(self,
-                      function fun,
-                      const REAL_t[:, ::1] simplexVertices1,
-                      const REAL_t[:, ::1] simplexVertices2,
-                      REAL_t[::1] fun_vals)
+                       function fun,
+                       const REAL_t[:, ::1] simplexVertices1,
+                       const REAL_t[:, ::1] simplexVertices2,
+                       REAL_t[::1] fun_vals)
 
 
 cdef:
@@ -124,11 +124,11 @@ cdef class quadQuadratureRule(quadratureRule):
                                    const REAL_t[:, ::1] quadVertices,
                                    REAL_t[:, ::1] coords)
     cpdef void evalFun(self,
-                      function fun,
-                      const REAL_t[:, ::1] quadVertices,
-                      REAL_t[::1] fun_vals)
+                       function fun,
+                       const REAL_t[:, ::1] quadVertices,
+                       REAL_t[::1] fun_vals)
     cpdef REAL_t getQuadVolume(self,
-                                const REAL_t[:, ::1] quadVertices)
+                               const REAL_t[:, ::1] quadVertices)
 
 
 cdef class Gauss(quadQuadratureRule):

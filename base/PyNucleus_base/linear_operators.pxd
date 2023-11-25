@@ -81,8 +81,8 @@ cdef class prolongationOp(sparseGraph):
 
 
 cdef BOOL_t sort_indices(INDEX_t[::1] indptr,
-                       INDEX_t[::1] indices,
-                       REAL_t[::1] data)
+                         INDEX_t[::1] indices,
+                         REAL_t[::1] data)
 
 
 cdef class blockOperator(LinearOperator):

@@ -10,7 +10,7 @@ ctypedef INDEX_t MKL_INT
 cdef extern from "mkl/mkl_spblas.h":
     void mkl_dcsrsm (const char *transa , const MKL_INT *m , const MKL_INT *n , const REAL_t *alpha , const char *matdescra ,
                      const REAL_t *val , const MKL_INT *indx , const MKL_INT *pntrb , const MKL_INT *pntre ,
-                     const REAL_t *b , const MKL_INT *ldb , REAL_t *c , const MKL_INT *ldc );
+                     const REAL_t *b , const MKL_INT *ldb , REAL_t *c , const MKL_INT *ldc)
 
 cdef inline void trisolve_mkl(INDEX_t[::1] indptr,
                               INDEX_t[::1] indices,

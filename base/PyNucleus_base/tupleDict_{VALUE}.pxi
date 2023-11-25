@@ -24,10 +24,8 @@ cdef class tupleDict{VALUE}:
         self.vals = <{VALUE_t} **>malloc(num_dofs*sizeof({VALUE_t} *))
         # reserve initial memory for array of variable column size
         for i in range(num_dofs):
-            self.indexL[i] = <INDEX_t *>malloc(self.initial_length *
-                                               sizeof(INDEX_t))
-            self.vals[i] = <{VALUE_t} *>malloc(self.initial_length *
-                                               sizeof({VALUE_t}))
+            self.indexL[i] = <INDEX_t *>malloc(self.initial_length * sizeof(INDEX_t))
+            self.vals[i] = <{VALUE_t} *>malloc(self.initial_length * sizeof({VALUE_t}))
         self.deleteHits = deleteHits
         self.logicalAndHits = logicalAndHits
         # self.invalid = np.iinfo({VALUE_dtype}).max
@@ -81,12 +79,8 @@ cdef class tupleDict{VALUE}:
 
     cdef inline void increaseSize(self, INDEX_t I, {LENGTH_t} increment):
         self.lengths[I] += increment
-        self.indexL[I] = <INDEX_t *>realloc(self.indexL[I],
-                                            (self.lengths[I]) *
-                                            sizeof(INDEX_t))
-        self.vals[I] = <{VALUE_t} *>realloc(self.vals[I],
-                                            (self.lengths[I]) *
-                                            sizeof({VALUE_t}))
+        self.indexL[I] = <INDEX_t *>realloc(self.indexL[I], (self.lengths[I]) * sizeof(INDEX_t))
+        self.vals[I] = <{VALUE_t} *>realloc(self.vals[I], (self.lengths[I]) * sizeof({VALUE_t}))
 
     cdef {VALUE_t} enterValue(self, const INDEX_t[::1] e, {VALUE_t} val):
         cdef:
@@ -222,10 +216,8 @@ cdef class tupleDict{VALUE}:
         k = 0
         for i in range(self.num_dofs):
             self.counts[i] = self.lengths[i]
-            self.indexL[i] = <INDEX_t *>malloc(self.lengths[i] *
-                                               sizeof(INDEX_t))
-            self.vals[i] = <{VALUE_t} *>malloc(self.lengths[i] *
-                                               sizeof({VALUE_t}))
+            self.indexL[i] = <INDEX_t *>malloc(self.lengths[i] * sizeof(INDEX_t))
+            self.vals[i] = <{VALUE_t} *>malloc(self.lengths[i] * sizeof({VALUE_t}))
             for j in range(self.counts[i]):
                 self.indexL[i][j] = indexL[k]
                 self.vals[i][j] = vals[k]

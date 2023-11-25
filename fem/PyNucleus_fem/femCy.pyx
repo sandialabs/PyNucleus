@@ -8,23 +8,19 @@
 from libc.math cimport (sin, cos, sinh, cosh, tanh, sqrt, atan2, pow)
 import numpy as np
 cimport numpy as np
-cimport cython
 
-from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX, ENCODE, BOOL
+from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, COMPLEX_t, ENCODE_t
 from PyNucleus_base import uninitialized
 from PyNucleus_base.ip_norm cimport mydot, vector_t, complex_vector_t
 from . meshCy cimport (meshBase,
-                       vertices_t, cells_t,
+                       cells_t,
                        vectorProduct,
-                       volume1D, volume1Dnew,
+                       volume1Dnew,
                        volume1D_in_2D,
                        volume2Dnew,
                        volume3D, volume3Dnew,
-                       volume2D_in_3D,
-                       sortEdge, sortFace,
-                       decode_edge,
-                       encode_edge)
+                       volume2D_in_3D)
 from . mesh import NO_BOUNDARY
 from PyNucleus_base.linear_operators cimport (LinearOperator,
                                               CSR_LinearOperator,
@@ -145,13 +141,12 @@ cdef inline void coeffProducts1D(const REAL_t[:, ::1] simplex,
 
 # TODO: double check
 cdef inline REAL_t simplexVolumeAndProducts1D(const REAL_t[:, ::1] simplex,
-                                                REAL_t[::1] innerProducts,
-                                                REAL_t[:, ::1] temp):
+                                              REAL_t[::1] innerProducts,
+                                              REAL_t[:, ::1] temp):
     # innerProducts needs to be of size 2
     # temp needs to bed of size 2x1
     cdef:
-        INDEX_t i
-        REAL_t fac = 0.5, vol
+        REAL_t vol
     vol = abs(simplex[1, 0]-simplex[0, 0])
 
     # inner product of barycentric gradients
@@ -172,7 +167,7 @@ cdef class simplexComputations:
     cdef REAL_t evalVolumeGradients(self,
                                     REAL_t[:, ::1] gradients):
         """Returns the simplex volume and the gradients of the barycentric coordinates
-\nabla \lambda_i(x) for x \in K
+\\nabla \\lambda_i(x) for x \\in K
         """
         pass
 
@@ -181,10 +176,10 @@ cdef class simplexComputations:
                                                  REAL_t[::1] innerProducts):
         """Returns the simplex volume, the gradients of the barycentric
 coordinates
-\nabla \lambda_i(x) for x \in K
+\\nabla \\lambda_i(x) for x \\in K
  and the innerProducts of the gradients of the barycentric
 coordinates
-\int_K \nabla \lambda_i \cdot \nabla \lambda_j = vol * gradient_i * gradient_j
+\\int_K \\nabla \\lambda_i \\cdot \\nabla \\lambda_j = vol * gradient_i * gradient_j
         """
         pass
 
@@ -194,10 +189,10 @@ coordinates
                                                         REAL_t[::1] innerProducts):
         """Returns the simplex volume, the gradients of the barycentric
 coordinates
-\nabla \lambda_i(x) for x \in K
+\\nabla \\lambda_i(x) for x \\in K
  and the innerProducts of the gradients of the barycentric
 coordinates
-\int_K \nabla \lambda_i \cdot \nabla \lambda_j = vol * gradient_i * gradient_j
+\\int_K \\nabla \\lambda_i \\cdot \\nabla \\lambda_j = vol * gradient_i * gradient_j
         """
         pass
 
@@ -218,7 +213,7 @@ coordinates
         vol = self.evalVolumeGradientsInnerProducts(gradients, innerProducts)
         return vol, gradients, innerProducts
 
-    def evalSimplexVolumeGradientsInnerProducts_py(self, REAL_t[:,::1] simplex):
+    def evalSimplexVolumeGradientsInnerProducts_py(self, REAL_t[:, ::1] simplex):
         gradients = np.zeros((simplex.shape[0], simplex.shape[1]), dtype=REAL)
         innerProducts = np.zeros(((simplex.shape[0]*(simplex.shape[0]+1))//2), dtype=REAL)
         vol = self.evalSimplexVolumeGradientsInnerProducts(simplex, gradients, innerProducts)
@@ -372,7 +367,6 @@ cdef class simplexComputations2D(simplexComputations):
         return vol
 
 
-
 cdef class simplexComputations3D(simplexComputations):
     def __init__(self):
         self.temp = uninitialized((7, 3), dtype=REAL)
@@ -516,8 +510,7 @@ cdef inline REAL_t simplexVolumeGradientsProducts1D(const REAL_t[:, ::1] simplex
     # innerProducts needs to be of size 2
     # temp needs to bed of size 2x1
     cdef:
-        REAL_t vol, f = 1
-        INDEX_t j
+        REAL_t vol
 
     # Calculate volume
     gradients[0, 0] = simplex[1, 0]-simplex[0, 0]
@@ -531,8 +524,8 @@ cdef inline REAL_t simplexVolumeGradientsProducts1D(const REAL_t[:, ::1] simplex
 
 
 cdef inline REAL_t simplexVolumeAndProducts2D(const REAL_t[:, ::1] simplex,
-                                                REAL_t[::1] innerProducts,
-                                                REAL_t[:, ::1] temp):
+                                              REAL_t[::1] innerProducts,
+                                              REAL_t[:, ::1] temp):
     # innerProducts needs to bed of size 6
     # temp needs to bed of size 3x2
     cdef:
@@ -555,8 +548,8 @@ cdef inline REAL_t simplexVolumeAndProducts2D(const REAL_t[:, ::1] simplex,
     return vol
 
 cdef inline REAL_t simplexVolumeGradientsProducts2D(const REAL_t[:, ::1] simplex,
-                                                      REAL_t[::1] innerProducts,
-                                                      REAL_t[:, ::1] gradients):
+                                                    REAL_t[::1] innerProducts,
+                                                    REAL_t[:, ::1] gradients):
     # innerProducts needs to bed of size 6
     # temp needs to bed of size 3x2
     cdef:
@@ -615,8 +608,8 @@ cdef inline void coeffProducts2D(const REAL_t[:, ::1] simplex,
 
 
 cdef inline REAL_t simplexVolumeAndProducts3D(const REAL_t[:, ::1] simplex,
-                                                REAL_t[::1] innerProducts,
-                                                REAL_t[:, ::1] temp):
+                                              REAL_t[::1] innerProducts,
+                                              REAL_t[:, ::1] temp):
     # innerProducts needs to bed of size 10
     # temp needs to bed of size 10x3
     cdef:
@@ -910,7 +903,6 @@ cdef class mass_2d_in_3d_sym_P1(mass_3d):
         contrib[5] = 2*vol
 
 
-
 ######################################################################
 # Anisotropic local mass matrices in 1d, 2d, 3d
 
@@ -922,23 +914,23 @@ cdef class mass_quadrature_matrix(local_matrix_t):
         REAL_t[::1] funVals
         REAL_t[:, ::1] temp
 
-    def __init__(self, function diffusivity, DoFMap DoFMap, simplexQuadratureRule qr):
+    def __init__(self, function diffusivity, DoFMap dm, simplexQuadratureRule qr):
         cdef:
             INDEX_t I, k
             shapeFunction sf
-        local_matrix_t.__init__(self, DoFMap.dim)
+        local_matrix_t.__init__(self, dm.dim)
         self.diffusivity = diffusivity
         self.qr = qr
 
         # evaluate local shape functions on quadrature nodes
-        self.PHI = uninitialized((DoFMap.dofs_per_element, qr.num_nodes), dtype=REAL)
-        for I in range(DoFMap.dofs_per_element):
-            sf = DoFMap.localShapeFunctions[I]
+        self.PHI = uninitialized((dm.dofs_per_element, qr.num_nodes), dtype=REAL)
+        for I in range(dm.dofs_per_element):
+            sf = dm.localShapeFunctions[I]
             for k in range(qr.num_nodes):
                 sf.evalStrided(&qr.nodes[0, k], NULL, qr.nodes.shape[1], &self.PHI[I, k])
 
         self.funVals = uninitialized((qr.num_nodes), dtype=REAL)
-        self.temp = uninitialized((10, DoFMap.dim), dtype=REAL)
+        self.temp = uninitialized((10, dm.dim), dtype=REAL)
 
 
 cdef class stiffness_quadrature_matrix(mass_quadrature_matrix):
@@ -1179,7 +1171,6 @@ cdef class stiffness_2d_sym_anisotropic3_P1(stiffness_2d_sym):
                 p += 1
 
 
-
 cdef class div_div_2d(local_matrix_t):
     cdef:
         REAL_t[:, ::1] gradients
@@ -1241,7 +1232,7 @@ cdef class elasticity_1d_P1(local_matrix_t):
                           REAL_t[::1] contrib):
         cdef:
             REAL_t vol, fac1, fac2
-            INDEX_t p, vertexNo1, vertexNo2, component1, component2, j, q
+            INDEX_t p, vertexNo1, vertexNo2, component1, component2, q
             INDEX_t dim = 1
 
         # Calculate gradient matrix
@@ -1293,7 +1284,7 @@ cdef class elasticity_2d_P1(local_matrix_t):
                           REAL_t[::1] contrib):
         cdef:
             REAL_t vol, fac1, fac2
-            INDEX_t p, vertexNo1, vertexNo2, component1, component2, j, q
+            INDEX_t p, vertexNo1, vertexNo2, component1, component2, q
             INDEX_t dim = 2
 
         # Calculate gradient matrix
@@ -1345,9 +1336,8 @@ cdef class elasticity_3d_P1(local_matrix_t):
                           REAL_t[::1] contrib):
         cdef:
             REAL_t vol, fac1, fac2
-            INDEX_t p, vertexNo1, vertexNo2, component1, component2, j, q
+            INDEX_t p, vertexNo1, vertexNo2, component1, component2, q
             INDEX_t dim = 3
-            REAL_t temp
 
         # Calculate gradient matrix
         vol = self.sC.evalSimplexVolumeGradientsInnerProducts(simplex, self.gradients, self.innerProducts)
@@ -1663,11 +1653,11 @@ def assembleSurfaceMass(meshBase mesh,
                                               reorder=reorder)
 
     A = assembleMatrix(surface,
-                          dmS,
-                          local_matrix,
-                          A=A,
-                          sss_format=sss_format,
-                          reorder=reorder)
+                       dmS,
+                       local_matrix,
+                       A=A,
+                       sss_format=sss_format,
+                       reorder=reorder)
 
     if compress:
         A.eliminate_zeros()
@@ -1890,7 +1880,7 @@ def assembleStiffness(DoFMap dm,
 
 
 def assembleCurlCurl(meshBase mesh,
-                     DoFMap DoFMap,
+                     DoFMap dm,
                      vector_t boundary_data=None,
                      vector_t rhs_contribution=None,
                      LinearOperator A=None,
@@ -1904,7 +1894,7 @@ def assembleCurlCurl(meshBase mesh,
         INDEX_t dim = mesh.dim
         local_matrix_t local_matrix
     if diffusivity is None:
-        if isinstance(DoFMap, N1e_DoFMap):
+        if isinstance(dm, N1e_DoFMap):
             if dim == 2:
                 local_matrix = curlcurl_2d_sym_N1e()
             else:
@@ -1914,7 +1904,7 @@ def assembleCurlCurl(meshBase mesh,
     else:
         raise NotImplementedError()
     return assembleMatrix(mesh,
-                          DoFMap,
+                          dm,
                           local_matrix,
                           boundary_data,
                           rhs_contribution,
@@ -1983,7 +1973,7 @@ def assembleDiscreteCurl(meshBase mesh,
 
 
 def assembleMatrix(meshBase mesh,
-                   DoFMap DoFMap,
+                   DoFMap dm,
                    local_matrix_t local_matrix,
                    vector_t boundary_data=None,
                    vector_t rhs_contribution=None,
@@ -1997,10 +1987,10 @@ def assembleMatrix(meshBase mesh,
         sss_format = isinstance(A, SSS_LinearOperator)
         reorder = False
     if boundary_data is not None and rhs_contribution is None:
-        rhs_contribution = np.zeros((DoFMap.num_dofs), dtype=REAL)
+        rhs_contribution = np.zeros((dm.num_dofs), dtype=REAL)
         if sss_format:
             return assembleSymMatrix_SSS(mesh,
-                                         local_matrix, DoFMap,
+                                         local_matrix, dm,
                                          boundary_data,
                                          rhs_contribution,
                                          A,
@@ -2008,7 +1998,7 @@ def assembleMatrix(meshBase mesh,
                                          reorder=reorder), rhs_contribution
         else:
             return assembleSymMatrix_CSR(mesh,
-                                         local_matrix, DoFMap,
+                                         local_matrix, dm,
                                          boundary_data,
                                          rhs_contribution,
                                          A,
@@ -2018,14 +2008,14 @@ def assembleMatrix(meshBase mesh,
     else:
         if sss_format:
             return assembleSymMatrix_SSS(mesh,
-                                         local_matrix, DoFMap,
+                                         local_matrix, dm,
                                          boundary_data, rhs_contribution,
                                          A,
                                          start_idx, end_idx,
                                          reorder=reorder)
         else:
             return assembleSymMatrix_CSR(mesh,
-                                         local_matrix, DoFMap,
+                                         local_matrix, dm,
                                          boundary_data, rhs_contribution,
                                          A,
                                          start_idx, end_idx,
@@ -2035,7 +2025,7 @@ def assembleMatrix(meshBase mesh,
 
 cdef assembleSymMatrix_CSR(meshBase mesh,
                            local_matrix_t local_matrix,
-                           DoFMap DoFMap,
+                           DoFMap dm,
                            vector_t boundary_data=None,
                            vector_t rhs_contribution=None,
                            LinearOperator A=None,
@@ -2046,11 +2036,11 @@ cdef assembleSymMatrix_CSR(meshBase mesh,
     cdef:
         INDEX_t i, j, I, J, k, s
         REAL_t[:, ::1] local_vertices = uninitialized((mesh.manifold_dim+1,
-                                                    mesh.dim), dtype=REAL)
+                                                       mesh.dim), dtype=REAL)
         # local matrix entries
-        REAL_t[::1] local_contrib = uninitialized((DoFMap.dofs_per_element *
-                                                (DoFMap.dofs_per_element+1))//2,
-                                               dtype=REAL)
+        REAL_t[::1] local_contrib = uninitialized((dm.dofs_per_element *
+                                                   (dm.dofs_per_element+1))//2,
+                                                  dtype=REAL)
 
     if start_idx == -1:
         start_idx = 0
@@ -2058,10 +2048,10 @@ cdef assembleSymMatrix_CSR(meshBase mesh,
         end_idx = mesh.num_cells
 
     if A is None:
-        A = DoFMap.buildSparsityPattern(mesh.cells,
-                                        start_idx,
-                                        end_idx,
-                                        reorder=reorder)
+        A = dm.buildSparsityPattern(mesh.cells,
+                                    start_idx,
+                                    end_idx,
+                                    reorder=reorder)
 
     if boundary_data.shape[0] == 0:
         if cellIndices is None:
@@ -2077,13 +2067,13 @@ cdef assembleSymMatrix_CSR(meshBase mesh,
 
                 s = 0
                 # enter the data into CSR matrix
-                for j in range(DoFMap.dofs_per_element):
-                    I = DoFMap.cell2dof(i, j)
+                for j in range(dm.dofs_per_element):
+                    I = dm.cell2dof(i, j)
                     if I < 0:
-                        s += DoFMap.dofs_per_element-j
+                        s += dm.dofs_per_element-j
                         continue
-                    for k in range(j, DoFMap.dofs_per_element):
-                        J = DoFMap.cell2dof(i, k)
+                    for k in range(j, dm.dofs_per_element):
+                        J = dm.cell2dof(i, k)
                         if J < 0:
                             s += 1
                             continue
@@ -2103,13 +2093,13 @@ cdef assembleSymMatrix_CSR(meshBase mesh,
 
                 s = 0
                 # enter the data into CSR matrix
-                for j in range(DoFMap.dofs_per_element):
-                    I = DoFMap.cell2dof(i, j)
+                for j in range(dm.dofs_per_element):
+                    I = dm.cell2dof(i, j)
                     if I < 0:
-                        s += DoFMap.dofs_per_element-j
+                        s += dm.dofs_per_element-j
                         continue
-                    for k in range(j, DoFMap.dofs_per_element):
-                        J = DoFMap.cell2dof(i, k)
+                    for k in range(j, dm.dofs_per_element):
+                        J = dm.cell2dof(i, k)
                         if J < 0:
                             s += 1
                             continue
@@ -2129,10 +2119,10 @@ cdef assembleSymMatrix_CSR(meshBase mesh,
 
             s = 0
             # enter the data into CSR matrix
-            for j in range(DoFMap.dofs_per_element):
-                I = DoFMap.cell2dof(i, j)
-                for k in range(j, DoFMap.dofs_per_element):
-                    J = DoFMap.cell2dof(i, k)
+            for j in range(dm.dofs_per_element):
+                I = dm.cell2dof(i, j)
+                for k in range(j, dm.dofs_per_element):
+                    J = dm.cell2dof(i, k)
                     # write this in a better way
                     if I >= 0:
                         if J >= 0:
@@ -2152,7 +2142,7 @@ cdef assembleSymMatrix_CSR(meshBase mesh,
 
 cdef assembleSymMatrix_SSS(meshBase mesh,
                            local_matrix_t local_matrix,
-                           DoFMap DoFMap,
+                           DoFMap dm,
                            vector_t boundary_data=None,
                            vector_t rhs_contribution=None,
                            LinearOperator A=None,
@@ -2162,11 +2152,11 @@ cdef assembleSymMatrix_SSS(meshBase mesh,
     cdef:
         INDEX_t i, j, I, J, k, s
         REAL_t[:, ::1] local_vertices = uninitialized((mesh.manifold_dim+1,
-                                                    mesh.dim), dtype=REAL)
+                                                       mesh.dim), dtype=REAL)
         # local matrix entries
-        REAL_t[::1] local_contrib = uninitialized((DoFMap.dofs_per_element *
-                                                (DoFMap.dofs_per_element+1))//2,
-                                               dtype=REAL)
+        REAL_t[::1] local_contrib = uninitialized((dm.dofs_per_element *
+                                                   (dm.dofs_per_element+1))//2,
+                                                  dtype=REAL)
 
     if start_idx == -1:
         start_idx = 0
@@ -2174,11 +2164,11 @@ cdef assembleSymMatrix_SSS(meshBase mesh,
         end_idx = mesh.num_cells
 
     if A is None:
-        A = DoFMap.buildSparsityPattern(mesh.cells,
-                                        start_idx,
-                                        end_idx,
-                                        symmetric=True,
-                                        reorder=reorder)
+        A = dm.buildSparsityPattern(mesh.cells,
+                                    start_idx,
+                                    end_idx,
+                                    symmetric=True,
+                                    reorder=reorder)
     if boundary_data.shape[0] == 0:
         for i in range(start_idx, end_idx):
             # Get local vertices
@@ -2189,15 +2179,15 @@ cdef assembleSymMatrix_SSS(meshBase mesh,
 
             s = 0
             # enter the data into SSS matrix
-            for j in range(DoFMap.dofs_per_element):
-                I = DoFMap.cell2dof(i, j)
+            for j in range(dm.dofs_per_element):
+                I = dm.cell2dof(i, j)
                 if I < 0:
-                    s += DoFMap.dofs_per_element-j
+                    s += dm.dofs_per_element-j
                     continue
                 A.addToEntry(I, I, local_contrib[s])
                 s += 1
-                for k in range(j+1, DoFMap.dofs_per_element):
-                    J = DoFMap.cell2dof(i, k)
+                for k in range(j+1, dm.dofs_per_element):
+                    J = dm.cell2dof(i, k)
                     if J < 0:
                         s += 1
                         continue
@@ -2216,10 +2206,10 @@ cdef assembleSymMatrix_SSS(meshBase mesh,
 
             s = 0
             # enter the data into SSS matrix
-            for j in range(DoFMap.dofs_per_element):
-                I = DoFMap.cell2dof(i, j)
-                for k in range(j, DoFMap.dofs_per_element):
-                    J = DoFMap.cell2dof(i, k)
+            for j in range(dm.dofs_per_element):
+                I = dm.cell2dof(i, j)
+                for k in range(j, dm.dofs_per_element):
+                    J = dm.cell2dof(i, k)
                     # write this in a better way
                     if I >= 0:
                         if J >= 0:
@@ -2251,11 +2241,11 @@ def assembleNonSymMatrix_CSR(meshBase mesh,
     cdef:
         INDEX_t i, j, I, J, k, s
         REAL_t[:, ::1] simplex = uninitialized((mesh.manifold_dim+1,
-                                                  mesh.dim), dtype=REAL)
+                                                mesh.dim), dtype=REAL)
         # local matrix entries
         REAL_t[::1] contrib = uninitialized((DoFMap1.dofs_per_element *
-                                               DoFMap2.dofs_per_element),
-                                              dtype=REAL)
+                                             DoFMap2.dofs_per_element),
+                                            dtype=REAL)
         REAL_t[::1] contribSym
 
     if start_idx == -1:
@@ -2436,7 +2426,7 @@ def assembleRHS(FUNCTION_t fun, DoFMap dm,
         REAL_t vol
         REAL_t[:, ::1] span = uninitialized((mesh.manifold_dim, mesh.dim), dtype=REAL)
         REAL_t[:, ::1] simplex = uninitialized((mesh.manifold_dim+1, mesh.dim),
-                                                 dtype=REAL)
+                                               dtype=REAL)
         volume_t volume
         simplexComputations sC
         shapeFunction phi
@@ -2602,7 +2592,7 @@ def assembleRHScomplex(complexFunction fun, DoFMap dm,
         REAL_t vol
         REAL_t[:, ::1] span = uninitialized((mesh.manifold_dim, mesh.dim), dtype=REAL)
         REAL_t[:, ::1] simplex = uninitialized((mesh.manifold_dim+1, mesh.dim),
-                                            dtype=REAL)
+                                               dtype=REAL)
         volume_t volume
         COMPLEX_t[::1] fvals
 
@@ -2693,7 +2683,7 @@ def assembleRHSgrad(FUNCTION_t fun, DoFMap dm,
         REAL_t vol
         REAL_t[:, ::1] span = uninitialized((mesh.manifold_dim, mesh.dim), dtype=REAL)
         REAL_t[:, ::1] simplex = uninitialized((mesh.manifold_dim+1, mesh.dim),
-                                                 dtype=REAL)
+                                               dtype=REAL)
         volume_t volume
         REAL_t[::1] fvals
 
@@ -2877,7 +2867,7 @@ cdef class CahnHilliard_F(multi_function):
         y[0] = 0.25*(1.-u**2)**2
 
 
-def assembleNonlinearity(meshBase mesh, multi_function fun, DoFMap DoFMap, multi_fe_vector U):
+def assembleNonlinearity(meshBase mesh, multi_function fun, DoFMap dm, multi_fe_vector U):
     cdef:
         INDEX_t dim = mesh.dim
         INDEX_t dimManifold = mesh.manifold_dim
@@ -2892,7 +2882,7 @@ def assembleNonlinearity(meshBase mesh, multi_function fun, DoFMap DoFMap, multi
         REAL_t vol
         REAL_t[:, ::1] span = uninitialized((num_vertices-1, dim), dtype=REAL)
         REAL_t[:, ::1] local_vertices = uninitialized((num_vertices, dim),
-                                                   dtype=REAL)
+                                                      dtype=REAL)
         volume_t volume
         REAL_t[:, ::1] fvals, fvals2
         REAL_t[:, ::1] u
@@ -2901,17 +2891,17 @@ def assembleNonlinearity(meshBase mesh, multi_function fun, DoFMap DoFMap, multi
         qr = Gauss1D(order=3)
         volume = volume1Dnew
     elif dimManifold == 2:
-        if isinstance(DoFMap, P1_DoFMap):
+        if isinstance(dm, P1_DoFMap):
             qr = Gauss2D(order=2)
-        elif isinstance(DoFMap, P2_DoFMap):
+        elif isinstance(dm, P2_DoFMap):
             qr = Gauss2D(order=5)
         else:
             raise NotImplementedError()
         volume = volume2Dnew
     elif dimManifold == 3:
-        if isinstance(DoFMap, P1_DoFMap):
+        if isinstance(dm, P1_DoFMap):
             qr = Gauss3D(order=3)
-        elif isinstance(DoFMap, P2_DoFMap):
+        elif isinstance(dm, P2_DoFMap):
             qr = Gauss3D(order=3)
         else:
             raise NotImplementedError()
@@ -2922,10 +2912,10 @@ def assembleNonlinearity(meshBase mesh, multi_function fun, DoFMap DoFMap, multi
     assert U.numVectors == fun.numInputs, (U.numVectors, fun.numInputs)
 
     # evaluate local shape functions on quadrature nodes
-    PHI = uninitialized((DoFMap.dofs_per_element, qr.num_nodes), dtype=REAL)
-    for i in range(DoFMap.dofs_per_element):
+    PHI = uninitialized((dm.dofs_per_element, qr.num_nodes), dtype=REAL)
+    for i in range(dm.dofs_per_element):
         for j in range(qr.num_nodes):
-            PHI[i, j] = DoFMap.localShapeFunctions[i](np.ascontiguousarray(qr.nodes[:, j]))
+            PHI[i, j] = dm.localShapeFunctions[i](np.ascontiguousarray(qr.nodes[:, j]))
     weights = qr.weights
     # quad_points = qr.nodes
 
@@ -2933,7 +2923,7 @@ def assembleNonlinearity(meshBase mesh, multi_function fun, DoFMap DoFMap, multi
 
     u = U.data
 
-    dataList = multi_fe_vector(np.zeros((fun.numOutputs, DoFMap.num_dofs), dtype=REAL), DoFMap)
+    dataList = multi_fe_vector(np.zeros((fun.numOutputs, dm.num_dofs), dtype=REAL), dm)
     # data = data_mem
     fvals = uninitialized((num_quad_nodes, fun.numInputs), dtype=REAL)
     fvals2 = uninitialized((num_quad_nodes, fun.numOutputs), dtype=REAL)
@@ -2949,8 +2939,8 @@ def assembleNonlinearity(meshBase mesh, multi_function fun, DoFMap DoFMap, multi
         vol = volume(span)
 
         fvals[:] = 0.
-        for m in range(DoFMap.dofs_per_element):
-            I = DoFMap.cell2dof(i, m)
+        for m in range(dm.dofs_per_element):
+            I = dm.cell2dof(i, m)
             if I >= 0:
                 for k in range(num_quad_nodes):
                     for j in range(fun.numInputs):
@@ -2962,19 +2952,19 @@ def assembleNonlinearity(meshBase mesh, multi_function fun, DoFMap DoFMap, multi
         # Put everything together
         for m in range(fun.numOutputs):
             data = dataList[m]
-            for k in range(DoFMap.dofs_per_element):
-                I = DoFMap.cell2dof(i, k)
+            for k in range(dm.dofs_per_element):
+                I = dm.cell2dof(i, k)
                 if I >= 0:
                     for j in range(num_quad_nodes):
                         data[I] += vol*weights[j]*fvals2[j, m]*PHI[k, j]
-                        # data[m*DoFMap.num_dofs+I] += vol*weights[j]*fvals2[j, m]*PHI[k, j]
+                        # data[m*dm.num_dofs+I] += vol*weights[j]*fvals2[j, m]*PHI[k, j]
     return dataList
     # return data_mem
 
 
 def assembleRHSfromFEfunction(meshBase mesh,
                               vector_t u,
-                              DoFMap DoFMap,
+                              DoFMap dm,
                               DoFMap target,
                               simplexQuadratureRule qr=None):
     cdef:
@@ -2989,14 +2979,14 @@ def assembleRHSfromFEfunction(meshBase mesh,
         REAL_t vol
         REAL_t[:, ::1] span = uninitialized((num_vertices-1, dim), dtype=REAL)
         REAL_t[:, ::1] local_vertices = uninitialized((num_vertices, dim),
-                                                   dtype=REAL)
+                                                      dtype=REAL)
         volume_t volume
         REAL_t[::1] fvals
         vector_t b
 
-    assert DoFMap.mesh.num_vertices == target.mesh.num_vertices, "DoFmap and target have different meshes"
-    assert DoFMap.mesh.num_cells == target.mesh.num_cells, "DoFmap and target have different meshes"
-    assert u.shape[0] == DoFMap.num_dofs, "u and DoFMap have different number of DoFs: {} != {}".format(u.shape[0], DoFMap.num_dofs)
+    assert dm.mesh.num_vertices == target.mesh.num_vertices, "dm and target have different meshes"
+    assert dm.mesh.num_cells == target.mesh.num_cells, "dm and target have different meshes"
+    assert u.shape[0] == dm.num_dofs, "u and dm have different number of DoFs: {} != {}".format(u.shape[0], dm.num_dofs)
 
     if qr is None:
         if dimManifold == 1:
@@ -3014,10 +3004,10 @@ def assembleRHSfromFEfunction(meshBase mesh,
         volume = qr.volume
 
     # evaluate local shape functions on quadrature nodes
-    PHI = uninitialized((DoFMap.dofs_per_element, qr.num_nodes), dtype=REAL)
-    for i in range(DoFMap.dofs_per_element):
+    PHI = uninitialized((dm.dofs_per_element, qr.num_nodes), dtype=REAL)
+    for i in range(dm.dofs_per_element):
         for j in range(qr.num_nodes):
-            PHI[i, j] = DoFMap.localShapeFunctions[i](np.ascontiguousarray(qr.nodes[:, j]))
+            PHI[i, j] = dm.localShapeFunctions[i](np.ascontiguousarray(qr.nodes[:, j]))
     weights = qr.weights
     num_quad_nodes = qr.num_nodes
 
@@ -3043,8 +3033,8 @@ def assembleRHSfromFEfunction(meshBase mesh,
 
         # get u at quadrature nodes
         fvals[:] = 0.
-        for m in range(DoFMap.dofs_per_element):
-            I = DoFMap.cell2dof(i, m)
+        for m in range(dm.dofs_per_element):
+            I = dm.cell2dof(i, m)
             if I >= 0:
                 for k in range(num_quad_nodes):
                     fvals[k] += u[I]*PHI[m, k]
@@ -3079,7 +3069,7 @@ def assembleJumpMatrix(meshBase mesh, P0_DoFMap dm):
         lookup = {}
         for cellNo in range(mesh.num_cells):
             for vertexNo in range(dim+1):
-                #vertex = sm.getVertexInCell(cellNo, vertexNo)
+                # vertex = sm.getVertexInCell(cellNo, vertexNo)
                 vertex = cells[cellNo, vertexNo]
                 try:
                     otherCellNo = lookup.pop(vertex)
@@ -3099,7 +3089,7 @@ def assembleJumpMatrix(meshBase mesh, P0_DoFMap dm):
         lookup = {}
         for cellNo in range(mesh.num_cells):
             for vertexNo in range(dim+1):
-                #vertex = sm.getVertexInCell(cellNo, vertexNo)
+                # vertex = sm.getVertexInCell(cellNo, vertexNo)
                 vertex = mesh.cells[cellNo, vertexNo]
                 try:
                     otherCellNo, vol2 = lookup.pop(vertex)
@@ -3223,8 +3213,8 @@ cdef class matrixFreeOperator(LinearOperator):
             INDEX_t i, s, j, k, I, J
             REAL_t[:, ::1] simplex = uninitialized((self.mesh.dim+1, self.mesh.manifold_dim), dtype=REAL)
             REAL_t[::1] local_contrib = uninitialized((self.dm.dofs_per_element *
-                                                    (self.dm.dofs_per_element+1))//2,
-                                                   dtype=REAL)
+                                                       (self.dm.dofs_per_element+1))//2,
+                                                      dtype=REAL)
 
         for i in range(self.mesh.num_cells):
             # Get simplex
@@ -3253,8 +3243,8 @@ cdef class matrixFreeOperator(LinearOperator):
             INDEX_t i, s, j, k, I, J
             REAL_t[:, ::1] simplex = uninitialized((self.mesh.dim+1, self.mesh.manifold_dim), dtype=REAL)
             REAL_t[::1] local_contrib = uninitialized((self.dm.dofs_per_element *
-                                                         (self.dm.dofs_per_element+1))//2,
-                                                        dtype=REAL)
+                                                       (self.dm.dofs_per_element+1))//2,
+                                                      dtype=REAL)
             REAL_t[::1] d = np.zeros((self.dm.num_dofs), dtype=REAL)
 
         for i in range(self.mesh.num_cells):
