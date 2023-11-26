@@ -23,7 +23,7 @@ jobs:
             c-compiler: 'clang'
             cxx-compiler: 'clang++'
       fail-fast: false
-    name: ${{ matrix.c-compiler}} Python ${{ matrix.py-version }}
+    name: Linux ${{ matrix.c-compiler}} Python ${{ matrix.py-version }}
 
 
     runs-on: ubuntu-latest
@@ -125,3 +125,97 @@ jobs:
         path: flake8-${{ matrix.c-compiler }}-${{ matrix.py-version }}.xml
         reporter: java-junit
         fail-on-error: false
+
+  mac:
+
+    strategy:
+      matrix:
+        py-version: ['3.10']
+      fail-fast: false
+    name: Mac clang Python ${{ matrix.py-version }}
+
+    runs-on: macos-latest
+    timeout-minutes: 180
+    env:
+      MPIEXEC_FLAGS: "--allow-run-as-root --oversubscribe"
+      PYNUCLEUS_BUILD_PARALLELISM: 3
+      SUITESPARSE_INCLUDE_DIR: /usr/local/Cellar/brewsci-suite-sparse/4.5.5_2/include
+      SUITESPARSE_LIBRARY_DIR: /usr/local/Cellar/brewsci-suite-sparse/4.5.5_2/lib
+      LDFLAGS: -L/usr/local/opt/brewsci-metis/lib -L/usr/local/opt/brewsci-parmetis/lib
+      CPPFLAGS: -I/usr/local/opt/brewsci-metis/include -I/usr/local/opt/brewsci-parmetis/include
+
+    steps:
+    - name: Check out repo
+      uses: actions/checkout@v3
+
+    - name: Pull ccache cache
+      if: always()
+      id: ccache-restore
+      uses: actions/cache/restore@v3
+      with:
+        path: /Users/runner/Library/Caches/ccache
+        key: ccache-mac-${{ matrix.py-version }}
+
+    - name: Setup GNU Fortran
+      uses: modflowpy/install-gfortran-action@v1
+
+    - uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.py-version }}
+
+    - name: Install packages
+      run: |
+        brew install open-mpi ccache
+        brew tap brewsci/num
+        brew install brewsci-metis brewsci-parmetis brewsci-suite-sparse
+
+    - name: Get ccache config dir
+      if: always()
+      run: ccache --show-config
+
+    - name: Install Python dependencies
+      run: make prereq && make prereq-extra
+
+    - name: Install
+      run: PIP_INSTALL_FLAGS=-vvv make install
+
+    - name: Remove ccache cache
+      if: ${{ steps.ccache-restore.outputs.cache-hit }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh extension install actions/gh-actions-cache
+        gh actions-cache delete ccache-mac-${{ matrix.py-version }} --confirm
+      continue-on-error: true
+
+    - name: Push ccache cache
+      if: always()
+      uses: actions/cache/save@v3
+      with:
+        path: /Users/runner/Library/Caches/ccache
+        key: ccache-mac-${{ matrix.py-version }}
+
+    - name: Ccache report
+      if: always()
+      run: ccache -s
+
+    - name: Run tests
+      if: always()
+      run: python3 -m pytest --junit-xml=test-results-Mac-${{ matrix.py-version }}.xml tests/
+
+    - name: Archive test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: Test results
+        path: test-results-${{ matrix.py-version }}.xml
+
+    - name: Report test results
+      uses: dorny/test-reporter@v1
+      if: always()
+      with:
+        name: Test report (Mac, Python ${{ matrix.py-version }})
+        path: test-results-Mac-${{ matrix.py-version }}.xml
+        reporter: java-junit
+        fail-on-error: true
