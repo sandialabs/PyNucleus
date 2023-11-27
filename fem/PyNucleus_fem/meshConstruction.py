@@ -23,7 +23,7 @@ class segment:
         self.meshTransformations = []
 
     def __add__(self, other):
-        if isinstance(other, tuple):
+        if isinstance(other, (tuple, np.ndarray)):
             newPoints = [(other[0]+p[0], other[1]+p[1]) for p in self.points]
             newHoles = [(other[0]+p[0], other[1]+p[1]) for p in self.holes]
             newSegment = segment(newPoints, self.facets, newHoles)
