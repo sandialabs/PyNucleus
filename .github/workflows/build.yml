@@ -45,7 +45,7 @@ jobs:
       uses: actions/cache/restore@v3
       with:
         path: /home/runner/.cache/ccache
-        key: ccache-${{ matrix.c-compiler }}-${{ matrix.py-version }}
+        key: ccache-${{ runner.os }}-${{ matrix.c-compiler }}-${{ matrix.py-version }}
 
     - uses: actions/setup-python@v4
       if: always()
@@ -77,7 +77,7 @@ jobs:
         GH_TOKEN: ${{ github.token }}
       run: |
         gh extension install actions/gh-actions-cache
-        gh actions-cache delete ccache-${{ matrix.c-compiler}}-${{ matrix.py-version }} --confirm
+        gh actions-cache delete ccache-${{ runner.os }}-${{ matrix.c-compiler}}-${{ matrix.py-version }} --confirm
       continue-on-error: true
 
     - name: Push ccache cache
@@ -85,7 +85,7 @@ jobs:
       uses: actions/cache/save@v3
       with:
         path: /home/runner/.cache/ccache
-        key: ccache-${{ matrix.c-compiler }}-${{ matrix.py-version }}
+        key: ccache-${{ runner.os }}-${{ matrix.c-compiler }}-${{ matrix.py-version }}
 
     - name: Ccache report
       if: always()
@@ -93,27 +93,27 @@ jobs:
 
     - name: Run tests
       if: always()
-      run: python3 -m pytest --junit-xml=test-results-${{ matrix.c-compiler }}-${{ matrix.py-version }}.xml tests/
+      run: python3 -m pytest --junit-xml=test-results-${{ runner.os }}-${{ matrix.c-compiler }}-${{ matrix.py-version }}.xml tests/
 
     - name: Run flake8
       if: always()
       run: |
         make flake8
-        mv flake8.xml flake8-${{ matrix.c-compiler }}-${{ matrix.py-version }}.xml
+        mv flake8.xml flake8-${{ runner.os }}-${{ matrix.c-compiler }}-${{ matrix.py-version }}.xml
 
     - name: Archive test results
       uses: actions/upload-artifact@v3
       if: always()
       with:
         name: Test results
-        path: test-results-${{ matrix.c-compiler }}-${{ matrix.py-version }}.xml
+        path: test-results-${{ runner.os }}-${{ matrix.c-compiler }}-${{ matrix.py-version }}.xml
 
     - name: Report test results
       uses: dorny/test-reporter@v1
       if: always()
       with:
-        name: Test report (${{ matrix.c-compiler }}, Python ${{ matrix.py-version }})
-        path: test-results-${{ matrix.c-compiler }}-${{ matrix.py-version }}.xml
+        name: Test report (${{ runner.os }}, ${{ matrix.c-compiler }}, Python ${{ matrix.py-version }})
+        path: test-results-${{ runner.os }}-${{ matrix.c-compiler }}-${{ matrix.py-version }}.xml
         reporter: java-junit
         fail-on-error: true
 
@@ -121,8 +121,8 @@ jobs:
       uses: dorny/test-reporter@v1
       if: always()
       with:
-        name: Flake8 report (${{ matrix.c-compiler }}, Python ${{ matrix.py-version }})
-        path: flake8-${{ matrix.c-compiler }}-${{ matrix.py-version }}.xml
+        name: Flake8 report (${{ runner.os }}, ${{ matrix.c-compiler }}, Python ${{ matrix.py-version }})
+        path: flake8-${{ runner.os }}-${{ matrix.c-compiler }}-${{ matrix.py-version }}.xml
         reporter: java-junit
         fail-on-error: false
 
@@ -154,7 +154,7 @@ jobs:
       uses: actions/cache/restore@v3
       with:
         path: /Users/runner/Library/Caches/ccache
-        key: ccache-mac-${{ matrix.py-version }}
+        key: ccache-${{ runner.os }}-${{ matrix.py-version }}
 
     - name: Setup GNU Fortran
       uses: modflowpy/install-gfortran-action@v1
@@ -186,7 +186,7 @@ jobs:
         GH_TOKEN: ${{ github.token }}
       run: |
         gh extension install actions/gh-actions-cache
-        gh actions-cache delete ccache-mac-${{ matrix.py-version }} --confirm
+        gh actions-cache delete ccache-${{ runner.os }}-${{ matrix.py-version }} --confirm
       continue-on-error: true
 
     - name: Push ccache cache
@@ -194,7 +194,7 @@ jobs:
       uses: actions/cache/save@v3
       with:
         path: /Users/runner/Library/Caches/ccache
-        key: ccache-mac-${{ matrix.py-version }}
+        key: ccache-${{ runner.os }}-${{ matrix.py-version }}
 
     - name: Ccache report
       if: always()
@@ -202,20 +202,20 @@ jobs:
 
     - name: Run tests
       if: always()
-      run: python3 -m pytest --junit-xml=test-results-Mac-${{ matrix.py-version }}.xml tests/
+      run: python3 -m pytest --junit-xml=test-results-${{ runner.os }}-${{ matrix.py-version }}.xml tests/
 
     - name: Archive test results
       uses: actions/upload-artifact@v3
       if: always()
       with:
         name: Test results
-        path: test-results-${{ matrix.py-version }}.xml
+        path: test-results-${{ runner.os }}-${{ matrix.py-version }}.xml
 
     - name: Report test results
       uses: dorny/test-reporter@v1
       if: always()
       with:
-        name: Test report (Mac, Python ${{ matrix.py-version }})
-        path: test-results-Mac-${{ matrix.py-version }}.xml
+        name: Test report (${{ runner.os }}, Python ${{ matrix.py-version }})
+        path: test-results-${{ runner.os }}-${{ matrix.py-version }}.xml
         reporter: java-junit
         fail-on-error: true
