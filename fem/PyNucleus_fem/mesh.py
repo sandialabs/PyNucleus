@@ -108,13 +108,20 @@ def pacman(h=0.1, **kwargs):
     return mesh
 
 
-def uniformSquare(N, M=None, ax=0, ay=0, bx=1, by=1, crossed=False, preserveLinesHorizontal=[], preserveLinesVertical=[]):
-    if M is None:
-        M = max(int(np.around((by-ay)/(bx-ax)))*N, 2)
-    assert N >= 2
-    assert M >= 2
-    xVals = np.linspace(ax, bx, N)
-    yVals = np.linspace(ay, by, M)
+def uniformSquare(N=2, M=None, ax=0, ay=0, bx=1, by=1, crossed=False, preserveLinesHorizontal=[], preserveLinesVertical=[], xVals=None, yVals=None):
+    if xVals is None:
+        assert N is not None
+        assert N >= 2
+        xVals = np.linspace(ax, bx, N)
+    else:
+        N = xVals.shape[0]
+    if yVals is None:
+        if M is None:
+            M = max(int(np.around((by-ay)/(bx-ax)))*N, 2)
+        assert M >= 2
+        yVals = np.linspace(ay, by, M)
+    else:
+        M = yVals.shape[0]
     x, y = np.meshgrid(xVals, yVals)
     for yVal in preserveLinesHorizontal:
         assert (yVals-yVal).min() < 1e-10
@@ -310,70 +317,54 @@ def squareWithInteractions(ax, ay, bx, by,
     if not uniform:
         from . meshConstruction import (circularSegment,
                                         line,
+                                        polygon,
                                         transformationRestriction)
         if h is None:
             h = horizon
         bottomLeft = np.array([ax, ay])
+        bottomRight = np.array([bx, ay])
+        topRight = np.array([bx, by])
+        topLeft = np.array([ax, by])
+
+        horizontalOffset = np.array([horizon, 0.])
+        verticalOffset = np.array([0., horizon])
+
         center = np.array([(ax+bx)/2, (ay+by)/2])
 
         numPointsPerUnitLength = int(np.ceil(1/h))
 
         assert len(preserveLinesVertical) == 0 or len(preserveLinesHorizontal) == 0
-        if len(preserveLinesVertical)+len(preserveLinesHorizontal) > 0:
-            preserve = preserveLinesVertical+preserveLinesHorizontal
 
-            c1 = circularSegment(bottomLeft, horizon, np.pi, 3/2*np.pi, numPointsPerUnitLength)
+        lineHorizontal = polygon([(0., 0.)] + [(p-ax, 0.) for p in preserveLinesVertical] + [(bx-ax, 0.)], doClose=False)
+        lineVertical = polygon([(0., 0.)] + [(0., p-ay) for p in preserveLinesHorizontal] + [(0., by-ay)], doClose=False)
 
-            x1 = preserve[0]
-            c2 = line((ax, ay), (x1, ay))
-            for k in range(len(preserve)-1):
-                x1 = preserve[k]
-                x2 = preserve[k+1]
-                c2 = c2+line((x1, ay), (x2, ay))
-            x2 = preserve[-1]
-            c2 = c2+line((x2, ay), (bx, ay))
-            c1 = c1 + (c2+(0., -horizon))
-        else:
-            c1 = circularSegment(bottomLeft, horizon, np.pi, 3/2*np.pi, numPointsPerUnitLength)
-            c2 = line((ax, ay), (bx, ay))
-            c1 = c1 + (c2+(0., -horizon))
-        c3 = line((ax, ay), (ax, ay-horizon))
-        c4 = line((ax, ay), (ax-horizon, ay))
-        c = c1+c2+c3+c4
+        d1 = (circularSegment(bottomLeft, horizon, np.pi, 1.5*np.pi, numPointsPerUnitLength) +
+              line(bottomLeft, bottomLeft-horizontalOffset) +
+              line(bottomLeft, bottomLeft-verticalOffset) +
+              (lineHorizontal+bottomLeft)+
+              (lineHorizontal+(bottomLeft-verticalOffset)))
 
-        frame = (c + (c*(center, np.pi/2)) + (c*(center, np.pi)) + (c*(center, -np.pi/2)))
+        d2 = (circularSegment(bottomRight, horizon, -0.5*np.pi, 0., numPointsPerUnitLength) +
+              line(bottomRight, bottomRight+horizontalOffset) +
+              line(bottomRight, bottomRight-verticalOffset) +
+              (lineVertical+(bottomRight+horizontalOffset)) +
+              (lineVertical+bottomRight))
 
-        if len(preserveLinesVertical) > 0:
-            d = line((0, ay-horizon), (0, ay))
-            x1 = preserve[0]
-            d = d + line((0, ay), (0, x1))
-            for k in range(len(preserve)-1):
-                x1 = preserve[k]
-                x2 = preserve[k+1]
-                d += line((0, x1), (0, x2))
-            x2 = preserve[-1]
-            d = d + line((0, x2), (0, by))
-            d = d + line((0, by), (0, by+horizon))
-            for x in preserveLinesVertical:
-                assert ax <= x <= bx
-                frame += (d+(x, 0.))
-        if len(preserveLinesHorizontal) > 0:
-            d = line((ax-horizon, 0), (ax, 0))+line((ax, 0), (bx, 0))+line((bx, 0), (bx+horizon, 0))
+        d3 = (circularSegment(topRight, horizon, 0, 0.5*np.pi, numPointsPerUnitLength) +
+              line(topRight, topRight+horizontalOffset) +
+              line(topRight, topRight+verticalOffset) +
+              (lineHorizontal+topLeft) +
+              (lineHorizontal+(topLeft+verticalOffset)))
 
-            d = line((ax-horizon, 0), (ax, 0))
-            x1 = preserve[0]
-            d = d + line((ax, 0), (x1, 0))
-            for k in range(len(preserve)-1):
-                x1 = preserve[k]
-                x2 = preserve[k+1]
-                d += line((x1, 0), (x2, 0))
-            x2 = preserve[-1]
-            d = d + line((x2, 0), (bx, 0))
-            d = d + line((bx, 0), (bx+horizon, 0))
+        d4 = (circularSegment(topLeft, horizon, 0.5*np.pi, np.pi, numPointsPerUnitLength) +
+              line(topLeft, topLeft-horizontalOffset) +
+              line(topLeft, topLeft+verticalOffset) +
+              (lineVertical+bottomLeft) +
+              (lineVertical+(bottomLeft-horizontalOffset)))
 
-            for y in preserveLinesHorizontal:
-                assert ay <= y <= by
-                frame += (d+(0, y))
+        frame = d1 + d2 + d3 + d4
+
+        frame.holes.append(center)
 
         if innerRadius > 0:
             frame += transformationRestriction(circularSegment(center, innerRadius, 0, 2*np.pi, numPointsPerUnitLength),
@@ -381,25 +372,30 @@ def squareWithInteractions(ax, ay, bx, by,
                                                center+(innerRadius, innerRadius))
             mesh = frame.mesh(max_volume=h**2, min_angle=30, **kwargs)
         else:
-            frame.holes.append(center)
             mesh = frame.mesh(max_volume=h**2, min_angle=30, **kwargs)
 
             eps = 1e-10
-            N1 = np.logical_and(np.absolute(mesh.vertices_as_array[:, 0]-ax) < eps,
-                                np.logical_and(mesh.vertices_as_array[:, 1] >= ay-eps,
-                                               mesh.vertices_as_array[:, 1] <= by+eps)).sum()
-            N2 = np.logical_and(np.absolute(mesh.vertices_as_array[:, 0]-bx) < eps,
-                                np.logical_and(mesh.vertices_as_array[:, 1] >= ay-eps,
-                                               mesh.vertices_as_array[:, 1] <= by+eps)).sum()
-            M1 = np.logical_and(np.absolute(mesh.vertices_as_array[:, 1]-ay) < eps,
+            idx1 = np.logical_and(np.absolute(mesh.vertices_as_array[:, 0]-ax) < eps,
+                                  np.logical_and(mesh.vertices_as_array[:, 1] >= ay-eps,
+                                                 mesh.vertices_as_array[:, 1] <= by+eps))
+            idx2 = np.logical_and(np.absolute(mesh.vertices_as_array[:, 0]-bx) < eps,
+                                  np.logical_and(mesh.vertices_as_array[:, 1] >= ay-eps,
+                                                 mesh.vertices_as_array[:, 1] <= by+eps))
+            yVals1 = np.sort(mesh.vertices_as_array[idx1, 1])
+            yVals2 = np.sort(mesh.vertices_as_array[idx2, 1])
+            assert np.allclose(yVals1, yVals2), (yVals1, yVals2)
+
+            idx3 = np.logical_and(np.absolute(mesh.vertices_as_array[:, 1]-ay) < eps,
                                 np.logical_and(mesh.vertices_as_array[:, 0] >= ax-eps,
-                                               mesh.vertices_as_array[:, 0] <= bx+eps)).sum()
-            M2 = np.logical_and(np.absolute(mesh.vertices_as_array[:, 1]-by) < eps,
+                                               mesh.vertices_as_array[:, 0] <= bx+eps))
+            idx4 = np.logical_and(np.absolute(mesh.vertices_as_array[:, 1]-by) < eps,
                                 np.logical_and(mesh.vertices_as_array[:, 0] >= ax-eps,
-                                               mesh.vertices_as_array[:, 0] <= bx+eps)).sum()
-            assert N1 == N2, (N1, N2)
-            assert M1 == M2, (M1, M2)
-            mesh2 = uniformSquare(N=N1, M=M1, ax=ax, ay=ay, bx=bx, by=by)
+                                               mesh.vertices_as_array[:, 0] <= bx+eps))
+            xVals3 = np.sort(mesh.vertices_as_array[idx3, 0])
+            xVals4 = np.sort(mesh.vertices_as_array[idx4, 0])
+            assert np.allclose(xVals3, xVals4), (xVals3, xVals4)
+            mesh2 = uniformSquare(ax=ax, ay=ay, bx=bx, by=by, xVals=xVals3, yVals=yVals1)
+            mesh2.plot()
             mesh = snapMeshes(mesh, mesh2)
 
         location = uninitialized((mesh.num_vertices), dtype=INDEX)
