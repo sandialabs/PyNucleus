@@ -33,8 +33,8 @@ ENV VIRTUAL_ENV=/pynucleus/venv
 RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 WORKDIR /pynucleus
-RUN make prereq && \
-    make prereq-extra && \
+RUN make prereq PIP_FLAGS=--no-cache-dir && \
+    make prereq-extra PIP_FLAGS=--no-cache-dir && \
     make install && \
     python -m pip install --no-cache-dir ipykernel && \
     rm -rf build packageTools/build base/build metisCy/build fem/build multilevelSolver/build nl/build
@@ -45,6 +45,8 @@ RUN echo "alias ls='ls --color=auto -FN'" >> /root/.bashrc \
 # allow running MPI as root in the container
 # bind MPI ranks to hwthreads
 ENV OMPI_MCA_hwloc_base_binding_policy=hwthread \
-    MPIEXEC_FLAGS=--allow-run-as-root
+    MPIEXEC_FLAGS=--allow-run-as-root \
+    OMPI_ALLOW_RUN_AS_ROOT=1 \
+    OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 
 RUN python -m ipykernel install --name=PyNucleus
