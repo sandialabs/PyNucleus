@@ -2,9 +2,56 @@
 Possible ways to install and use PyNucleus
 ==========================================
 
-* Spack installation,
-* manual installation,
-* Docker container.
+* container image
+* Spack installation
+* manual installation
+
+
+Container image
+----------------
+
+The simplest way to use PyNucleus is to pull a container image from the GitHub Container Registry.
+This requires an installation of either
+
+* podman (https://podman.io/) and podman-compose (https://github.com/containers/podman-compose) or
+* Docker (https://www.docker.com/) and Docker Compose (https://docs.docker.com/compose/install/).
+
+For many Linux distributions these can be installed from the package repositories.
+In what follows we will assume that we are using podman.
+All commands for Docker should be identical up to the substitution of `podman` with `docker`.
+
+For example, on Ubuntu podman can be installed with
+
+.. code-block:: shell
+
+   sudo apt-get install podman podman-compose
+
+Instructions for other platforms can be found here: https://podman.io/docs/installation
+
+Once podman is installed, we can download a copy of https://github.com/sandialabs/PyNucleus/compose.yaml and save it to an empty directory.
+In that directory we then run
+
+.. code-block:: shell
+
+   podman compose run pynucleus
+
+This launches a shell on the container with PyNucleus.
+A simple way to test if things work is to run
+
+.. code-block:: shell
+
+   drivers/runFractional.py
+
+This should print some information about the solution of a fractional Laplacian problem and open up several plots.
+
+For development using PyNucleus it can be useful to launch a Jupyter notebook server:
+
+.. code-block:: shell
+
+   podman compose up pynucleus-jupyter
+
+and then open the access the Jupyter notebook interface at https://localhost:8889
+
 
 Spack install
 -------------
@@ -48,7 +95,7 @@ On Debian, Ubuntu etc, the required dependencies can be installed with
 
    sudo apt-get install python3 mpi-default-bin mpi-default-dev libmetis-dev libparmetis-dev libsuitesparse-dev
 
-On MacOS the required dependencies can be installed with
+On MacOS the required dependencies can be installed with Homebrew (https://brew.sh/) via
 
 .. code-block:: shell
 
@@ -88,25 +135,3 @@ PyNucleus depends on other Python packages that will be installed automatically:
 * modepy
 * meshpy
 * scikit-sparse
-
-
-Docker container
-----------------
-
-A Docker container that contains all the required dependencies can be built as well:
-
-.. code-block:: shell
-
-   make docker
-
-Once the build is done, it can be launched as
-
-.. code-block:: shell
-
-   make docker-linux
-
-or
-
-.. code-block:: shell
-
-   make docker-mac

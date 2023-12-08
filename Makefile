@@ -139,26 +139,23 @@ docker:
 	# rm -rf docker-build
 
 docker-linux:
-	# enable access to xserver (so that we can see some plots)
-	xhost +
-	# run the container
-	docker run -it  \
-	-v $(XAUTHORITY):/.Xauthority -e XAUTHORITY=/.Xauthority \
-	-v "/tmp/.X11-unix:/tmp/.X11-unix:rw" -e DISPLAY=$(DISPLAY) \
+	podman run -it  \
+	-v $(XAUTHORITY):/root/.Xauthority \
+	-v "/tmp/.X11-unix:/tmp/.X11-unix:rw" \
+	-e DISPLAY=$(DISPLAY) \
+	--network "host" \
 	-e HTTP_PROXY=$(HTTP_PROXY) \
 	-e HTTPS_PROXY=$(HTTPS_PROXY) \
 	-e http_proxy=$(http_proxy) \
 	-e https_proxy=$(https_proxy) \
 	-v $(PWD):/home/pynucleus \
 	-w "/home/pynucleus/" \
-	dockerized-pynucleus
-	# disable access to xserver
-	xhost -
-
+	localhost/pynucleus-test
 
 docker-mac:
 	docker run -it  \
 	-v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=unix$(DISPLAY) \
+	--network host \
 	-e HTTP_PROXY=$(HTTP_PROXY) \
 	-e HTTPS_PROXY=$(HTTPS_PROXY) \
 	-e http_proxy=$(http_proxy) \
@@ -166,8 +163,6 @@ docker-mac:
 	-v $PWD:/home/pynucleus \
 	-w "/home/pynucleus/" \
 	dockerized-pynucleus
-
-
 
 prereq:
 	$(PYTHON) -m pip install $(PIP_FLAGS) $(PIP_INSTALL_FLAGS) wheel Cython cython numpy scipy matplotlib pyyaml h5py pybind11 MeshPy tabulate modepy mpi4py pyamg meshio
