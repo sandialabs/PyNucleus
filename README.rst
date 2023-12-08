@@ -99,7 +99,7 @@ For example, on Ubuntu podman can be installed with
 
 Instructions for other platforms can be found here: https://podman.io/docs/installation
 
-Once podman is installed, we can download a copy of https://github.com/sandialabs/PyNucleus/compose.yaml and save it to an empty directory.
+Once podman is installed, we can download a copy of https://github.com/sandialabs/PyNucleus/blob/master/compose.yaml and save it to an empty directory.
 In that directory we then run
 
 .. code-block:: shell
@@ -121,7 +121,7 @@ For development using PyNucleus it can be useful to launch a Jupyter notebook se
 
    podman compose up pynucleus-jupyter
 
-and then open the access the Jupyter notebook interface at https://localhost:8889
+and then open the Jupyter notebook interface at https://localhost:8889
 
 
 Spack install

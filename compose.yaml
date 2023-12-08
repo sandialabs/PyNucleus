@@ -25,7 +25,7 @@ services:
 
   # Launch with:
   # docker compose up
-  # Then open localhost:8888 in your browser
+  # Then open localhost:8889 in your browser
   pynucleus-jupyter:
     image: ghcr.io/sandialabs/pynucleus:latest
     build: .
