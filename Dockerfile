@@ -24,7 +24,7 @@ RUN sed -i 's/Components: main/Components: main contrib non-free/' /etc/apt/sour
         python3 python3-dev python-is-python3 python3-pip python3-mpi4py cython3 python3-numpy python3-scipy python3-matplotlib python3-tk python3-venv \
         libmetis-dev libparmetis-dev \
         texlive texlive-extra-utils texlive-latex-extra ttf-staypuft dvipng cm-super \
-        jupyter-notebook python3-jupyterlab \
+        jupyter-notebook \
   --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
