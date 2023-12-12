@@ -646,7 +646,7 @@ class outputGroup:
                             result[p.label] = (p.value, d[p.label])
                     elif isinstance(p.value, (int, INDEX, REAL, float)):
                         if not np.allclose(p.value, d[p.label],
-                                           rtol=rTol, atol=aTol):
+                                           rtol=rTol, atol=aTol) and not (np.isnan(p.value) and np.isnan(d[p.label])):
                             print(p.label, p.value, d[p.label], rTol, aTol, p.rTol, p.aTol)
                             result[p.label] = (p.value, d[p.label])
                     else:
