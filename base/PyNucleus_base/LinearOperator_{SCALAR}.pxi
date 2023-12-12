@@ -651,14 +651,12 @@ cdef class {SCALAR_label}Transpose_Linear_Operator({SCALAR_label}LinearOperator)
     cdef INDEX_t matvec(self,
                         {SCALAR}_t[::1] x,
                         {SCALAR}_t[::1] y) except -1:
-        self.A.matvecTrans(x, y)
-        return 0
+        return self.A.matvecTrans(x, y)
 
     cdef INDEX_t matvec_no_overwrite(self,
                                      {SCALAR}_t[::1] x,
                                      {SCALAR}_t[::1] y) except -1:
-        self.A.matvecTrans_no_overwrite(x, y)
-        return 0
+        return self.A.matvecTrans_no_overwrite(x, y)
 
     def isSparse(self):
         return self.A.isSparse()
@@ -677,7 +675,10 @@ cdef class {SCALAR_label}Transpose_Linear_Operator({SCALAR_label}LinearOperator)
             return Bcsr
 
     def toarray(self):
-        return self.A.transpose().toarray()
+        try:
+            return self.A.transpose().toarray()
+        except AttributeError:
+            return np.ascontiguousarray(self.A.toarray().T)
 
     def get_diagonal(self):
         return np.array(self.A.diagonal, copy=False)

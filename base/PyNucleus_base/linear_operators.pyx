@@ -1213,26 +1213,57 @@ cdef class sumMultiplyOperator(LinearOperator):
         cdef:
             INDEX_t i
             LinearOperator op
+            int ret
         op = self.ops[0]
-        op.matvec(x, y)
+        ret = op.matvec(x, y)
         scaleScalar(y, self.coeffs[0])
         for i in range(1, self.coeffs.shape[0]):
             op = self.ops[i]
-            op.matvec(x, self.z)
+            ret = min(ret, op.matvec(x, self.z))
             assign3(y, y, 1.0, self.z, self.coeffs[i])
-        return 0
+        return ret
 
     cdef INDEX_t matvec_no_overwrite(self,
                                      REAL_t[::1] x,
                                      REAL_t[::1] y) except -1:
         cdef:
             INDEX_t i
-            LinearOperator op
+            LinearOperator op = 0
+            int ret = 0
         for i in range(self.coeffs.shape[0]):
             op = self.ops[i]
-            op.matvec(x, self.z)
+            ret = min(op.matvec(x, self.z), ret)
             assign3(y, y, 1.0, self.z, self.coeffs[i])
-        return 0
+        return ret
+
+    cdef INDEX_t matvecTrans(self,
+                             REAL_t[::1] x,
+                             REAL_t[::1] y) except -1:
+        cdef:
+            INDEX_t i
+            LinearOperator op
+            int ret
+        op = self.ops[0]
+        ret = op.matvecTrans(x, y)
+        scaleScalar(y, self.coeffs[0])
+        for i in range(1, self.coeffs.shape[0]):
+            op = self.ops[i]
+            ret = min(ret, op.matvecTrans(x, self.z))
+            assign3(y, y, 1.0, self.z, self.coeffs[i])
+        return ret
+
+    cdef INDEX_t matvecTrans_no_overwrite(self,
+                                          REAL_t[::1] x,
+                                          REAL_t[::1] y) except -1:
+        cdef:
+            INDEX_t i
+            LinearOperator op
+            int ret = 0
+        for i in range(self.coeffs.shape[0]):
+            op = self.ops[i]
+            ret = min(ret, op.matvecTrans(x, self.z))
+            assign3(y, y, 1.0, self.z, self.coeffs[i])
+        return ret
 
     def toarray(self):
         return sum([c*op.toarray() for c, op in zip(self.coeffs, self.ops)])
@@ -1436,8 +1467,34 @@ cdef class multiIntervalInterpolationOperator(LinearOperator):
             interpolationOperator op
         assert self.selected != -1
         op = self.ops[self.selected]
-        op.matvec(x, y)
-        return 0
+        return op.matvec(x, y)
+
+    cdef INDEX_t matvec_no_overwrite(self,
+                                     REAL_t[::1] x,
+                                     REAL_t[::1] y) except -1:
+        cdef:
+            interpolationOperator op
+        assert self.selected != -1
+        op = self.ops[self.selected]
+        return op.matvec_no_overwrite(x, y)
+
+    cdef INDEX_t matvecTrans(self,
+                             REAL_t[::1] x,
+                             REAL_t[::1] y) except -1:
+        cdef:
+            interpolationOperator op
+        assert self.selected != -1
+        op = self.ops[self.selected]
+        return op.matvecTrans(x, y)
+
+    cdef INDEX_t matvecTrans_no_overwrite(self,
+                                          REAL_t[::1] x,
+                                          REAL_t[::1] y) except -1:
+        cdef:
+            interpolationOperator op
+        assert self.selected != -1
+        op = self.ops[self.selected]
+        return op.matvecTrans_no_overwrite(x, y)
 
     def toarray(self):
         assert self.selected != -1
@@ -1521,8 +1578,25 @@ cdef class delayedConstructionOperator(LinearOperator):
                         REAL_t[::1] x,
                         REAL_t[::1] y) except -1:
         self.assure_constructed()
-        self.A.matvec(x, y)
-        return 0
+        return self.A.matvec(x, y)
+
+    cdef INDEX_t matvec_no_overwrite(self,
+                                     REAL_t[::1] x,
+                                     REAL_t[::1] y) except -1:
+        self.assure_constructed()
+        return self.A.matvec_no_overwrite(x, y)
+
+    cdef INDEX_t matvecTrans(self,
+                             REAL_t[::1] x,
+                             REAL_t[::1] y) except -1:
+        self.assure_constructed()
+        return self.A.matvecTrans(x, y)
+
+    cdef INDEX_t matvecTrans_no_overwrite(self,
+                                          REAL_t[::1] x,
+                                          REAL_t[::1] y) except -1:
+        self.assure_constructed()
+        return self.A.matvecTrans_no_overwrite(x, y)
 
     def toarray(self):
         self.assure_constructed()
