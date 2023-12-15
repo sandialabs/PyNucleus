@@ -354,6 +354,7 @@ class discretizedNonlocalProblem(problem):
         super().__init__(driver)
         self.continuumProblem = continuumProblem
         self.addRemote(self.continuumProblem)
+        driver.addToProcessHook(self.setTimerManager)
 
     def setDriverArgs(self):
         p = self.driver.addGroup('solver')
@@ -366,6 +367,9 @@ class discretizedNonlocalProblem(problem):
         self.setDriverFlag('quadTypeBoundary', acceptedValues=['auto', 'classical', 'general', 'adaptive', 'classical-refactored'], group=p)
         self.setDriverFlag('matrixFormat', acceptedValues=['H2', 'sparse', 'sparsified', 'dense'], help='matrix format', group=p)
         self.setDriverFlag('debugAssemblyTimes', False, group=p)
+
+    def setTimerManager(self, params):
+        self._timer = self.driver.getTimer().getSubManager(logging.getLogger(__name__))
 
     @generates(['meshHierarchy', 'finalMesh',
                 'dm', 'dmBC', 'dmInterior',
@@ -518,7 +522,7 @@ class discretizedNonlocalProblem(problem):
             assemblyParams['dense'] = matrixFormat == 'dense'
             assemblyParams['matrixFormat'] = matrixFormat
             assemblyParams['tag'] = tag
-            self.A_BC = getFracLapl(dmInterior.mesh, dmInterior, dm2=dmBC, **assemblyParams)
+            self.A_BC = getFracLapl(dmInterior, dm2=dmBC, **assemblyParams)
         else:
             self.A_BC = None
 
@@ -638,7 +642,7 @@ class discretizedNonlocalProblem(problem):
     @generates('adjointModelSolution')
     def adjointSolve(self, b, dm, dmInterior, P_interior, adjointSolver, tol, maxiter):
         uInterior = dmInterior.zeros()
-        with self.timer('solve {}'.format(self.__class__.__name__)):
+        with self.timer('solve adjoint {}'.format(self.__class__.__name__)):
             its = adjointSolver(b, uInterior)
 
         resError = (b-adjointSolver.A*uInterior).norm(False)

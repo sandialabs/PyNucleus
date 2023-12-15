@@ -805,11 +805,19 @@ cdef class DoFMap:
         return assembleRHSgrad(fun, self, coeff, qr)
 
     def assembleNonlocal(self, kernel, str matrixFormat='DENSE', DoFMap dm2=None, BOOL_t returnNearField=False, **kwargs):
-        """Assemble a nonlocal operator of the form
+        """Assemble a nonlocal operator.
+
+        For finite horizon kernels
 
         .. math::
 
-           \\int_D (u(x)-u(y)) \\gamma(x, y) dy
+           \\iint_{D \\times D} (u(x)-u(y)) (v(x) \\gamma(x, y) - v(y) \\gamma(y, x))  dy dx
+
+        and for infinite horizon kernels
+
+        .. math::
+
+           \\iint_{D \\times D} (u(x)-u(y)) (v(x) \\gamma(x, y) - v(y) \\gamma(y, x))  dy dx + 2\\int_{D} u(x) v(x) \\int_{D^c} \\gamma(x, y) dy dx
 
         :param kernel: The kernel function :math:`\\gamma`
 
@@ -861,11 +869,11 @@ cdef class DoFMap:
                 if isinstance(kernel, ComplexKernel):
                     from PyNucleus_nl.nonlocalAssembly import ComplexnonlocalBuilder
 
-                    builder = ComplexnonlocalBuilder(self.mesh, self, kernel, dm2=dm2, **kwargs)
+                    builder = ComplexnonlocalBuilder(self, kernel, dm2=dm2, **kwargs)
                 else:
                     from PyNucleus_nl.nonlocalAssembly import nonlocalBuilder
 
-                    builder = nonlocalBuilder(self.mesh, self, kernel, dm2=dm2, **kwargs)
+                    builder = nonlocalBuilder(self, kernel, dm2=dm2, **kwargs)
                 if matrixFormat.upper() == 'DENSE':
                     return builder.getDense()
                 elif matrixFormat.upper() == 'DIAGONAL':

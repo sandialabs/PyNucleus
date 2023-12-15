@@ -858,7 +858,6 @@ cdef class {SCALAR_label}IndexManagerMixed({SCALAR_label}IndexManager):
 
 cdef class {SCALAR_label}nonlocalBuilder:
     def __init__(self,
-                 meshBase mesh,
                  DoFMap dm,
                  {SCALAR_label}Kernel kernel,
                  dict params={},
@@ -875,7 +874,6 @@ cdef class {SCALAR_label}nonlocalBuilder:
 
         self.dm = dm
         self.mesh = self.dm.mesh
-        assert self.dm.mesh == mesh
         if dm2 is not None:
             self.dm2 = dm2
             assert type(self.dm) == type(self.dm2)
@@ -889,7 +887,6 @@ cdef class {SCALAR_label}nonlocalBuilder:
         self.params = params
 
         assert isinstance(self.kernel.horizon, constant), "Need horizon to be constant."
-        assert kernel.dim == mesh.dim, "Kernel dimension must match mesh dimension"
         assert kernel.dim == dm.mesh.dim, "Kernel dimension must match dm.mesh dimension"
 
         # volume integral

@@ -14,4 +14,10 @@ from . DoFMaps import (P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap,
 from . factories import functionFactory, dofmapFactory, meshFactory
 from . pdeProblems import diffusionProblem, helmholtzProblem
 __all__ = ['functionFactory', 'dofmapFactory', 'meshFactory',
-           'diffusionProblem', 'helmholtzProblem']
+           'diffusionProblem', 'helmholtzProblem',
+           'PHYSICAL', 'INTERIOR_NONOVERLAPPING', 'INTERIOR', 'NO_BOUNDARY',
+           'DIRICHLET', 'HOMOGENEOUS_DIRICHLET',
+           'NEUMANN', 'HOMOGENEOUS_NEUMANN',
+           'NORM', 'boundaryConditions',
+           'P0_DoFMap', 'P1_DoFMap', 'P2_DoFMap', 'P3_DoFMap',
+           'str2DoFMap', 'str2DoFMapOrder', 'getAvailableDoFMaps']

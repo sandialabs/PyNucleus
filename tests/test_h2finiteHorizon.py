@@ -68,7 +68,7 @@ def test_h2_finite(kernels):
     ind = dm1.interpolate(Lambda(lambda x: abs(x[0]) < 1-1e-12))
     idx = ind.toarray() > 0
 
-    builder1 = nonlocalBuilder(mesh1, dm1, kernel1, zeroExterior=False, logging=True)
+    builder1 = nonlocalBuilder(dm1, kernel1, zeroExterior=False, logging=True)
     print('\nDENSE\n')
     A1 = builder1.getDense()
 
@@ -114,7 +114,7 @@ def test_h2_finite(kernels):
 
     if buildCorrected:
         print('\nCORRECTED\n')
-        builder2 = nonlocalBuilder(mesh2, dm2, kernel1, zeroExterior=False)
+        builder2 = nonlocalBuilder(dm2, kernel1, zeroExterior=False)
         A2 = builder2.getH2FiniteHorizon()
         A2.setKernel(kernel1)
 
@@ -234,7 +234,7 @@ def test_h2_finite(kernels):
         A2.setKernel(kernel2)
 
         print('\nDENSE\n')
-        builder3 = nonlocalBuilder(mesh3, dm3, kernel2, zeroExterior=False)
+        builder3 = nonlocalBuilder(dm3, kernel2, zeroExterior=False)
         A3 = builder3.getDense()
 
         A2d = A2.toarray()

@@ -559,7 +559,8 @@ def testFractionalKernel(fractionalKernelParams):
         assert np.isclose(div_fd, 2*infHorizonKernel(x, y), rtol=1e-3), (div_fd, 2*infHorizonKernel(x, y))
 
 
-from PyNucleus import dofmapFactory, fractionalOrderFactory, kernelFactory, meshFactory, nonlocalBuilder, REAL, functionFactory
+from PyNucleus import dofmapFactory, fractionalOrderFactory, kernelFactory, meshFactory, REAL, functionFactory
+from PyNucleus_nl import nonlocalBuilder
 
 
 def test_discrete_s_const():

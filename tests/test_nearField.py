@@ -79,14 +79,14 @@ class test:
         self.dm = DoFMap(self.mesh, self.tag)
         print(self.dm)
 
-        self.builder = nonlocalBuilder(self.mesh, self.dm, kernel, params=self.params, zeroExterior=self.zeroExterior)
+        self.builder = nonlocalBuilder(self.dm, kernel, params=self.params, zeroExterior=self.zeroExterior)
 
     def buildBaseA(self):
         if not hasattr(self, '_baseA'):
             if isinstance(self.s, variableConstFractionalOrder) and self.phi is None:
                 s = constFractionalOrder(self.s.value)
                 kernel = getFractionalKernel(self.dim, s, self.horizon, normalized=True)
-                self._constBuilder = nonlocalBuilder(self.mesh, self.dm, kernel, params=self.params, zeroExterior=self.zeroExterior)
+                self._constBuilder = nonlocalBuilder(self.dm, kernel, params=self.params, zeroExterior=self.zeroExterior)
                 self._baseA = self._constBuilder.getDense()
                 self._baseLabel = 'dense_const'
             else:

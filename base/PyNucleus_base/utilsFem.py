@@ -1822,7 +1822,9 @@ class driverAddon:
 
     @property
     def timer(self):
-        return self.driver.getTimer()
+        if self._timer is None:
+            self._timer = self.driver.getTimer()
+        return self._timer
 
     def processCmdline(self, params):
         pass
