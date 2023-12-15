@@ -52,4 +52,5 @@ ENV OMPI_MCA_hwloc_base_binding_policy=hwthread \
 RUN python -m ipykernel install --name=PyNucleus
 
 COPY README.container.rst /README.container.rst
+# hadolint ignore=SC2016
 RUN echo '[ ! -z "$TERM" -a -r /README.container.rst ] && cat /README.container.rst' >> /etc/bash.bashrc
