@@ -3,7 +3,7 @@ version: 3
 services:
 
   # Launch with:
-  # docker compose run --profile interactive pynucleus
+  # docker compose run pynucleus
   pynucleus:
     image: ghcr.io/sandialabs/pynucleus:latest
     build: .
@@ -22,6 +22,7 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - $XAUTHORITY:/root/.Xauthority
     network_mode: host
+    hostname: pynucleus-container
 
   # Launch with:
   # docker compose up
@@ -29,7 +30,7 @@ services:
   pynucleus-jupyter:
     image: ghcr.io/sandialabs/pynucleus:latest
     build: .
-    command: jupyter notebook --port=8888 --no-browser --ip=0.0.0.0 --allow-root --NotebookApp.token='' --NotebookApp.password='' --notebook-dir=/pynucleus/user --KernelSpecManager.ensure_native_kernel=False --KernelSpecManager.allowed_kernelspecs=pynucleus
+    command: jupyter notebook --port=8888 --no-browser --ip=0.0.0.0 --allow-root --NotebookApp.token='' --NotebookApp.password='' --notebook-dir=/notebooks --KernelSpecManager.ensure_native_kernel=False --KernelSpecManager.allowed_kernelspecs=pynucleus
     environment:
       # expose host proxies
       - http_proxy=${http_proxy}
@@ -37,8 +38,8 @@ services:
       - HTTP_PROXY=${HTTP_PROXY}
       - HTTPS_PROXY=${HTTPS_PROXY}
     volumes:
-      # The current directory on host gets mapped to /pynucleus/user in the container
-      - $PWD/notebooks:/pynucleus/user
+      # The notebook subdirectory on host gets mapped to /notebooks in the container
+      - $PWD/notebooks:/notebooks
     ports:
       # Expose a Jupyter notebook server from the container
       - 8889:8888

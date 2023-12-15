@@ -17,3 +17,4 @@ from . multigrid import multigrid, Complexmultigrid
 
 solverFactory.register('mg', multigrid, isMultilevelSolver=True)
 solverFactory.register('complex_mg', Complexmultigrid, isMultilevelSolver=True)
+__all__ = []

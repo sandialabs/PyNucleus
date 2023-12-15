@@ -196,7 +196,7 @@ cdef class horizonCorrected(TimeStepperLinearOperator):
         if Ainf is None:
             scaling = constantTwoPoint(0.5)
             infiniteKernel = kernel.getModifiedKernel(horizon=constant(np.inf), scaling=scaling)
-            infBuilder = nonlocalBuilder(self.mesh, self.dm, infiniteKernel, zeroExterior=True, comm=self.comm, logging=self.logging)
+            infBuilder = nonlocalBuilder(self.dm, infiniteKernel, zeroExterior=True, comm=self.comm, logging=self.logging)
             self.Ainf = infBuilder.getH2()
         else:
             self.Ainf = Ainf
@@ -233,7 +233,7 @@ cdef class horizonCorrected(TimeStepperLinearOperator):
         self.kernel = kernel
 
         complementKernel = kernel.getComplementKernel()
-        builder = nonlocalBuilder(self.mesh, self.dm, complementKernel, zeroExterior=True, comm=self.comm, logging=self.logging)
+        builder = nonlocalBuilder(self.dm, complementKernel, zeroExterior=True, comm=self.comm, logging=self.logging)
         correction = builder.getH2()
 
         self.S = self.Ainf
@@ -363,7 +363,7 @@ def assembleNonlocalOperator(meshBase mesh,
                              MPI.Comm comm=None,
                              **kwargs):
     kernel = getFractionalKernel(mesh.dim, s, horizon)
-    builder = nonlocalBuilder(mesh, dm, kernel, params, zeroExterior, comm, **kwargs)
+    builder = nonlocalBuilder(dm, kernel, params, zeroExterior, comm, **kwargs)
     return builder.getDense()
 
 
@@ -487,7 +487,7 @@ def assembleNearField(list Pnear,
                       comm=None,
                       **kwargs):
     kernel = getFractionalKernel(mesh.dim, s, horizon)
-    builder = nonlocalBuilder(mesh, dm, kernel, params, zeroExterior, comm, logging=True, **kwargs)
+    builder = nonlocalBuilder(dm, kernel, params, zeroExterior, comm, logging=True, **kwargs)
     A = builder.assembleClusters(Pnear)
     return A
 

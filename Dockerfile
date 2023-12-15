@@ -50,3 +50,6 @@ ENV OMPI_MCA_hwloc_base_binding_policy=hwthread \
     OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 
 RUN python -m ipykernel install --name=PyNucleus
+
+COPY README.container.rst /README.container.rst
+RUN echo '[ ! -z "$TERM" -a -r /README.container.rst ] && cat /README.container.rst' >> /etc/bash.bashrc

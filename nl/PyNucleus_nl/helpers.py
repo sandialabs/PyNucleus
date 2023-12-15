@@ -114,8 +114,9 @@ def processBC(tag, boundaryCondition, kernel):
     return tag, zeroExterior
 
 
-def getFracLapl(mesh, DoFMap, kernel=None, rangedOpParams={}, **kwargs):
+def getFracLapl(DoFMap, kernel=None, rangedOpParams={}, **kwargs):
 
+    mesh = DoFMap.mesh
     if kernel is None and len(rangedOpParams) == 0:
         return DoFMap.assembleStiffness(dm2=kwargs.get('dm2', None))
     assert kernel is not None or 's' in rangedOpParams, (kernel, rangedOpParams)
@@ -188,7 +189,7 @@ def getFracLapl(mesh, DoFMap, kernel=None, rangedOpParams={}, **kwargs):
                 intervalOps = []
                 for s in n:
                     kernel = getFractionalKernel(mesh.dim, constFractionalOrder(s), horizon, scaling=scaling, normalized=normalized)
-                    intervalOps.append(delayedFractionalLaplacianOp(mesh, DoFMap, kernel, **kwargs))
+                    intervalOps.append(delayedFractionalLaplacianOp(DoFMap, kernel, **kwargs))
                 ops.append(intervalOps)
             A = multiIntervalInterpolationOperator(intervals, nodes, ops)
             return A
@@ -263,10 +264,10 @@ def getFracLapl(mesh, DoFMap, kernel=None, rangedOpParams={}, **kwargs):
         if dm2 is not None and matrixFormat.upper() in ('H2', 'SPARSE', 'SPARSIFIED') and DoFMap.num_boundary_dofs > 0:
             # currently not implemented
             dm, R_interior, R_bc = DoFMap.getFullDoFMap(dm2)
-            A = getFracLapl(mesh, dm, kernel, rangedOpParams={}, **kwargs)
+            A = getFracLapl(dm, kernel, rangedOpParams={}, **kwargs)
             A = R_interior*A*R_bc.transpose()
             return A
-        builder = nonlocalBuilder(mesh, DoFMap, kernel, params, zeroExterior=zeroExterior, comm=comm, logging=logging, PLogger=PLogger, dm2=dm2)
+        builder = nonlocalBuilder(DoFMap, kernel, params, zeroExterior=zeroExterior, comm=comm, logging=logging, PLogger=PLogger, dm2=dm2)
         if diagonal:
             with timer('Assemble diagonal matrix {}, zeroExterior={}'.format(kernel, zeroExterior)):
                 A = builder.getDiagonal()
@@ -343,7 +344,7 @@ class fractionalLevel(algebraicLevelBase):
                     self.params['assemblyComm'] = self.comm
                     self.params['assembleOnRoot'] = False
                     self.params['forceUnsymmetric'] = True
-                self.S = getFracLapl(mesh, DoFMap, **self.params)
+                self.S = getFracLapl(DoFMap, **self.params)
                 self.A = self.S
                 # if not s.symmetric:
                 #     from PyNucleus_base.linear_operators import Dense_LinearOperator
@@ -650,10 +651,9 @@ class delayedNonlocalOp(delayedConstructionOperator):
 
 
 class delayedFractionalLaplacianOp(delayedConstructionOperator):
-    def __init__(self, mesh, dm, kernel, **kwargs):
+    def __init__(self, dm, kernel, **kwargs):
         super().__init__(dm.num_dofs,
                          dm.num_dofs)
-        self.mesh = mesh
         self.dm = dm
         self.kernel = kernel
         self.kwargs = kwargs
@@ -662,7 +662,7 @@ class delayedFractionalLaplacianOp(delayedConstructionOperator):
         from copy import copy
         d = copy(self.kwargs)
         d.update(self.params)
-        A = getFracLapl(self.mesh, self.dm, self.kernel, **d)
+        A = getFracLapl(self.dm, self.kernel, **d)
         return A
 
 

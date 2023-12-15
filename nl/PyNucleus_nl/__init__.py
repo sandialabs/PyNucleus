@@ -31,6 +31,6 @@ from . nonlocalProblems import (fractionalLaplacianProblem,
                                 nonlocalMeshFactory)
 from . discretizedProblems import (discretizedNonlocalProblem,
                                    discretizedTransientProblem)
-__all__ = [twoPointFunctionFactory, fractionalOrderFactory, interactionFactory, kernelFactory, nonlocalMeshFactory,
-           fractionalLaplacianProblem, nonlocalPoissonProblem, transientFractionalProblem,
-           discretizedNonlocalProblem, discretizedTransientProblem]
+__all__ = ['twoPointFunctionFactory', 'fractionalOrderFactory', 'interactionFactory', 'kernelFactory', 'nonlocalMeshFactory',
+           'fractionalLaplacianProblem', 'nonlocalPoissonProblem', 'transientFractionalProblem',
+           'discretizedNonlocalProblem', 'discretizedTransientProblem']

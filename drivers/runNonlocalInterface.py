@@ -92,9 +92,9 @@ np.testing.assert_equal(P1I.num_columns, P2I.num_columns)
 with d.timer('assemble matrices'):
     buildDense = True
 
-    A1 = getFracLapl(domain1Mesh, dm1, nIP.kernel1, boundaryCondition=HOMOGENEOUS_NEUMANN, dense=buildDense,
+    A1 = getFracLapl(dm1, nIP.kernel1, boundaryCondition=HOMOGENEOUS_NEUMANN, dense=buildDense,
                      forceRebuild=d.forceRebuild, genKernel=d.genKernel, trySparsification=True, doSave=True)
-    A2 = getFracLapl(domain2Mesh, dm2, nIP.kernel2, boundaryCondition=HOMOGENEOUS_NEUMANN, dense=buildDense,
+    A2 = getFracLapl(dm2, nIP.kernel2, boundaryCondition=HOMOGENEOUS_NEUMANN, dense=buildDense,
                      forceRebuild=d.forceRebuild, genKernel=d.genKernel, trySparsification=True, doSave=True)
 
 # domain-domain interaction

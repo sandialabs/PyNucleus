@@ -94,8 +94,8 @@ def scaling(dim, s, horizon, refinements):
     kernel2 = getFractionalKernel(mesh.dim, s, horizon, scaling=scaling)
     print(kernel1, kernel2)
     zeroExterior = not np.isfinite(horizon.value)
-    builder1 = nonlocalBuilder(mesh, dm, kernel1, zeroExterior=zeroExterior)
-    builder2 = nonlocalBuilder(mesh, dm, kernel2, zeroExterior=zeroExterior)
+    builder1 = nonlocalBuilder(dm, kernel1, zeroExterior=zeroExterior)
+    builder2 = nonlocalBuilder(dm, kernel2, zeroExterior=zeroExterior)
     A = builder1.getDense().toarray()
     B = builder2.getDense().toarray()
     assert np.allclose(A, B)
@@ -160,7 +160,7 @@ def h2(dim, s, refinements, element, errBnd, genKernel=False):
     params['eta'] = eta
     params['maxLevels'] = maxLevels
     kernel = getFractionalKernel(mesh.dim, s, constant(np.inf))
-    builder = nonlocalBuilder(mesh, DoFMap_fine, kernel, params=params, zeroExterior=True)
+    builder = nonlocalBuilder(DoFMap_fine, kernel, params=params, zeroExterior=True)
 
     A_d = np.array(builder.getDense().data)
     A_h2 = builder.getH2()
