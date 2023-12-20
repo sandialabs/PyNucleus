@@ -262,20 +262,20 @@ def saveDictToHDF5(params, f, ignore=set()):
                 if isinstance(val[0], list) and isinstance(val[0][0], (int, float, INDEX, REAL)):
                     g = f.create_group(key)
                     g.attrs['type'] = 'compressedList'
-                    l = 0
+                    listItems = 0
                     for i in range(len(val)):
-                        l += len(val[i])
+                        listItems += len(val[i])
                     indptr = uninitialized((len(val)+1), dtype=INDEX)
                     if isinstance(val[0][0], (int, INDEX)):
-                        data = uninitialized((l), dtype=INDEX)
+                        data = uninitialized((listItems), dtype=INDEX)
                     else:
-                        data = uninitialized((l), dtype=REAL)
-                    l = 0
+                        data = uninitialized((listItems), dtype=REAL)
+                    listItems = 0
                     for i in range(len(val)):
-                        indptr[i] = l
-                        data[l:l+len(val[i])] = val[i]
-                        l += len(val[i])
-                    indptr[-1] = l
+                        indptr[i] = listItems
+                        data[listItems:listItems+len(val[i])] = val[i]
+                        listItems += len(val[i])
+                    indptr[-1] = listItems
                     g.create_dataset('indptr', data=indptr)
                     g.create_dataset('data', data=data)
                 elif isinstance(val[0], str):
@@ -325,20 +325,20 @@ def loadDictFromHDF5(f):
         if isinstance(f[key], h5py.Group):
             if 'type' in f[key].attrs:
                 if f[key].attrs['type'] == 'list':
-                    l = []
+                    myList = []
                     for k in range(len(f[key].attrs)-1):
-                        l.append(f[key].attrs[str(k)])
-                    params[key] = l
+                        myList.append(f[key].attrs[str(k)])
+                    params[key] = myList
                 elif f[key].attrs['type'] == 'compressedList':
-                    l = []
+                    myCompressedList = []
                     indptr = np.array(f[key]['indptr'], dtype=INDEX)
                     if isinstance(f[key]['data'], (int, INDEX)):
                         data = np.array(f[key]['data'], dtype=INDEX)
                     else:
                         data = np.array(f[key]['data'], dtype=REAL)
                     for i in range(len(indptr)-1):
-                        l.append(data[indptr[i]:indptr[i+1]].tolist())
-                    params[key] = l
+                        myCompressedList.append(data[indptr[i]:indptr[i+1]].tolist())
+                    params[key] = myCompressedList
                 elif f[key].attrs['type'] == 'series':
                     d = loadDictFromHDF5(f[key])
                     grp = seriesOutputGroup(key)
@@ -359,10 +359,10 @@ def loadDictFromHDF5(f):
         else:
             params[key] = np.array(f[key])
             try:
-                l = []
+                myList = []
                 for i in range(len(params[key])):
-                    l.append(params[key][i].decode('utf-8'))
-                params[key] = l
+                    myList.append(params[key][i].decode('utf-8'))
+                params[key] = myList
             except:
                 pass
     return params
@@ -501,7 +501,8 @@ class MPIFileHandler(logging.Handler):
         # keep the absolute path, otherwise derived classes which use this
         # may come a cropper when the current directory changes
         self.baseFilename = os.path.abspath(filename)
-        assert len(self.baseFilename) <= 245, 'The length of the log file path \"{}\" is too long and will probably crash MPI. Try running with \"--disableFileLog\"'.format(self.baseFilename)
+        assert len(self.baseFilename) <= 245, ('The length of the log file path \"{}\" is too long ' +
+                                               'and will probably crash MPI. Try running with \"--disableFileLog\"').format(self.baseFilename)
         if Path(self.baseFilename).exists() and comm.rank == 0:
             from os import remove
             remove(self.baseFilename)
@@ -538,16 +539,16 @@ class MPIFileHandler(logging.Handler):
 
 def columns(lines, returnColWidth=False, colWidth=0):
     if colWidth == 0:
-        for l, _, _ in lines:
-            colWidth = max(len(l), colWidth)
+        for line, _, _ in lines:
+            colWidth = max(len(line), colWidth)
     s = []
-    for l, f, v in lines:
+    for line, f, v in lines:
         if isinstance(f, str):
             lf = '{:<'+str(colWidth+2)+'}'+f
-            s.append(lf.format(l+':', v))
+            s.append(lf.format(line+':', v))
         else:
             lf = '{:<'+str(colWidth+2)+'}'+'{}'
-            s.append(lf.format(l+':', f(v)))
+            s.append(lf.format(line+':', f(v)))
     s = '\n'.join(s)
     if returnColWidth:
         return s, colWidth
@@ -1488,18 +1489,22 @@ class propertyBuilder:
                     if isinstance(newValue, np.ndarray):
                         cached_args[prop] = newValue.copy()
                         if (newValue != oldValue).any():
-                            dependencyLogger.log(self.logLevel, 'Values for {} differ: \'{}\' != \'{}\', calling \'{}\''.format(prop, oldValue, newValue, self.fun.__name__))
+                            dependencyLogger.log(self.logLevel, 'Values for {} differ: \'{}\' != \'{}\', calling \'{}\''.format(prop, oldValue,
+                                                                                                                                newValue, self.fun.__name__))
                             needToBuild = True
                         else:
                             dependencyLogger.log(self.logLevel, 'Values for {} are identical: \'{}\' == \'{}\''.format(prop, oldValue, newValue))
                     elif newValue != oldValue:
                         cached_args[prop] = newValue
-                        dependencyLogger.log(self.logLevel, 'Values for {} differ: \'{}\' != \'{}\', calling \'{}\''.format(prop, oldValue, newValue, self.fun.__name__))
+                        dependencyLogger.log(self.logLevel, 'Values for {} differ: \'{}\' != \'{}\', calling \'{}\''.format(prop, oldValue,
+                                                                                                                            newValue, self.fun.__name__))
                         needToBuild = True
                     else:
                         dependencyLogger.log(self.logLevel, 'Values for {} are identical: \'{}\' == \'{}\''.format(prop, oldValue, newValue))
                 except Exception as e:
-                    dependencyLogger.log(logging.WARN, 'Cannot compare values {}, {} for property \'{}\', exception {}, force call \'{}\''.format(oldValue, newValue, prop, e, self.fun.__name__))
+                    dependencyLogger.log(logging.WARN,
+                                         'Cannot compare values {}, {} for property \'{}\', exception {}, force call \'{}\''.format(oldValue, newValue,
+                                                                                                                                    prop, e, self.fun.__name__))
                     needToBuild = True
             except AttributeError:
                 raise AttributeError('Method \'{}\' has unsatisfied dependency on \'{}\''.format(self.fun.__name__, prop))
@@ -1768,6 +1773,7 @@ class classWithComputedDependencies:
 class driverAddon:
     def __init__(self, driver):
         self.driver = driver
+        self._timer = None
         self.__parametrized_args__ = {}
         self.flags = []
         self.setDriverArgs()
@@ -1788,7 +1794,10 @@ class driverAddon:
             for p in parametrizedArgs:
                 if self.parametrizedArg(p).match(v):
                     return v
-            raise ArgumentTypeError("\"{}\" is not in list of accepted values {} or cannot be interpreted as parametrized arg {}.".format(v, acceptedValues, [repr(self.parametrizedArg(p)) for p in parametrizedArgs]))
+            raise ArgumentTypeError(("\"{}\" is not in list of accepted values {} " +
+                                     "or cannot be interpreted as parametrized arg {}.").format(v, acceptedValues,
+                                                                                                [repr(self.parametrizedArg(p))
+                                                                                                 for p in parametrizedArgs]))
 
         return interpreter
 

@@ -250,9 +250,9 @@ def doubleIntervalWithInteractions(a=0., b=1., c=2.,
                                    horizon1=0.1, horizon2=0.2,
                                    h=None):
 
-    def getNumCells(l, r):
+    def getNumCells(left, right):
         eps = 1e-8
-        return int(np.ceil((r-l-eps)/h))
+        return int(np.ceil((right-left-eps)/h))
 
     assert horizon2 >= horizon1
     assert horizon1 >= 0
@@ -341,7 +341,7 @@ def squareWithInteractions(ax, ay, bx, by,
         d1 = (circularSegment(bottomLeft, horizon, np.pi, 1.5*np.pi, numPointsPerUnitLength) +
               line(bottomLeft, bottomLeft-horizontalOffset) +
               line(bottomLeft, bottomLeft-verticalOffset) +
-              (lineHorizontal+bottomLeft)+
+              (lineHorizontal+bottomLeft) +
               (lineHorizontal+(bottomLeft-verticalOffset)))
 
         d2 = (circularSegment(bottomRight, horizon, -0.5*np.pi, 0., numPointsPerUnitLength) +
@@ -386,11 +386,11 @@ def squareWithInteractions(ax, ay, bx, by,
             assert np.allclose(yVals1, yVals2), (yVals1, yVals2)
 
             idx3 = np.logical_and(np.absolute(mesh.vertices_as_array[:, 1]-ay) < eps,
-                                np.logical_and(mesh.vertices_as_array[:, 0] >= ax-eps,
-                                               mesh.vertices_as_array[:, 0] <= bx+eps))
+                                  np.logical_and(mesh.vertices_as_array[:, 0] >= ax-eps,
+                                                 mesh.vertices_as_array[:, 0] <= bx+eps))
             idx4 = np.logical_and(np.absolute(mesh.vertices_as_array[:, 1]-by) < eps,
-                                np.logical_and(mesh.vertices_as_array[:, 0] >= ax-eps,
-                                               mesh.vertices_as_array[:, 0] <= bx+eps))
+                                  np.logical_and(mesh.vertices_as_array[:, 0] >= ax-eps,
+                                                 mesh.vertices_as_array[:, 0] <= bx+eps))
             xVals3 = np.sort(mesh.vertices_as_array[idx3, 0])
             xVals4 = np.sort(mesh.vertices_as_array[idx4, 0])
             assert np.allclose(xVals3, xVals4), (xVals3, xVals4)
@@ -2676,7 +2676,7 @@ class mesh3d(meshNd):
 
     def plot(self):
         import matplotlib.pyplot as plt
-        from mpl_toolkits.mplot3d import Axes3D
+        from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
         from itertools import combinations
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
@@ -2688,7 +2688,7 @@ class mesh3d(meshNd):
 
     def plot_surface(self, boundary=False):
         import matplotlib.pyplot as plt
-        from mpl_toolkits.mplot3d import Axes3D
+        from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
         from mpl_toolkits.mplot3d.art3d import Poly3DCollection
         # from matplotlib import rcParams
         # from itertools import combinations

@@ -56,7 +56,9 @@ class solverFactory(factory):
                 kwargs.pop('A', None)
                 hierarchy = kwargs.pop('hierarchy')
                 smoother = kwargs.pop('smoother', 'jacobi')
-                if not isinstance(hierarchy, list) and isinstance(hierarchy.builtHierarchies[-1].algebraicLevels[-1].A, ComplexLinearOperator) and self.multiLevelSolverFactory.isRegistered('complex_'+name):
+                if (not isinstance(hierarchy, list) and
+                        isinstance(hierarchy.builtHierarchies[-1].algebraicLevels[-1].A, ComplexLinearOperator) and
+                        self.multiLevelSolverFactory.isRegistered('complex_'+name)):
                     name = 'complex_'+name
                 solver = self.multiLevelSolverFactory.build(name, hierarchy, smoother, **kwargs)
             else:

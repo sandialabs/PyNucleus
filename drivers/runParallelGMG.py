@@ -282,8 +282,10 @@ if d.doPCoarsen:
         P0.num_columns = numGlobalDoFs0
         P.append(P0.to_csr())
 
-        coords.append(d.comm.reduce(P[-1].T @ (overlaps.getDistributeAsDiagonalOperator(lvl).to_csr()@hM[FINE].algebraicLevels[lvl].DoFMap.getDoFCoordinates())))
-        nullspace.append(d.comm.reduce(P[-1].T @ (overlaps.getDistributeAsDiagonalOperator(lvl).to_csr()@hM[FINE].algebraicLevels[lvl].DoFMap.ones())))
+        coords.append(d.comm.reduce(P[-1].T @ (overlaps.getDistributeAsDiagonalOperator(lvl).to_csr() @
+                                               hM[FINE].algebraicLevels[lvl].DoFMap.getDoFCoordinates())))
+        nullspace.append(d.comm.reduce(P[-1].T @ (overlaps.getDistributeAsDiagonalOperator(lvl).to_csr() @
+                                                  hM[FINE].algebraicLevels[lvl].DoFMap.ones())))
 
         A.append(d.comm.reduce((P[-1].T @ hM[FINE].algebraicLevels[lvl].A.to_csr() @ P[-1]).tocsr()))
 
@@ -294,7 +296,8 @@ if d.doPCoarsen:
     for k in range(len(lvls)-1):
         lvlC = lvls[k]
         lvlF = lvls[k+1]
-        P_ops.append(d.comm.reduce((P[lvlF].T @ overlaps.getDistributeAsDiagonalOperator(lvlF).to_csr() @ hM[FINE].algebraicLevels[lvlF].P.to_csr() @ P[lvlC]).tocsr()))
+        P_ops.append(d.comm.reduce((P[lvlF].T @ overlaps.getDistributeAsDiagonalOperator(lvlF).to_csr() @
+                                    hM[FINE].algebraicLevels[lvlF].P.to_csr() @ P[lvlC]).tocsr()))
 
     if d.comm.rank == 0:
         from scipy.io import mmwrite
@@ -319,8 +322,10 @@ if d.doPCoarsen:
         # A_global = CSR_LinearOperator.from_csr(A_global)
         # A2_global = CSR_LinearOperator.from_csr(A2_global)
         # P_global = CSR_LinearOperator.from_csr(P_global)
-        # mg = solverFactory('mg', hierarchy=[{'A': A2_global}, {'A': A_global, 'P': P_global, 'R': P_global.transpose()}], setup=True, smoother=('jacobi', {'presmoothingSteps': 2,
-        #                                                                                                                                                    'postsmoothingSteps': 2}))
+        # mg = solverFactory('mg', hierarchy=[{'A': A2_global}, {'A': A_global, 'P': P_global, 'R': P_global.transpose()}],
+        #                    setup=True,
+        #                    smoother=('jacobi', {'presmoothingSteps': 2,
+        #                                         'postsmoothingSteps': 2}))
         # print(mg)
         # cg = solverFactory('cg', A=A_global, setup=True, maxIter=d.maxiter, tolerance=tol)
         # cg.setPreconditioner(mg.asPreconditioner(), False)
