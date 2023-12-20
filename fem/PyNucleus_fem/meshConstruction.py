@@ -276,7 +276,7 @@ def rectangle(a, b, num_points=None, num_points_per_unit_len=None):
     def meshTransformation(x1, x2, xNew):
         eps = 1e-10
         if ((a[0]-eps <= x1[0] <= b[0]+eps) and (a[1]-eps <= x1[1] <= b[1]+eps) and
-            (a[0]-eps <= x2[0] <= b[0]+eps) and (a[1]-eps <= x2[1] <= b[1]+eps)):
+                (a[0]-eps <= x2[0] <= b[0]+eps) and (a[1]-eps <= x2[1] <= b[1]+eps)):
             xNew[:] = 0.5*(x1+x2)
             return True
 
@@ -290,6 +290,6 @@ class transformationRestriction(segment):
         for t in seg.meshTransformations:
             def transform(x1, x2, xNew):
                 if ((p1[0] <= xNew[0]) and (xNew[0] <= p2[0]) and
-                    (p1[1] <= xNew[1]) and (xNew[1] <= p2[1])):
+                        (p1[1] <= xNew[1]) and (xNew[1] <= p2[1])):
                     t(x1, x2, xNew)
             self.meshTransformations.append(transform)

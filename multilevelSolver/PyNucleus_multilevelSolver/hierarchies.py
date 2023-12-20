@@ -16,7 +16,7 @@ from PyNucleus_base.utilsFem import TimerManager, updateFromDefaults
 from PyNucleus_fem.boundaryLayerCy import boundaryLayer
 from PyNucleus_fem.algebraicOverlaps import multilevelAlgebraicOverlapManager
 from . levels import meshLevel, algebraicLevel
-from . levels import (DELETE_MESH, KEEP_MESH,
+from . levels import (DELETE_MESH, KEEP_MESH,    # noqa: F401
                       SPARSITY_PATTERN, DOFMAPS,
                       NO_BUILD, RESTRICTION_PROLONGATION_ONLY,
                       SPARSITY_ONLY, SINGLE_LEVEL, FULL_BUILD)
@@ -261,7 +261,8 @@ class hierarchy:
 class pCoarsenHierarchy(hierarchy):
     def __init__(self, meshLevel, params, comm=None,
                  label=''):
-        assert params['noRef']+1 == len(params['element']), 'Number of refinements does not match number of provided DoFMaps: {}+1 != len({})'.format(params['noRef'], params['element'])
+        assert params['noRef']+1 == len(params['element']), ('Number of refinements does not match number of ' +
+                                                             'provided DoFMaps: {}+1 != len({})').format(params['noRef'], params['element'])
         self.elements = params['element']
         params['element'] = self.elements[0]
         super(pCoarsenHierarchy, self).__init__(meshLevel, params, comm, label)
@@ -379,8 +380,8 @@ class hierarchyManager(object):
             if self.comm.rank == min(h['ranks']):
                 msg2 = []
                 for j in range(len(self.builtHierarchies[k].meshLevels)):
-                    l = self.builtHierarchies[k].meshLevels[j]
-                    msg2.append('{:30} {}'.format(l.levelID, ' '.join(["o" if tt else " " for tt in t])))
+                    mLevel = self.builtHierarchies[k].meshLevels[j]
+                    msg2.append('{:30} {}'.format(mLevel.levelID, ' '.join(["o" if tt else " " for tt in t])))
                     if info:
                         algLevel = self.builtHierarchies[k].algebraicLevels[j]
                         msg2[-1] += '  '

@@ -261,7 +261,8 @@ class algebraicLevelBase(level):
                 if self.meshLevel.meshOverlaps is not None:
                     with self.Timer('Build algebraic overlaps of type \'{}\''.format(commType)):
                         self.algebraicOverlaps = self.meshLevel.meshOverlaps.getDoFs(self.meshLevel.mesh, self.DoFMap, commType,
-                                                                                     allowInteriorBoundary=self.params['interiorBC'] == 'homogeneousNeumann' or not self.isLastLevel)
+                                                                                     allowInteriorBoundary=((self.params['interiorBC'] == 'homogeneousNeumann')
+                                                                                                            or not self.isLastLevel))
                     if self.params['debugOverlaps']:
                         self.algebraicOverlaps.check(mesh=self.meshLevel.mesh,
                                                      dm=self.DoFMap,
@@ -481,7 +482,8 @@ class algebraicLevel(algebraicLevelBase):
             if self.meshLevel.meshOverlaps is not None:
                 with self.Timer('Build algebraic overlaps of type \'{}\''.format(commType)):
                     self.algebraicOverlaps = self.meshLevel.meshOverlaps.getDoFs(self.meshLevel.mesh, self.DoFMap, commType,
-                                                                                 allowInteriorBoundary=self.params['interiorBC'] == 'homogeneousNeumann' or not self.isLastLevel)
+                                                                                 allowInteriorBoundary=((self.params['interiorBC'] == 'homogeneousNeumann')
+                                                                                                        or not self.isLastLevel))
                 if self.params['debugOverlaps']:
                     self.algebraicOverlaps.check(mesh=self.meshLevel.mesh,
                                                  dm=self.DoFMap,

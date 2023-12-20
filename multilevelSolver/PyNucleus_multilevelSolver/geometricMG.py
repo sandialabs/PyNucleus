@@ -8,9 +8,7 @@
 from __future__ import division
 import logging
 import numpy as np
-from PyNucleus_base.utilsFem import getLoggingTimer
-from PyNucleus_base import REAL, INDEX, uninitialized
-from PyNucleus_fem import P1_DoFMap
+from PyNucleus_base import INDEX, uninitialized
 from PyNucleus_base.linear_operators import LinearOperator
 
 LOGGER = logging.getLogger(__name__)

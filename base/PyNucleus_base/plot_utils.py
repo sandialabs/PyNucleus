@@ -212,6 +212,7 @@ def tabulate(x, results, floatfmt=None, groups=False, **kwargs):
 
 
 def formatScientificLatex(a, useEnotation=True):
+    import numpy as np
     if abs(a) > 0:
         exp = int(np.floor(np.log10(a)))
         mantissa = a/10**exp

@@ -11,14 +11,12 @@ mpi4py.rc.initialize = False
 from mpi4py import MPI
 import logging
 import numpy as np
-from PyNucleus_base.myTypes import REAL, INDEX, TAG
-from PyNucleus_base import uninitialized
+from PyNucleus_base.myTypes import REAL, INDEX
 from . levels import meshLevel, algebraicLevel
 from . hierarchies import EmptyHierarchy, hierarchy, pCoarsenHierarchy
 from PyNucleus_base.utilsFem import TimerManager
 from PyNucleus_fem.factories import meshFactory
 from PyNucleus_fem.repartitioner import Repartitioner
-from PyNucleus_fem.meshOverlaps import meshOverlap, interfaceManager
 
 LOGGER = logging.getLogger(__name__)
 
@@ -214,13 +212,15 @@ class repartitionConnector(hierarchyConnector):
         if self.is_overlapping and self.comm1 is not None:
             subdomain = self.hierarchy1.meshLevels[-1].mesh
             if self.global_comm.rank in self.OM.overlaps:
-                print('cells kept local on rank {} in repartitioning: {:,} / target: {:,}'.format(self.global_comm.rank,
-                                                                                                  self.OM.overlaps[self.global_comm.rank].num_cells/subdomain.num_cells,
-                                                                                                  self.comm1.size/self.global_comm.size))
+                print(('cells kept local on rank {} in repartitioning: ' +
+                       '{:,} / target: {:,}').format(self.global_comm.rank,
+                                                     self.OM.overlaps[self.global_comm.rank].num_cells/subdomain.num_cells,
+                                                     self.comm1.size/self.global_comm.size))
             else:
-                print('cells kept local on rank {} in repartitioning: {:,} / target: {:,}'.format(self.global_comm.rank,
-                                                                                                  0.,
-                                                                                                  self.comm1.size/self.global_comm.size))
+                print(('cells kept local on rank {} in repartitioning: ' +
+                       '{:,} / target: {:,}').format(self.global_comm.rank,
+                                                     0.,
+                                                     self.comm1.size/self.global_comm.size))
 
     def build(self):
         if self.hierarchy1 is not None:
