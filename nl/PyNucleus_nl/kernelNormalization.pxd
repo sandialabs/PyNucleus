@@ -64,6 +64,15 @@ cdef class variableFractionalLaplacianScaling(parametrizedTwoPointFunction):
         memoizedFun digamma
 
 
+cdef class variableIntegrableScaling(parametrizedTwoPointFunction):
+    cdef:
+        kernelType kType
+        interactionDomain interaction
+        INDEX_t dim
+        function horizonFun
+        twoPointFunction phi
+
+
 cdef class variableFractionalLaplacianScalingBoundary(parametrizedTwoPointFunction):
     cdef:
         INDEX_t dim
@@ -75,6 +84,10 @@ cdef class variableFractionalLaplacianScalingBoundary(parametrizedTwoPointFuncti
 
 
 cdef class variableFractionalLaplacianScalingWithDifferentHorizon(variableFractionalLaplacianScaling):
+    pass
+
+
+cdef class variableIntegrableScalingWithDifferentHorizon(variableIntegrableScaling):
     pass
 
 

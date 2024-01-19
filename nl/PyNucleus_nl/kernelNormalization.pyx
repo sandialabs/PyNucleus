@@ -18,7 +18,9 @@ from scipy.special.cython_special cimport gamma as cgamma
 from PyNucleus_fem.functions cimport constant
 from libc.stdlib cimport malloc
 from libc.string cimport memcpy
-from . interactionDomains cimport ball2, ballInf
+from . interactionDomains cimport (ball2_retriangulation, ball2_barycenter,
+                                   ballInf_retriangulation, ballInf_barycenter,
+                                   ellipse_retriangulation, ellipse_barycenter)
 
 include "kernel_params.pxi"
 
@@ -79,11 +81,8 @@ cdef class constantFractionalLaplacianScaling(constantTwoPoint):
                     value = gamma(0.5*dim) / abs(gamma(-2*s))/pow(pi, 0.5*dim) * 0.5 * 0.5
         super(constantFractionalLaplacianScaling, self).__init__(value)
 
-    def __getstate__(self):
-        return (self.dim, self.s, self.horizon, self.tempered)
-
-    def __setstate__(self, state):
-        constantFractionalLaplacianScaling.__init__(self, state[0], state[1], state[2], state[3])
+    def __reduce__(self):
+        return constantFractionalLaplacianScaling, (self.dim, self.s, self.horizon, self.tempered)
 
     def __repr__(self):
         return '{}({},{} -> {})'.format(self.__class__.__name__, self.s, self.horizon, self.value)
@@ -177,11 +176,8 @@ cdef class constantFractionalLaplacianScalingDerivative(twoPointFunction):
         else:
             raise NotImplementedError()
 
-    def __getstate__(self):
-        return (self.dim, self.s, self.horizon, self.normalized, self.boundary, self.derivative, self.tempered)
-
-    def __setstate__(self, state):
-        constantFractionalLaplacianScalingDerivative.__init__(self, state[0], state[1], state[2], state[3], state[4], state[5], state[6])
+    def __reduce__(self):
+        return constantFractionalLaplacianScalingDerivative, (self.dim, self.s, self.horizon, self.normalized, self.boundary, self.derivative, self.tempered)
 
     def __repr__(self):
         return "{}({},{} -> {})".format(self.__class__.__name__, self.s, self.horizon, self.fac)
@@ -200,9 +196,9 @@ cdef class constantIntegrableScaling(constantTwoPoint):
                 if dim == 1:
                     value = 3./horizon**3 / 2.
                 elif dim == 2:
-                    if isinstance(self.interaction, ball2):
+                    if isinstance(self.interaction, (ball2_retriangulation, ball2_barycenter, ellipse_retriangulation, ellipse_barycenter)):
                         value = 8./pi/horizon**4 / 2.
-                    elif isinstance(self.interaction, ballInf):
+                    elif isinstance(self.interaction, (ballInf_retriangulation, ballInf_barycenter)):
                         value = 3./4./horizon**4 / 2.
                     else:
                         raise NotImplementedError()
@@ -212,7 +208,7 @@ cdef class constantIntegrableScaling(constantTwoPoint):
                 if dim == 1:
                     value = 2./horizon**2 / 2.
                 elif dim == 2:
-                    if isinstance(self.interaction, ball2):
+                    if isinstance(self.interaction, (ball2_retriangulation, ball2_barycenter, ellipse_retriangulation, ellipse_barycenter)):
                         value = 6./pi/horizon**3 / 2.
                     else:
                         raise NotImplementedError()
@@ -223,7 +219,7 @@ cdef class constantIntegrableScaling(constantTwoPoint):
                     # value = 4.0/sqrt(pi)/(horizon/3.)**3 / 2.
                     value = 4.0/sqrt(pi)/(erf(3.0)-6.0*exp(-9.0)/sqrt(pi))/(horizon/3.0)**3 / 2.
                 elif dim == 2:
-                    if isinstance(self.interaction, ball2):
+                    if isinstance(self.interaction, (ball2_retriangulation, ball2_barycenter, ellipse_retriangulation, ellipse_barycenter)):
                         # value = 4.0/pi/(horizon/3.0)**4 / 2.
                         value = 4.0/pi/(1.0-10.0*exp(-9.0))/(horizon/3.0)**4 / 2.
                     else:
@@ -234,11 +230,8 @@ cdef class constantIntegrableScaling(constantTwoPoint):
                 raise NotImplementedError()
         super(constantIntegrableScaling, self).__init__(value)
 
-    def __getstate__(self):
-        return (self.kType, self.interaction, self.dim, self.horizon)
-
-    def __setstate__(self, state):
-        constantIntegrableScaling.__init__(self, state[0], state[1], state[2], state[3])
+    def __reduce__(self):
+        return constantIntegrableScaling, (self.kType, self.interaction, self.dim, self.horizon)
 
     def __repr__(self):
         return '{}({} -> {})'.format(self.__class__.__name__, self.horizon, self.value)
@@ -366,11 +359,125 @@ cdef class variableFractionalLaplacianScaling(parametrizedTwoPointFunction):
     def __repr__(self):
         return 'variableFractionalLaplacianScaling'
 
-    def __getstate__(self):
-        return (self.symmetric, self.normalized, self.boundary, self.derivative)
+    def __reduce__(self):
+        return variableFractionalLaplacianScaling, (self.symmetric, self.normalized, self.boundary, self.derivative)
 
-    def __setstate__(self, state):
-        variableFractionalLaplacianScaling.__init__(self, state[0], state[1], state[2], state[3])
+
+cdef class variableIntegrableScaling(parametrizedTwoPointFunction):
+    def __init__(self, kernelType kType, interactionDomain interaction):
+        super(variableIntegrableScaling, self).__init__(False, 1)
+        self.kType = kType
+        self.interaction = interaction
+
+    cdef void setParams(self, void *params):
+        parametrizedTwoPointFunction.setParams(self, params)
+        self.dim = getINDEX(self.params, fKDIM)
+
+    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
+        cdef:
+            REAL_t horizon2 = getREAL(self.params, fHORIZON2)
+
+        if horizon2 <= 0.:
+            value[0] = np.nan
+        else:
+            if self.kType == INDICATOR:
+                if self.dim == 1:
+                    value[0] = 3./horizon2**1.5 / 2.
+                elif self.dim == 2:
+                    if isinstance(self.interaction, (ball2_retriangulation, ball2_barycenter, ellipse_retriangulation, ellipse_barycenter)):
+                        value[0] = 8./pi/horizon2**2 / 2.
+                    elif isinstance(self.interaction, (ballInf_retriangulation, ballInf_barycenter)):
+                        value[0] = 3./4./horizon2**2 / 2.
+                    else:
+                        raise NotImplementedError()
+                else:
+                    raise NotImplementedError()
+            elif self.kType == PERIDYNAMIC:
+                if self.dim == 1:
+                    value[0] = 2./horizon2 / 2.
+                elif self.dim == 2:
+                    if isinstance(self.interaction, (ball2_retriangulation, ball2_barycenter, ellipse_retriangulation, ellipse_barycenter)):
+                        value[0] = 6./pi/horizon2**1.5 / 2.
+                    else:
+                        raise NotImplementedError()
+                else:
+                    raise NotImplementedError()
+            elif self.kType == GAUSSIAN:
+                if self.dim == 1:
+                    # value[0] = 4.0/sqrt(pi)/(horizon/3.)**3 / 2.
+                    value[0] = 4.0/sqrt(pi)/(erf(3.0)-6.0*exp(-9.0)/sqrt(pi))/(sqrt(horizon2)/3.0)**3 / 2.
+                elif self.dim == 2:
+                    if isinstance(self.interaction, (ball2_retriangulation, ball2_barycenter, ellipse_retriangulation, ellipse_barycenter)):
+                        # value[0] = 4.0/pi/(horizon/3.0)**4 / 2.
+                        value[0] = 4.0/pi/(1.0-10.0*exp(-9.0))/(sqrt(horizon2)/3.0)**4 / 2.
+                    else:
+                        raise NotImplementedError()
+                else:
+                    raise NotImplementedError()
+            else:
+                raise NotImplementedError()
+
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
+        cdef:
+            REAL_t horizon2 = getREAL(self.params, fHORIZON2)
+
+        if horizon2 <= 0.:
+            value[0] = np.nan
+        else:
+            if self.kType == INDICATOR:
+                if self.dim == 1:
+                    value[0] = 3./horizon2**1.5 / 2.
+                elif self.dim == 2:
+                    if isinstance(self.interaction, (ball2_retriangulation, ball2_barycenter, ellipse_retriangulation, ellipse_barycenter)):
+                        value[0] = 8./pi/horizon2**2 / 2.
+                    elif isinstance(self.interaction, (ballInf_retriangulation, ballInf_barycenter)):
+                        value[0] = 3./4./horizon2**2 / 2.
+                    else:
+                        raise NotImplementedError()
+                else:
+                    raise NotImplementedError()
+            elif self.kType == PERIDYNAMIC:
+                if self.dim == 1:
+                    value[0] = 2./horizon2 / 2.
+                elif self.dim == 2:
+                    if isinstance(self.interaction, (ball2_retriangulation, ball2_barycenter, ellipse_retriangulation, ellipse_barycenter)):
+                        value[0] = 6./pi/horizon2**1.5 / 2.
+                    else:
+                        raise NotImplementedError()
+                else:
+                    raise NotImplementedError()
+            elif self.kType == GAUSSIAN:
+                if self.dim == 1:
+                    # value[0] = 4.0/sqrt(pi)/(horizon/3.)**3 / 2.
+                    value[0] = 4.0/sqrt(pi)/(erf(3.0)-6.0*exp(-9.0)/sqrt(pi))/(sqrt(horizon2)/3.0)**3 / 2.
+                elif self.dim == 2:
+                    if isinstance(self.interaction, (ball2_retriangulation, ball2_barycenter, ellipse_retriangulation, ellipse_barycenter)):
+                        # value[0] = 4.0/pi/(horizon/3.0)**4 / 2.
+                        value[0] = 4.0/pi/(1.0-10.0*exp(-9.0))/(sqrt(horizon2)/3.0)**4 / 2.
+                    else:
+                        raise NotImplementedError()
+                else:
+                    raise NotImplementedError()
+            else:
+                raise NotImplementedError()
+
+    def getScalingWithDifferentHorizon(self):
+        cdef:
+            variableIntegrableScalingWithDifferentHorizon scaling
+            function horizonFun
+            BOOL_t horizonFunNull = isNull(self.params, fHORIZONFUN)
+        if not horizonFunNull:
+            horizonFun = <function>((<void**>(self.params+fHORIZONFUN))[0])
+        else:
+            horizonFun = constant(sqrt(getREAL(self.params, fHORIZON2)))
+        scaling = variableIntegrableScalingWithDifferentHorizon(self.kType, self.interaction, horizonFun)
+        return scaling
+
+    def __repr__(self):
+        return 'variableIntegrableScaling'
+
+    def __reduce__(self):
+        return variableIntegrableScaling, (self.kType, self.interaction)
 
 
 ######################################################################
@@ -410,10 +517,43 @@ cdef class variableFractionalLaplacianScalingWithDifferentHorizon(variableFracti
         self.setParams(params)
         value[0] = scalingValue
 
-    def __getstate__(self):
-        return (self.symmetric, self.normalized, self.boundary, self.derivative, self.horizonFun)
-
-    def __setstate__(self, state):
-        variableFractionalLaplacianScalingWithDifferentHorizon.__init__(self, state[0], state[1], state[2], state[3], state[4])
+    def __reduce__(self):
+        return variableFractionalLaplacianScalingWithDifferentHorizon, (self.symmetric, self.normalized, self.boundary, self.derivative, self.horizonFun)
 
 
+cdef class variableIntegrableScalingWithDifferentHorizon(variableIntegrableScaling):
+    def __init__(self, kernelType kType, interactionDomain interaction, function horizonFun):
+        super(variableIntegrableScalingWithDifferentHorizon, self).__init__(kType, interaction)
+        self.horizonFun = horizonFun
+
+    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
+        cdef:
+            void* params
+            void* paramsModified = malloc(NUM_KERNEL_PARAMS*OFFSET)
+            REAL_t horizon, scalingValue
+        horizon = self.horizonFun.eval(x)
+        params = self.getParams()
+        memcpy(paramsModified, params, NUM_KERNEL_PARAMS*OFFSET)
+        setREAL(paramsModified, fHORIZON2, horizon**2)
+        self.setParams(paramsModified)
+        variableIntegrableScaling.evalPtr(self, x.shape[0], &x[0], &y[0], &scalingValue)
+        self.setParams(params)
+        value[0] = scalingValue
+
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
+        cdef:
+            void* params
+            void* paramsModified = malloc(NUM_KERNEL_PARAMS*OFFSET)
+            REAL_t horizon, scalingValue
+            REAL_t[::1] xA = <REAL_t[:dim]> x
+        horizon = self.horizonFun.eval(xA)
+        params = self.getParams()
+        memcpy(paramsModified, params, NUM_KERNEL_PARAMS*OFFSET)
+        setREAL(paramsModified, fHORIZON2, horizon**2)
+        self.setParams(paramsModified)
+        variableIntegrableScaling.evalPtr(self, dim, x, y, &scalingValue)
+        self.setParams(params)
+        value[0] = scalingValue
+
+    def __reduce__(self):
+        return variableIntegrableScalingWithDifferentHorizon, (self.kType, self.interaction, self.horizonFun)

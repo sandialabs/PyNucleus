@@ -17,7 +17,7 @@ from PyNucleus_fem.mesh import (simpleInterval, intervalWithInteraction,
                                 double_graded_interval_with_interaction,
                                 discWithIslands,
                                 twinDisc,
-                                box,
+                                # box,
                                 # boxWithInteractions,
                                 ball)
 from PyNucleus_fem.functions import (Lambda, constant,
@@ -36,12 +36,17 @@ from . twoPointFunctions import (constantTwoPoint,
                                  temperedTwoPoint,
                                  leftRightTwoPoint,
                                  interfaceTwoPoint,
-                                 smoothedLeftRightTwoPoint,)
+                                 smoothedLeftRightTwoPoint,
+                                 lambdaTwoPoint)
 from . interactionDomains import (fullSpace,
-                                  ball1,
-                                  ball2,
-                                  ballInf,
-                                  ellipse)
+                                  ball1_retriangulation,
+                                  ball1_barycenter,
+                                  ball2_retriangulation,
+                                  ball2_barycenter,
+                                  ballInf_retriangulation,
+                                  ballInf_barycenter,
+                                  ellipse_retriangulation,
+                                  ellipse_barycenter)
 from . fractionalOrders import (constFractionalOrder,
                                 variableConstFractionalOrder,
                                 constantNonSymFractionalOrder,
@@ -97,12 +102,18 @@ twoPointFunctionFactory.register('constant', constantTwoPoint, aliases=['const',
 twoPointFunctionFactory.register('tempered', temperedTwoPoint, aliases=['temperedTwoPoint'])
 twoPointFunctionFactory.register('leftRight', leftRightTwoPoint, aliases=['leftRightTwoPoint'])
 twoPointFunctionFactory.register('interface', interfaceTwoPoint, aliases=['interfaceTwoPoint'])
+twoPointFunctionFactory.register('lambda', lambdaTwoPoint)
 
 interactionFactory = factory()
 interactionFactory.register('fullSpace', fullSpace, aliases=['full'])
-interactionFactory.register('ball2', ball2, aliases=['2', 2])
-interactionFactory.register('ball1', ball1, aliases=['1', 1])
-interactionFactory.register('ballInf', ballInf, aliases=['inf', np.inf])
+interactionFactory.register('ball2_retriangulation', ball2_retriangulation, aliases=['ball2', '2', 2])
+interactionFactory.register('ball2_barycenter', ball2_barycenter)
+interactionFactory.register('ball1_retriangulation', ball1_retriangulation, aliases=['ball1', '1', 1])
+interactionFactory.register('ball1_barycenter', ball1_barycenter)
+interactionFactory.register('ballInf_retriangulation', ballInf_retriangulation, aliases=['ballInf', 'inf', np.inf])
+interactionFactory.register('ballInf_barycenter', ballInf_barycenter)
+interactionFactory.register('ellipse_retriangulation', ellipse_retriangulation, aliases=['ellipse'])
+interactionFactory.register('ellipse_barycenter', ellipse_barycenter)
 
 kernelFactory = factory()
 kernelFactory.register('fractional', getFractionalKernel)
@@ -133,8 +144,10 @@ class nonlocalMeshFactoryClass(factory):
 
         if kernel is None:
             horizonValue = 0.
-        else:
+        elif isinstance(kernel.horizon, constant):
             horizonValue = kernel.horizon.value
+        else:
+            horizonValue = kernel.max_horizon
 
         domainIndicator, boundaryIndicator, interactionIndicator = super(nonlocalMeshFactoryClass, self).build(name, **kwargs)
 
@@ -273,7 +286,8 @@ nonlocalMeshFactory.register('discWithIslands', discWithIslands, discWithIslands
 nonlocalMeshFactory.register('twinDisc', twinDisc, twinDisc, 2, radialIndicators,
                              {'radius': 1., 'sep': 0.1}, {'radius': 1., 'sep': 0.1})
 # nonlocalMeshFactory.register('box', box, boxWithInteractions, 3, boxIndicators,
-#                              {'Nx': 2, 'Ny': 2, 'Nz': 2, 'ax': -1, 'ay': -1, 'az': -1, 'bx': 1, 'by': 1, 'bz': 1}, {'Nx': 2, 'Ny': 2, 'Nz': 2, 'ax': -1, 'ay': -1, 'az': -1, 'bx': 1, 'by': 1, 'bz': 1})
+#                              {'Nx': 2, 'Ny': 2, 'Nz': 2, 'ax': -1, 'ay': -1, 'az': -1, 'bx': 1, 'by': 1, 'bz': 1},
+#                              {'Nx': 2, 'Ny': 2, 'Nz': 2, 'ax': -1, 'ay': -1, 'az': -1, 'bx': 1, 'by': 1, 'bz': 1})
 nonlocalMeshFactory.register('ball', ball, ballWithInteractions, 3, radialIndicators,
                              {'radius': 1.}, {'radius': 1.})
 
@@ -310,9 +324,10 @@ class nonlocalBaseProblem(problem):
                                                                                   'innerOuterNonSym',
                                                                                   'layers', 'islands', 'islands4']), help='fractional order', group=p)
         self.setDriverFlag('horizon', 0.2, help='interaction horizon', group=p)
-        self.addParametrizedArg('ellipse', [float, float])
-        self.setDriverFlag('interaction', 'ball2', argInterpreter=self.argInterpreter(['ellipse'],
-                                                                                      acceptedValues=['ball2', 'ellipse', 'fullSpace']),
+        self.addParametrizedArg('ellipse', [float, float, float])
+        self.setDriverFlag('interaction', 'ball2', argInterpreter=self.argInterpreter(['ellipse',
+                                                                                       ],
+                                                                                      acceptedValues=['ball2', 'fullSpace']),
                            help='interaction domain', group=p)
         self.setDriverFlag('phi', 'const(1.)', argInterpreter=self.argInterpreter(['const', 'twoDomain', 'twoDomainNonSym', 'tempered']),
                            help='kernel coefficient', group=p)
@@ -323,7 +338,8 @@ class nonlocalBaseProblem(problem):
         dim = nonlocalMeshFactory.getDim(params['domain'])
         if params['kernelType'] == 'fractional':
             s = params['s']
-            for sName in ['const', 'varconst', 'constantNonSym', 'leftRight', 'twoDomain', 'twoDomainNonSym', 'linearLeftRightNonSym', 'innerOuterNonSym', 'islands']:
+            for sName in ['const', 'varconst', 'constantNonSym', 'leftRight', 'twoDomain', 'twoDomainNonSym',
+                          'linearLeftRightNonSym', 'innerOuterNonSym', 'islands']:
                 if self.parametrizedArg(sName).match(s):
                     sType = sName
                     sArgs = self.parametrizedArg(sName).interpret(s)
@@ -461,18 +477,26 @@ class nonlocalBaseProblem(problem):
         else:
             phiFun = None
 
+        if isinstance(horizon, (REAL, float)):
+            horizonFun = functionFactory('constant', horizon)
+
+        max_horizon = np.nan
         if horizon == np.inf:
             interactionFun = fullSpace()
         elif interaction == 'ball2':
-            interactionFun = ball2()
+            interactionFun = ball2_retriangulation(horizonFun)
         elif self.parametrizedArg('ellipse').match(interaction):
-            aFac, bFac = self.parametrizedArg('ellipse').interpret(interaction)
-            interactionFun = ellipse(aFac, bFac)
+            a, b, theta = self.parametrizedArg('ellipse').interpret(interaction)
+            interactionFun = ellipse_retriangulation(horizonFun,
+                                                     functionFactory('constant', a),
+                                                     functionFactory('constant', b),
+                                                     functionFactory('constant', theta))
         else:
             raise NotImplementedError(interaction)
 
-        self.kernel = getKernel(dim=dim, kernel=kType, s=sFun, horizon=horizon, normalized=normalized, phi=phiFun,
-                                interaction=interactionFun, piecewise=sFun.symmetric if sFun is not None else True)
+        self.kernel = getKernel(dim=dim, kernel=kType, s=sFun, horizon=horizonFun, normalized=normalized, phi=phiFun,
+                                interaction=interactionFun, piecewise=sFun.symmetric if sFun is not None else True,
+                                max_horizon=max_horizon)
 
     def report(self, group):
         group.add('kernel', self.kernel)
@@ -592,7 +616,7 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
             if problem == 'constant':
                 self.rhs = constant(1.)
                 if (isinstance(s, (constFractionalOrder, variableConstFractionalOrder, constantNonSymFractionalOrder)) or
-                    (isinstance(s, feFractionalOrder) and np.array(s.vec).min() == np.array(s.vec).max())):
+                        (isinstance(s, feFractionalOrder) and np.array(s.vec).min() == np.array(s.vec).max())):
                     if isinstance(s, feFractionalOrder):
                         sValue = s.vec[0]
                     else:
@@ -680,12 +704,12 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                     self.analyticSolution = solFractional(s.value, dim, radius)
             elif problem == 'notPeriodic':
                 n = 2
-                l = 2
-                self.exactHsSquared = 2**(2*s-1)/(2*n+s+l+1) * Gamma(1+s+n)**2/Gamma(1+n)**2 * (np.pi+np.sin(4*np.pi*l)/(4*l))
+                freq = 2
+                self.exactHsSquared = 2**(2*s-1)/(2*n+s+freq+1) * Gamma(1+s+n)**2/Gamma(1+n)**2 * (np.pi+np.sin(4*np.pi*freq)/(4*freq))
 
                 n = 1
-                l = 5
-                self.exactHsSquared += 2**(2*s-1)/(2*n+s+l+1) * Gamma(1+s+n)**2/Gamma(1+n)**2 * (np.pi+np.sin(4*np.pi*l)/(4*l))
+                freq = 5
+                self.exactHsSquared += 2**(2*s-1)/(2*n+s+freq+1) * Gamma(1+s+n)**2/Gamma(1+n)**2 * (np.pi+np.sin(4*np.pi*freq)/(4*freq))
                 self.rhs = rhsFractional2D_nonPeriodic(s)
             elif problem == 'plateau':
                 self.rhs = Lambda(lambda x: x[0] > 0)
@@ -701,10 +725,10 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                     for k in range(100000):
                         self.exactHsSquared += 2**(-2*s) / Gamma(s+3)**2 / (2*np.pi) * (2*k+s+2) * (k+1) / binom(k+s+1.5, s+2)**2
             elif isinstance(problem, tuple):
-                n, l = problem
-                self.exactHsSquared = 2**(2*s-1)/(2*n+s+l+1) * Gamma(1+s+n)**2/Gamma(1+n)**2 * (np.pi+np.sin(4*np.pi*l)/(4*l))
+                n, freq = problem
+                self.exactHsSquared = 2**(2*s-1)/(2*n+s+freq+1) * Gamma(1+s+n)**2/Gamma(1+n)**2 * (np.pi+np.sin(4*np.pi*freq)/(4*freq))
 
-                self.rhs = rhsFractional2D(s, n=n, l=l)
+                self.rhs = rhsFractional2D(s, n=n, l=freq)
             elif problem == 'sin':
                 self.rhs = Lambda(lambda x: np.sin(np.pi*(x[0]**2+x[1]**2)))
             elif problem == 'knownSolution':
@@ -839,9 +863,10 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
         self.setDriverFlag('domain', 'interval', acceptedValues=['gradedInterval', 'square', 'disc', 'gradedDisc', 'discWithIslands'], help='spatial domain')
         self.addParametrizedArg('indicator', [float, float])
         self.addParametrizedArg('polynomial', [int])
+        self.addParametrizedArg('quadratic', [float, float, float])
         self.setDriverFlag('problem', 'poly-Dirichlet',
-                           argInterpreter=self.argInterpreter(['indicator', 'polynomial'],
-                                                              acceptedValues=['poly-Dirichlet', 'poly-Dirichlet2', 'poly-Dirichlet3',
+                           argInterpreter=self.argInterpreter(['indicator', 'polynomial', 'quadratic'],
+                                                              acceptedValues=['poly-Dirichlet',
                                                                               'poly-Neumann', 'zeroFlux', 'source', 'constant',
                                                                               'exact-sin-Dirichlet', 'exact-sin-Neumann', 'sin-Dirichlet', 'discontinuous']),
                            help="select a problem to solve")
@@ -876,11 +901,11 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
         if kernel is not None:
             kType = kernel.kernelType
             phiFun = kernel.phi
-            interaction = kernel.interaction
+            interactionFun = kernel.interaction
         else:
             kType = None
             phiFun = None
-            interaction = None
+            interactionFun = None
         if kType == FRACTIONAL:
             sFun = kernel.s
         else:
@@ -915,7 +940,8 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                 self.rhsData = constant(2)
                 self.fluxData = constant(0)
                 self.dirichletData = Lambda(lambda x: 1-x[0]**2)
-                if ((kType == FRACTIONAL and isinstance(sFun, constFractionalOrder)) or kType in (INDICATOR, PERIDYNAMIC, GAUSSIAN)) and phiFun is None and normalized:
+                if ((kType == FRACTIONAL and isinstance(sFun, constFractionalOrder)) or
+                        kType in (INDICATOR, PERIDYNAMIC, GAUSSIAN)) and phiFun is None and normalized:
                     self.analyticSolution = Lambda(lambda x: 1-x[0]**2)
             elif self.parametrizedArg('polynomial').match(problem):
                 self.domainIndicator = domainIndicator
@@ -923,7 +949,8 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                 self.interactionIndicator = interactionIndicator+boundaryIndicator
                 self.fluxData = constant(0)
                 polyOrder = self.parametrizedArg('polynomial').interpret(problem)[0]
-                knownSolution = (((kType == FRACTIONAL and isinstance(sFun, (constFractionalOrder, variableConstFractionalOrder, singleVariableUnsymmetricFractionalOrder))) or
+                knownSolution = (((kType == FRACTIONAL and isinstance(sFun, (constFractionalOrder, variableConstFractionalOrder,
+                                                                             singleVariableUnsymmetricFractionalOrder))) or
                                   (kType in (INDICATOR, PERIDYNAMIC, GAUSSIAN))) and
                                  phiFun is None and
                                  normalized and
@@ -953,7 +980,6 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                     self.dirichletData = functionFactory('Lambda', lambda x: x[0]**polyOrder)
                     if knownSolution:
                         self.analyticSolution = self.dirichletData
-
 
             elif problem == 'exact-sin-Dirichlet':
                 assert ((kType == INDICATOR) or (kType == FRACTIONAL)) and phiFun is None and normalized
@@ -1061,7 +1087,8 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                         # return (1+(dist/horizonBase)**(2-2*sBase) - 2*abs(x[0]) * (2-2*sBase)/(1-2*sBase)/horizonBase * (1-(dist/horizonBase)**(1-2*sBase)))
                         dist = 1+horizonBase-abs(x[0])
                         assert dist >= 0
-                        return 2*self.kernel.scalingValue * ((2*abs(x[0])/(1-2*sBase)) * (dist**(1-2*sBase)-horizonBase**(1-2*sBase)) + 1/(2-2*sBase) * (dist**(2-2*sBase)+horizonBase**(2-2*sBase)))
+                        return 2*self.kernel.scalingValue * ((2*abs(x[0])/(1-2*sBase)) * (dist**(1-2*sBase)-horizonBase**(1-2*sBase)) +
+                                                             1/(2-2*sBase) * (dist**(2-2*sBase)+horizonBase**(2-2*sBase)))
                 elif kType == PERIDYNAMIC:
                     def fluxFun(x):
                         dist = 1+horizonBase-abs(x[0])
@@ -1153,49 +1180,76 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
             self.interactionInteriorIndicator = interactionIndicator = nI['interaction']
             self.domainIndicator = domainIndicator
             self.interactionIndicator = interactionIndicator+boundaryIndicator
-            if problem == 'poly-Dirichlet' and isinstance(interaction, ball2):
+            if problem == 'poly-Dirichlet' and isinstance(interactionFun, (ball2_retriangulation, ball2_barycenter)):
                 self.fluxIndicator = constant(0)
                 self.rhsData = constant(2)
                 self.fluxData = constant(0)
                 self.dirichletData = Lambda(lambda x: 1-x[0]**2)
                 if (((kType == FRACTIONAL and isinstance(sFun, constFractionalOrder)) or
-                     kType in (INDICATOR, PERIDYNAMIC, GAUSSIAN)) and
-                    phiFun is None and
-                    normalized):
+                        kType in (INDICATOR, PERIDYNAMIC, GAUSSIAN)) and
+                        phiFun is None and
+                        normalized):
                     self.analyticSolution = Lambda(lambda x: 1-x[0]**2)
-            elif problem == 'poly-Dirichlet' and isinstance(interaction, ellipse):
-                aFac = np.sqrt(self.kernel.interaction.aFac2)
-                bFac = np.sqrt(self.kernel.interaction.bFac2)
-                self.fluxIndicator = constant(0)
-                self.rhsData = constant(2)
-                self.fluxData = constant(0)
-                self.dirichletData = Lambda(lambda x: (1-x[0]**2) * 2/(np.pi*self.kernel.horizon.value**4/4 * aFac**3 * bFac))
-                if (kType == INDICATOR and
-                    phiFun is None and
-                    not normalized):
+            elif self.parametrizedArg('quadratic').match(problem):
+                B = np.zeros((2, 2), dtype=REAL)
+                B[0, 0], B[0, 1], B[1, 1] = self.parametrizedArg('quadratic').interpret(problem)
+                B[1, 0] = B[0, 1]
+                if isinstance(interactionFun, (ellipse_barycenter, ellipse_retriangulation)):
+                    theta = self.kernel.interaction.theta.value
+                    a = self.kernel.interaction.a.value
+                    b = self.kernel.interaction.b.value
+                    rotation = np.array([[np.cos(theta), np.sin(theta)],
+                                         [-np.sin(theta), np.cos(theta)]], dtype=REAL)
+                    B2 = rotation.T@B@rotation
+                    self.fluxIndicator = constant(0)
+                    self.rhsData = functionFactory('Lambda', lambda x: 2.*B2[0, 0]*a**3*b + 2.*B2[1, 1]*a*b**3)
+                    self.fluxData = constant(0)
+                    self.dirichletData = functionFactory('Lambda', lambda x: 1-np.vdot(x, B@x))
+                    if (phiFun is None and normalized):
+                        self.analyticSolution = self.dirichletData
+                else:
+                    self.fluxIndicator = constant(0)
+                    self.rhsData = functionFactory('Lambda', lambda x: 2.*B[0, 0] + 2.*B[1, 1])
+                    self.fluxData = constant(0)
+                    self.dirichletData = functionFactory('Lambda', lambda x: 1-np.vdot(x, B@x))
                     self.analyticSolution = self.dirichletData
-            elif problem == 'poly-Dirichlet2' and isinstance(interaction, ellipse):
-                aFac = np.sqrt(self.kernel.interaction.aFac2)
-                bFac = np.sqrt(self.kernel.interaction.bFac2)
+            elif self.parametrizedArg('polynomial').match(problem):
+                self.domainIndicator = domainIndicator
                 self.fluxIndicator = constant(0)
-                self.rhsData = constant(2)
+                self.interactionIndicator = interactionIndicator+boundaryIndicator
                 self.fluxData = constant(0)
-                self.dirichletData = Lambda(lambda x: (1-x[1]**2) * 2/(np.pi*self.kernel.horizon.value**4/4 * aFac * bFac**3))
-                if (kType == INDICATOR and
-                    phiFun is None and
-                    not normalized):
-                    self.analyticSolution = self.dirichletData
-            elif problem == 'poly-Dirichlet3' and isinstance(interaction, ellipse):
-                aFac = np.sqrt(self.kernel.interaction.aFac2)
-                bFac = np.sqrt(self.kernel.interaction.bFac2)
-                self.fluxIndicator = constant(0)
-                self.rhsData = constant(4)
-                self.fluxData = constant(0)
-                self.dirichletData = Lambda(lambda x: (1-x[0]**2) * 2/(np.pi*self.kernel.horizon.value**4/4 * aFac**3 * bFac) + (1-x[1]**2) * 2/(np.pi*self.kernel.horizon.value**4/4 * aFac * bFac**3))
-                if (kType == INDICATOR and
-                    phiFun is None and
-                    not normalized):
-                    self.analyticSolution = self.dirichletData
+                polyOrder = self.parametrizedArg('polynomial').interpret(problem)[0]
+                knownSolution = (((kType == FRACTIONAL and isinstance(sFun, (constFractionalOrder, variableConstFractionalOrder,
+                                                                             singleVariableUnsymmetricFractionalOrder))) or
+                                  (kType in (INDICATOR, PERIDYNAMIC, GAUSSIAN))) and
+                                 phiFun is None and
+                                 normalized and
+                                 0 <= polyOrder <= 3)
+                if polyOrder == 0:
+                    self.rhsData = functionFactory('constant', 0.)
+                    self.dirichletData = functionFactory('constant', 1.)
+                    if knownSolution:
+                        self.analyticSolution = self.dirichletData
+                elif polyOrder == 1:
+                    self.rhsData = functionFactory('constant', 0.)
+                    self.dirichletData = functionFactory('x0')
+                    if knownSolution:
+                        self.analyticSolution = self.dirichletData
+                elif polyOrder == 2:
+                    self.rhsData = functionFactory('constant', -2)
+                    self.dirichletData = functionFactory('x0**2')
+                    if knownSolution:
+                        self.analyticSolution = self.dirichletData
+                elif polyOrder == 3:
+                    self.rhsData = -6*functionFactory('x0')
+                    self.dirichletData = functionFactory('x0**3')
+                    if knownSolution:
+                        self.analyticSolution = self.dirichletData
+                else:
+                    self.rhsData = functionFactory('Lambda', lambda x: -polyOrder*(polyOrder-1)*x[0]**(polyOrder-2))
+                    self.dirichletData = functionFactory('Lambda', lambda x: x[0]**polyOrder)
+                    if knownSolution:
+                        self.analyticSolution = self.dirichletData
             elif problem == 'poly-Neumann':
                 self.fluxIndicator = Lambda(lambda x: 1. if (x[0] > 1) else 0.)
                 raise NotImplementedError(problem)
@@ -1470,7 +1524,8 @@ class nonlocalInterfaceProblem(problem):
                 'local_L2ex_right',
                 'local_H10ex_left',
                 'local_H10ex_right'])
-    def processProblem(self, domain, problem, element, kernel1Type, kernel2Type, horizon1, horizon2, hTarget, s11, s12, s21, s22, coeff11, coeff12, coeff21, coeff22):
+    def processProblem(self, domain, problem, element, kernel1Type, kernel2Type, horizon1, horizon2,
+                       hTarget, s11, s12, s21, s22, coeff11, coeff12, coeff21, coeff22):
         if domain == 'doubleInterval':
             dim = 1
             a, b, c = 0, 2, 1
@@ -1661,7 +1716,7 @@ class nonlocalInterfaceProblem(problem):
                             fac = delta**(-2*sBase1)
                             integral = 0.
                             for k in range(1, 100):
-                                integral += fac * (-1)**(k+1) * (np.pi*delta)**(2*k) / (2*k-2*sBase1) / gamma(2*k+1)
+                                integral += fac * (-1)**(k+1) * (np.pi*delta)**(2*k) / (2*k-2*sBase1) / Gamma(2*k+1)
                             return integral
                         else:
                             return 0.
@@ -1672,28 +1727,27 @@ class nonlocalInterfaceProblem(problem):
                     # assert c < x[0] < c+horizon1
                     u1x = sol_1(x)
                     u2x = sol_2(x)
-                    I = 0.
+                    Int = 0.
                     if x[0]-horizon1 < c-horizon2:
-                        I += 2. * quad(lambda y: (u1x-sol_1(np.array([y]))) * kernel1(x, np.array([y])), x[0]-horizon1, c-horizon2)[0]
+                        Int += 2. * quad(lambda y: (u1x-sol_1(np.array([y]))) * kernel1(x, np.array([y])), x[0]-horizon1, c-horizon2)[0]
                     if max(c-horizon2, x[0]-horizon1) < c:
-                        I += 2. * quad(lambda y: (u1x-sol_1(np.array([y]))) * kernel1(x, np.array([y])), max(c-horizon2, x[0]-horizon1), c)[0]
+                        Int += 2. * quad(lambda y: (u1x-sol_1(np.array([y]))) * kernel1(x, np.array([y])), max(c-horizon2, x[0]-horizon1), c)[0]
                     if max(c-horizon2, x[0]-horizon2) < c:
-                        I -= 2. * quad(lambda y: (u2x-sol_2(np.array([y]))) * kernel2(x, np.array([y])), max(c-horizon2, x[0]-horizon2), c)[0]
-                    return I
+                        Int -= 2. * quad(lambda y: (u2x-sol_2(np.array([y]))) * kernel2(x, np.array([y])), max(c-horizon2, x[0]-horizon2), c)[0]
+                    return Int
 
                 if kType2 == INDICATOR:
                     forcing_right = -coeff22*(2.*scaling2) * 2*(np.sin(np.pi*horizon2)/np.pi-horizon2) * (-sin)
                 elif kType2 == FRACTIONAL:
                     assert isinstance(kernel2.s, constFractionalOrder)
                     sBase2 = kernel2.s.value
-                    from scipy.special import gamma
 
                     def Phi2(delta):
                         if delta > 0:
                             fac = delta**(-2*sBase2)
                             integral = 0.
                             for k in range(1, 100):
-                                integral += fac * (-1)**(k+1) * (np.pi*delta)**(2*k) / (2*k-2*sBase2) / gamma(2*k+1)
+                                integral += fac * (-1)**(k+1) * (np.pi*delta)**(2*k) / (2*k-2*sBase2) / Gamma(2*k+1)
                             return integral
                         else:
                             return 0.
@@ -1704,14 +1758,14 @@ class nonlocalInterfaceProblem(problem):
                     # assert c-horizon2 < x[0] < c
                     u1x = sol_1(x)
                     u2x = sol_2(x)
-                    I = 0.
+                    Int = 0.
                     if c+horizon1 < x[0]+horizon2:
-                        I += 2. * quad(lambda y: (u2x-sol_2(np.array([y]))) * kernel2(x, np.array([y])), c+horizon1, x[0]+horizon2)[0]
+                        Int += 2. * quad(lambda y: (u2x-sol_2(np.array([y]))) * kernel2(x, np.array([y])), c+horizon1, x[0]+horizon2)[0]
                     if c < min(c+horizon1, x[0]+horizon2):
-                        I += 2. * quad(lambda y: (u2x-sol_2(np.array([y]))) * kernel2(x, np.array([y])), c, min(c+horizon1, x[0]+horizon2))[0]
+                        Int += 2. * quad(lambda y: (u2x-sol_2(np.array([y]))) * kernel2(x, np.array([y])), c, min(c+horizon1, x[0]+horizon2))[0]
                     if c < min(c+horizon1, x[0]+horizon1):
-                        I -= 2. * quad(lambda y: (u1x-sol_1(np.array([y]))) * kernel1(x, np.array([y])), c, min(c+horizon1, x[0]+horizon1))[0]
-                    return I
+                        Int -= 2. * quad(lambda y: (u1x-sol_1(np.array([y]))) * kernel1(x, np.array([y])), c, min(c+horizon1, x[0]+horizon1))[0]
+                    return Int
 
                 flux_left = Lambda(flux_left_lam)
                 flux_right = Lambda(flux_right_lam)
@@ -1833,11 +1887,15 @@ class nonlocalInterfaceProblem(problem):
 
                 def flux_left_lam(x):
                     dist = 1+horizon1-x[0]
-                    return 4*scaling1 * (-2/3*(x[0]-1) * (horizon1**2-dist**2)**(3/2) + 1/8 * (np.sqrt(horizon1**2 - dist**2) * dist * (2*dist**2 - horizon1**2)) + horizon1**4/8 * (np.arcsin(dist/horizon1)-np.arcsin(-1)))
+                    return 4*scaling1 * (-2/3*(x[0]-1) * (horizon1**2-dist**2)**(3/2) +
+                                         1/8 * (np.sqrt(horizon1**2 - dist**2) * dist * (2*dist**2 - horizon1**2)) +
+                                         horizon1**4/8 * (np.arcsin(dist/horizon1)-np.arcsin(-1)))
 
                 def flux_right_lam(x):
                     dist = x[0]-(1-horizon2)
-                    return 4*scaling2 * (-2/3*(x[0]-1) * (-1)*(horizon2**2-dist**2)**(3/2) + 1/8 * (np.sqrt(horizon2**2 - dist**2) * dist * (2*dist**2 - horizon2**2)) + horizon2**4/8 * (np.arcsin(1)-np.arcsin(-dist/horizon2)))
+                    return 4*scaling2 * (-2/3*(x[0]-1) * (-1)*(horizon2**2-dist**2)**(3/2) +
+                                         1/8 * (np.sqrt(horizon2**2 - dist**2) * dist * (2*dist**2 - horizon2**2)) +
+                                         horizon2**4/8 * (np.arcsin(1)-np.arcsin(-dist/horizon2)))
 
                 flux_left = Lambda(flux_left_lam)
                 flux_right = Lambda(flux_right_lam)
@@ -1891,7 +1949,8 @@ class nonlocalInterfaceProblem(problem):
                 forcing_left = coeff11 * 2*5*np.pi**2 * sin2d
                 forcing_right = -coeff22 * 2*np.pi**2 * sin
                 sol_jump = -one
-                flux_jump = -2*np.pi*coeff11 * functionFactory('Lambda', lambda x: np.sin(2*np.pi*x[1])) - np.pi*coeff22 * functionFactory('Lambda', lambda x: np.sin(np.pi*x[1]))
+                flux_jump = (-2*np.pi*coeff11 * functionFactory('Lambda', lambda x: np.sin(2*np.pi*x[1])) -
+                             np.pi*coeff22 * functionFactory('Lambda', lambda x: np.sin(np.pi*x[1])))
                 local_L2ex_left = 5.
                 local_L2ex_right = 1.25 + 8./np.pi**2
                 local_H10ex_left = np.pi**2 * coeff11 * 5
@@ -1908,7 +1967,8 @@ class nonlocalInterfaceProblem(problem):
                 forcing_left = coeff11 * 2*5*np.pi**2 * sin2d
                 forcing_right = -coeff22 * 2*np.pi**2 * sin
                 sol_jump = -sin-one-2*sin2d
-                flux_jump = -2*np.pi*coeff11 * functionFactory('Lambda', lambda x: np.sin(2*np.pi*x[1])) - np.pi*coeff22 * functionFactory('Lambda', lambda x: np.sin(np.pi*x[1]))
+                flux_jump = (-2*np.pi*coeff11 * functionFactory('Lambda', lambda x: np.sin(2*np.pi*x[1]))
+                             - np.pi*coeff22 * functionFactory('Lambda', lambda x: np.sin(np.pi*x[1])))
                 local_L2ex_left = 5.
                 local_L2ex_right = 1.25 + 8./np.pi**2
                 local_H10ex_left = np.pi**2 * coeff11 * 5
@@ -1971,17 +2031,20 @@ class nonlocalInterfaceProblem(problem):
                         u1x = sol_1(x)
                         u2x = sol_2(x)
 
-                        I = 0.
+                        Int = 0.
                         if x[0]-horizon1 < cx-horizon2:
                             # Omega^J_1
-                            I += 2. * quad(lambda y: (u1x-sol_1(np.array([y, x[1]]))) * int2_1(x, y) * kernel1(x, np.array([y, x[1]])), x[0]-horizon1, cx-horizon2)[0]
+                            Int += 2. * quad(lambda y: (u1x-sol_1(np.array([y, x[1]]))) * int2_1(x, y) *
+                                             kernel1(x, np.array([y, x[1]])), x[0]-horizon1, cx-horizon2)[0]
                         if max(cx-horizon2, x[0]-horizon1) < cx:
                             # I^J_2
-                            I += 2. * quad(lambda y: (u1x-sol_1(np.array([y, x[1]]))) * int2_1(x, y) * kernel1(x, np.array([y, x[1]])), max(cx-horizon2, x[0]-horizon1), cx)[0]
+                            Int += 2. * quad(lambda y: (u1x-sol_1(np.array([y, x[1]]))) * int2_1(x, y) *
+                                             kernel1(x, np.array([y, x[1]])), max(cx-horizon2, x[0]-horizon1), cx)[0]
                         if max(cx-horizon2, x[0]-horizon2) < cx:
                             # I^J_2
-                            I -= 2. * quad(lambda y: (u2x-sol_2(np.array([y, x[1]]))) * int2_2(x, y) * kernel2(x, np.array([y, x[1]])), max(cx-horizon2, x[0]-horizon2), cx)[0]
-                        return I
+                            Int -= 2. * quad(lambda y: (u2x-sol_2(np.array([y, x[1]]))) * int2_2(x, y) *
+                                             kernel2(x, np.array([y, x[1]])), max(cx-horizon2, x[0]-horizon2), cx)[0]
+                        return Int
 
                 elif kType1 == FRACTIONAL:
                     assert isinstance(kernel1.s, constFractionalOrder)
@@ -2007,17 +2070,20 @@ class nonlocalInterfaceProblem(problem):
                         # assert cx-horizon2 < x[0] < cx
                         u1x = sol_1(x)
                         u2x = sol_2(x)
-                        I = 0.
+                        Int = 0.
                         if cx+horizon1 < x[0]+horizon2:
                             # Omega^J_2
-                            I += 2. * quad(lambda y: (u2x-sol_2(np.array([y, x[1]]))) * int2_2(x, y) * kernel2(x, np.array([y, x[1]])), cx+horizon1, x[0]+horizon2)[0]
+                            Int += 2. * quad(lambda y: (u2x-sol_2(np.array([y, x[1]]))) * int2_2(x, y) *
+                                             kernel2(x, np.array([y, x[1]])), cx+horizon1, x[0]+horizon2)[0]
                         if cx < min(cx+horizon1, x[0]+horizon2):
                             # I^J_1
-                            I += 2. * quad(lambda y: (u2x-sol_2(np.array([y, x[1]]))) * int2_2(x, y) * kernel2(x, np.array([y, x[1]])), cx, min(cx+horizon1, x[0]+horizon2))[0]
+                            Int += 2. * quad(lambda y: (u2x-sol_2(np.array([y, x[1]]))) * int2_2(x, y) *
+                                             kernel2(x, np.array([y, x[1]])), cx, min(cx+horizon1, x[0]+horizon2))[0]
                         if cx < min(cx+horizon1, x[0]+horizon1):
                             # I^J_1
-                            I -= 2. * quad(lambda y: (u1x-sol_1(np.array([y, x[1]]))) * int2_1(x, y) * kernel1(x, np.array([y, x[1]])), cx, min(cx+horizon1, x[0]+horizon1))[0]
-                        return I
+                            Int -= 2. * quad(lambda y: (u1x-sol_1(np.array([y, x[1]]))) * int2_1(x, y) *
+                                             kernel1(x, np.array([y, x[1]])), cx, min(cx+horizon1, x[0]+horizon1))[0]
+                        return Int
 
                 elif kType2 == FRACTIONAL:
                     assert isinstance(kernel2.s, constFractionalOrder)
@@ -2073,12 +2139,13 @@ class nonlocalInterfaceProblem(problem):
 
                 def evalRHSFac(alpha, beta, horizon, s, N=100):
                     from scipy.special import gamma as Gamma, binom
-                    I = 0.
+                    Int = 0.
                     for k in range(N):
                         for m in range(N):
                             if k+m > 0:
-                                I += (-1)**(k+m+1) * alpha**(2*k)/Gamma(2*k+1) * beta**(2*m)/Gamma(2*m+1) * horizon**(2*k+2*m-2*s) / (2*k+2*m-2*s) * 2. / binom(k+m, k-0.5) / (m+0.5)
-                    return I
+                                Int += ((-1)**(k+m+1) * alpha**(2*k)/Gamma(2*k+1) * beta**(2*m)/Gamma(2*m+1) *
+                                        horizon**(2*k+2*m-2*s) / (2*k+2*m-2*s) * 2. / binom(k+m, k-0.5) / (m+0.5))
+                    return Int
 
                 if kType1 == INDICATOR:
                     sBase1 = -1.

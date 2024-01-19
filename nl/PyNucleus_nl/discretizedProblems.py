@@ -7,7 +7,6 @@
 
 import numpy as np
 from PyNucleus_base import solverFactory
-from PyNucleus_base.performanceLogger import PLogger
 from PyNucleus_base.utilsFem import (classWithComputedDependencies,
                                      problem,
                                      generates)
@@ -358,7 +357,8 @@ class discretizedNonlocalProblem(problem):
 
     def setDriverArgs(self):
         p = self.driver.addGroup('solver')
-        self.setDriverFlag('solverType', acceptedValues=['cg-mg', 'gmres-mg', 'lu', 'mg', 'cg-jacobi', 'gmres-jacobi'], help='solver for the linear system', group=p)
+        self.setDriverFlag('solverType', acceptedValues=['cg-mg', 'gmres-mg', 'lu', 'mg',
+                                                         'cg-jacobi', 'gmres-jacobi'], help='solver for the linear system', group=p)
         self.setDriverFlag('maxiter', 100, help='maximum number of iterations', group=p)
         self.setDriverFlag('tol', 1e-6, help='solver tolerance', group=p)
 
@@ -483,7 +483,8 @@ class discretizedNonlocalProblem(problem):
 
         self.hierarchy = hierarchy
         if kernel is not None:
-            assert 2*self.finalMesh.h < kernel.horizon.value, "Please choose horizon bigger than two mesh sizes. h = {}, horizon = {}".format(self.finalMesh.h, kernel.horizon.value)
+            assert 2*self.finalMesh.h < kernel.max_horizon, ("Please choose horizon bigger than two mesh sizes. " +
+                                                             "h = {}, horizon = {}").format(self.finalMesh.h, kernel.horizon.value)
 
     @generates('adjointHierarchy')
     def buildAdjointHierarchy(self, hierarchy):
@@ -522,7 +523,8 @@ class discretizedNonlocalProblem(problem):
             assemblyParams['dense'] = matrixFormat == 'dense'
             assemblyParams['matrixFormat'] = matrixFormat
             assemblyParams['tag'] = tag
-            self.A_BC = getFracLapl(dmInterior, dm2=dmBC, **assemblyParams)
+            with self.timer('build BC operator'):
+                self.A_BC = getFracLapl(dmInterior, dm2=dmBC, **assemblyParams)
         else:
             self.A_BC = None
 
@@ -540,8 +542,9 @@ class discretizedNonlocalProblem(problem):
 
     @generates('A_derivative')
     def getDerivativeOperator(self, kernel, dmInterior, matrixFormat, eta, target_order):
-        self.A_derivative = dmInterior.assembleNonlocal(kernel.getDerivativeKernel(derivative=1), matrixFormat=matrixFormat, params={'eta': eta,
-                                                                                                                                     'target_order': target_order})
+        self.A_derivative = dmInterior.assembleNonlocal(kernel.getDerivativeKernel(derivative=1),
+                                                        matrixFormat=matrixFormat, params={'eta': eta,
+                                                                                           'target_order': target_order})
 
     @generates('b')
     def buildRHS(self, rhs, dim, A_BC, dmBC, dirichletData, boundaryCondition, solverType, dmInterior, hierarchy):
@@ -669,7 +672,7 @@ class discretizedNonlocalProblem(problem):
         self.adjointModelSolution = stationaryModelSolution(self, u, **data)
 
     def report(self, group):
-        group.add('kernel',self.continuumProblem.kernel)
+        group.add('kernel', repr(self.continuumProblem.kernel))
         group.add('h', self.finalMesh.h)
         group.add('hmin', self.finalMesh.hmin)
         if self.continuumProblem.kernel is not None:
@@ -855,6 +858,8 @@ class discretizedTransientProblem(discretizedNonlocalProblem):
 
         if self.doMovie:
             if self._driver.isMaster:
+                from PyNucleus_base.plot_utils import movieCreator
+
                 outputFolder = self.movieFolder
                 movie_kwargs = {}
                 if self.continuumProblem.dim == 2:

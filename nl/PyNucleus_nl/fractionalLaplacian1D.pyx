@@ -5,7 +5,7 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-from libc.math cimport (log, ceil, fabs as abs, pow)
+from libc.math cimport log, ceil, fabs as abs
 import numpy as np
 cimport numpy as np
 
@@ -415,6 +415,18 @@ cdef class fractionalLaplacian1D_nonsym(fractionalLaplacian1D):
 
     for the non-symmetric 1D nonlocal Laplacian.
     """
+    def __init__(self,
+                 Kernel kernel,
+                 meshBase mesh,
+                 DoFMap dm,
+                 target_order=None,
+                 quad_order_diagonal=None,
+                 num_dofs=None,
+                 **kwargs):
+        super(fractionalLaplacian1D_nonsym, self).__init__(kernel, mesh, dm, num_dofs, **kwargs)
+        self.symmetricLocalMatrix = False
+        self.symmetricCells = False
+
     cdef panelType getQuadOrder(self,
                                 const REAL_t h1,
                                 const REAL_t h2,

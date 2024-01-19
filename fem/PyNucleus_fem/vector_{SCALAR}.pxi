@@ -251,14 +251,12 @@ cdef class {SCALAR_label_lc_}fe_vector:
         assign(v.data, self.data)
         return v
 
-    def __getstate__(self):
-        return (np.array(self.data, copy=False), self.dm)
-
-    def __setstate__(self, state):
-        self.data = state[0]
-        self.dm = state[1]
+    def __reduce__(self):
+        return {SCALAR_label_lc_}fe_vector, (np.array(self.data), self.dm)
 
     def __getattr__(self, name):
+        if name == '__deepcopy__':
+            raise AttributeError()
         return getattr(np.array(self.data, copy=False), name)
 
     cpdef REAL_t norm(self, BOOL_t acc=False, BOOL_t asynchronous=False):
@@ -597,14 +595,12 @@ cdef class {SCALAR_label_lc_}multi_fe_vector:
         {SCALAR_label_lc_}assign_2d(v.data, self.data)
         return v
 
-    def __getstate__(self):
-        return (np.array(self.data, copy=False), self.dm)
-
-    def __setstate__(self, state):
-        self.data = state[0]
-        self.dm = state[1]
+    def __reduce__(self):
+        return {SCALAR_label_lc_}multi_fe_vector, (np.array(self.data), self.dm)
 
     def __getattr__(self, name):
+        if name == '__deepcopy__':
+            raise AttributeError()
         return getattr(np.array(self.data, copy=False), name)
 
     def linearPart(self):

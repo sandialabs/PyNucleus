@@ -427,14 +427,14 @@ def getMPIinfo(grp):
         if MPI.COMM_WORLD.rank == 0:
             hosts = ','.join(set(hosts))
         grp.add('MPI library', '{}'.format(MPI.Get_library_version()[:-1]))
-        for label, value in [('MPI standard supported:', MPI.Get_version()),
-                             ('Vendor:', MPI.get_vendor()),
-                             ('Level of thread support:', t[MPI.Query_thread()]),
-                             ('Is threaded:', MPI.Is_thread_main()),
-                             ('Threads requested:', mpi4py.rc.threads),
-                             ('Thread level requested:', mpi4py.rc.thread_level),
-                             ('Hosts:', hosts),
-                             ('Communicator size:', MPI.COMM_WORLD.size)]:
+        for label, value in [('MPI standard supported', MPI.Get_version()),
+                             ('Vendor', MPI.get_vendor()),
+                             ('Level of thread support', t[MPI.Query_thread()]),
+                             ('Is threaded', MPI.Is_thread_main()),
+                             ('Threads requested', mpi4py.rc.threads),
+                             ('Thread level requested', mpi4py.rc.thread_level),
+                             ('Hosts', hosts),
+                             ('Communicator size', MPI.COMM_WORLD.size)]:
             grp.add(label, value)
 
 

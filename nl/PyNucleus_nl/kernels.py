@@ -12,9 +12,9 @@ from PyNucleus_fem.mesh import meshNd
 from . twoPointFunctions import constantTwoPoint, inverseTwoPoint
 from . interactionDomains import (interactionDomain,
                                   fullSpace,
-                                  ball1,
-                                  ball2,
-                                  ballInf)
+                                  ball1_retriangulation,
+                                  ball2_retriangulation,
+                                  ballInf_retriangulation)
 from . fractionalOrders import (fractionalOrderBase,
                                 constFractionalOrder,
                                 variableConstFractionalOrder,
@@ -23,9 +23,9 @@ from . kernelNormalization import (constantFractionalLaplacianScaling,
                                    constantFractionalLaplacianScalingDerivative,
                                    variableFractionalLaplacianScaling,
                                    constantIntegrableScaling,
+                                   variableIntegrableScaling,
                                    )
 from . kernelsCy import (Kernel,
-                         ComplexKernel,
                          FractionalKernel,
                          RangedFractionalKernel,
                          FRACTIONAL,
@@ -90,16 +90,16 @@ def _getInteraction(interaction, horizon):
     elif isinstance(horizon, constant) and horizon.value == np.inf:
         interaction = fullSpace()
     elif interaction is None:
-        interaction = ball2()
+        interaction = ball2_retriangulation(horizon)
     elif isinstance(interaction, str):
         if interaction == 'fullSpace':
             interaction = fullSpace()
         elif interaction == 'ball1':
-            interaction = ball1()
+            interaction = ball1_retriangulation(horizon)
         elif interaction == 'ball2':
-            interaction = ball2()
+            interaction = ball2_retriangulation(horizon)
         elif interaction == 'ballInf':
-            interaction = ballInf()
+            interaction = ballInf_retriangulation(horizon)
         else:
             raise NotImplementedError('Interaction: {}'.format(interaction))
     else:
@@ -117,7 +117,8 @@ def getFractionalKernel(dim,
                         phi=None,
                         boundary=False,
                         derivative=0,
-                        tempered=0.):
+                        tempered=0.,
+                        max_horizon=np.nan):
     dim_ = _getDim(dim)
     sFun = _getFractionalOrder(s)
     horizonFun = _getHorizon(horizon)
@@ -154,7 +155,8 @@ def getFractionalKernel(dim,
                     phi = fac*phi
                 else:
                     phi = fac
-        kernel = FractionalKernel(dim_, sFun, horizonFun, interaction, scaling, phi, piecewise=piecewise, boundary=boundary, derivative=derivative, tempered=tempered)
+        kernel = FractionalKernel(dim_, sFun, horizonFun, interaction, scaling, phi, piecewise=piecewise, boundary=boundary,
+                                  derivative=derivative, tempered=tempered, max_horizon=max_horizon)
     return kernel
 
 
@@ -167,7 +169,8 @@ def getIntegrableKernel(dim,
                         piecewise=True,
                         phi=None,
                         boundary=False,
-                        monomialPower=np.nan):
+                        monomialPower=np.nan,
+                        max_horizon=np.nan):
     dim_ = _getDim(dim)
     kType = _getKernelType(kernel)
     horizonFun = _getHorizon(horizon)
@@ -178,10 +181,13 @@ def getIntegrableKernel(dim,
             if isinstance(horizonFun, constant):
                 scaling = constantIntegrableScaling(kType, interaction, dim_, horizonFun.value)
             else:
-                raise NotImplementedError()
+                scaling = variableIntegrableScaling(kType, interaction)
         else:
             scaling = constantTwoPoint(0.5)
-    return Kernel(dim_, kType=kType, horizon=horizonFun, interaction=interaction, scaling=scaling, phi=phi, piecewise=piecewise, boundary=boundary, monomialPower=monomialPower)
+    if (not scaling.symmetric) or (phi is not None and not phi.symmetric):
+        piecewise = False
+    return Kernel(dim_, kType=kType, horizon=horizonFun, interaction=interaction, scaling=scaling, phi=phi, piecewise=piecewise,
+                  boundary=boundary, monomialPower=monomialPower, max_horizon=max_horizon)
 
 
 def getKernel(dim,
@@ -193,10 +199,11 @@ def getKernel(dim,
               piecewise=True,
               phi=None,
               kernel=FRACTIONAL,
-              boundary=False):
+              boundary=False,
+              max_horizon=np.nan):
     kType = _getKernelType(kernel)
     if kType == FRACTIONAL:
-        return getFractionalKernel(dim, s, horizon, interaction, scaling, normalized, piecewise, phi, boundary)
+        return getFractionalKernel(dim, s, horizon, interaction, scaling, normalized, piecewise, phi, boundary, max_horizon=max_horizon)
     else:
         return getIntegrableKernel(dim,
                                    kernel=kType,
@@ -204,6 +211,7 @@ def getKernel(dim,
                                    scaling=scaling,
                                    interaction=interaction,
                                    normalized=normalized,
-                                   piecewise=piecewise, phi=phi)
+                                   piecewise=piecewise, phi=phi,
+                                   max_horizon=max_horizon)
 
 

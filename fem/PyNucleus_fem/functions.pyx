@@ -26,6 +26,11 @@ cdef class function:
     cdef REAL_t eval(self, REAL_t[::1] x):
         pass
 
+    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x):
+        cdef:
+            REAL_t[::1] xA = <REAL_t[:dim]> x
+        return self.eval(xA)
+
     def __add__(self, function other):
         if isinstance(self, mulFunction):
             if isinstance(other, mulFunction):
@@ -220,6 +225,75 @@ cdef class monomial(function):
             return str(self.factor) + s
         else:
             return s
+
+    def __reduce__(self):
+        return monomial, (np.array(self.exponent, copy=True), self.factor)
+
+
+cdef class affineFunction(function):
+    def __init__(self, REAL_t[::1] w, REAL_t c):
+        self.w = w
+        self.c = c
+
+    cdef inline REAL_t eval(self, REAL_t[::1] x):
+        cdef:
+            INDEX_t i
+            REAL_t s = self.c
+        for i in range(x.shape[0]):
+            s += x[i]*self.w[i]
+        return s
+
+    def __repr__(self):
+        cdef:
+            INDEX_t i
+        s = ''
+        for i in range(self.w.shape[0]):
+            if self.w[i] != 0.:
+                if len(s) > 0:
+                    s += '+'
+                if self.w[i] != 1.:
+                    s += '{}*x_{}'.format(self.w[i], i)
+                else:
+                    s += 'x_{}'.format(i)
+        if self.c != 0.:
+            s += '+'+str(self.c)
+        return s
+
+    def __reduce__(self):
+        return affineFunction, (np.array(self.w, copy=True), self.c)
+
+
+cdef class sqrtAffineFunction(function):
+    def __init__(self, REAL_t[::1] w, REAL_t c):
+        self.w = w
+        self.c = c
+
+    cdef inline REAL_t eval(self, REAL_t[::1] x):
+        cdef:
+            INDEX_t i
+            REAL_t s = self.c
+        for i in range(x.shape[0]):
+            s += x[i]*self.w[i]
+        return sqrt(s)
+
+    def __repr__(self):
+        cdef:
+            INDEX_t i
+        s = ''
+        for i in range(self.w.shape[0]):
+            if self.w[i] != 0.:
+                if len(s) > 0:
+                    s += '+'
+                if self.w[i] != 1.:
+                    s += '{}*x_{}'.format(self.w[i], i)
+                else:
+                    s += 'x_{}'.format(i)
+        if self.c != 0.:
+            s += '+'+str(self.c)
+        return 'sqrt('+s+')'
+
+    def __reduce__(self):
+        return affineFunction, (np.array(self.w, copy=True), self.c)
 
 
 cdef class _rhsFunSin1D(function):
@@ -2144,6 +2218,21 @@ cdef class matrixFunction:
                     f = self.components[i][j]
                     vals[i, j] = f.eval(x)
 
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* vals):
+        cdef:
+            INDEX_t i
+            function f
+        if self.symmetric:
+            for i in range(self.rows):
+                for j in range(i, self.columns):
+                    f = self.components[i][j]
+                    vals[i*self.columns+j] = vals[j*self.columns+i] = f.evalPtr(dim, x)
+        else:
+            for i in range(self.rows):
+                for j in range(self.columns):
+                    f = self.components[i][j]
+                    vals[i*self.columns+j] = f.evalPtr(dim, x)
+
     def __repr__(self):
         return '{}({})'.format(self.__class__.__name__, ','.join([f.__repr__() for f in self.components]))
 
@@ -2151,6 +2240,27 @@ cdef class matrixFunction:
         i, j = I
         return self.components[i][j]
 
+
+cdef class constantMatrixFunction(matrixFunction):
+    def __init__(self, REAL_t[:, ::1] A):
+        self.A = A
+        self.rows = A.shape[0]
+        self.columns = A.shape[1]
+
+    cdef void eval(self, REAL_t[::1] x, REAL_t[:, ::1] vals):
+        cdef:
+            INDEX_t i, j
+        for i in range(self.rows):
+            for j in range(self.columns):
+                vals[i, j] = self.A[i, j]
+
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* vals):
+        cdef:
+            INDEX_t i, j, k = 0
+        for i in range(self.rows):
+            for j in range(self.columns):
+                vals[k] = self.A[i, j]
+                k += 1
 
 cdef class periodicityFunctor(function):
     cdef:
