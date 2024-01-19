@@ -886,7 +886,6 @@ cdef class {SCALAR_label}nonlocalBuilder:
         self.comm = comm
         self.params = params
 
-        assert isinstance(self.kernel.horizon, constant), "Need horizon to be constant."
         assert kernel.dim == dm.mesh.dim, "Kernel dimension must match dm.mesh dimension"
 
         # volume integral
@@ -994,7 +993,6 @@ cdef class {SCALAR_label}nonlocalBuilder:
 
         # nonlocal Laplacians
         if opType == 'Laplacian':
-            assert isinstance(self.kernel.horizon, constant)
             if infHorizon:
                 kernelInfHorizon = self.kernel.getModifiedKernel(horizon=constant(np.inf))
             else:
@@ -1056,7 +1054,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
         else:
             fac = 1.
         refParams = self.getH2RefinementParams()
-        refParams.minSize = self.params.get('minClusterSize', int(fac*(self.kernel.horizonValue/self.dm.mesh.h)**self.dm.mesh.dim))
+        refParams.minSize = self.params.get('minClusterSize', int(fac*(self.kernel.max_horizon/self.dm.mesh.h)**self.dm.mesh.dim))
         doDistributedAssembly = self.comm is not None and self.comm.size > 1 and self.dm.num_dofs > self.comm.size
         forceUnsymmetric = self.params.get('forceUnsymmetric', doDistributedAssembly)
         assembleOnRoot = self.params.get('assembleOnRoot', False)
@@ -2641,7 +2639,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
         else:
             refParams.minSize = mCS
         if self.kernel.finiteHorizon:
-            refParams.minMixedSize = max(min(self.kernel.horizon.value//(2*mesh.h)-1, refParams.minSize), 1)
+            refParams.minMixedSize = max(min(self.kernel.max_horizon//(2*mesh.h)-1, refParams.minSize), 1)
         else:
             refParams.minMixedSize = refParams.minSize
         mFFBS = self.params.get('minFarFieldBlockSize', None)

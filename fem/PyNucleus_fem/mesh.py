@@ -344,7 +344,7 @@ def squareWithInteractions(ax, ay, bx, by,
               (lineHorizontal+bottomLeft) +
               (lineHorizontal+(bottomLeft-verticalOffset)))
 
-        d2 = (circularSegment(bottomRight, horizon, -0.5*np.pi, 0., numPointsPerUnitLength) +
+        d2 = (circularSegment(bottomRight, horizon, 1.5*np.pi, 2.*np.pi, numPointsPerUnitLength) +
               line(bottomRight, bottomRight+horizontalOffset) +
               line(bottomRight, bottomRight-verticalOffset) +
               (lineVertical+(bottomRight+horizontalOffset)) +
@@ -395,7 +395,6 @@ def squareWithInteractions(ax, ay, bx, by,
             xVals4 = np.sort(mesh.vertices_as_array[idx4, 0])
             assert np.allclose(xVals3, xVals4), (xVals3, xVals4)
             mesh2 = uniformSquare(ax=ax, ay=ay, bx=bx, by=by, xVals=xVals3, yVals=yVals1)
-            mesh2.plot()
             mesh = snapMeshes(mesh, mesh2)
 
         location = uninitialized((mesh.num_vertices), dtype=INDEX)

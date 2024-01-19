@@ -6,7 +6,6 @@
 ###################################################################################
 
 from PyNucleus_base import INDEX
-from PyNucleus_base.utilsFem import getLoggingTimer
 from PyNucleus_base.performanceLogger import FakeTimer
 from PyNucleus_base.linear_operators import (LinearOperator,
                                              multiIntervalInterpolationOperator,
@@ -228,7 +227,7 @@ def getFracLapl(DoFMap, kernel=None, rangedOpParams={}, **kwargs):
     A = None
     Pnear = None
     if ((isinstance(kernel, FractionalKernel) and (kernel.s.min == kernel.s.max == 1.)) or
-        (isinstance(horizon, constant) and (horizon.value == 0.))):
+            (isinstance(horizon, constant) and (horizon.value == 0.))):
         with timer('Sparse matrix'):
             if kernel.phi is not None:
                 kappa = Lambda(lambda x: kernel.phi(x, x))

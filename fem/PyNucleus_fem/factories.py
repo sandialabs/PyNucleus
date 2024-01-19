@@ -12,6 +12,8 @@ from . functions import (simpleAnisotropy, simpleAnisotropy2, inclusions, inclus
 from . functions import (_rhsFunSin1D, _solSin1D, _rhsFunSin2D, _cos1D, _cos2D, _rhsCos2D, _grad_cos2d_n,
                          _rhsFunSin3D, _solSin2D, _solSin3D, Lambda, constant,
                          monomial,
+                         affineFunction,
+                         sqrtAffineFunction,
                          complexLambda,
                          real, imag,
                          _rhsFunSin3D_memoized,
@@ -82,6 +84,8 @@ functionFactory.register('rhsFractional1D', rhsFractional1D)
 functionFactory.register('rhsFractional2D', rhsFractional2D)
 functionFactory.register('constant', constant)
 functionFactory.register('monomial', monomial)
+functionFactory.register('affine', affineFunction)
+functionFactory.register('sqrt_affine', sqrtAffineFunction)
 functionFactory.register('x0', monomial, params={'exponent': np.array([1., 0., 0.])})
 functionFactory.register('x1', monomial, params={'exponent': np.array([0., 1., 0.])})
 functionFactory.register('x2', monomial, params={'exponent': np.array([0., 0., 1.])})

@@ -10,13 +10,12 @@ from libc.math cimport (sin, cos, sqrt,
                         log,
                         fabs as abs, pow,
                         exp)
-from PyNucleus_base.blas cimport mydot
 from scipy.special.cython_special cimport gammaincc, gamma, hankel1
 import numpy as np
 cimport numpy as np
 from PyNucleus_base.myTypes import REAL
 from PyNucleus_fem.functions cimport constant
-from . interactionDomains cimport ball2, fullSpace
+from . interactionDomains cimport ball2_retriangulation, fullSpace
 from . twoPointFunctions cimport (constantTwoPoint,
                                   productTwoPoint,
                                   inverseTwoPoint,
@@ -28,7 +27,10 @@ from . kernelNormalization cimport (constantFractionalLaplacianScaling,
                                     constantFractionalLaplacianScalingDerivative,
                                     variableFractionalLaplacianScaling,
                                     variableFractionalLaplacianScalingBoundary,
-                                    variableFractionalLaplacianScalingWithDifferentHorizon)
+                                    variableFractionalLaplacianScalingWithDifferentHorizon,
+                                    variableIntegrableScaling,
+                                    variableIntegrableScalingWithDifferentHorizon)
+from copy import deepcopy
 
 
 cdef inline REAL_t gammainc(REAL_t a, REAL_t x):
@@ -69,7 +71,7 @@ cdef REAL_t fracKernelFinite1D(REAL_t *x, REAL_t *y, void *c_params):
     if inter != 0.:
         s = getREAL(c_params, fS)
         C = getREAL(c_params, fSCALING)
-        d2 = (x[0]-y[0])*(x[0]-y[0])
+        d2 = interaction.dist2
         return C*pow(d2, -0.5-s)
     else:
         return 0.
@@ -83,7 +85,7 @@ cdef REAL_t fracKernelFinite2D(REAL_t *x, REAL_t *y, void *c_params):
     if inter != 0.:
         s = getREAL(c_params, fS)
         C = getREAL(c_params, fSCALING)
-        d2 = (x[0]-y[0])*(x[0]-y[0]) + (x[1]-y[1])*(x[1]-y[1])
+        d2 = interaction.dist2
         return C*pow(d2, -1.-s)
     else:
         return 0.
@@ -97,7 +99,7 @@ cdef REAL_t fracKernelFinite3D(REAL_t *x, REAL_t *y, void *c_params):
     if inter != 0.:
         s = getREAL(c_params, fS)
         C = getREAL(c_params, fSCALING)
-        d2 = (x[0]-y[0])*(x[0]-y[0]) + (x[1]-y[1])*(x[1]-y[1]) + (x[2]-y[2])*(x[2]-y[2])
+        d2 = interaction.dist2
         return C*pow(d2, -1.5-s)
     else:
         return 0.
@@ -111,7 +113,7 @@ cdef REAL_t fracKernelFinite1Dboundary(REAL_t *x, REAL_t *y, void *c_params):
     if inter != 0.:
         s = getREAL(c_params, fS)
         C = getREAL(c_params, fSCALING)
-        d2 = (x[0]-y[0])*(x[0]-y[0])
+        d2 = interaction.dist2
         return C*pow(d2, -s)
     else:
         return 0.
@@ -125,7 +127,7 @@ cdef REAL_t fracKernelFinite2Dboundary(REAL_t *x, REAL_t *y, void *c_params):
     if inter != 0.:
         s = getREAL(c_params, fS)
         C = getREAL(c_params, fSCALING)
-        d2 = (x[0]-y[0])*(x[0]-y[0]) + (x[1]-y[1])*(x[1]-y[1])
+        d2 = interaction.dist2
         return C*pow(d2, -0.5-s)
     else:
         return 0.
@@ -139,7 +141,7 @@ cdef REAL_t fracKernelFinite3Dboundary(REAL_t *x, REAL_t *y, void *c_params):
     if inter != 0.:
         s = getREAL(c_params, fS)
         C = getREAL(c_params, fSCALING)
-        d2 = (x[0]-y[0])*(x[0]-y[0]) + (x[1]-y[1])*(x[1]-y[1]) + (x[2]-y[2])*(x[2]-y[2])
+        d2 = interaction.dist2
         return C*pow(d2, -1.0-s)
     else:
         return 0.
@@ -314,7 +316,7 @@ cdef REAL_t peridynamicKernel1D(REAL_t *x, REAL_t *y, void *c_params):
         REAL_t d2, inter
     interaction.evalPtr(1, x, y, &inter)
     if inter != 0.:
-        d2 = (x[0]-y[0])*(x[0]-y[0])
+        d2 = interaction.dist2
         C = getREAL(c_params, fSCALING)
         return C/sqrt(d2)
     else:
@@ -328,7 +330,7 @@ cdef REAL_t peridynamicKernel2D(REAL_t *x, REAL_t *y, void *c_params):
         REAL_t d2, inter
     interaction.evalPtr(2, x, y, &inter)
     if inter != 0.:
-        d2 = (x[0]-y[0])*(x[0]-y[0]) + (x[1]-y[1])*(x[1]-y[1])
+        d2 = interaction.dist2
         C = getREAL(c_params, fSCALING)
         return C/sqrt(d2)
     else:
@@ -342,7 +344,7 @@ cdef REAL_t peridynamicKernel3D(REAL_t *x, REAL_t *y, void *c_params):
         REAL_t d2, inter
     interaction.evalPtr(3, x, y, &inter)
     if inter != 0.:
-        d2 = (x[0]-y[0])*(x[0]-y[0]) + (x[1]-y[1])*(x[1]-y[1]) + (x[2]-y[2])*(x[2]-y[2])
+        d2 = interaction.dist2
         C = getREAL(c_params, fSCALING)
         return C/sqrt(d2)
     else:
@@ -356,9 +358,9 @@ cdef REAL_t peridynamicKernel1Dboundary(REAL_t *x, REAL_t *y, void *c_params):
         REAL_t d, inter
     interaction.evalPtr(1, x, y, &inter)
     if inter != 0.:
-        d = abs(x[0]-y[0])
+        d2 = interaction.dist2
         C = getREAL(c_params, fSCALING)
-        return -2.0*C*log(d)
+        return -2.0*C*0.5*log(d2)
     else:
         return 0.
 
@@ -381,7 +383,7 @@ cdef REAL_t gaussianKernel1D(REAL_t *x, REAL_t *y, void *c_params):
         REAL_t d2, inter
     interaction.evalPtr(1, x, y, &inter)
     if inter != 0.:
-        d2 = (x[0]-y[0])*(x[0]-y[0])
+        d2 = interaction.dist2
         C = getREAL(c_params, fSCALING)
         invD = getREAL(c_params, fEXPONENTINVERSE)
         return C*exp(-d2*invD)
@@ -396,7 +398,7 @@ cdef REAL_t gaussianKernel2D(REAL_t *x, REAL_t *y, void *c_params):
         REAL_t d2, inter
     interaction.evalPtr(2, x, y, &inter)
     if inter != 0.:
-        d2 = (x[0]-y[0])*(x[0]-y[0]) + (x[1]-y[1])*(x[1]-y[1])
+        d2 = interaction.dist2
         C = getREAL(c_params, fSCALING)
         invD = getREAL(c_params, fEXPONENTINVERSE)
         return C*exp(-d2*invD)
@@ -411,7 +413,7 @@ cdef REAL_t gaussianKernel1Dboundary(REAL_t *x, REAL_t *y, void *c_params):
         REAL_t d2, inter
     interaction.evalPtr(1, x, y, &inter)
     if inter != 0.:
-        d2 = (x[0]-y[0])*(x[0]-y[0])
+        d2 = interaction.dist2
         C = getREAL(c_params, fSCALING)
         invD = getREAL(c_params, fEXPONENTINVERSE)
         return C*sqrt(1./(d2*invD))*gammainc(0.5, d2*invD)*sqrt(d2)
@@ -426,7 +428,7 @@ cdef REAL_t gaussianKernel2Dboundary(REAL_t *x, REAL_t *y, void *c_params):
         REAL_t d2, inter
     interaction.evalPtr(2, x, y, &inter)
     if inter != 0.:
-        d2 = (x[0]-y[0])*(x[0]-y[0]) + (x[1]-y[1])*(x[1]-y[1])
+        d2 = interaction.dist2
         C = getREAL(c_params, fSCALING)
         invD = getREAL(c_params, fEXPONENTINVERSE)
         return C*(1./(d2*invD))*gammainc(1.0, d2*invD)*sqrt(d2)
@@ -549,7 +551,7 @@ cdef REAL_t updateAndEvalFractional(REAL_t *x, REAL_t *y, void *c_params):
 cdef class Kernel(twoPointFunction):
     """A kernel functions that can be used to define a nonlocal operator."""
 
-    def __init__(self, INDEX_t dim, kernelType kType, function horizon, interactionDomain interaction, twoPointFunction scaling, twoPointFunction phi, BOOL_t piecewise=True, BOOL_t boundary=False, INDEX_t valueSize=1, **kwargs):
+    def __init__(self, INDEX_t dim, kernelType kType, function horizon, interactionDomain interaction, twoPointFunction scaling, twoPointFunction phi, BOOL_t piecewise=True, BOOL_t boundary=False, INDEX_t valueSize=1, REAL_t max_horizon=np.nan, **kwargs):
         cdef:
             parametrizedTwoPointFunction parametrizedScaling
             int i
@@ -566,7 +568,7 @@ cdef class Kernel(twoPointFunction):
             (<void**>(self.c_kernel_params+i*OFFSET))[0] = NULL
         setINDEX(self.c_kernel_params, fKDIM, dim)
 
-        symmetric = isinstance(horizon, constant) and scaling.symmetric
+        symmetric = isinstance(horizon, constant) and scaling.symmetric and interaction.symmetric and (phi is None or phi.symmetric)
         super(Kernel, self).__init__(symmetric, valueSize)
 
         if self.kernelType == INDICATOR:
@@ -597,8 +599,10 @@ cdef class Kernel(twoPointFunction):
             self.horizonValue2 = np.nan
             self.finiteHorizon = True
             (<void**>(self.c_kernel_params+fHORIZONFUN))[0] = <void*>horizon
+            self.max_horizon = max_horizon
         else:
             self.horizonValue = self.horizon.value
+            self.max_horizon = self.horizon.value
             self.finiteHorizon = self.horizon.value != np.inf
             if self.kernelType == GAUSSIAN:
                 setREAL(self.c_kernel_params, fEXPONENTINVERSE, 1.0/(self.horizonValue/3.)**2)
@@ -714,6 +718,9 @@ cdef class Kernel(twoPointFunction):
                     pass
                 else:
                     raise NotImplementedError()
+
+    def getParamPtrAddr(self):
+        return <size_t>self.c_kernel_params
 
     @property
     def singularityValue(self):
@@ -844,14 +851,19 @@ cdef class Kernel(twoPointFunction):
             horizon = self.horizon
             interaction = self.interaction
         else:
-            if scaling is None and isinstance(self.scaling, variableFractionalLaplacianScaling):
+            if scaling is None and isinstance(self.scaling, (variableFractionalLaplacianScaling,
+                                                             variableIntegrableScaling)):
                 scaling = self.scaling.getScalingWithDifferentHorizon()
-            interaction = type(self.interaction)()
+            interaction = deepcopy(self.interaction)
         if scaling is None:
             scaling = self.scaling
         from . kernels import getKernel
         newKernel = getKernel(dim=self.dim, kernel=self.kernelType, horizon=horizon, interaction=interaction, scaling=scaling, piecewise=self.piecewise)
         setREAL(newKernel.c_kernel_params, fEXPONENTINVERSE, getREAL(self.c_kernel_params, fEXPONENTINVERSE))
+        if isinstance(newKernel.scaling, parametrizedTwoPointFunction):
+            assert newKernel.getParamPtrAddr() == newKernel.scaling.getParamPtrAddr()
+        if isinstance(self.scaling, parametrizedTwoPointFunction):
+            assert self.getParamPtrAddr() == self.scaling.getParamPtrAddr()
         return newKernel
 
     def getComplementKernel(self):
@@ -876,11 +888,8 @@ cdef class Kernel(twoPointFunction):
             raise NotImplementedError()
         return "{}({}{}, {}, {})".format(self.__class__.__name__, kernelName, '' if not self.boundary else '-boundary', repr(self.interaction), self.scaling)
 
-    def __getstate__(self):
-        return (self.dim, self.kernelType, self.horizon, self.interaction, self.scaling, self.phi, self.piecewise, self.boundary, self.valueSize)
-
-    def __setstate__(self, state):
-        Kernel.__init__(self, state[0], state[1], state[2], state[3], state[4], state[5], state[6], state[7], state[8])
+    def __reduce__(self):
+        return ComplexKernel, (self.dim, self.kernelType, self.horizon, self.interaction, self.scaling, self.phi, self.piecewise, self.boundary, self.valueSize)
 
     def plot(self, x0=None):
         "Plot the kernel function."
@@ -916,9 +925,9 @@ cdef class Kernel(twoPointFunction):
                 for j in range(x.shape[0]):
                     y = x0+np.array([x[i], x[j]], dtype=REAL)
                     if np.linalg.norm(x0-y) > 1e-9 or self.singularityValue >= 0:
-                        Z[i, j] = self(x0, y)
+                        Z[j, i] = self(x0, y)
                     else:
-                        Z[i, j] = np.nan
+                        Z[j, i] = np.nan
             levels = np.logspace(np.log10(Z[np.absolute(Z)>0].min()),
                                  np.log10(Z[np.absolute(Z)>0].max()), 10)
             if levels[0] < levels[levels.shape[0]-1]:
@@ -928,15 +937,13 @@ cdef class Kernel(twoPointFunction):
                 plt.contourf(X, Y, Z)
             plt.axis('equal')
             plt.colorbar()
-            plt.xlabel('$x_1-y_1$')
-            plt.ylabel('$x_2-y_2$')
+            plt.xlabel('$y_1-x_1$')
+            plt.ylabel('$y_2-x_2$')
 
     def getBoundaryKernel(self):
         "Get the boundary kernel. This is the kernel that corresponds to the elimination of a subdomain via Gauss theorem."
         cdef:
             Kernel newKernel
-        from copy import deepcopy
-
         scaling = deepcopy(self.scaling)
         if self.phi is not None:
             phi = deepcopy(self.phi)
@@ -953,13 +960,17 @@ cdef class Kernel(twoPointFunction):
                                         piecewise=self.piecewise,
                                         boundary=True)
         setREAL(newKernel.c_kernel_params, fEXPONENTINVERSE, getREAL(self.c_kernel_params, fEXPONENTINVERSE))
+        if isinstance(newKernel.scaling, parametrizedTwoPointFunction):
+            assert newKernel.getParamPtrAddr() == newKernel.scaling.getParamPtrAddr()
+        if isinstance(self.scaling, parametrizedTwoPointFunction):
+            assert self.getParamPtrAddr() == self.scaling.getParamPtrAddr()
         return newKernel
 
 
 cdef class ComplexKernel(ComplextwoPointFunction):
     """A kernel functions that can be used to define a nonlocal operator."""
 
-    def __init__(self, INDEX_t dim, kernelType kType, function horizon, interactionDomain interaction, twoPointFunction scaling, twoPointFunction phi, BOOL_t piecewise=True, BOOL_t boundary=False, INDEX_t valueSize=1, **kwargs):
+    def __init__(self, INDEX_t dim, kernelType kType, function horizon, interactionDomain interaction, twoPointFunction scaling, twoPointFunction phi, BOOL_t piecewise=True, BOOL_t boundary=False, INDEX_t valueSize=1, REAL_t max_horizon=np.nan, **kwargs):
         cdef:
             parametrizedTwoPointFunction parametrizedScaling
             int i
@@ -975,7 +986,7 @@ cdef class ComplexKernel(ComplextwoPointFunction):
             (<void**>(self.c_kernel_params+i*OFFSET))[0] = NULL
         setINDEX(self.c_kernel_params, fKDIM, dim)
 
-        symmetric = isinstance(horizon, constant) and scaling.symmetric
+        symmetric = isinstance(horizon, constant) and scaling.symmetric and interaction.symmetric and (phi is None or phi.symmetric)
         super(ComplexKernel, self).__init__(symmetric, valueSize)
 
         if self.kernelType == GREENS_2D:
@@ -995,10 +1006,12 @@ cdef class ComplexKernel(ComplextwoPointFunction):
         self.variableHorizon = not isinstance(self.horizon, constant)
         if self.variableHorizon:
             self.horizonValue2 = np.nan
+            self.max_horizon = max_horizon
             self.finiteHorizon = True
             (<void**>(self.c_kernel_params+fHORIZONFUN))[0] = <void*>horizon
         else:
             self.horizonValue = self.horizon.value
+            self.max_horizon = self.horizon.value
             self.finiteHorizon = self.horizon.value != np.inf
             if self.kernelType == GAUSSIAN:
                 setREAL(self.c_kernel_params, fEXPONENTINVERSE, 1.0/(self.horizonValue/3.)**2)
@@ -1117,7 +1130,7 @@ cdef class ComplexKernel(ComplextwoPointFunction):
             REAL_t scalingValue
         if self.piecewise:
             if self.variableHorizon:
-                self.horizonValue = self.horizon.eval(x)
+                self.setHorizonValue(self.horizon.eval(x))
                 if self.kernelType == GAUSSIAN:
                     setREAL(self.c_kernel_params, fEXPONENTINVERSE, 1.0/(self.horizonValue/3.)**2)
             if self.variableScaling:
@@ -1132,7 +1145,7 @@ cdef class ComplexKernel(ComplextwoPointFunction):
             self.evalParams(x, y)
         else:
             if self.variableHorizon:
-                self.horizonValue = self.horizon.eval(x)
+                self.setHorizonValue(self.horizon.eval(x))
                 if self.kernelType == GAUSSIAN:
                     setREAL(self.c_kernel_params, fEXPONENTINVERSE, 1.0/(self.horizonValue/3.)**2)
             if self.variableScaling:
@@ -1146,7 +1159,7 @@ cdef class ComplexKernel(ComplextwoPointFunction):
         if self.piecewise:
             if self.variableHorizon:
                 xA = <REAL_t[:dim]> x
-                self.horizonValue = self.horizon.eval(xA)
+                self.setHorizonValue(self.horizon.eval(xA))
                 if self.kernelType == GAUSSIAN:
                     setREAL(self.c_kernel_params, fEXPONENTINVERSE, 1.0/(self.horizonValue/3.)**2)
             if self.variableScaling:
@@ -1180,7 +1193,8 @@ cdef class ComplexKernel(ComplextwoPointFunction):
             horizon = self.horizon
             interaction = self.interaction
         else:
-            if scaling is None and isinstance(self.scaling, variableFractionalLaplacianScaling):
+            if scaling is None and isinstance(self.scaling, (variableFractionalLaplacianScaling,
+                                                             variableIntegrableScaling)):
                 scaling = self.scaling.getScalingWithDifferentHorizon()
             interaction = type(self.interaction)()
         if scaling is None:
@@ -1188,6 +1202,10 @@ cdef class ComplexKernel(ComplextwoPointFunction):
         from . kernels import getKernel
         newKernel = getKernel(dim=self.dim, kernel=self.kernelType, horizon=horizon, interaction=interaction, scaling=scaling, piecewise=self.piecewise)
         setREAL(newKernel.c_kernel_params, fEXPONENTINVERSE, getREAL(self.c_kernel_params, fEXPONENTINVERSE))
+        if isinstance(newKernel.scaling, parametrizedTwoPointFunction):
+            assert newKernel.getParamPtrAddr() == newKernel.scaling.getParamPtrAddr()
+        if isinstance(self.scaling, parametrizedTwoPointFunction):
+            assert self.getParamPtrAddr() == self.scaling.getParamPtrAddr()
         return newKernel
 
     def getComplementKernel(self):
@@ -1206,11 +1224,8 @@ cdef class ComplexKernel(ComplextwoPointFunction):
             raise NotImplementedError()
         return "{}({}{}, {}, {})".format(self.__class__.__name__, kernelName, '' if not self.boundary else '-boundary', repr(self.interaction), self.scaling)
 
-    def __getstate__(self):
-        return (self.dim, self.kernelType, self.horizon, self.interaction, self.scaling, self.phi, self.piecewise, self.boundary, self.singularityValue)
-
-    def __setstate__(self, state):
-        Kernel.__init__(self, state[0], state[1], state[2], state[3], state[4], state[5], state[6], state[7], state[8])
+    def __reduce__(self):
+        return Kernel, (self.dim, self.kernelType, self.horizon, self.interaction, self.scaling, self.phi, self.piecewise, self.boundary, self.singularityValue)
 
     def plot(self, x0=None):
         "Plot the kernel function."
@@ -1265,8 +1280,6 @@ cdef class ComplexKernel(ComplextwoPointFunction):
         "Get the boundary kernel. This is the kernel that corresponds to the elimination of a subdomain via Gauss theorem."
         cdef:
             Kernel newKernel
-        from copy import deepcopy
-
         scaling = deepcopy(self.scaling)
         if self.phi is not None:
             phi = deepcopy(self.phi)
@@ -1283,6 +1296,10 @@ cdef class ComplexKernel(ComplextwoPointFunction):
                                         piecewise=self.piecewise,
                                         boundary=True)
         setREAL(newKernel.c_kernel_params, fEXPONENTINVERSE, getREAL(self.c_kernel_params, fEXPONENTINVERSE))
+        if isinstance(newKernel.scaling, parametrizedTwoPointFunction):
+            assert newKernel.getParamPtrAddr() == newKernel.scaling.getParamPtrAddr()
+        if isinstance(self.scaling, parametrizedTwoPointFunction):
+            assert self.getParamPtrAddr() == self.scaling.getParamPtrAddr()
         return newKernel
 
 
@@ -1299,9 +1316,8 @@ cdef class FractionalKernel(Kernel):
                  BOOL_t piecewise=True,
                  BOOL_t boundary=False,
                  INDEX_t derivative=0,
-                 REAL_t tempered=0.):
-        cdef:
-            parametrizedTwoPointFunction parametrizedScaling
+                 REAL_t tempered=0.,
+                 REAL_t max_horizon=np.nan):
         if derivative == 0:
             valueSize = 1
         elif derivative == 1:
@@ -1309,9 +1325,9 @@ cdef class FractionalKernel(Kernel):
         else:
             valueSize = 1
 
-        super(FractionalKernel, self).__init__(dim, FRACTIONAL, horizon, interaction, scaling, phi, piecewise, boundary, valueSize)
+        super(FractionalKernel, self).__init__(dim, FRACTIONAL, horizon, interaction, scaling, phi, piecewise, boundary, valueSize, max_horizon)
 
-        self.symmetric = s.symmetric and isinstance(horizon, constant) and scaling.symmetric
+        self.symmetric = s.symmetric and isinstance(horizon, constant) and scaling.symmetric and interaction.symmetric and (phi is None or phi.symmetric)
         self.derivative = derivative
         self.temperedValue = tempered
 
@@ -1514,7 +1530,7 @@ cdef class FractionalKernel(Kernel):
             else:
                 self.setSingularityValue(1-self.dim-2*sValue)
         if self.variableHorizon:
-            self.horizonValue = self.horizon.eval(center1)
+            self.setHorizonValue(self.horizon.eval(center1))
 
     cdef void evalParams(self, REAL_t[::1] x, REAL_t[::1] y):
         cdef:
@@ -1528,7 +1544,7 @@ cdef class FractionalKernel(Kernel):
                     self.setSingularityValue(1-self.dim-2*sValue)
                 self.setsValue(sValue)
             if self.variableHorizon:
-                self.horizonValue = self.horizon.eval(x)
+                self.setHorizonValue(self.horizon.eval(x))
             if self.variableScaling:
                 self.scaling.evalPtr(x.shape[0], &x[0], &y[0], &scalingValue)
                 self.setScalingValue(scalingValue)
@@ -1547,7 +1563,7 @@ cdef class FractionalKernel(Kernel):
                 self.setsValue(sValue)
             if self.variableHorizon:
                 xA = <REAL_t[:dim]> x
-                self.horizonValue = self.horizon.eval(xA)
+                self.setHorizonValue(self.horizon.eval(xA))
             if self.variableScaling:
                 self.scaling.evalPtr(dim, x, y, &scalingValue)
                 self.setScalingValue(scalingValue)
@@ -1566,7 +1582,7 @@ cdef class FractionalKernel(Kernel):
                 else:
                     self.setSingularityValue(1-self.dim-2*sValue)
             if self.variableHorizon:
-                self.horizonValue = self.horizon.eval(x)
+                self.setHorizonValue(self.horizon.eval(x))
             if self.variableScaling:
                 self.scaling.evalPtr(x.shape[0], &x[0], &y[0], & scalingValue)
                 self.setScalingValue(scalingValue)
@@ -1617,11 +1633,15 @@ cdef class FractionalKernel(Kernel):
                     scaling = self.scaling.f2.getScalingWithDifferentHorizon()*self.scaling.f2
                 else:
                     raise NotImplementedError()
-            interaction = type(self.interaction)()
+            interaction = deepcopy(self.interaction)
         if scaling is None:
             scaling = self.scaling
         from . kernels import getFractionalKernel
         newKernel = getFractionalKernel(dim=self.dim, s=s, horizon=horizon, interaction=interaction, scaling=scaling, piecewise=self.piecewise, boundary=self.boundary, derivative=self.derivative)
+        if isinstance(newKernel.scaling, parametrizedTwoPointFunction):
+            assert newKernel.getParamPtrAddr() == newKernel.scaling.getParamPtrAddr()
+        if isinstance(self.scaling, parametrizedTwoPointFunction):
+            assert self.getParamPtrAddr() == self.scaling.getParamPtrAddr()
         return newKernel
 
     def getBoundaryKernel(self):
@@ -1631,7 +1651,6 @@ cdef class FractionalKernel(Kernel):
             variableFractionalLaplacianScalingWithDifferentHorizon scalVarDiffHorizon
             variableFractionalLaplacianScaling scalVar
 
-        from copy import deepcopy
         s = deepcopy(self.s)
         if not self.variableOrder:
             fac = constantTwoPoint(1/s.value)
@@ -1661,6 +1680,10 @@ cdef class FractionalKernel(Kernel):
                                         piecewise=self.piecewise,
                                         boundary=True,
                                         derivative=self.derivative)
+        if isinstance(newKernel.scaling, parametrizedTwoPointFunction):
+            assert newKernel.getParamPtrAddr() == newKernel.scaling.getParamPtrAddr(), (newKernel.getParamPtrAddr(), newKernel.scaling.getParamPtrAddr())
+        if isinstance(self.scaling, parametrizedTwoPointFunction):
+            assert self.getParamPtrAddr() == self.scaling.getParamPtrAddr(), (self.getParamPtrAddr(), self.scaling.getParamPtrAddr())
         return newKernel
 
     def getComplementKernel(self):
@@ -1690,11 +1713,8 @@ cdef class FractionalKernel(Kernel):
         else:
             return "kernel(fractional{}, {}, {}, {})".format('' if not self.boundary else '-boundary', self.s, repr(self.interaction), self.scaling)
 
-    def __getstate__(self):
-        return (self.dim, self.s, self.horizon, self.interaction, self.scaling, self.phi, self.piecewise, self.boundary, self.derivative, self.temperedValue)
-
-    def __setstate__(self, state):
-        FractionalKernel.__init__(self, state[0], state[1], state[2], state[3], state[4], state[5], state[6], state[7], state[8], state[9])
+    def __reduce__(self):
+        return FractionalKernel, (self.dim, self.s, self.horizon, self.interaction, self.scaling, self.phi, self.piecewise, self.boundary, self.derivative, self.temperedValue)
 
 
 cdef class RangedFractionalKernel(FractionalKernel):
@@ -1715,7 +1735,7 @@ cdef class RangedFractionalKernel(FractionalKernel):
         if isinstance(horizon, constant) and horizon.value == np.inf:
             self.interaction = fullSpace()
         else:
-            self.interaction = ball2()
+            self.interaction = ball2_retriangulation()
         self.normalized = normalized
         self.tempered = tempered
 
@@ -1755,11 +1775,8 @@ cdef class RangedFractionalKernel(FractionalKernel):
     def __repr__(self):
         return 'ranged '+super(RangedFractionalKernel, self).__repr__()
 
-    def __getstate__(self):
-        return (self.dim, self.admissibleOrders, self.horizon, self.normalized, self.tempered, self.errorBound, self.M_min, self.M_max, self.xi)
-
-    def __setstate__(self, state):
-        RangedFractionalKernel.__init__(self, *state)
+    def __reduce__(self):
+        return RangedFractionalKernel, (self.dim, self.admissibleOrders, self.horizon, self.normalized, self.tempered, self.errorBound, self.M_min, self.M_max, self.xi)
 
 
 cdef class RangedVariableFractionalKernel(FractionalKernel):
@@ -1781,7 +1798,7 @@ cdef class RangedVariableFractionalKernel(FractionalKernel):
         if isinstance(horizon, constant) and horizon.value == np.inf:
             self.interaction = fullSpace()
         else:
-            self.interaction = ball2()
+            self.interaction = ball2_retriangulation()
         self.normalized = normalized
 
         numBlocks = <INDEX_t>np.around(sqrt(admissibleOrders.numParams))
@@ -1819,5 +1836,3 @@ cdef class RangedVariableFractionalKernel(FractionalKernel):
 
     def __repr__(self):
         return 'ranged '+super(RangedVariableFractionalKernel, self).__repr__()
-
-

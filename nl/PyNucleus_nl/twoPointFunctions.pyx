@@ -45,11 +45,8 @@ cdef class lambdaTwoPoint(twoPointFunction):
     def __repr__(self):
         return 'Lambda({})'.format(self.fun)
 
-    def __getstate__(self):
-        return (self.fun, self.symmetric)
-
-    def __setstate__(self, state):
-        lambdaTwoPoint.__init__(self, state[0], state[1])
+    def __reduce__(self):
+        return lambdaTwoPoint, (self.fun, self.symmetric)
 
 
 cdef class matrixTwoPoint(twoPointFunction):
@@ -64,11 +61,8 @@ cdef class matrixTwoPoint(twoPointFunction):
         super(matrixTwoPoint, self).__init__(symmetric, 1)
         self.n = np.zeros((mat.shape[0]), dtype=REAL)
 
-    def __getstate__(self):
-        return (self.mat)
-
-    def __setstate__(self, state):
-        matrixTwoPoint.__init__(self, state)
+    def __reduce__(self):
+        return matrixTwoPoint, (self.mat)
 
     def __repr__(self):
         return '{}({},sym={})'.format(self.__class__.__name__, np.array(self.mat), self.symmetric)
@@ -123,11 +117,8 @@ cdef class leftRightTwoPoint(twoPointFunction):
         self.rr = rr
         self.interface = interface
 
-    def __getstate__(self):
-        return (self.ll, self.rr, self.lr, self.rl, self.interface)
-
-    def __setstate__(self, state):
-        leftRightTwoPoint.__init__(self, state[0], state[1], state[2], state[3], state[4])
+    def __reduce__(self):
+        return leftRightTwoPoint, (self.ll, self.rr, self.lr, self.rl, self.interface)
 
     def __repr__(self):
         return '{}(ll={},rr={},lr={},rl={},interface={},sym={})'.format(self.__class__.__name__, self.ll, self.rr, self.lr, self.rl, self.interface, self.symmetric)
@@ -165,11 +156,8 @@ cdef class interfaceTwoPoint(twoPointFunction):
         self.left = left
         self.interface = interface
 
-    def __getstate__(self):
-        return (self.horizon1, self.horizon2, self.left, self.interface)
-
-    def __setstate__(self, state):
-        interfaceTwoPoint.__init__(self, state[0], state[1], state[2], state[3])
+    def __reduce__(self):
+        return interfaceTwoPoint, (self.horizon1, self.horizon2, self.left, self.interface)
 
     def __repr__(self):
         return '{}(horizon1={},horizon2={},left={},interface={})'.format(self.__class__.__name__, self.horizon1, self.horizon2, self.left, self.interface)
@@ -259,11 +247,8 @@ cdef class temperedTwoPoint(twoPointFunction):
         self.lambdaCoeff = lambdaCoeff
         self.dim = dim
 
-    def __getstate__(self):
-        return (self.lambdaCoeff, self.dim)
-
-    def __setstate__(self, state):
-        temperedTwoPoint.__init__(self, state[0], state[1])
+    def __reduce__(self):
+        return temperedTwoPoint, (self.lambdaCoeff, self.dim)
 
     def __repr__(self):
         return '{}(lambda={})'.format(self.__class__.__name__, self.lambdaCoeff)
@@ -295,11 +280,8 @@ cdef class tensorTwoPoint(twoPointFunction):
         self.i = i
         self.j = j
 
-    def __getstate__(self):
-        return (self.i, self.j, self.dim)
-
-    def __setstate__(self, state):
-        tensorTwoPoint.__init__(self, state[0], state[1], state[2])
+    def __reduce__(self):
+        return tensorTwoPoint, (self.i, self.j, self.dim)
 
     def __repr__(self):
         return '{}(i={},j={})'.format(self.__class__.__name__, self.i, self.j)
@@ -338,11 +320,8 @@ cdef class smoothedLeftRightTwoPoint(twoPointFunction):
         self.slope = slope
         self.fac = 1./atan(r*slope)
 
-    def __getstate__(self):
-        return (self.vl, self.vr, self.r, self.slope)
-
-    def __setstate__(self, state):
-        smoothedLeftRightTwoPoint.__init__(self, state[0], state[1], state[2], state[3])
+    def __reduce__(self):
+        return smoothedLeftRightTwoPoint, (self.vl, self.vr, self.r, self.slope)
 
     def __repr__(self):
         return '{}(vl={},vr={},r={},slope={})'.format(self.__class__.__name__, self.vl, self.vr, self.r, self.slope)
@@ -368,11 +347,8 @@ cdef class unsymTwoPoint(twoPointFunction):
         self.l = l
         self.r = r
 
-    def __getstate__(self):
-        return (self.l, self.r)
-
-    def __setstate__(self, state):
-        unsymTwoPoint.__init__(self, state[0], state[1])
+    def __reduce__(self):
+        return unsymTwoPoint, (self.l, self.r)
 
     def __repr__(self):
         return '{}(l={},r={})'.format(self.__class__.__name__, self.l, self.r)
@@ -406,8 +382,5 @@ cdef class inverseTwoPoint(twoPointFunction):
     def __repr__(self):
         return '1/{}'.format(self.f)
 
-    def __getstate__(self):
-        return self.f
-
-    def __setstate__(self, state):
-        inverseTwoPoint.__init__(self, state)
+    def __reduce__(self):
+        return inverseTwoPoint, (self.f, )

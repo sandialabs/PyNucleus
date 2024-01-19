@@ -897,6 +897,18 @@ cdef class fractionalLaplacian2D_nonsym(fractionalLaplacian2D):
 
     for the 2D non-symmetric nonlocal Laplacian.
     """
+    def __init__(self,
+                 Kernel kernel,
+                 meshBase mesh,
+                 DoFMap dm,
+                 target_order=None,
+                 quad_order_diagonal=None,
+                 num_dofs=None,
+                 **kwargs):
+        super(fractionalLaplacian2D_nonsym, self).__init__(kernel, mesh, dm, num_dofs, **kwargs)
+        self.symmetricLocalMatrix = False
+        self.symmetricCells = False
+
     cdef panelType getQuadOrder(self,
                                 const REAL_t h1,
                                 const REAL_t h2,

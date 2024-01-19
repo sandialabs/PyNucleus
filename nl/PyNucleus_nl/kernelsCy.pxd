@@ -24,6 +24,7 @@ cdef class Kernel(twoPointFunction):
         public kernelType kernelType
         public REAL_t min_singularity
         public REAL_t max_singularity
+        public REAL_t max_horizon
         public function horizon
         public interactionDomain interaction
         public twoPointFunction scaling
@@ -58,6 +59,7 @@ cdef class ComplexKernel(ComplextwoPointFunction):
         public kernelType kernelType
         public REAL_t min_singularity
         public REAL_t max_singularity
+        public REAL_t max_horizon
         public function horizon
         public interactionDomain interaction
         public twoPointFunction scaling

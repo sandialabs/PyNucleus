@@ -65,23 +65,14 @@ cdef class fractionalOrderBase(twoPointFunction):
     def evalGrad_py(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] grad):
         self.evalGrad(x, y, grad)
 
-    def __getstate__(self):
-        return (self.min, self.max, self.symmetric, self.numParameters)
-
-    def __setstate__(self, state):
-        fractionalOrderBase.__init__(self, state[0], state[1], state[2], state[3])
+    def __reduce__(self):
+        return fractionalOrderBase, (self.min, self.max, self.symmetric, self.numParameters)
 
 
 cdef class constFractionalOrder(fractionalOrderBase):
     def __init__(self, REAL_t s):
         super(constFractionalOrder, self).__init__(s, s, True)
         self.value = s
-
-    def __getstate__(self):
-        return self.value
-
-    def __setstate__(self, state):
-        constFractionalOrder.__init__(self, state)
 
     cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
         value[0] = self.value
@@ -97,6 +88,9 @@ cdef class constFractionalOrder(fractionalOrderBase):
 
     def __repr__(self):
         return '{}'.format(self.value)
+
+    def __reduce__(self):
+        return constFractionalOrder, (self.value, )
 
 
 cdef class variableFractionalOrder(fractionalOrderBase):
@@ -125,9 +119,6 @@ cdef class variableFractionalOrder(fractionalOrderBase):
 
 
 cdef class extendedFunction(function):
-    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x):
-        pass
-
     cdef void evalGrad(self, REAL_t[::1] x, REAL_t[::1] grad):
         raise NotImplementedError()
 
@@ -152,11 +143,8 @@ cdef class singleVariableTwoPointFunction(twoPointFunction):
     def __repr__(self):
         return '{}'.format(self.fun)
 
-    def __getstate__(self):
-        return self.fun
-
-    def __setstate__(self, state):
-        singleVariableTwoPointFunction.__init__(self, state)
+    def __reduce__(self):
+        return singleVariableTwoPointFunction, (self.fun, )
 
 
 cdef class singleVariableUnsymmetricFractionalOrder(variableFractionalOrder):
@@ -179,11 +167,8 @@ cdef class singleVariableUnsymmetricFractionalOrder(variableFractionalOrder):
     def __repr__(self):
         return '{}({})'.format(self.__class__.__name__, self.sFun)
 
-    def __getstate__(self):
-        return (self.sFun, self.min, self.max, self.numParameters)
-
-    def __setstate__(self, state):
-        singleVariableUnsymmetricFractionalOrder.__init__(self, state[0], state[1], state[2], state[3])
+    def __reduce__(self):
+        return singleVariableUnsymmetricFractionalOrder, (self.sFun, self.min, self.max, self.numParameters)
 
 
 cdef REAL_t lambdaFractionalOrderFun(REAL_t *x, REAL_t *y, void *c_params):
@@ -225,11 +210,8 @@ cdef class variableConstFractionalOrder(variableFractionalOrder):
     def __repr__(self):
         return '{}(s={},sym={})'.format(self.__class__.__name__, self.value, self.symmetric)
 
-    def __getstate__(self):
-        return self.value
-
-    def __setstate__(self, state):
-        variableConstFractionalOrder.__init__(self, state)
+    def __reduce__(self):
+        return variableConstFractionalOrder, (self.value, )
 
 
 cdef REAL_t piecewiseConstantFractionalOrderFun(REAL_t *x, REAL_t *y, void *c_params):
@@ -277,16 +259,13 @@ cdef class piecewiseConstantFractionalOrder(variableFractionalOrder):
         setREALArray2D(self.c_params, fR, self.sVals)
         (<void**>(self.c_params+fLAMBDA))[0] = <void*>self.blockIndicator
 
-    def __getstate__(self):
+    def __reduce__(self):
         cdef:
             INDEX_t dim = getINDEX(self.c_params, fDIM)
             function blockIndicator = (<function>((<void**>(self.c_params+fLAMBDA))[0]))
             INDEX_t numBlocks = getINDEX(self.c_params, fSR)
             REAL_t[:, ::1] sVals = <REAL_t[:numBlocks, :numBlocks]>getREALArray2D(self.c_params, fR)
-        return (dim, blockIndicator, sVals)
-
-    def __setstate__(self, state):
-        piecewiseConstantFractionalOrder.__init__(self, state[0], state[1], state[2])
+        return piecewiseConstantFractionalOrder, (dim, blockIndicator, sVals)
 
     def __repr__(self):
         cdef:
@@ -336,16 +315,13 @@ cdef class leftRightFractionalOrder(variableFractionalOrder):
         setREAL(self.c_params, fSRL, srl)
         setREAL(self.c_params, fR, interface)
 
-    def __getstate__(self):
+    def __reduce__(self):
         sll = getREAL(self.c_params, fSLL)
         srr = getREAL(self.c_params, fSRR)
         slr = getREAL(self.c_params, fSLR)
         srl = getREAL(self.c_params, fSRL)
         interface = getREAL(self.c_params, fR)
-        return (sll, srr, slr, srl, interface)
-
-    def __setstate__(self, state):
-        leftRightFractionalOrder.__init__(self, state[0], state[1], state[2], state[3], state[4])
+        return leftRightFractionalOrder, (sll, srr, slr, srl, interface)
 
     def __repr__(self):
         sll = getREAL(self.c_params, fSLL)
@@ -643,11 +619,8 @@ cdef class lookupExtended(extendedFunction):
                 shapeFun.evalPtr(&self.cellFinder.bary[0], NULL, &val)
                 grad[dof] += val
 
-    def __getstate__(self):
-        return self.mesh, self.dm, self.u
-
-    def __setstate__(self, state):
-        lookupExtended.__init__(self, state[0], state[1], state[2])
+    def __reduce__(self):
+        return lookupExtended, (self.mesh, self.dm, self.u)
 
     def __repr__(self):
         if self.dm.num_dofs < 10:
@@ -694,12 +667,8 @@ cdef class feFractionalOrder(singleVariableUnsymmetricFractionalOrder):
         sFun = lookupExtended(vec.dm.mesh, vec.dm, vec)
         super(feFractionalOrder, self).__init__(sFun, smin, smax, numParameters=vec.dm.num_dofs)
 
-    def __getstate__(self):
-        return (self.vec, self.vec.dm, self.min, self.max)
-
-    def __setstate__(self, state):
-        vec = fe_vector(state[0], state[1])
-        feFractionalOrder.__init__(self, vec, state[2], state[3])
+    def __reduce__(self):
+        return feFractionalOrder, (self.vec, self.min, self.max)
 
 
 cdef REAL_t innerOuterFractionalOrderFun(REAL_t *x, REAL_t *y, void *c_params):
@@ -749,7 +718,7 @@ cdef class innerOuterFractionalOrder(variableFractionalOrder):
         setREAL(self.c_params, fR, r*r)
         setREAL(self.c_params, fSLOPE, center[0])
 
-    def __getstate__(self):
+    def __reduce__(self):
         dim = getINDEX(self.c_params, fDIM)
         sii = getREAL(self.c_params, fSLL)
         soo = getREAL(self.c_params, fSRR)
@@ -757,10 +726,7 @@ cdef class innerOuterFractionalOrder(variableFractionalOrder):
         soi = getREAL(self.c_params, fSRL)
         r = sqrt(getREAL(self.c_params, fR))
         center =<REAL_t[:dim]> (<REAL_t*>(self.c_params+fSLOPE))
-        return (dim, sii, soo, r, np.array(center), sio, soi)
-
-    def __setstate__(self, state):
-        innerOuterFractionalOrder.__init__(self, state[0], state[1], state[2], state[3], state[4], state[5], state[6])
+        return innerOuterFractionalOrder, (dim, sii, soo, r, np.array(center), sio, soi)
 
     def __repr__(self):
         return '{}(ii={},oo={},io={},oi={},r={},sym={})'.format(self.__class__.__name__,
@@ -839,17 +805,14 @@ cdef class islandsFractionalOrder(variableFractionalOrder):
         setREAL(self.c_params, fR, r)
         setREAL(self.c_params, fSLOPE, r2)
 
-    def __getstate__(self):
+    def __reduce__(self):
         sii = getREAL(self.c_params, fSLL)
         soo = getREAL(self.c_params, fSRR)
         sio = getREAL(self.c_params, fSLR)
         soi = getREAL(self.c_params, fSRL)
         r = getREAL(self.c_params, fR)
         r2 = getREAL(self.c_params, fSLOPE)
-        return (sii, soo, r, r2, sio, soi)
-
-    def __setstate__(self, state):
-        islandsFractionalOrder.__init__(self, state[0], state[1], state[2], state[3], state[4], state[5])
+        return islandsFractionalOrder, (sii, soo, r, r2, sio, soi)
 
     def __repr__(self):
         sii = getREAL(self.c_params, fSLL)
@@ -925,12 +888,9 @@ cdef class layersFractionalOrder(variableFractionalOrder):
         setREALArray1D(self.c_params, fSL, self.layerBoundaries)
         setREALArray2D(self.c_params, fSR, self.layerOrders)
 
-    def __getstate__(self):
+    def __reduce__(self):
         dim = getINDEX(self.c_params, fDIM)
-        return (dim, np.array(self.layerBoundaries), np.array(self.layerOrders))
-
-    def __setstate__(self, state):
-        layersFractionalOrder.__init__(self, state[0], state[1], state[2])
+        return layersFractionalOrder, (dim, np.array(self.layerBoundaries), np.array(self.layerOrders))
 
     def __repr__(self):
         numLayers = getINDEX(self.c_params, fR)

@@ -35,8 +35,6 @@ cdef class variableFractionalOrder(fractionalOrderBase):
 
 
 cdef class extendedFunction(function):
-    cdef REAL_t eval(self, REAL_t[::1])
-    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x)
     cdef void evalGrad(self, REAL_t[::1] x, REAL_t[::1] grad)
     cdef void evalGradPtr(self, INDEX_t dim, REAL_t* x, INDEX_t vectorSize, REAL_t* grad)
 

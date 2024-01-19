@@ -11,11 +11,24 @@ from numpy cimport uint8_t
 
 cdef class function:
     cdef REAL_t eval(self, REAL_t[::1] x)
+    cdef REAL_t evalPtr(self, INDEX_t dim, REAL_t* x)
 
 
 cdef class constant(function):
     cdef:
         public REAL_t value
+
+
+cdef class affineFunction(function):
+    cdef:
+        public REAL_t[::1] w
+        public REAL_t c
+
+
+cdef class sqrtAffineFunction(function):
+    cdef:
+        public REAL_t[::1] w
+        public REAL_t c
 
 
 ctypedef REAL_t(*volume_t)(REAL_t[:, ::1])
@@ -43,3 +56,9 @@ cdef class matrixFunction:
         INDEX_t columns
         public BOOL_t symmetric
     cdef void eval(self, REAL_t[::1] x, REAL_t[:, ::1] vals)
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* vals)
+
+
+cdef class constantMatrixFunction(matrixFunction):
+    cdef:
+        REAL_t[:, ::1] A

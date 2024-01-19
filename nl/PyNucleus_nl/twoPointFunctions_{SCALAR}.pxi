@@ -25,11 +25,8 @@ cdef class {SCALAR_label}twoPointFunction:
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, {SCALAR}_t* value):
         raise NotImplementedError()
 
-    def __getstate__(self):
-        return self.symmetric
-
-    def __setstate__(self, state):
-        twoPointFunction.__init__(self, state)
+    def __reduce__(self):
+        return {SCALAR_label}twoPointFunction, (self.symmetric, self.valueSize)
 
     def fixedX(self, REAL_t[::1] x):
         return fixedTwoPointFunction(self, x, FIXED_X)
@@ -132,11 +129,8 @@ cdef class {SCALAR_label}productTwoPoint({SCALAR_label}twoPointFunction):
     def __repr__(self):
         return '{}*{}'.format(self.f1, self.f2)
 
-    def __getstate__(self):
-        return self.f1, self.f2
-
-    def __setstate__(self, state):
-        {SCALAR_label}productTwoPoint.__init__(self, state[0], state[1])
+    def __reduce__(self):
+        return {SCALAR_label}productTwoPoint, (self.f1, self.f2)
 
 
 cdef class {SCALAR_label}constantTwoPoint({SCALAR_label}twoPointFunction):
@@ -153,11 +147,8 @@ cdef class {SCALAR_label}constantTwoPoint({SCALAR_label}twoPointFunction):
     def __repr__(self):
         return '{}'.format(self.value)
 
-    def __getstate__(self):
-        return self.value
-
-    def __setstate__(self, state):
-        {SCALAR_label}constantTwoPoint.__init__(self, state)
+    def __reduce__(self):
+        return {SCALAR_label}constantTwoPoint, (self.value, )
 
 
 cdef class {SCALAR_label}parametrizedTwoPointFunction({SCALAR_label}twoPointFunction):
@@ -169,6 +160,9 @@ cdef class {SCALAR_label}parametrizedTwoPointFunction({SCALAR_label}twoPointFunc
 
     cdef void* getParams(self):
         return self.params
+
+    def getParamPtrAddr(self):
+        return <size_t>self.params
 
 
 cdef class {SCALAR_label}productParametrizedTwoPoint({SCALAR_label}parametrizedTwoPointFunction):
@@ -188,6 +182,7 @@ cdef class {SCALAR_label}productParametrizedTwoPoint({SCALAR_label}parametrizedT
         if isinstance(self.f2, {SCALAR_label}parametrizedTwoPointFunction):
             f = self.f2
             f.setParams(params)
+        {SCALAR_label}parametrizedTwoPointFunction.setParams(self, params)
 
     cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, {SCALAR}_t[::1] value):
         cdef:
@@ -206,8 +201,5 @@ cdef class {SCALAR_label}productParametrizedTwoPoint({SCALAR_label}parametrizedT
     def __repr__(self):
         return '{}*{}'.format(self.f1, self.f2)
 
-    def __getstate__(self):
-        return self.f1, self.f2
-
-    def __setstate__(self, state):
-        productParametrizedTwoPoint.__init__(self, state[0], state[1])
+    def __reduce__(self):
+        return {SCALAR_label}productParametrizedTwoPoint, (self.f1, self.f2)
