@@ -517,6 +517,31 @@ cdef class {SCALAR_label}CSR_VectorLinearOperator({SCALAR_label}VectorLinearOper
                     y[i, k] += self.data[jj, k]*x[j]
         return 0
 
+    cdef INDEX_t matvecTrans({SCALAR_label}CSR_VectorLinearOperator self,
+                             {SCALAR}_t[::1] x,
+                             {SCALAR}_t[:, ::1] y) except -1:
+        cdef:
+            INDEX_t i, j, jj, k
+        y[:, :] = 0.
+        for i in range(self.indptr.shape[0]-1):
+            for jj in range(self.indptr[i], self.indptr[i+1]):
+                j = self.indices[jj]
+                for k in range(self.data.shape[1]):
+                    y[j, k] += self.data[jj, k]*x[i]
+        return 0
+
+    cdef INDEX_t matvecTrans_no_overwrite({SCALAR_label}CSR_VectorLinearOperator self,
+                                          {SCALAR}_t[::1] x,
+                                          {SCALAR}_t[:, ::1] y) except -1:
+        cdef:
+            INDEX_t i, j, jj, k
+        for i in range(self.indptr.shape[0]-1):
+            for jj in range(self.indptr[i], self.indptr[i+1]):
+                j = self.indices[jj]
+                for k in range(self.data.shape[1]):
+                    y[j, k] += self.data[jj, k]*x[i]
+        return 0
+
     def isSparse(self):
         return True
 

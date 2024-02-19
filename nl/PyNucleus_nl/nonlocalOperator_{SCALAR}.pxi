@@ -427,12 +427,12 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             self.num_dofs = num_dofs
         self.hmin = mesh.hmin
         self.H0 = mesh.diam/sqrt(8)
-        self.localShapeFunctions = <void**>malloc(self.DoFMap.dofs_per_element*sizeof(void*))
+        self.localShapeFunctions = <void**>PyMem_Malloc(self.DoFMap.dofs_per_element*sizeof(void*))
         for i in range(self.DoFMap.dofs_per_element):
             sf = dm.localShapeFunctions[i]
             self.localShapeFunctions[i] = <void*>sf
         self.specialQuadRules = {}
-        self.distantQuadRulesPtr = <void**>malloc(MAX_PANEL*sizeof(void*))
+        self.distantQuadRulesPtr = <void**>PyMem_Malloc(MAX_PANEL*sizeof(void*))
         for i in range(MAX_PANEL):
             self.distantQuadRulesPtr[i] = NULL
 
@@ -458,9 +458,12 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
         if self.kernel.variableHorizon:
             self.symmetricCells = False
 
+    cpdef void setKernel(self, {SCALAR_label}Kernel kernel, quad_order_diagonal=None, target_order=None):
+        raise NotImplementedError()
+
     def __del__(self):
-        free(self.localShapeFunctions)
-        free(self.distantQuadRulesPtr)
+        PyMem_Free(self.localShapeFunctions)
+        PyMem_Free(self.distantQuadRulesPtr)
 
     cdef void getNearQuadRule(self, panelType panel):
         raise NotImplementedError()

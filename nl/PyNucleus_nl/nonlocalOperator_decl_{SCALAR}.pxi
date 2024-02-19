@@ -32,6 +32,7 @@ cdef class {SCALAR_label}double_local_matrix_t:
         public INDEX_t[:, ::1] precomputedVolumeSimplexPermutations
         public INDEX_t[:, ::1] precomputedSurfaceSimplexPermutations
         public INDEX_t[:, ::1] precomputedDoFPermutations
+        dict specialQuadRules
     cdef void precomputePermutations(self)
     cdef void precomputeSimplices(self)
     cdef INDEX_t getCellPairIdentifierSize(self)
@@ -70,7 +71,6 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
     cdef:
         public REAL_t H0, hmin, num_dofs
         void** localShapeFunctions
-        dict specialQuadRules
         public {SCALAR_label}Kernel kernel
         REAL_t[:, ::1] x, y
         void** distantQuadRulesPtr
@@ -79,6 +79,7 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
         {SCALAR}_t[:, ::1] temp
         {SCALAR}_t[:, ::1] temp2
         public REAL_t[::1] n, w
+    cpdef void setKernel(self, {SCALAR_label}Kernel kernel, quad_order_diagonal=*, target_order=*)
     cdef void getNearQuadRule(self, panelType panel)
     cdef inline shapeFunction getLocalShapeFunction(self, INDEX_t local_dof)
     cdef void addQuadRule(self, panelType panel)

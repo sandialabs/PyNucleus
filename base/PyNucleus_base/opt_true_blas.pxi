@@ -215,10 +215,10 @@ cdef void gemvT(SCALAR_t[:, ::1] A, SCALAR_t[::1] x, SCALAR_t[::1] y, SCALAR_t b
         double complex* A_ptr_c
         double complex* x_ptr_c
         double complex* y_ptr_c
-        int m = A.shape[0]
-        int n = A.shape[1]
+        int m = A.shape[1]
+        int n = A.shape[0]
         SCALAR_t alpha = 1.
-        int lda = A.shape[0]
+        int lda = A.shape[1]
         int incx = 1
         int incy = 1
     if SCALAR_t is COMPLEX_t:

@@ -110,6 +110,12 @@ cdef class {SCALAR_label}VectorLinearOperator:
     cdef INDEX_t matvec_no_overwrite(self,
                                      {SCALAR}_t[::1] x,
                                      {SCALAR}_t[:, ::1] y) except -1
+    cdef INDEX_t matvecTrans(self,
+                             {SCALAR}_t[::1] x,
+                             {SCALAR}_t[:, ::1] y) except -1
+    cdef INDEX_t matvecTrans_no_overwrite(self,
+                                          {SCALAR}_t[::1] x,
+                                          {SCALAR}_t[:, ::1] y) except -1
     cdef void addToEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val)
     cdef void getEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val)
     cdef void setEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val)

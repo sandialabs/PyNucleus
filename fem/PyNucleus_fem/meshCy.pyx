@@ -11,7 +11,7 @@ import numpy as np
 cimport numpy as np
 # from libcpp.unordered_map cimport unordered_map
 # from libcpp.map cimport map
-from libc.stdlib cimport malloc, realloc, free
+from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 from libc.stdlib cimport qsort
 
 from PyNucleus_base.myTypes import INDEX, REAL, TAG
@@ -1982,17 +1982,17 @@ cdef class faceVals:
         self.nnz = 0
         self.counts = np.zeros((num_dofs), dtype=np.uint8)
         self.lengths = initial_length*np.ones((num_dofs), dtype=np.uint8)
-        self.indexL = <INDEX_t **>malloc(num_dofs*sizeof(INDEX_t *))
-        self.indexR = <INDEX_t **>malloc(num_dofs*sizeof(INDEX_t *))
-        self.vals = <INDEX_t **>malloc(num_dofs*sizeof(INDEX_t *))
+        self.indexL = <INDEX_t **>PyMem_Malloc(num_dofs*sizeof(INDEX_t *))
+        self.indexR = <INDEX_t **>PyMem_Malloc(num_dofs*sizeof(INDEX_t *))
+        self.vals = <INDEX_t **>PyMem_Malloc(num_dofs*sizeof(INDEX_t *))
         # reserve initial memory for array of variable column size
         for i in range(num_dofs):
-            self.indexL[i] = <INDEX_t *>malloc(self.initial_length *
-                                               sizeof(INDEX_t))
-            self.indexR[i] = <INDEX_t *>malloc(self.initial_length *
-                                               sizeof(INDEX_t))
-            self.vals[i] = <INDEX_t *>malloc(self.initial_length *
-                                             sizeof(INDEX_t))
+            self.indexL[i] = <INDEX_t *>PyMem_Malloc(self.initial_length *
+                                                     sizeof(INDEX_t))
+            self.indexR[i] = <INDEX_t *>PyMem_Malloc(self.initial_length *
+                                                     sizeof(INDEX_t))
+            self.vals[i] = <INDEX_t *>PyMem_Malloc(self.initial_length *
+                                                   sizeof(INDEX_t))
         self.deleteHits = deleteHits
 
     cdef inline INDEX_t enterValue(self, const INDEX_t[::1] f, INDEX_t val):
@@ -2013,18 +2013,18 @@ cdef class faceVals:
             # J,K was not present
             # Do we need more space?
             if self.counts[I] == self.lengths[I]:
-                self.indexL[I] = <INDEX_t *>realloc(self.indexL[I],
-                                                    (self.lengths[I] +
-                                                     self.length_inc) *
-                                                    sizeof(INDEX_t))
-                self.indexR[I] = <INDEX_t *>realloc(self.indexR[I],
-                                                    (self.lengths[I] +
-                                                     self.length_inc) *
-                                                    sizeof(INDEX_t))
-                self.vals[I] = <INDEX_t *>realloc(self.vals[I],
-                                                  (self.lengths[I] +
-                                                   self.length_inc) *
-                                                  sizeof(INDEX_t))
+                self.indexL[I] = <INDEX_t *>PyMem_Realloc(self.indexL[I],
+                                                          (self.lengths[I] +
+                                                           self.length_inc) *
+                                                          sizeof(INDEX_t))
+                self.indexR[I] = <INDEX_t *>PyMem_Realloc(self.indexR[I],
+                                                          (self.lengths[I] +
+                                                           self.length_inc) *
+                                                          sizeof(INDEX_t))
+                self.vals[I] = <INDEX_t *>PyMem_Realloc(self.vals[I],
+                                                        (self.lengths[I] +
+                                                         self.length_inc) *
+                                                        sizeof(INDEX_t))
                 self.lengths[I] += self.length_inc
             # where should we insert?
             for m in range(self.counts[I]):
@@ -2062,12 +2062,12 @@ cdef class faceVals:
         cdef:
             INDEX_t i
         for i in range(self.num_dofs):
-            free(self.indexL[i])
-            free(self.indexR[i])
-            free(self.vals[i])
-        free(self.indexL)
-        free(self.indexR)
-        free(self.vals)
+            PyMem_Free(self.indexL[i])
+            PyMem_Free(self.indexR[i])
+            PyMem_Free(self.vals[i])
+        PyMem_Free(self.indexL)
+        PyMem_Free(self.indexR)
+        PyMem_Free(self.vals)
 
     cdef void startIter(self):
         self.i = 0

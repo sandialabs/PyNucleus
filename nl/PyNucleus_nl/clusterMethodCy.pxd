@@ -26,20 +26,13 @@ from . kernelsCy cimport FractionalKernel
 
 cdef class transferMatrixBuilder:
     cdef:
-        INDEX_t m
         INDEX_t dim
-        REAL_t[:, ::1] omega
-        REAL_t[:, ::1] beta
-        REAL_t[:, ::1] xiC
-        REAL_t[:, ::1] xiP
-        REAL_t[::1] eta
         productIterator pit
         productIterator pit2
 
     cdef void build(self,
-                    REAL_t[:, ::1] boxP,
-                    REAL_t[:, ::1] boxC,
-                    REAL_t[:, ::1] T)
+                    tree_node parent,
+                    tree_node child)
 
 
 cdef enum refinementType:
@@ -59,6 +52,9 @@ cdef struct refinementParams:
     INDEX_t farFieldInteractionSize
     INDEX_t interpolation_order
     BOOL_t attemptRefinement
+    REAL_t targetOrder
+    REAL_t meshDiam
+    REAL_t maxSingularity
 
 
 cdef class tree_node:
@@ -76,12 +72,16 @@ cdef class tree_node:
         public REAL_t[:, ::1] box
         public REAL_t[:, ::1] transferOperator
         public REAL_t[:, :, ::1] value
-        public REAL_t[::1] coefficientsUp, coefficientsDown
+        public REAL_t[::1] coefficientsUp
+        public REAL_t[::1] coefficientsDown
         public REAL_t[:, ::1] coefficientsDownVec
         public BOOL_t mixed_node
         public BOOL_t canBeAssembled
         public INDEX_t levelNo
         public INDEX_t coefficientsUpOffset
+        public REAL_t hmin
+        public INDEX_t interpolation_order
+        public refinementParams refParams
     cdef indexSet get_dofs(self)
     cdef indexSet get_local_dofs(self)
     cdef INDEX_t get_num_dofs(self)
@@ -91,7 +91,7 @@ cdef class tree_node:
     cdef BOOL_t get_is_leaf(self)
     cdef INDEX_t _getLevels(self)
     cdef INDEX_t _getParentLevels(self)
-    cdef void prepareTransferOperators(self, INDEX_t m, INDEX_t valueSize, transferMatrixBuilder tMB=*)
+    cdef void prepareTransferOperators(self, INDEX_t valueSize, transferMatrixBuilder tMB=*)
     cdef void upwardPass(self, REAL_t[::1] x, INDEX_t componentNo=*, BOOL_t skip_leaves=*, BOOL_t local=*)
     cdef void resetCoefficientsDown(self, BOOL_t vecValued=*)
     cdef void resetCoefficientsUp(self)
@@ -121,6 +121,7 @@ cdef class farFieldClusterPair:
     cpdef void apply(self, REAL_t[::1] x, REAL_t[::1] y)
     cpdef void applyTrans(self, REAL_t[::1] x, REAL_t[::1] y)
     cpdef void applyVec(farFieldClusterPair self, REAL_t[::1] x, REAL_t[:, ::1] y)
+    cpdef void applyVecTrans(farFieldClusterPair self, REAL_t[::1] x, REAL_t[:, ::1] y)
 
 
 cdef class H2Matrix(LinearOperator):

@@ -49,6 +49,7 @@ cdef class constantFractionalLaplacianScalingDerivative(twoPointFunction):
         REAL_t tempered
         REAL_t C
         REAL_t fac
+        REAL_t fac2
 
 
 cdef class variableFractionalLaplacianScaling(parametrizedTwoPointFunction):

@@ -5,7 +5,7 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-from libc.stdlib cimport malloc
+from cpython.mem cimport PyMem_Malloc, PyMem_Free
 from libc.math cimport (sin, cos, sqrt,
                         log,
                         fabs as abs, pow,
@@ -14,6 +14,7 @@ from scipy.special.cython_special cimport gammaincc, gamma, hankel1
 import numpy as np
 cimport numpy as np
 from PyNucleus_base.myTypes import REAL
+from PyNucleus_base import uninitialized
 from PyNucleus_fem.functions cimport constant
 from . interactionDomains cimport ball2_retriangulation, fullSpace
 from . twoPointFunctions cimport (constantTwoPoint,
@@ -530,12 +531,15 @@ cdef REAL_t updateAndEvalFractional(REAL_t *x, REAL_t *y, void *c_params):
         function horizonFun
         twoPointFunction scalingFun
         REAL_t s, horizon, C
+        BOOL_t boundary
         fun_t kernel = getFun(c_params, fEVAL)
 
     if not isNull(c_params, fORDERFUN):
         sFun = <fractionalOrderBase>((<void**>(c_params+fORDERFUN))[0])
         sFun.evalPtr(dim, x, y, &s)
         setREAL(c_params, fS, s)
+        boundary = getBOOL(c_params, fBOUNDARY)
+        setREAL(c_params, fSINGULARITY, boundary-dim-2*s)
     if not isNull(c_params, fHORIZONFUN):
         xA = <REAL_t[:dim]> x
         horizonFun = <function>((<void**>(c_params+fHORIZONFUN))[0])
@@ -556,6 +560,10 @@ cdef class Kernel(twoPointFunction):
             parametrizedTwoPointFunction parametrizedScaling
             int i
 
+        self.c_kernel_params = PyMem_Malloc(NUM_KERNEL_PARAMS*OFFSET)
+        for i in range(NUM_KERNEL_PARAMS):
+            (<void**>(self.c_kernel_params+i*OFFSET))[0] = NULL
+
         self.dim = dim
         assert valueSize >= 1, "Creation of kernel with valueSize = {}".format(valueSize)
         self.valueSize = valueSize
@@ -563,9 +571,6 @@ cdef class Kernel(twoPointFunction):
         self.piecewise = piecewise
         self.boundary = boundary
 
-        self.c_kernel_params = malloc(NUM_KERNEL_PARAMS*OFFSET)
-        for i in range(NUM_KERNEL_PARAMS):
-            (<void**>(self.c_kernel_params+i*OFFSET))[0] = NULL
         setINDEX(self.c_kernel_params, fKDIM, dim)
 
         symmetric = isinstance(horizon, constant) and scaling.symmetric and interaction.symmetric and (phi is None or phi.symmetric)
@@ -721,6 +726,21 @@ cdef class Kernel(twoPointFunction):
 
     def getParamPtrAddr(self):
         return <size_t>self.c_kernel_params
+
+    @property
+    def boundary(self):
+        "The order of the boundary."
+        return getBOOL(self.c_kernel_params, fBOUNDARY)
+
+    @boundary.setter
+    def boundary(self, BOOL_t boundary):
+        setBOOL(self.c_kernel_params, fBOUNDARY, boundary)
+
+    cdef BOOL_t getBoundary(self):
+        return getBOOL(self.c_kernel_params, fBOUNDARY)
+
+    cdef void setBoundary(self, BOOL_t boundary):
+        setBOOL(self.c_kernel_params, fBOUNDARY, boundary)
 
     @property
     def singularityValue(self):
@@ -966,6 +986,9 @@ cdef class Kernel(twoPointFunction):
             assert self.getParamPtrAddr() == self.scaling.getParamPtrAddr()
         return newKernel
 
+    def __dealloc__(self):
+        PyMem_Free(self.c_kernel_params)
+
 
 cdef class ComplexKernel(ComplextwoPointFunction):
     """A kernel functions that can be used to define a nonlocal operator."""
@@ -981,7 +1004,7 @@ cdef class ComplexKernel(ComplextwoPointFunction):
         self.piecewise = piecewise
         self.boundary = boundary
 
-        self.c_kernel_params = malloc(NUM_KERNEL_PARAMS*OFFSET)
+        self.c_kernel_params = PyMem_Malloc(NUM_KERNEL_PARAMS*OFFSET)
         for i in range(NUM_KERNEL_PARAMS):
             (<void**>(self.c_kernel_params+i*OFFSET))[0] = NULL
         setINDEX(self.c_kernel_params, fKDIM, dim)
@@ -1302,6 +1325,9 @@ cdef class ComplexKernel(ComplextwoPointFunction):
             assert self.getParamPtrAddr() == self.scaling.getParamPtrAddr()
         return newKernel
 
+    def __dealloc__(self):
+        PyMem_Free(self.c_kernel_params)
+
 
 cdef class FractionalKernel(Kernel):
     """A kernel functions that can be used to define a fractional operator."""
@@ -1322,6 +1348,9 @@ cdef class FractionalKernel(Kernel):
             valueSize = 1
         elif derivative == 1:
             valueSize = s.numParameters
+        elif derivative == 2:
+            valueSize = s.numParameters**2
+            self.tempVec = uninitialized((s.numParameters), dtype=REAL)
         else:
             valueSize = 1
 
@@ -1589,7 +1618,7 @@ cdef class FractionalKernel(Kernel):
 
     cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] vec):
         cdef:
-            INDEX_t i
+            INDEX_t i, j, k
             REAL_t fac
         if self.derivative == 0:
             vec[0] = self.kernelFun(&x[0], &y[0], self.c_kernel_params)
@@ -1598,10 +1627,18 @@ cdef class FractionalKernel(Kernel):
             self.s.evalGrad(x, y, vec)
             for i in range(self.valueSize):
                 vec[i] *= fac
+        elif self.derivative == 2:
+            fac = self.kernelFun(&x[0], &y[0], self.c_kernel_params)
+            self.s.evalGrad(x, y, self.tempVec)
+            k = 0
+            for i in range(self.s.numParameters):
+                for j in range(self.s.numParameters):
+                    vec[k] = fac*self.tempVec[i]*self.tempVec[j]
+                    k += 1
 
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* vec):
         cdef:
-            INDEX_t i
+            INDEX_t i, j, k
             REAL_t fac
         if self.derivative == 0:
             vec[0] = self.kernelFun(x, y, self.c_kernel_params)
@@ -1610,6 +1647,14 @@ cdef class FractionalKernel(Kernel):
             self.s.evalGradPtr(dim, x, y, self.valueSize, vec)
             for i in range(self.valueSize):
                 vec[i] *= fac
+        elif self.derivative == 2:
+            fac = self.kernelFun(&x[0], &y[0], self.c_kernel_params)
+            self.s.evalGradPtr(dim, x, y, self.s.numParameters, &self.tempVec[0])
+            k = 0
+            for i in range(self.s.numParameters):
+                for j in range(self.s.numParameters):
+                    vec[k] = fac*self.tempVec[i]*self.tempVec[j]
+                    k += 1
 
     def getModifiedKernel(self,
                           fractionalOrderBase s=None,
@@ -1706,6 +1751,22 @@ cdef class FractionalKernel(Kernel):
         else:
             raise NotImplementedError()
         return FractionalKernel(self.dim, self.s, self.horizon, self.interaction, scaling, self.phi, False, self.boundary, 1, self.temperedValue)
+
+    def getHessianKernel(self):
+        cdef:
+            constantFractionalLaplacianScaling scal
+            variableFractionalLaplacianScaling scalVar
+        if isinstance(self.scaling, constantFractionalLaplacianScaling):
+            scal = self.scaling
+            scaling = constantFractionalLaplacianScalingDerivative(scal.dim, scal.s, scal.horizon, True, False, 2, scal.tempered)
+        elif isinstance(self.scaling, constantTwoPoint):
+            scaling = constantFractionalLaplacianScalingDerivative(self.dim, self.sValue, np.nan, False, self.boundary, 2, 0.)
+        elif isinstance(self.scaling, variableFractionalLaplacianScaling):
+            scalVar = self.scaling
+            scaling = variableFractionalLaplacianScaling(scalVar.symmetric, scalVar.normalized, scalVar.boundary, 2)
+        else:
+            raise NotImplementedError()
+        return FractionalKernel(self.dim, self.s, self.horizon, self.interaction, scaling, self.phi, False, self.boundary, 2, self.temperedValue)
 
     def __repr__(self):
         if self.temperedValue != 0.:

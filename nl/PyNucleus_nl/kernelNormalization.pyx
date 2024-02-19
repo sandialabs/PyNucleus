@@ -14,9 +14,10 @@ from libc.math cimport (sqrt,
                         exp, erf)
 from scipy.special.cython_special cimport psi as digamma
 from scipy.special.cython_special cimport gamma as cgamma
+from scipy.special import zeta
 
 from PyNucleus_fem.functions cimport constant
-from libc.stdlib cimport malloc
+from cpython.mem cimport PyMem_Malloc
 from libc.string cimport memcpy
 from . interactionDomains cimport (ball2_retriangulation, ball2_barycenter,
                                    ballInf_retriangulation, ballInf_barycenter,
@@ -29,6 +30,10 @@ cdef REAL_t inf = np.inf
 
 cdef inline REAL_t gamma(REAL_t d):
     return cgamma(d)
+
+
+cdef inline REAL_t polygamma(INDEX_t n, REAL_t d):
+    return (-1.0)**(n+1) * cgamma(n+1.0) * zeta(n+1, d)
 
 
 cdef class memoizedFun:
@@ -118,25 +123,48 @@ cdef class constantFractionalLaplacianScalingDerivative(twoPointFunction):
             if self.normalized:
                 if horizon2 < inf:
                     if not self.boundary:
-                        self.fac = -1./(1.-s)
+                        self.fac = -1./(1.-s) + log(horizon2)
                     else:
-                        self.fac = -1./(1.-s) - 1./s
+                        self.fac = -1./(1.-s) - 1./s + log(horizon2)
                 else:
                     if not self.boundary:
-                        self.fac = digamma(s+0.5*self.dim) + digamma(-s)
+                        self.fac = log(4.)+digamma(s+0.5*self.dim) + digamma(-s)
                     else:
-                        self.fac = digamma(s+0.5*self.dim) + digamma(1.-s)
+                        self.fac = log(4.)+digamma(s+0.5*self.dim) + digamma(1.-s)
             else:
                 if not self.boundary:
                     self.fac = 0.
                 else:
                     self.fac = -1./s
+        elif self.derivative == 2:
+            if self.normalized:
+                if horizon2 < inf:
+                    if not self.boundary:
+                        self.fac = -2./(1-s) * log(horizon2) + log(horizon2)**2
+                        self.fac2 = -2.*(-1./(1.-s) + log(horizon2))
+                    else:
+                        self.fac = -2./(1-s) * log(horizon2) + log(horizon2)**2 + 2./s**2 - 2./s * (-1./(1.-s) + log(horizon2))
+                        self.fac2 = -2.*(-1./(1.-s) + log(horizon2) - 1./s)
+                else:
+                    if not self.boundary:
+                        self.fac = (log(4.)+digamma(s+0.5*self.dim) + digamma(-s))**2 + (polygamma(1, s+0.5*dim) - polygamma(1, -s))
+                        self.fac2 = -2*(log(4.)+digamma(s+0.5*self.dim) + digamma(-s))
+                    else:
+                        self.fac = (log(4.)+digamma(s+0.5*self.dim) + digamma(1.-s))**2 + (polygamma(1, s+0.5*dim) - polygamma(1, 1.-s))
+                        self.fac2 = -2.*(log(4.)+digamma(s+0.5*self.dim) + digamma(1.-s))
+            else:
+                if not self.boundary:
+                    self.fac = 0.
+                    self.fac2 = 0.
+                else:
+                    self.fac = 2./s**2
+                    self.fac2 = 2./s
         else:
             raise NotImplementedError(self.derivative)
 
     cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
         cdef:
-            REAL_t d2
+            REAL_t d2, logd2
             INDEX_t i
 
         if self.derivative == 0:
@@ -145,19 +173,19 @@ cdef class constantFractionalLaplacianScalingDerivative(twoPointFunction):
             d2 = 0.
             for i in range(self.dim):
                 d2 += (x[i]-y[i])*(x[i]-y[i])
-            if self.normalized:
-                if self.horizon2 < inf:
-                    value[0] = self.C*(-log(d2/self.horizon2) + self.fac)
-                else:
-                    value[0] = self.C*(-log(0.25*d2) + self.fac)
-            else:
-                value[0] = self.C*(-log(d2) + self.fac)
+            value[0] = self.C*(-log(d2) + self.fac)
+        elif self.derivative == 2:
+            d2 = 0.
+            for i in range(self.dim):
+                d2 += (x[i]-y[i])*(x[i]-y[i])
+            logd2 = log(d2)
+            value[0] = self.C*(logd2**2 + self.fac + self.fac2*logd2)
         else:
             raise NotImplementedError()
 
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         cdef:
-            REAL_t d2
+            REAL_t d2, logd2
             INDEX_t i
 
         if self.derivative == 0:
@@ -166,13 +194,13 @@ cdef class constantFractionalLaplacianScalingDerivative(twoPointFunction):
             d2 = 0.
             for i in range(self.dim):
                 d2 += (x[i]-y[i])*(x[i]-y[i])
-            if self.normalized:
-                if self.horizon2 < inf:
-                    value[0] = self.C*(-log(d2/self.horizon2) + self.fac)
-                else:
-                    value[0] = self.C*(-log(0.25*d2) + self.fac)
-            else:
-                value[0] = self.C*(-log(d2) + self.fac)
+            value[0] = self.C*(-log(d2) + self.fac)
+        elif self.derivative == 2:
+            d2 = 0.
+            for i in range(self.dim):
+                d2 += (x[i]-y[i])*(x[i]-y[i])
+            logd2 = log(d2)
+            value[0] = self.C*(logd2**2 + self.fac + self.fac2*logd2)
         else:
             raise NotImplementedError()
 
@@ -253,7 +281,7 @@ cdef class variableFractionalLaplacianScaling(parametrizedTwoPointFunction):
         cdef:
             REAL_t s = getREAL(self.params, fS)
             REAL_t horizon2 = getREAL(self.params, fHORIZON2)
-            REAL_t C, d2
+            REAL_t C, d2, fac, fac2
             INDEX_t i
 
         if self.normalized:
@@ -293,6 +321,39 @@ cdef class variableFractionalLaplacianScaling(parametrizedTwoPointFunction):
                     value[0] = C*(-log(d2))
                 else:
                     value[0] = C*(-log(d2)-1./s)
+        elif self.derivative == 2:
+            d2 = 0.
+            for i in range(self.dim):
+                d2 += (x[i]-y[i])*(x[i]-y[i])
+            logd2 = log(d2)
+            if self.normalized:
+                if horizon2 < inf:
+                    loghorizon2 = log(horizon2)
+                    if not self.boundary:
+                        fac = -2./(1-s) * loghorizon2 + loghorizon2**2
+                        fac2 = -2.*(-1./(1.-s) + log(horizon2))
+                    else:
+                        fac = -2./(1-s) * loghorizon2 + loghorizon2**2 + 2./s**2 - 2./s * (-1./(1.-s) + loghorizon2)
+                        fac2 = -2.*(-1./(1.-s) + loghorizon2 - 1./s)
+                else:
+                    digamma1 = self.digamma(s+0.5*self.dim)
+                    if not self.boundary:
+                        digamma2 = self.digamma(-s)
+                        fac = (log(4.)+digamma1 + digamma2)**2 + (polygamma(1, s+0.5*self.dim) - polygamma(1, -s))
+                        fac2 = -2*(log(4.)+digamma1 + digamma2)
+                    else:
+                        digamma2 = self.digamma(1.-s)
+                        fac = (log(4.)+digamma1 + digamma2)**2 + (polygamma(1, s+0.5*self.dim) - polygamma(1, 1.-s))
+                        fac2 = -2.*(log(4.)+digamma1 + digamma2)
+            else:
+                if not self.boundary:
+                    fac = 0.
+                    fac2 = 0.
+                else:
+                    fac = 2./s**2
+                    fac2 = 2./s
+
+            value[0] = C*(logd2**2 + fac + fac2*logd2)
         else:
             raise NotImplementedError()
 
@@ -300,7 +361,7 @@ cdef class variableFractionalLaplacianScaling(parametrizedTwoPointFunction):
         cdef:
             REAL_t s = getREAL(self.params, fS)
             REAL_t horizon2 = getREAL(self.params, fHORIZON2)
-            REAL_t C, d2
+            REAL_t C, d2, logd2, loghorizon2, digamma1, digamma2
             INDEX_t i
 
         if self.normalized:
@@ -340,7 +401,39 @@ cdef class variableFractionalLaplacianScaling(parametrizedTwoPointFunction):
                     value[0] = C*(-log(d2))
                 else:
                     value[0] = C*(-log(d2)-1./s)
+        elif self.derivative == 2:
+            d2 = 0.
+            for i in range(self.dim):
+                d2 += (x[i]-y[i])*(x[i]-y[i])
+            logd2 = log(d2)
+            if self.normalized:
+                if horizon2 < inf:
+                    loghorizon2 = log(horizon2)
+                    if not self.boundary:
+                        fac = -2./(1-s) * loghorizon2 + loghorizon2**2
+                        fac2 = -2.*(-1./(1.-s) + log(horizon2))
+                    else:
+                        fac = -2./(1-s) * loghorizon2 + loghorizon2**2 + 2./s**2 - 2./s * (-1./(1.-s) + loghorizon2)
+                        fac2 = -2.*(-1./(1.-s) + loghorizon2 - 1./s)
+                else:
+                    digamma1 = self.digamma(s+0.5*self.dim)
+                    if not self.boundary:
+                        digamma2 = self.digamma(-s)
+                        fac = (log(4.)+digamma1 + digamma2)**2 + (polygamma(1, s+0.5*self.dim) - polygamma(1, -s))
+                        fac2 = -2*(log(4.)+digamma1 + digamma2)
+                    else:
+                        digamma2 = self.digamma(1.-s)
+                        fac = (log(4.)+digamma1 + digamma2)**2 + (polygamma(1, s+0.5*self.dim) - polygamma(1, 1.-s))
+                        fac2 = -2.*(log(4.)+digamma1 + digamma2)
+            else:
+                if not self.boundary:
+                    fac = 0.
+                    fac2 = 0.
+                else:
+                    fac = 2./s**2
+                    fac2 = 2./s
 
+            value[0] = C*(logd2**2 + fac + fac2*logd2)
         else:
             raise NotImplementedError()
 
@@ -491,7 +584,7 @@ cdef class variableFractionalLaplacianScalingWithDifferentHorizon(variableFracti
     cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
         cdef:
             void* params
-            void* paramsModified = malloc(NUM_KERNEL_PARAMS*OFFSET)
+            void* paramsModified = PyMem_Malloc(NUM_KERNEL_PARAMS*OFFSET)
             REAL_t horizon, scalingValue
         horizon = self.horizonFun.eval(x)
         params = self.getParams()
@@ -505,7 +598,7 @@ cdef class variableFractionalLaplacianScalingWithDifferentHorizon(variableFracti
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         cdef:
             void* params
-            void* paramsModified = malloc(NUM_KERNEL_PARAMS*OFFSET)
+            void* paramsModified = PyMem_Malloc(NUM_KERNEL_PARAMS*OFFSET)
             REAL_t horizon, scalingValue
             REAL_t[::1] xA = <REAL_t[:dim]> x
         horizon = self.horizonFun.eval(xA)
@@ -529,7 +622,7 @@ cdef class variableIntegrableScalingWithDifferentHorizon(variableIntegrableScali
     cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
         cdef:
             void* params
-            void* paramsModified = malloc(NUM_KERNEL_PARAMS*OFFSET)
+            void* paramsModified = PyMem_Malloc(NUM_KERNEL_PARAMS*OFFSET)
             REAL_t horizon, scalingValue
         horizon = self.horizonFun.eval(x)
         params = self.getParams()
@@ -543,7 +636,7 @@ cdef class variableIntegrableScalingWithDifferentHorizon(variableIntegrableScali
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         cdef:
             void* params
-            void* paramsModified = malloc(NUM_KERNEL_PARAMS*OFFSET)
+            void* paramsModified = PyMem_Malloc(NUM_KERNEL_PARAMS*OFFSET)
             REAL_t horizon, scalingValue
             REAL_t[::1] xA = <REAL_t[:dim]> x
         horizon = self.horizonFun.eval(xA)

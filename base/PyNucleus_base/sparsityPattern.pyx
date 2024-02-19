@@ -5,7 +5,7 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-from libc.stdlib cimport malloc, realloc, free
+from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 import numpy as np
 cimport numpy as np
 from . myTypes import INDEX
@@ -21,10 +21,10 @@ cdef class sparsityPattern:
         self.nnz = 0
         self.counts = np.zeros((num_dofs), dtype=INDEX)
         self.lengths = initial_length*np.ones((num_dofs), dtype=np.uint16)
-        self.indexL = <INDEX_t **>malloc(num_dofs*sizeof(INDEX_t *))
+        self.indexL = <INDEX_t **>PyMem_Malloc(num_dofs*sizeof(INDEX_t *))
         # reserve initial memory for array of variable column size
         for i in range(num_dofs):
-            self.indexL[i] = <INDEX_t *>malloc(self.initial_length*sizeof(INDEX_t))
+            self.indexL[i] = <INDEX_t *>PyMem_Malloc(self.initial_length*sizeof(INDEX_t))
 
     cdef inline BOOL_t findIndex(self, INDEX_t I, INDEX_t J):
         cdef:
@@ -68,7 +68,7 @@ cdef class sparsityPattern:
             # J was not present
             # Do we need more space?
             if self.counts[I] == self.lengths[I]:
-                self.indexL[I] = <INDEX_t *>realloc(self.indexL[I], (self.lengths[I]+self.initial_length)*sizeof(INDEX_t))
+                self.indexL[I] = <INDEX_t *>PyMem_Realloc(self.indexL[I], (self.lengths[I]+self.initial_length)*sizeof(INDEX_t))
                 self.lengths[I] += self.initial_length
             # where should we insert?
             m = self.index
@@ -95,8 +95,8 @@ cdef class sparsityPattern:
             for j in range(self.counts[i]):
                 indices[k] = self.indexL[i][j]
                 k += 1
-            free(self.indexL[i])
-        free(self.indexL)
+            PyMem_Free(self.indexL[i])
+        PyMem_Free(self.indexL)
 
         # fill indptr array
         indptr_mem = uninitialized((self.num_dofs+1), dtype=INDEX)

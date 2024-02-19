@@ -7,7 +7,7 @@
 
 import numpy as np
 cimport numpy as np
-from libc.stdlib cimport malloc
+from cpython.mem cimport PyMem_Malloc
 from libc.string cimport memcpy
 from . myTypes import INDEX
 
@@ -19,7 +19,7 @@ cdef enum:
 cdef class intTuple:
     cdef void set(self, INDEX_t * t, int size):
         self.size = size
-        self.entries = <INDEX_t *>malloc(size*INDEX_SIZE)
+        self.entries = <INDEX_t *>PyMem_Malloc(size*INDEX_SIZE)
         memcpy(&self.entries[0], &t[0], size*INDEX_SIZE)
 
     cdef void assign(self, INDEX_t * t):
@@ -55,7 +55,7 @@ cdef class intTuple:
         cdef:
             intTuple t = intTuple()
         t.size = 2
-        t.entries = <INDEX_t *>malloc(2*INDEX_SIZE)
+        t.entries = <INDEX_t *>PyMem_Malloc(2*INDEX_SIZE)
         t.entries[0] = a
         t.entries[1] = b
         return t
@@ -69,7 +69,7 @@ cdef class intTuple:
         cdef:
             intTuple t = intTuple()
         t.size = 3
-        t.entries = <INDEX_t *>malloc(3*INDEX_SIZE)
+        t.entries = <INDEX_t *>PyMem_Malloc(3*INDEX_SIZE)
         t.entries[0] = a
         t.entries[1] = b
         t.entries[2] = c

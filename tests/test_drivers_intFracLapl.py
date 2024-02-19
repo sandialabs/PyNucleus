@@ -70,35 +70,35 @@ def testNonlocal(runNonlocal_params, extra):
 
 
 @pytest.fixture(scope='module', params=[
-    ('interval', 'const(0.25)', 'constant', 'P0', 'cg-mg', 'dense'),
-    ('interval', 'const(0.25)', 'constant', 'P0', 'cg-mg', 'H2'),
-    ('interval', 'const(0.25)', 'constant', 'P1', 'cg-mg', 'dense'),
-    ('interval', 'const(0.25)', 'constant', 'P1', 'cg-mg', 'H2'),
-    ('interval', 'const(0.25)', 'zeroFlux', 'P1', 'lu', 'H2'),
-    ('interval', 'const(0.25)', 'knownSolution', 'P1', 'cg-jacobi', 'H2'),
-    ('interval', 'const(0.75)', 'constant', 'P1', 'lu', 'dense'),
-    ('interval', 'const(0.75)', 'constant', 'P1', 'lu', 'H2'),
-    ('interval', 'const(0.75)', 'zeroFlux', 'P1', 'cg-jacobi', 'H2'),
-    ('interval', 'const(0.75)', 'knownSolution', 'P1', 'cg-mg', 'H2'),
-    ('interval', 'varconst(0.75)', 'constant', 'P1', 'cg-jacobi', 'dense'),
-    ('interval', 'varconst(0.75)', 'constant', 'P1', 'cg-jacobi', 'H2'),
-    ('interval', 'varconst(0.75)', 'zeroFlux', 'P1', 'cg-mg', 'H2'),
-    ('interval', 'varconst(0.75)', 'knownSolution', 'P1', 'lu', 'H2'),
-    ('interval', 'const(0.25)', 'constant', 'P2', 'cg-mg', 'dense'),
-    ('interval', 'const(0.25)', 'constant', 'P2', 'cg-mg', 'H2'),
-    ('interval', 'const(0.75)', 'constant', 'P2', 'cg-mg', 'dense'),
-    ('interval', 'const(0.75)', 'constant', 'P2', 'cg-mg', 'H2'),
-    ('interval', 'const(0.25)', 'constant', 'P3', 'cg-mg', 'dense'),
-    ('interval', 'const(0.25)', 'constant', 'P3', 'cg-mg', 'H2'),
-    ('interval', 'const(0.75)', 'constant', 'P3', 'cg-mg', 'dense'),
-    ('interval', 'const(0.75)', 'constant', 'P3', 'cg-mg', 'H2'),
+    ('interval', 'const(0.25)', 'constant', 'P0', 'cg-mg', 'dense', 1),
+    ('interval', 'const(0.25)', 'constant', 'P0', 'cg-mg', 'H2', 1),
+    ('interval', 'const(0.25)', 'constant', 'P1', 'cg-mg', 'dense', 1),
+    ('interval', 'const(0.25)', 'constant', 'P1', 'cg-mg', 'H2', 1),
+    ('interval', 'const(0.25)', 'zeroFlux', 'P1', 'lu', 'H2', 1),
+    ('interval', 'const(0.25)', 'knownSolution', 'P1', 'cg-jacobi', 'H2', 1),
+    ('interval', 'const(0.75)', 'constant', 'P1', 'lu', 'dense', 1),
+    ('interval', 'const(0.75)', 'constant', 'P1', 'lu', 'H2', 1),
+    ('interval', 'const(0.75)', 'zeroFlux', 'P1', 'cg-jacobi', 'H2', 1),
+    ('interval', 'const(0.75)', 'knownSolution', 'P1', 'cg-mg', 'H2', 1),
+    ('interval', 'varconst(0.75)', 'constant', 'P1', 'cg-jacobi', 'dense', 1),
+    ('interval', 'varconst(0.75)', 'constant', 'P1', 'cg-jacobi', 'H2', 1),
+    ('interval', 'varconst(0.75)', 'zeroFlux', 'P1', 'cg-mg', 'H2', 1),
+    ('interval', 'varconst(0.75)', 'knownSolution', 'P1', 'lu', 'H2', 1),
+    ('interval', 'const(0.25)', 'constant', 'P2', 'cg-mg', 'dense', 1),
+    ('interval', 'const(0.25)', 'constant', 'P2', 'cg-mg', 'H2', 1),
+    ('interval', 'const(0.75)', 'constant', 'P2', 'cg-mg', 'dense', 1),
+    ('interval', 'const(0.75)', 'constant', 'P2', 'cg-mg', 'H2', 1),
+    ('interval', 'const(0.25)', 'constant', 'P3', 'cg-mg', 'dense', 1),
+    ('interval', 'const(0.25)', 'constant', 'P3', 'cg-mg', 'H2', 1),
+    ('interval', 'const(0.75)', 'constant', 'P3', 'cg-mg', 'dense', 1),
+    ('interval', 'const(0.75)', 'constant', 'P3', 'cg-mg', 'H2', 1),
     #
-    ('disc', 'const(0.25)', 'constant', 'P0', 'cg-mg', 'dense'),
-    ('disc', 'const(0.25)', 'constant', 'P0', 'cg-mg', 'H2'),
-    ('disc', 'const(0.25)', 'constant', 'P1', 'cg-mg', 'dense'),
-    ('disc', 'const(0.25)', 'constant', 'P1', 'cg-mg', 'H2'),
-    ('disc', 'const(0.75)', 'constant', 'P1', 'cg-mg', 'dense'),
-    ('disc', 'const(0.75)', 'constant', 'P1', 'cg-mg', 'H2'),
+    ('disc', 'const(0.25)', 'constant', 'P0', 'cg-mg', 'dense', 1),
+    ('disc', 'const(0.25)', 'constant', 'P0', 'cg-mg', 'H2', 1),
+    ('disc', 'const(0.25)', 'constant', 'P1', 'cg-mg', 'dense', 1),
+    ('disc', 'const(0.25)', 'constant', 'P1', 'cg-mg', 'H2', 1),
+    ('disc', 'const(0.75)', 'constant', 'P1', 'cg-mg', 'dense', 1),
+    ('disc', 'const(0.75)', 'constant', 'P1', 'cg-mg', 'H2', 1),
 ],
                 ids=idfunc)
 def runFractional_params(request):
@@ -107,7 +107,7 @@ def runFractional_params(request):
 
 @pytest.mark.slow
 def testFractional(runFractional_params, extra):
-    domain, s, problem, element, solver, matrixFormat = runFractional_params
+    domain, s, problem, element, solver, matrixFormat, ranks = runFractional_params
     base = getPath()+'/../'
     py = ['runFractional.py',
           '--domain', domain,
@@ -118,12 +118,14 @@ def testFractional(runFractional_params, extra):
           '--matrixFormat', matrixFormat]
     path = base+'drivers'
     cacheDir = getPath()+'/'
-    runDriver(path, py, cacheDir=cacheDir, extra=extra)
+    if ranks == 1:
+        ranks = None
+    runDriver(path, py, cacheDir=cacheDir, extra=extra, ranks=ranks)
 
 
 @pytest.mark.slow
 def testFractionalHeat(runFractional_params, extra):
-    domain, s, problem, element, solver, matrixFormat = runFractional_params
+    domain, s, problem, element, solver, matrixFormat, ranks = runFractional_params
     base = getPath()+'/../'
     py = ['runFractionalHeat.py',
           '--domain', domain,
@@ -134,7 +136,9 @@ def testFractionalHeat(runFractional_params, extra):
           '--matrixFormat', matrixFormat]
     path = base+'drivers'
     cacheDir = getPath()+'/'
-    runDriver(path, py, cacheDir=cacheDir, extra=extra)
+    if ranks == 1:
+        ranks = None
+    runDriver(path, py, cacheDir=cacheDir, extra=extra, ranks=ranks)
 
 
 @pytest.mark.slow
@@ -152,6 +156,10 @@ def testVariableOrder(extra):
     ('interval', 'varconst(0.25)'),
     ('interval', 'varconst(0.75)'),
     ('interval', 'twoDomainNonSym(0.25,0.75)'),
+    ('disc', 'const(0.25)'),
+    ('disc', 'const(0.75)'),
+    ('disc', 'varconst(0.25)'),
+    ('disc', 'varconst(0.75)'),
     ('square', 'const(0.25)'),
     ('square', 'const(0.75)'),
     ('square', 'varconst(0.25)'),
@@ -169,6 +177,8 @@ def testMatvecs(runDistOp_params, extra):
     domain, fractionalOrder = runDistOp_params
     if domain == 'interval':
         noRef = 6
+    elif domain == 'disc':
+        noRef = 2
     elif domain == 'square':
         noRef = 3
     py = ['testDistOp.py',

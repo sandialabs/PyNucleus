@@ -14,6 +14,7 @@ cimport numpy as np
 from libc.math cimport sqrt, exp, atan
 from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX, ENCODE, BOOL
 from PyNucleus_base.blas import uninitialized
+from cpython.mem cimport PyMem_Free
 
 
 cdef enum fixed_type:

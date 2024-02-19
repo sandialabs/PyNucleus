@@ -19,8 +19,7 @@ from PyNucleus.nl.kernels import getFractionalKernel
 from PyNucleus.nl.nonlocalAssembly import nearFieldClusterPair
 from PyNucleus.nl.clusterMethodCy import (H2Matrix,
                                           getDoFBoxesAndCells,
-                                          tree_node,
-                                          getRefinementParams)
+                                          tree_node)
 from PyNucleus.nl.fractionalOrders import (constFractionalOrder,
                                            variableConstFractionalOrder,
                                            leftRightFractionalOrder,
@@ -123,22 +122,23 @@ class test:
         else:
             blocks, jumps = {}, {}
         dofs = arrayIndexSet(np.arange(self.dm.num_dofs, dtype=INDEX))
-        root = tree_node(None, dofs, boxes)
+        hVector = self.builder.getHVector(self.dm)
+        refParams = self.builder.getH2RefinementParams()
+        root = tree_node(None, dofs, boxes, hVector, refParams)
         if len(blocks) > 1:
             for key in blocks:
                 subDofs = arrayIndexSet()
                 subDofs.fromSet(blocks[key])
                 if len(subDofs) > 0:
-                    root.children.append(tree_node(root, subDofs, boxes, mixed_node=key == np.inf))
+                    root.children.append(tree_node(root, subDofs, boxes, hVector, refParams, mixed_node=key == np.inf))
             root._dofs = None
             assert self.dm.num_dofs == sum([len(c.dofs) for c in root.children])
             assert len(root.children) > 1
         if maxLevels > 0:
-            refParams = getRefinementParams(self.mesh, self.builder.kernel,
-                                            {'maxLevels': maxLevels,
-                                             'maxLevelsMixed': maxLevels})
             for n in root.leaves():
-                n.refine(boxes, centers, refParams)
+                n.refParams["maxLevels"] = maxLevels
+                n.refParams["maxLevelsMixed"] = maxLevels
+                n.refine(boxes, centers, hVector)
         root.set_id()
         # enter cells in leaf nodes
         for n in root.leaves():

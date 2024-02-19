@@ -392,6 +392,16 @@ cdef class {SCALAR_label}SSS_VectorLinearOperator({SCALAR_label}VectorLinearOper
                 y[i, l] += self.temp[l]
         return 0
 
+    cdef INDEX_t matvecTrans({SCALAR_label}SSS_VectorLinearOperator self,
+                             {SCALAR}_t[::1] x,
+                             {SCALAR}_t[:, ::1] y) except -1:
+        return self.matvec(x, y)
+
+    cdef INDEX_t matvecTrans_no_overwrite({SCALAR_label}SSS_VectorLinearOperator self,
+                                          {SCALAR}_t[::1] x,
+                                          {SCALAR}_t[:, ::1] y) except -1:
+        return self.matvec_no_overwrite(x, y)
+
     cdef void setEntry({SCALAR_label}SSS_VectorLinearOperator self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val):
         cdef:
             INDEX_t i, low, mid, high, l
