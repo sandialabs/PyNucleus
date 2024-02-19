@@ -18,6 +18,8 @@ from PyNucleus import (dofmapFactory,
 from PyNucleus.fem.mesh import plotManager
 from PyNucleus.base.utilsFem import TimerManager, timerOutputGroup
 from PyNucleus.nl import nonlocalPoissonProblem, FRACTIONAL
+from PyNucleus_nl.clusterMethodCy import (DistributedH2Matrix_globalData,
+                                          DistributedH2Matrix_localData)
 import numpy as np
 
 
@@ -55,7 +57,16 @@ if d.buildDistributedSparse:
     assert not d.buildDistributedH2
     assert nPP.kernel.horizon.value < np.inf
 
-if nPP.domain == 'disc':
+if nPP.domain == 'gradedInterval':
+    if d.horizonToMeshSize <= 0. or nPP.kernel.horizon.value == np.inf:
+        h = 0.03/2**(d.noRef-6)
+    else:
+        h = nPP.kernel.horizon.value/d.horizonToMeshSize
+    mesh, _ = nonlocalMeshFactory(nPP.domain,
+                                  kernel=nPP.kernel,
+                                  boundaryCondition=HOMOGENEOUS_DIRICHLET,
+                                  h=h)
+elif nPP.domain == 'disc':
     if d.horizonToMeshSize <= 0. or nPP.kernel.horizon.value == np.inf:
         h = 0.04/2**(nPP.noRef-3)
     else:
@@ -68,7 +79,7 @@ if nPP.domain == 'disc':
                                   projectNodeToOrigin=False)
 elif d.domain == 'gradedDisc':
     if d.horizonToMeshSize <= 0. or nPP.kernel.horizon.value == np.inf:
-        h = 0.04/2**(d.noRef-6)
+        h = 0.06/2**(d.noRef-6)
     else:
         h = nPP.kernel.horizon.value/d.horizonToMeshSize
     mesh, _ = nonlocalMeshFactory(nPP.domain,
@@ -95,6 +106,7 @@ assert d.comm.allreduce(dm.num_dofs, op=MPI.MAX) == dm.num_dofs
 info = d.addOutputGroup('info')
 info.add('Global mesh', dm.mesh)
 info.add('mesh size', dm.mesh.h)
+info.add('min mesh size', dm.mesh.hmin)
 info.add('Mesh aspect ratio', dm.mesh.h/dm.mesh.hmin)
 info.add('Global DM', dm)
 info.add('Kernel', nPP.kernel)
@@ -208,6 +220,7 @@ if d.buildDistributedH2Bcast:
     with d.timer('distributed, bcast build'):
         A_distributedH2Bcast = dm.assembleNonlocal(nPP.kernel, matrixFormat='H2', comm=d.comm,
                                                    params={'assembleOnRoot': False})
+    assert isinstance(A_distributedH2Bcast, DistributedH2Matrix_globalData), type(A_distributedH2Bcast)
     with d.timer('distributed, bcast matvec'):
         print('Distributed:     ', A_distributedH2Bcast)
         y_distributedH2Bcast = A_distributedH2Bcast*x
@@ -225,13 +238,40 @@ if d.buildDistributedH2:
     tm.setOutputGroup(d.masterRank, t)
     t.log()
 
+    assert isinstance(A_distributedH2, DistributedH2Matrix_localData), type(A_distributedH2)
+
     stats = d.addStatsOutputGroup('stats')
     stats.add('number of tree levels', A_distributedH2.localMat.tree.numLevels, sumOverRanks=False)
     stats.add('number of tree nodes', A_distributedH2.localMat.tree.nodes)
+
+    maxLevels = d.comm.allreduce(A_distributedH2.localMat.tree.numLevels, op=MPI.MAX)
+    for lvl in range(maxLevels):
+        if lvl >= A_distributedH2.localMat.tree.numLevels:
+            numNodesOnLevel = 0
+        else:
+            numNodesOnLevel = A_distributedH2.localMat.tree.getNumNodesOnLevel(lvl)
+        stats.add('number of tree nodes on level {}'.format(lvl), numNodesOnLevel)
+
+    stats.add('number of tree leaves', len(list(A_distributedH2.localMat.tree.leaves())))
+    for lvl in range(maxLevels):
+        if lvl >= A_distributedH2.localMat.tree.numLevels:
+            numLeavesOnLevel = 0
+        else:
+            numLeavesOnLevel = A_distributedH2.localMat.tree.getNumLeavesOnLevel(lvl)
+        stats.add('number of tree leaves on level {}'.format(lvl), numLeavesOnLevel)
+
     stats.add('number of near field cluster pairs', len(A_distributedH2.Pnear))
     stats.add('number of near field entries', A_distributedH2.localMat.nearField_size)
     stats.add('number of far field cluster pairs', A_distributedH2.localMat.num_far_field_cluster_pairs)
+
+    for lvl in range(1, maxLevels):
+        if lvl-1 in A_distributedH2.localMat.Pfar:
+            numClusterPairs = len(A_distributedH2.localMat.Pfar[lvl-1])
+        else:
+            numClusterPairs = 0
+        stats.add('number of far field cluster pairs on level {}'.format(lvl), numClusterPairs)
     stats.add('memory size (MB)', A_distributedH2.localMat.getMemorySize()/1024**2)
+    stats.add('compression ratio', A_distributedH2.localMat.compressionRatio, sumOverRanks=False)
     stats.log()
 
 ##################################################

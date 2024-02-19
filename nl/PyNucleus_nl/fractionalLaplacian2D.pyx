@@ -581,14 +581,17 @@ cdef class fractionalLaplacian2D(nonlocalLaplacian2D):
                  num_dofs=None,
                  **kwargs):
         super(fractionalLaplacian2D, self).__init__(kernel, mesh, dm, num_dofs, **kwargs)
-
+        self.setKernel(kernel, quad_order_diagonal, target_order)
         self.symmetricCells = True
+
+    cpdef void setKernel(self, Kernel kernel, quad_order_diagonal=None, target_order=None):
+        self.kernel = kernel
 
         # The integrand (excluding the kernel) cancels 2 orders of the singularity within an element.
         self.singularityCancelationIntegrandWithinElement = 2.
         # The integrand (excluding the kernel) cancels 2 orders of the
         # singularity across elements for continuous finite elements.
-        if isinstance(dm, P0_DoFMap):
+        if isinstance(self.DoFMap, P0_DoFMap):
             assert self.kernel.max_singularity > -3., "Discontinuous finite elements are not conforming for singularity order {} <= -3.".format(self.kernel.max_singularity)
             self.singularityCancelationIntegrandAcrossElements = 0.
         else:
@@ -1199,6 +1202,10 @@ cdef class fractionalLaplacian2D_boundary(fractionalLaplacian2DZeroExterior):
                  num_dofs=None,
                  **kwargs):
         super(fractionalLaplacian2D_boundary, self).__init__(kernel, mesh, dm, num_dofs, **kwargs)
+        self.setKernel(kernel, quad_order_diagonal, target_order)
+
+    cpdef void setKernel(self, Kernel kernel, quad_order_diagonal=None, target_order=None):
+        self.kernel = kernel
 
         smax = max(0.5*(-self.kernel.max_singularity-1.), 0.)
         if target_order is None:

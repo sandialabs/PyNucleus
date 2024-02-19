@@ -7,7 +7,7 @@
 
 
 import numpy as np
-from libc.stdlib cimport malloc, realloc, free
+from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 
 include "malloc.pxi"
 
@@ -40,13 +40,13 @@ cdef class tupleDictMASK:
         self.nnz = 0
         self.counts = np.zeros((num_dofs), dtype=np.uint16)
         self.lengths = initial_length*np.ones((num_dofs), dtype=np.uint16)
-        self.indexL = <INDEX_t **>malloc(num_dofs*sizeof(INDEX_t *))
-        self.vals = <MASK_t **>malloc(num_dofs*sizeof(MASK_t *))
+        self.indexL = <INDEX_t **>PyMem_Malloc(num_dofs*sizeof(INDEX_t *))
+        self.vals = <MASK_t **>PyMem_Malloc(num_dofs*sizeof(MASK_t *))
         # reserve initial memory for array of variable column size
         for i in range(num_dofs):
-            self.indexL[i] = <INDEX_t *>malloc(self.initial_length *
+            self.indexL[i] = <INDEX_t *>PyMem_Malloc(self.initial_length *
                                                sizeof(INDEX_t))
-            self.vals[i] = <MASK_t *>malloc(self.initial_length *
+            self.vals[i] = <MASK_t *>PyMem_Malloc(self.initial_length *
                                             sizeof(MASK_t))
         self.deleteHits = deleteHits
         self.logicalAndHits = logicalAndHits
@@ -101,12 +101,12 @@ cdef class tupleDictMASK:
 
     cdef inline void increaseSize(self, INDEX_t I, np.uint16_t increment):
         self.lengths[I] += increment
-        self.indexL[I] = <INDEX_t *>realloc(self.indexL[I],
-                                            (self.lengths[I]) *
-                                            sizeof(INDEX_t))
-        self.vals[I] = <MASK_t *>realloc(self.vals[I],
-                                         (self.lengths[I]) *
-                                         sizeof(MASK_t))
+        self.indexL[I] = <INDEX_t *>PyMem_Realloc(self.indexL[I],
+                                                  (self.lengths[I]) *
+                                                  sizeof(INDEX_t))
+        self.vals[I] = <MASK_t *>PyMem_Realloc(self.vals[I],
+                                               (self.lengths[I]) *
+                                               sizeof(MASK_t))
 
     cdef MASK_t enterValue(self, const INDEX_t[::1] e, MASK_t val):
         cdef:
@@ -170,10 +170,10 @@ cdef class tupleDictMASK:
         cdef:
             INDEX_t i
         for i in range(self.num_dofs):
-            free(self.indexL[i])
-            free(self.vals[i])
-        free(self.indexL)
-        free(self.vals)
+            PyMem_Free(self.indexL[i])
+            PyMem_Free(self.vals[i])
+        PyMem_Free(self.indexL)
+        PyMem_Free(self.vals)
         malloc_trim(0)
 
     cdef void startIter(self):

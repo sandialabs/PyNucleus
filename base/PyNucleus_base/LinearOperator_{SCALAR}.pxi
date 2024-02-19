@@ -46,7 +46,10 @@ cdef class {SCALAR_label}LinearOperator:
             else:
                 self.matvec(x, y)
         else:
-            self.matvecTrans(x, y)
+            if no_overwrite:
+                self.matvecTrans_no_overwrite(x, y)
+            else:
+                self.matvecTrans(x, y)
 
     def dot(self, {SCALAR}_t[::1] x):
         cdef:
@@ -545,14 +548,31 @@ cdef class {SCALAR_label}VectorLinearOperator:
                                      {SCALAR}_t[:, ::1] y) except -1:
         return -1
 
+    cdef INDEX_t matvecTrans(self,
+                             {SCALAR}_t[::1] x,
+                             {SCALAR}_t[:, ::1] y) except -1:
+        return -1
+
+    cdef INDEX_t matvecTrans_no_overwrite(self,
+                                          {SCALAR}_t[::1] x,
+                                          {SCALAR}_t[:, ::1] y) except -1:
+        return -1
+
     def __call__(self,
                  {SCALAR}_t[::1] x,
                  {SCALAR}_t[:, ::1] y,
-                 BOOL_t no_overwrite=False):
-        if no_overwrite:
-            self.matvec_no_overwrite(x, y)
+                 BOOL_t no_overwrite=False,
+                 BOOL_t trans=False):
+        if not trans:
+            if no_overwrite:
+                self.matvec_no_overwrite(x, y)
+            else:
+                self.matvec(x, y)
         else:
-            self.matvec(x, y)
+            if no_overwrite:
+                self.matvecTrans_no_overwrite(x, y)
+            else:
+                self.matvecTrans(x, y)
 
     def __mul__(self, x):
         cdef:

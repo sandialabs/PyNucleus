@@ -54,7 +54,7 @@ cdef void scaleScalar(SCALAR_t[::1] x, SCALAR_t alpha):
         for i in range(x.shape[0]):
             x[i] = x[i]*alpha
 
-cdef SCALAR_t mydot(SCALAR_t[::1] v0, SCALAR_t[::1] v1) nogil:
+cdef SCALAR_t mydot(SCALAR_t[::1] v0, SCALAR_t[::1] v1):
     cdef:
         int i
         SCALAR_t s = 0.0
@@ -110,6 +110,25 @@ cdef void gemv(SCALAR_t[:, ::1] A, SCALAR_t[::1] x, SCALAR_t[::1] y, SCALAR_t be
                 y[i] = s
 
 
+cdef void gemvF(SCALAR_t[::1, :] A, SCALAR_t[::1] x, SCALAR_t[::1] y, SCALAR_t beta=0.):
+    cdef:
+        INDEX_t i, j
+    if SCALAR_t is COMPLEX_t:
+        if beta != 0.:
+            for i in range(A.shape[0]):
+                y[i] = beta*y[i]
+        for j in range(A.shape[1]):
+            for i in range(A.shape[0]):
+                y[i] = y[i] + A[i, j]*x[j]
+    else:
+        if beta != 0.:
+            for i in range(A.shape[0]):
+                y[i] *= beta
+        for j in range(A.shape[1]):
+            for i in range(A.shape[0]):
+                y[i] += A[i, j]*x[j]
+
+
 cdef void gemvT(SCALAR_t[:, ::1] A, SCALAR_t[::1] x, SCALAR_t[::1] y, SCALAR_t beta=0.):
     cdef:
         INDEX_t i, j
@@ -119,8 +138,8 @@ cdef void gemvT(SCALAR_t[:, ::1] A, SCALAR_t[::1] x, SCALAR_t[::1] y, SCALAR_t b
                 y[i] = y[i]*beta
         else:
             y[:] = 0.
-        for j in range(A.shape[1]):
-            for i in range(A.shape[0]):
+        for i in range(A.shape[1]):
+            for j in range(A.shape[0]):
                 y[i] = y[i]+A[j, i]*x[j]
     else:
         if beta != 0.:
@@ -128,8 +147,8 @@ cdef void gemvT(SCALAR_t[:, ::1] A, SCALAR_t[::1] x, SCALAR_t[::1] y, SCALAR_t b
                 y[i] *= beta
         else:
             y[:] = 0.
-        for j in range(A.shape[1]):
-            for i in range(A.shape[0]):
+        for i in range(A.shape[1]):
+            for j in range(A.shape[0]):
                 y[i] += A[j, i]*x[j]
 
 

@@ -31,60 +31,6 @@ from mpi4py import MPI
 COMPRESSION = 'gzip'
 
 
-def getRefinementParams(meshBase mesh, Kernel kernel, dict params={}):
-    cdef:
-        REAL_t singularity = kernel.max_singularity
-        refinementParams refParams
-
-    target_order = params.get('target_order', 2.)
-    refParams.eta = params.get('eta', 3.)
-
-    iO = params.get('interpolation_order', None)
-    if iO is None:
-        loggamma = abs(np.log(0.25))
-        refParams.interpolation_order = max(np.ceil((2*target_order+max(-singularity, 2))*abs(np.log(mesh.hmin/mesh.diam))/loggamma/3.), 2)
-    else:
-        refParams.interpolation_order = iO
-    mL = params.get('maxLevels', None)
-    if mL is None:
-        # maxLevels = max(int(np.around(np.log2(DoFMap.num_dofs)/mesh.dim-np.log2(refParams.interpolation_order))), 0)
-        refParams.maxLevels = 200
-    else:
-        refParams.maxLevels = mL
-    refParams.maxLevelsMixed = refParams.maxLevels
-    mCS = params.get('minClusterSize', None)
-    if mCS is None:
-        refParams.minSize = refParams.interpolation_order**mesh.dim//2
-    else:
-        refParams.minSize = mCS
-    if kernel.finiteHorizon:
-        refParams.minMixedSize = max(min(kernel.horizon.value//(2*mesh.h)-1, refParams.minSize), 1)
-    else:
-        refParams.minMixedSize = refParams.minSize
-    mFFBS = params.get('minFarFieldBlockSize', None)
-    if mFFBS is None:
-        # For this value, size(kernelInterpolant) == size(dense block)
-        # If we choose a smaller value for minFarFieldBlockSize, then we use more memory,
-        # but we might save time, since the assembly of a far field block is cheaper than a near field block.
-        refParams.farFieldInteractionSize = refParams.interpolation_order**(2*mesh.dim)
-    else:
-        refParams.farFieldInteractionSize = mFFBS
-
-    rT = params.get('refinementType', 'MEDIAN')
-    refParams.refType = {'geometric': GEOMETRIC,
-                         'GEOMETRIC': GEOMETRIC,
-                         'median': MEDIAN,
-                         'MEDIAN': MEDIAN,
-                         'barycenter': BARYCENTER,
-                         'BARYCENTER': BARYCENTER}[rT]
-
-    refParams.splitEveryDim = params.get('splitEveryDim', False)
-
-    refParams.attemptRefinement = True
-
-    return refParams
-
-
 cdef inline void merge_boxes(REAL_t[:, ::1] box1,
                              REAL_t[:, ::1] box2,
                              REAL_t[:, ::1] new_box):
@@ -212,10 +158,15 @@ cdef REAL_t diamBox(REAL_t[:, ::1] box):
 
 
 cdef class tree_node:
-    def __init__(self, tree_node parent, indexSet dofs, REAL_t[:, :, ::1] boxes, bint mixed_node=False, bint canBeAssembled=True):
+    def __init__(self, tree_node parent, indexSet dofs,
+                 REAL_t[:, :, ::1] boxes,
+                 REAL_t[::1] hVector,
+                 refinementParams refParams,
+                 bint mixed_node=False, bint canBeAssembled=True):
         cdef:
             INDEX_t dof = -1
             indexSetIterator it
+            REAL_t hmin
         self.parent = parent
         self.dim = boxes.shape[1]
         self.children = []
@@ -224,6 +175,13 @@ cdef class tree_node:
         self.mixed_node = mixed_node
         self.canBeAssembled = canBeAssembled
         self._irregularLevelsOffset = 0
+        self.refParams = refParams
+
+        self.coefficientsUp = None
+        self.coefficientsDown = None
+        self.coefficientsDownVec = None
+        self.value = None
+
         if parent is None:
             self.levelNo = 0
             self.id = 0
@@ -236,9 +194,23 @@ cdef class tree_node:
             self.box[:, 0] = np.inf
             self.box[:, 1] = -np.inf
             it = self.get_dofs().getIter()
+            hmin = np.inf
             while it.step():
                 dof = it.i
                 merge_boxes2(self.box, boxes, dof, self.box)
+                hmin = min(hmin, hVector[dof])
+            self.hmin = hmin
+
+            if self.refParams.farFieldInteractionSize < 0:
+                loggamma = abs(np.log(0.25))
+                singularity = self.refParams.maxSingularity
+                self.interpolation_order = max(np.ceil((2*self.refParams.targetOrder+max(-singularity, 2))*abs(np.log(self.hmin/self.refParams.meshDiam))/loggamma/3.), 2)
+            else:
+                self.interpolation_order = self.refParams.interpolation_order
+            if self.parent is not None:
+                assert self.parent.interpolation_order >= self.interpolation_order
+        else:
+            self.interpolation_order = 0
 
     def __eq__(self, tree_node other):
         for j in range(self.dim):
@@ -349,9 +321,10 @@ cdef class tree_node:
     def refine(self,
                REAL_t[:, :, ::1] boxes,
                REAL_t[:, ::1] coords,
-               refinementParams refParams,
+               REAL_t[::1] hVector,
                BOOL_t recursive=True):
         cdef:
+            refinementParams refParams = self.refParams
             refinementType refType = refParams.refType
             indexSet dofs = self.get_dofs()
             INDEX_t num_initial_dofs = dofs.getNumEntries(), dim, i = -1, j, num_dofs, k
@@ -420,7 +393,7 @@ cdef class tree_node:
             num_dofs = s.getNumEntries()
             if num_dofs >= refParams.minSize and num_dofs < num_initial_dofs:
                 nD += num_dofs
-                children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
+                children.append(tree_node(self, s, boxes, hVector, refParams, mixed_node=self.mixed_node))
                 if lvlNo > 0:
                     lvlID = self.id-(numRootChildren*(maxNumChildren**(lvlNo-1)-1)//(maxNumChildren-1)+1)
                     children[0].id = numRootChildren*(maxNumChildren**lvlNo-1)//(maxNumChildren-1) + 1 + maxNumChildren*lvlID + 0
@@ -434,7 +407,7 @@ cdef class tree_node:
             num_dofs = s.getNumEntries()
             if num_dofs >= refParams.minSize and num_dofs < num_initial_dofs:
                 nD += num_dofs
-                children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
+                children.append(tree_node(self, s, boxes, hVector, refParams, mixed_node=self.mixed_node))
                 if lvlNo > 0:
                     lvlID = self.id-(numRootChildren*(maxNumChildren**(lvlNo-1)-1)//(maxNumChildren-1)+1)
                     children[1].id = numRootChildren*(maxNumChildren**lvlNo-1)//(maxNumChildren-1) + 1 + maxNumChildren*lvlID + 1
@@ -490,7 +463,7 @@ cdef class tree_node:
                     num_dofs = s.getNumEntries()
                     if num_dofs >= refParams.minSize and num_dofs < num_initial_dofs:
                         nD += num_dofs
-                        children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
+                        children.append(tree_node(self, s, boxes, hVector, refParams, mixed_node=self.mixed_node))
                         if lvlNo > 0:
                             lvlID = self.id-(numRootChildren*(maxNumChildren**(lvlNo-1)-1)//(maxNumChildren-1)+1)
                             children[k].id = numRootChildren*(maxNumChildren**lvlNo-1)//(maxNumChildren-1) + 1 + maxNumChildren*lvlID + k
@@ -543,7 +516,7 @@ cdef class tree_node:
                     num_dofs = s.getNumEntries()
                     if num_dofs >= refParams.minSize and num_dofs < num_initial_dofs:
                         nD += num_dofs
-                        children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
+                        children.append(tree_node(self, s, boxes, hVector, refParams, mixed_node=self.mixed_node))
                         if lvlNo > 0:
                             lvlID = self.id-(numRootChildren*(maxNumChildren**(lvlNo-1)-1)//(maxNumChildren-1)+1)
                             children[p*dim+0].id = numRootChildren*(maxNumChildren**lvlNo-1)//(maxNumChildren-1) + 1 + maxNumChildren*lvlID + p*dim+0
@@ -558,7 +531,7 @@ cdef class tree_node:
                     num_dofs = s.getNumEntries()
                     if num_dofs >= refParams.minSize and num_dofs < num_initial_dofs:
                         nD += num_dofs
-                        children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
+                        children.append(tree_node(self, s, boxes, hVector, refParams, mixed_node=self.mixed_node))
                         if lvlNo > 0:
                             lvlID = self.id-(numRootChildren*(maxNumChildren**(lvlNo-1)-1)//(maxNumChildren-1)+1)
                             children[p*dim+1].id = numRootChildren*(maxNumChildren**lvlNo-1)//(maxNumChildren-1) + 1 + maxNumChildren*lvlID + p*dim+1
@@ -613,7 +586,7 @@ cdef class tree_node:
             num_dofs = s.getNumEntries()
             if num_dofs >= refParams.minSize and num_dofs < num_initial_dofs:
                 nD += num_dofs
-                children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
+                children.append(tree_node(self, s, boxes, hVector, refParams, mixed_node=self.mixed_node))
                 if lvlNo > 0:
                     lvlID = self.id-(numRootChildren*(maxNumChildren**(lvlNo-1)-1)//(maxNumChildren-1)+1)
                     children[0].id = numRootChildren*(maxNumChildren**lvlNo-1)//(maxNumChildren-1) + 1 + maxNumChildren*lvlID + 0
@@ -627,7 +600,7 @@ cdef class tree_node:
             num_dofs = s.getNumEntries()
             if num_dofs >= refParams.minSize and num_dofs < num_initial_dofs:
                 nD += num_dofs
-                children.append(tree_node(self, s, boxes, mixed_node=self.mixed_node))
+                children.append(tree_node(self, s, boxes, hVector, refParams, mixed_node=self.mixed_node))
                 if lvlNo > 0:
                     lvlID = self.id-(numRootChildren*(maxNumChildren**(lvlNo-1)-1)//(maxNumChildren-1)+1)
                     children[1].id = numRootChildren*(maxNumChildren**lvlNo-1)//(maxNumChildren-1) + 1 + maxNumChildren*lvlID + 1
@@ -647,7 +620,7 @@ cdef class tree_node:
 
         if recursive:
             for k in range(len(self.children)):
-                self.children[k].refine(boxes, coords, refParams, recursive)
+                self.children[k].refine(boxes, coords, hVector, recursive)
 
     def idsAreUnique(self, bitArray used=None):
         cdef:
@@ -715,6 +688,28 @@ cdef class tree_node:
         return self._getLevels()
 
     numLevels = property(fget=_getLevels_py)
+
+    def getNumNodesOnLevel(self, INDEX_t level):
+        cdef:
+            INDEX_t numNodes
+        if level == 0:
+            numNodes = 1
+        else:
+            numNodes = 0
+        for i in self.children:
+            numNodes += i.getNumNodesOnLevel(level-1)
+        return numNodes
+
+    def getNumLeavesOnLevel(self, INDEX_t level):
+        cdef:
+            INDEX_t numNodes
+        if level == 0 and len(self.children) == 0:
+            numNodes = 1
+        else:
+            numNodes = 0
+        for i in self.children:
+            numNodes += i.getNumLeavesOnLevel(level-1)
+        return numNodes
 
     cdef INDEX_t _getParentLevels(self):
         if self.parent is None:
@@ -860,7 +855,7 @@ cdef class tree_node:
                              verticalalignment='center')
                 if recurse:
                     for c in self.children:
-                        c.plot(level=level+1, plotType=plotType, dofCoords=dofCoords, recurse=recurse,
+                        c.plot(level=level+1, plotType=plotType, dm=dm, recurse=recurse,
                                printClusterIds=printClusterIds, printNumDoFs=printNumDoFs)
             elif self.dim == 2:
                 dofs = self.get_dofs()
@@ -1021,33 +1016,33 @@ cdef class tree_node:
         else:
             raise NotImplementedError(plotType)
 
-    cdef void prepareTransferOperators(self, INDEX_t m, INDEX_t valueSize, transferMatrixBuilder tMB=None):
+    cdef void prepareTransferOperators(self, INDEX_t valueSize, transferMatrixBuilder tMB=None):
         cdef:
             tree_node c
-            INDEX_t interactionSize = m**self.dim
+            INDEX_t interactionSize = self.interpolation_order**self.dim
         if tMB is None:
-            tMB = transferMatrixBuilder(m, self.dim)
+            tMB = transferMatrixBuilder(self.dim)
         if not self.get_is_leaf():
             for c in self.children:
-                c.prepareTransferOperators(m, valueSize, tMB)
+                c.prepareTransferOperators(valueSize, tMB)
         if self.parent is not None:
-            self.transferOperator = uninitialized((interactionSize, interactionSize),
-                                                  dtype=REAL)
-            tMB.build(self.parent.box, self.box,
-                      self.transferOperator)
+            tMB.build(self.parent, self)
+        else:
+            self.transferOperator = None
         self.coefficientsUp = uninitialized((interactionSize), dtype=REAL)
         if valueSize == 1:
             self.coefficientsDown = uninitialized((interactionSize), dtype=REAL)
         else:
             self.coefficientsDownVec = uninitialized((interactionSize, valueSize), dtype=REAL)
 
-    def prepareTransferOperators_py(self, INDEX_t m, INDEX_t valueSize):
-        self.prepareTransferOperators(m, valueSize)
+    def prepareTransferOperators_py(self, INDEX_t valueSize):
+        self.prepareTransferOperators(valueSize)
 
     cdef void upwardPass(self, REAL_t[::1] x, INDEX_t componentNo=0, BOOL_t skip_leaves=False, BOOL_t local=False):
         cdef:
             INDEX_t i, dof = -1, k = 0
             tree_node c
+            indexSet dofs
             indexSetIterator it
             REAL_t temp_x
         if self.get_is_leaf():
@@ -1058,21 +1053,16 @@ cdef class tree_node:
             else:
                 self.coefficientsUp[:] = 0.0
                 if not local:
-                    it = self.get_dofs().getIter()
-                    while it.step():
-                        dof = it.i
-                        temp_x = x[dof]
-                        for i in range(self.coefficientsUp.shape[0]):
-                            self.coefficientsUp[i] += temp_x*self.value[componentNo, k, i]
-                        k += 1
+                    dofs = self.get_dofs()
                 else:
-                    it = self.get_local_dofs().getIter()
-                    while it.step():
-                        dof = it.i
-                        temp_x = x[dof]
-                        for i in range(self.coefficientsUp.shape[0]):
-                            self.coefficientsUp[i] += temp_x*self.value[componentNo, k, i]
-                        k += 1
+                    dofs = self.get_local_dofs()
+                it = dofs.getIter()
+                while it.step():
+                    dof = it.i
+                    temp_x = x[dof]
+                    for i in range(self.coefficientsUp.shape[0]):
+                        self.coefficientsUp[i] += temp_x*self.value[componentNo, k, i]
+                    k += 1
         else:
             self.coefficientsUp[:] = 0.0
             for c in self.children:
@@ -1113,26 +1103,21 @@ cdef class tree_node:
             INDEX_t i, dof = -1, k = 0
             REAL_t val
             tree_node c
+            indexSet dofs
             indexSetIterator it
         if self.get_is_leaf():
             if not local:
-                it = self.get_dofs().getIter()
-                while it.step():
-                    dof = it.i
-                    val = 0.0
-                    for i in range(self.coefficientsDown.shape[0]):
-                        val += self.value[componentNo, k, i]*self.coefficientsDown[i]
-                    y[dof] += val
-                    k += 1
+                dofs = self.get_dofs()
             else:
-                it = self.get_local_dofs().getIter()
-                while it.step():
-                    dof = it.i
-                    val = 0.0
-                    for i in range(self.coefficientsDown.shape[0]):
-                        val += self.value[componentNo, k, i]*self.coefficientsDown[i]
-                    y[dof] += val
-                    k += 1
+                dofs = self.get_local_dofs()
+            it = dofs.getIter()
+            while it.step():
+                dof = it.i
+                val = 0.0
+                for i in range(self.coefficientsDown.shape[0]):
+                    val += self.value[componentNo, k, i]*self.coefficientsDown[i]
+                y[dof] += val
+                k += 1
         else:
             for c in self.children:
                 gemvT(c.transferOperator, self.coefficientsDown, c.coefficientsDown, 1.)
@@ -1149,178 +1134,148 @@ cdef class tree_node:
         if self.get_is_leaf():
             if not local:
                 it = self.get_dofs().getIter()
-                while it.step():
-                    dof = it.i
-                    for i in range(self.coefficientsDownVec.shape[0]):
-                        for l in range(self.coefficientsDownVec.shape[1]):
-                            y[dof, l] += self.value[componentNo, k, i]*self.coefficientsDownVec[i, l]
-                    k += 1
             else:
                 it = self.get_local_dofs().getIter()
-                while it.step():
-                    dof = it.i
-                    for i in range(self.coefficientsDownVec.shape[0]):
-                        for l in range(self.coefficientsDownVec.shape[0]):
-                            y[dof, l] += self.value[componentNo, k, i]*self.coefficientsDownVec[i, l]
-                    k += 1
+            while it.step():
+                dof = it.i
+                for i in range(self.coefficientsDownVec.shape[0]):
+                    for l in range(self.coefficientsDownVec.shape[1]):
+                        y[dof, l] += self.value[componentNo, k, i]*self.coefficientsDownVec[i, l]
+            k += 1
         else:
             for c in self.children:
                 for i in range(c.transferOperator.shape[0]):
                     for j in range(c.transferOperator.shape[1]):
-                        for l in range(self.coefficientsDownVec.shape[2]):
-                            self.coefficientsDownVec[j, l] += c.transferOperator[i, j]*c.coefficientsDownVec[i, l]
+                        for l in range(self.coefficientsDownVec.shape[1]):
+                            c.coefficientsDownVec[j, l] += c.transferOperator[i, j]*self.coefficientsDownVec[i, l]
                 c.downwardPassVec(y, componentNo, local)
 
     def enterLeafValues(self,
-                        meshBase mesh,
                         DoFMap dm,
-                        INDEX_t order,
-                        REAL_t[:, :, ::1] boxes,
-                        comm=None,
-                        BOOL_t assembleOnRoot=True,
                         BOOL_t local=False):
         cdef:
-            INDEX_t i, k, I, l, m, j, q, dim, manifold_dim, dof = -1, r, start, end
-            REAL_t[:, ::1] coeff, simplex, local_vals, PHI, xi, x
-            REAL_t[::1] eta
+            INDEX_t i, k, l, m, j, q, dim = dm.mesh.dim, manifold_dim = dm.mesh.manifold_dim, dof, lcl_dof, r, cellNo
+            INDEX_t order, oldOrder = 0, kiSize
+            REAL_t[:, ::1] simplex, PHI = None, xi = None, x = None, beta = None, omega = None
+            REAL_t eta
             REAL_t vol, temp, betaSC, omegaSC
-            REAL_t[:, ::1] beta = uninitialized((order, mesh.dim), dtype=REAL)
-            REAL_t[:, ::1] omega = uninitialized((order, mesh.dim), dtype=REAL)
             tree_node n
-            simplexQuadratureRule qr
-            indexSetIterator it = arrayIndexSetIterator()
-            productIterator pit = productIterator(order, mesh.dim)
-            transferMatrixBuilder tMB
-            REAL_t[:, ::1] transferOperator
+            simplexQuadratureRule qr = None
+            indexSet dofs, cells
+            indexSetIterator it
+            productIterator pit = productIterator(1, dim)
             shapeFunction sf
-        dim = mesh.dim
-        manifold_dim = mesh.manifold_dim
-        # Sauter Schwab p. 428
-        if isinstance(dm, P0_DoFMap):
-            quadOrder = order+1
-        elif isinstance(dm, P1_DoFMap):
-            quadOrder = order+2
-        elif isinstance(dm, P2_DoFMap):
-            quadOrder = order+3
-        elif isinstance(dm, P3_DoFMap):
-            quadOrder = order+4
-        else:
-            raise NotImplementedError()
-        qr = simplexXiaoGimbutas(quadOrder, dim, manifold_dim)
 
-        # get values of basis function in quadrature nodes
-        PHI = uninitialized((dm.dofs_per_element, qr.num_nodes), dtype=REAL)
-        for i in range(dm.dofs_per_element):
-            sf = dm.getLocalShapeFunction(i)
-            for j in range(qr.num_nodes):
-                sf.evalStrided(&qr.nodes[0, j], NULL, qr.num_nodes, &PHI[i, j])
-
-        coeff = np.zeros((dm.num_dofs, order**dim), dtype=REAL)
         simplex = uninitialized((manifold_dim+1, dim), dtype=REAL)
-        local_vals = uninitialized((dm.dofs_per_element, order**dim), dtype=REAL)
-
-        eta = np.cos((2.0*np.arange(order, 0, -1, dtype=REAL)-1.0) / (2.0*order) * np.pi)
-        xi = uninitialized((order, dim), dtype=REAL)
-        x = uninitialized((qr.num_nodes, dim), dtype=REAL)
-
-        if comm:
-            start = <INDEX_t>np.ceil(mesh.num_cells*comm.rank/comm.size)
-            end = <INDEX_t>np.ceil(mesh.num_cells*(comm.rank+1)/comm.size)
-        else:
-            start = 0
-            end = mesh.num_cells
-
-        # loop over elements
-        for i in range(start, end):
-            mesh.getSimplex(i, simplex)
-            vol = qr.getSimplexVolume(simplex)
-            # get quadrature nodes
-            qr.nodesInGlobalCoords(simplex, x)
-
-            # loop over element dofs
-            for k in range(dm.dofs_per_element):
-                I = dm.cell2dof(i, k)
-                if I >= 0:
-                    local_vals[k, :] = 0.
-
-                    # get Chebyshev nodes of box associated with DoF
-                    for j in range(order):
-                        for l in range(dim):
-                            xi[j, l] = (boxes[I, l, 1]-boxes[I, l, 0])*0.5 * (eta[j]+1.0) + boxes[I, l, 0]
-
-                    for l in range(order):
-                        for q in range(dim):
-                            temp = 1.0
-                            for m in range(order):
-                                if m != l:
-                                    temp *= xi[l, q]-xi[m, q]
-                            beta[l, q] = temp
-
-                    for j in range(qr.num_nodes):
-
-                        for l in range(order):
-                            for q in range(dim):
-                                if abs(x[j, q]-xi[l, q]) > 1e-9:
-                                    temp = 1.0
-                                    for m in range(order):
-                                        if m != l:
-                                            temp *= x[j, q]-xi[m, q]
-                                    omega[l, q] = temp
-                                else:
-                                    omega[l, q] = beta[l, q]
-
-                        r = 0
-                        pit.reset()
-                        while pit.step():
-                            betaSC = 1.0
-                            omegaSC = 1.0
-                            for q in range(dim):
-                                omegaSC *= omega[pit.idx[q], q]
-                                betaSC *= beta[pit.idx[q], q]
-                            local_vals[k, r] += vol*(omegaSC/betaSC)*PHI[k, j]*qr.weights[j]
-                            r += 1
-
-            # enter data into vector coeff
-            for k in range(dm.dofs_per_element):
-                I = dm.cell2dof(i, k)
-                if I >= 0:
-                    for l in range(order**dim):
-                        coeff[I, l] += local_vals[k, l]
-        if comm is not None and comm.size > 1:
-            if assembleOnRoot:
-                if comm.rank == 0:
-                    comm.Reduce(MPI.IN_PLACE, coeff, root=0)
-                else:
-                    comm.Reduce(coeff, coeff, root=0)
+        for n in self.leaves():
+            if not local:
+                dofs = n.dofs
             else:
-                comm.Allreduce(MPI.IN_PLACE, coeff)
-        if comm is None or (assembleOnRoot and comm.rank == 0) or (not assembleOnRoot):
-            tMB = transferMatrixBuilder(order, dim)
-            transferOperator = uninitialized((order**dim, order**dim), dtype=REAL)
-            # distribute entries of coeff to tree leaves
-            for n in self.leaves():
-                n.value = np.zeros((1, len(n.dofs), order**dim), dtype=REAL)
-                if not local:
-                    it.setIndexSet(n.dofs)
-                else:
-                    it.setIndexSet(n.local_dofs)
-                k = 0
-                while it.step():
-                    dof = it.i
+                dofs = n.local_dofs
+            cells = n.cells
+            order = n.interpolation_order
+            kiSize = order**dim
+            n.value = np.zeros((1, dofs.getNumEntries(), kiSize), dtype=REAL)
 
-                    tMB.build(n.box, boxes[dof, :, :], transferOperator)
-                    for i in range(order**dim):
-                        for j in range(order**dim):
-                            n.value[0, k, i] += transferOperator[i, j]*coeff[dof, j]
-                    k += 1
+            if order != oldOrder:
+                # Sauter Schwab p. 428
+                if isinstance(dm, P0_DoFMap):
+                    quadOrder = order+1
+                elif isinstance(dm, P1_DoFMap):
+                    quadOrder = order+2
+                elif isinstance(dm, P2_DoFMap):
+                    quadOrder = order+3
+                elif isinstance(dm, P3_DoFMap):
+                    quadOrder = order+4
+                else:
+                    raise NotImplementedError()
+                qr = simplexXiaoGimbutas(quadOrder, dim, manifold_dim)
+
+                # get values of basis function in quadrature nodes
+                PHI = uninitialized((dm.dofs_per_element, qr.num_nodes), dtype=REAL)
+                for i in range(dm.dofs_per_element):
+                    sf = dm.getLocalShapeFunction(i)
+                    for j in range(qr.num_nodes):
+                        sf.evalStrided(&qr.nodes[0, j], NULL, qr.num_nodes, &PHI[i, j])
+
+                x = uninitialized((qr.num_nodes, dim), dtype=REAL)
+                xi = uninitialized((order, dim), dtype=REAL)
+                beta = uninitialized((order, dim), dtype=REAL)
+                omega = uninitialized((order, dim), dtype=REAL)
+
+                oldOrder = order
+
+            # get Chebyshev nodes xi_{j,q} of box associated with DoF
+            for j in range(order):
+                eta = cos((2.0*(order-j)-1.0)/(2.0*order) * pi)
+                for q in range(dim):
+                    xi[j, q] = (n.box[q, 1]-n.box[q, 0])*0.5 * (eta+1.0) + n.box[q, 0]
+
+            # beta[l, :] = prod_{m != l} (xi[l, :] - xi[m, :])
+            for l in range(order):
+                for q in range(dim):
+                    temp = 1.0
+                    for m in range(order):
+                        if m != l:
+                            temp *= xi[l, q]-xi[m, q]
+                    beta[l, q] = temp
+
+            it = cells.getIter()
+            while it.step():
+                cellNo = it.i
+
+                dm.mesh.getSimplex(cellNo, simplex)
+                vol = qr.getSimplexVolume(simplex)
+                # get quadrature nodes
+                qr.nodesInGlobalCoords(simplex, x)
+
+                # loop over element dofs
+                for k in range(dm.dofs_per_element):
+                    dof = dm.cell2dof(cellNo, k)
+                    if dof < 0:
+                        continue
+                    lcl_dof = dofs.position(dof)
+                    if lcl_dof >= 0:
+                        # We integrate phi_I(x) * L_alpha(x)
+                        # where
+                        # phi_I is a FE basis function and
+                        # L_alpha(xi_beta) = delta_{alpha,beta}
+                        # is a tensor product of Lagrange polynomials wrt the nodes xi_beta.
+
+                        for j in range(qr.num_nodes):
+                            # omega[l, :] = prod_{m != l} (x[j, :] - xi[m, :])
+                            for l in range(order):
+                                for q in range(dim):
+                                    if abs(x[j, q]-xi[l, q]) > 1e-9:
+                                        temp = 1.0
+                                        for m in range(order):
+                                            if m != l:
+                                                temp *= x[j, q]-xi[m, q]
+                                        omega[l, q] = temp
+                                    else:
+                                        omega[l, q] = beta[l, q]
+
+                            r = 0
+                            pit.m = order
+                            pit.reset()
+                            while pit.step():
+                                # L_alpha(x_j) = prod_{q=1}^{dim} prod_{m != alpha_q} (x_{j,q} - xi_{m,q}) / (xi_{alpha_q,q} - xi_{m,q})
+                                #              = prod_{q=1}^{dim} omega[alpha_q, q] / beta[alpha_q, q]
+                                betaSC = 1.0
+                                omegaSC = 1.0
+                                for q in range(dim):
+                                    omegaSC *= omega[pit.idx[q], q]
+                                    betaSC *= beta[pit.idx[q], q]
+                                n.value[0, lcl_dof, r] += vol*(omegaSC/betaSC)*PHI[k, j]*qr.weights[j]
+                                r += 1
 
     def enterLeafValuesGrad(self,
                             meshBase mesh,
                             DoFMap dm,
-                            INDEX_t order,
                             REAL_t[:, :, ::1] boxes,
                             comm=None):
         cdef:
+            INDEX_t order = self.refParams.interpolation_order
             INDEX_t i, k, I, l, j, p, dim, dof, r, start, end
             REAL_t[:, ::1] simplex, local_vals, PHI, xi, x, box, gradients
             REAL_t[:, :, ::1] coeff
@@ -1830,7 +1785,7 @@ cdef class tree_node:
                 offset = c.constructBasisMatrix(B, coefficientsUp, offset)
         return offset
 
-    def partition(self, DoFMap dm, MPI.Comm comm, REAL_t[:, :, ::1] boxes, BOOL_t canBeAssembled, BOOL_t mixed_node, dict params={}):
+    def partition(self, DoFMap dm, MPI.Comm comm, REAL_t[:, :, ::1] boxes, REAL_t[::1] hVector, BOOL_t canBeAssembled, BOOL_t mixed_node, dict params={}):
         from PyNucleus_fem.meshPartitioning import regularDofPartitioner, metisDofPartitioner
 
         cdef:
@@ -1864,7 +1819,7 @@ cdef class tree_node:
         for p in range(comm.size):
             subDofs = arrayIndexSet(np.where(np.array(part, copy=False) == p)[0].astype(INDEX), sorted=True)
             num_dofs += subDofs.getNumEntries()
-            self.children.append(tree_node(self, subDofs, boxes, canBeAssembled=canBeAssembled, mixed_node=mixed_node))
+            self.children.append(tree_node(self, subDofs, boxes, hVector, self.refParams, canBeAssembled=canBeAssembled, mixed_node=mixed_node))
             self.children[p].id = p+1
         assert dm.num_dofs == num_dofs, "Partitioning error: dm has {} dofs, but clusters only have {}.".format(dm.num_dofs, num_dofs)
         self._dofs = None
@@ -1893,6 +1848,25 @@ cdef class tree_node:
                 n._dofs = arrayIndexSet()
         for n in self.get_tree_nodes():
             n._num_dofs = -1
+
+    def getMemorySize(self):
+        cdef:
+            size_t s = 0
+            tree_node c
+        if self.transferOperator is not None:
+            s += self.transferOperator.shape[0]*self.transferOperator.shape[1]*sizeof(REAL_t)
+        if self.coefficientsUp is not None:
+            s += self.coefficientsUp.shape[0]*sizeof(REAL_t)
+        if self.coefficientsDown is not None:
+            s += self.coefficientsDown.shape[0]*sizeof(REAL_t)
+        if self.coefficientsDownVec is not None:
+            s += self.coefficientsDownVec.shape[0]*self.coefficientsDownVec.shape[1]*sizeof(REAL_t)
+        if self.value is not None:
+            s += self.value.shape[0]*self.value.shape[1]*self.value.shape[2]*sizeof(REAL_t)
+        for c in self.children:
+            s += c.getMemorySize()
+        return s
+
 
 cdef tree_node readNode(list nodes, INDEX_t myId, parent, REAL_t[:, :, ::1] boxes, LinearOperator children, INDEX_t M, REAL_t[:, :, ::1] transferOperators):
     cdef:
@@ -1932,55 +1906,72 @@ cdef indexSet setDoFsFromChildren(tree_node n):
 
 
 cdef class transferMatrixBuilder:
-    def __init__(self, INDEX_t m, INDEX_t dim):
-        self.m = m
+    def __init__(self, INDEX_t dim):
         self.dim = dim
-        self.omega = uninitialized((m, dim), dtype=REAL)
-        self.beta = uninitialized((m, dim), dtype=REAL)
-        self.xiC = uninitialized((m, dim), dtype=REAL)
-        self.xiP = uninitialized((m, dim), dtype=REAL)
-        self.eta = np.cos((2.0*np.arange(m, 0, -1)-1.0) / (2.0*m) * np.pi)
-        self.pit = productIterator(m, dim)
-        self.pit2 = productIterator(m, dim)
+        self.pit = productIterator(1, dim)
+        self.pit2 = productIterator(1, dim)
 
     cdef void build(self,
-                    REAL_t[:, ::1] boxP,
-                    REAL_t[:, ::1] boxC,
-                    REAL_t[:, ::1] T):
+                    tree_node parent,
+                    tree_node child):
         cdef:
+            REAL_t[:, ::1] boxP = parent.box
+            REAL_t[:, ::1] boxC = child.box
             INDEX_t dim = self.dim, i, j, l, k, I, J
-            REAL_t[:, ::1] omega = self.omega
-            REAL_t[:, ::1] beta = self.beta
-            REAL_t[:, ::1] xiC = self.xiC
-            REAL_t[:, ::1] xiP = self.xiP
-            REAL_t[::1] eta = self.eta
-            INDEX_t m = self.m
+            REAL_t[:, ::1] omega
+            REAL_t[:, ::1] beta
+            REAL_t[:, ::1] xiC
+            REAL_t[:, ::1] xiP
+            REAL_t[::1] eta
+            INDEX_t mChild = child.interpolation_order
+            INDEX_t mParent = parent.interpolation_order
 
-        for i in range(m):
+        xiC = uninitialized((mChild, dim), dtype=REAL)
+        eta = np.cos((2.0*np.arange(mChild, 0, -1)-1.0) / (2.0*mChild) * np.pi)
+        for i in range(mChild):
             for j in range(dim):
                 xiC[i, j] = (boxC[j, 1]-boxC[j, 0])*0.5*(eta[i]+1.0)+boxC[j, 0]
+
+        xiP = uninitialized((mParent, dim), dtype=REAL)
+        eta = np.cos((2.0*np.arange(mParent, 0, -1)-1.0) / (2.0*mParent) * np.pi)
+        for i in range(mParent):
+            for j in range(dim):
                 xiP[i, j] = (boxP[j, 1]-boxP[j, 0])*0.5*(eta[i]+1.0)+boxP[j, 0]
-        for j in range(m):
-            for l in range(dim):
-                omega[j, l] = xiC[j, l]-xiP[0, l]
-                for k in range(1, m):
+
+        # omega[j, :] = Prod_k (xiC[j, :] - xiP[k, :])
+        omega = np.ones((mChild, dim), dtype=REAL)
+        for j in range(mChild):
+            for k in range(mParent):
+                for l in range(dim):
                     omega[j, l] *= xiC[j, l]-xiP[k, l]
-                beta[j, l] = 1.0
-                for k in range(m):
-                    if k != j:
+
+        # beta[j, :]  = Prod_{k != j} (xiP[j, :] - xiP[k, :])
+        beta = np.ones((mParent, dim), dtype=REAL)
+        for j in range(mParent):
+            for k in range(mParent):
+                if k != j:
+                    for l in range(dim):
                         beta[j, l] *= xiP[j, l]-xiP[k, l]
-        T[:, :] = 1.0
+
+        child.transferOperator = np.ones((mParent**dim, mChild**dim), dtype=REAL)
         I = 0
+        self.pit.m = mParent
+        self.pit2.m = mChild
         self.pit.reset()
         while self.pit.step():
             J = 0
             self.pit2.reset()
             while self.pit2.step():
-                for k in range(dim):
-                    i = self.pit.idx[k]
-                    j = self.pit2.idx[k]
-                    if abs(xiP[i, k]-xiC[j, k]) > 1e-8:
-                        T[I, J] *= omega[j, k]/(xiC[j, k]-xiP[i, k])/beta[i, k]
+                for l in range(dim):
+                    i = self.pit.idx[l]
+                    j = self.pit2.idx[l]
+                    if abs(xiP[i, l]-xiC[j, l]) > 1e-8:
+                        # L^P_i(xiP[j, :]) = delta_{ij}
+                        #
+                        # L^P_i(xiC[j, :])
+                        # = prod_{k != i} (xiC[j, :] - xiP[k, :]) / (xiP[i, :] - xiP[k, :])
+                        # = omega[j, :] / (xiC[j, :] - xiP[i, :]) / beta[i, :]
+                        child.transferOperator[I, J] *= omega[j, l]/(xiC[j, l]-xiP[i, l])/beta[i, l]
                 J += 1
             I += 1
 
@@ -1989,6 +1980,8 @@ cdef class farFieldClusterPair:
     def __init__(self, tree_node n1, tree_node n2):
         self.n1 = n1
         self.n2 = n2
+        self.kernelInterpolant = None
+        self.kernelInterpolantVec = None
 
     def plot(self, color='blue'):
         import matplotlib.pyplot as plt
@@ -2012,11 +2005,18 @@ cdef class farFieldClusterPair:
     cpdef void applyVec(farFieldClusterPair self, REAL_t[::1] x, REAL_t[:, ::1] y):
         cdef:
             INDEX_t i, j, l
-        y[:, :] = 0.0
         for i in range(self.kernelInterpolantVec.shape[0]):
             for j in range(self.kernelInterpolantVec.shape[1]):
                 for l in range(self.kernelInterpolantVec.shape[2]):
                     y[i, l] += self.kernelInterpolantVec[i, j, l]*x[j]
+
+    cpdef void applyVecTrans(farFieldClusterPair self, REAL_t[::1] x, REAL_t[:, ::1] y):
+        cdef:
+            INDEX_t i, j, l
+        for i in range(self.kernelInterpolantVec.shape[1]):
+            for j in range(self.kernelInterpolantVec.shape[0]):
+                for l in range(self.kernelInterpolantVec.shape[2]):
+                    y[i, l] += self.kernelInterpolantVec[j, i, l]*x[j]
 
     def __repr__(self):
         return 'farFieldClusterPair<{}, {}>'.format(self.n1, self.n2)
@@ -2050,68 +2050,85 @@ cdef class productIterator:
         return True
 
 
-def assembleFarFieldInteractions(Kernel kernel, dict Pfar, INDEX_t m, DoFMap dm, BOOL_t bemMode=False):
+def assembleFarFieldInteractions(Kernel kernel, dict Pfar, DoFMap dm, BOOL_t bemMode=False):
     cdef:
         INDEX_t lvl
+        INDEX_t m1, m2
         REAL_t[:, ::1] box1, box2, x, y
         INDEX_t k, i, j, p, l
-        REAL_t[::1] eta
+        REAL_t[::1] eta1, eta2
         REAL_t eta_p
         farFieldClusterPair cP
         INDEX_t dim = dm.mesh.dim
         REAL_t[:, ::1] dofCoords = None
         INDEX_t dof1, dof2
         indexSetIterator it = arrayIndexSetIterator()
-        INDEX_t kiSize = m**dim
-        productIterator pit = productIterator(m, dim)
+        INDEX_t kiSize1, kiSize2
+        productIterator pit = productIterator(1, dim)
         BOOL_t kernel_variable = kernel.variable
-
-    eta = np.cos((2.0*np.arange(m, 0, -1)-1.0) / (2.0*m) * np.pi)
-
-    x = uninitialized((kiSize, dim), dtype=REAL)
-    y = uninitialized((kiSize, dim), dtype=REAL)
 
     for lvl in Pfar:
         for cP in Pfar[lvl]:
+            m1 = cP.n1.interpolation_order
+            kiSize1 = m1**dim
+            eta1 = np.cos((2.0*np.arange(m1, 0, -1)-1.0) / (2.0*m1) * np.pi)
+
+            x = uninitialized((kiSize1, dim), dtype=REAL)
             box1 = cP.n1.box
-            box2 = cP.n2.box
             k = 0
+            pit.m = m1
             pit.reset()
             while pit.step():
                 for j in range(dim):
                     p = pit.idx[j]
-                    eta_p = eta[p]+1.0
+                    eta_p = eta1[p]+1.0
                     x[k, j] = (box1[j, 1]-box1[j, 0])*0.5 * eta_p + box1[j, 0]
+                k += 1
+
+            m2 = cP.n2.interpolation_order
+            kiSize2 = m2**dim
+            eta2 = np.cos((2.0*np.arange(m2, 0, -1)-1.0) / (2.0*m2) * np.pi)
+
+            y = uninitialized((kiSize2, dim), dtype=REAL)
+            box2 = cP.n2.box
+            k = 0
+            pit.m = m2
+            pit.reset()
+            while pit.step():
+                for j in range(dim):
+                    p = pit.idx[j]
+                    eta_p = eta2[p]+1.0
                     y[k, j] = (box2[j, 1]-box2[j, 0])*0.5 * eta_p + box2[j, 0]
                 k += 1
+
             if kernel.valueSize == 1:
-                cP.kernelInterpolant = uninitialized((kiSize, kiSize), dtype=REAL)
+                cP.kernelInterpolant = uninitialized((kiSize1, kiSize2), dtype=REAL)
                 if not bemMode:
-                    for i in range(kiSize):
-                        for j in range(kiSize):
+                    for i in range(kiSize1):
+                        for j in range(kiSize2):
                             if kernel_variable:
                                 kernel.evalParamsPtr(dim, &x[i, 0], &y[j, 0])
                             kernel.evalPtr(dim, &x[i, 0], &y[j, 0], &cP.kernelInterpolant[i, j])
                             cP.kernelInterpolant[i, j] *= -2.0
                 else:
-                    for i in range(kiSize):
-                        for j in range(kiSize):
+                    for i in range(kiSize1):
+                        for j in range(kiSize2):
                             if kernel_variable:
                                 kernel.evalParamsPtr(dim, &x[i, 0], &y[j, 0])
                             kernel.evalPtr(dim, &x[i, 0], &y[j, 0], &cP.kernelInterpolant[i, j])
             else:
-                cP.kernelInterpolantVec = uninitialized((kiSize, kiSize, kernel.valueSize), dtype=REAL)
+                cP.kernelInterpolantVec = uninitialized((kiSize1, kiSize2, kernel.valueSize), dtype=REAL)
                 if not bemMode:
-                    for i in range(kiSize):
-                        for j in range(kiSize):
+                    for i in range(kiSize1):
+                        for j in range(kiSize2):
                             if kernel_variable:
                                 kernel.evalParamsPtr(dim, &x[i, 0], &y[j, 0])
                             kernel.evalPtr(dim, &x[i, 0], &y[j, 0], &cP.kernelInterpolantVec[i, j, 0])
                             for l in range(kernel.valueSize):
                                 cP.kernelInterpolantVec[i, j, l] *= -2.0
                 else:
-                    for i in range(kiSize):
-                        for j in range(kiSize):
+                    for i in range(kiSize1):
+                        for j in range(kiSize2):
                             if kernel_variable:
                                 kernel.evalParamsPtr(dim, &x[i, 0], &y[j, 0])
                             kernel.evalPtr(dim, &x[i, 0], &y[j, 0], &cP.kernelInterpolantVec[i, j, 0])
@@ -2280,23 +2297,7 @@ cdef class H2Matrix(LinearOperator):
 
     property tree_size:
         def __get__(self):
-            cdef:
-                INDEX_t transfers_size = 0
-                INDEX_t leaf_size = 0
-                tree_node n
-            # transfer operators
-            for n in self.tree.get_tree_nodes():
-                try:
-                    transfers_size += n.transferOperator.shape[0]*n.transferOperator.shape[1]
-                except AttributeError:
-                    pass
-            # leaf values
-            for n in self.tree.leaves():
-                try:
-                    leaf_size += n.value.shape[0]*n.value.shape[1]*n.value.shape[2]
-                except AttributeError:
-                    pass
-            return transfers_size + leaf_size
+            return self.tree.getMemorySize()
 
     property num_far_field_cluster_pairs:
         def __get__(self):
@@ -2310,33 +2311,37 @@ cdef class H2Matrix(LinearOperator):
             cdef:
                 INDEX_t lvl
                 farFieldClusterPair cP
-                kernelInterpolantSize = 0
+                size_t kernelInterpolantSize = 0
             for lvl in self.Pfar:
                 for cP in self.Pfar[lvl]:
-                    kernelInterpolantSize += cP.kernelInterpolant.shape[0]*cP.kernelInterpolant.shape[1]
+                    if cP.kernelInterpolant is not None:
+                        kernelInterpolantSize += cP.kernelInterpolant.shape[0]*cP.kernelInterpolant.shape[1]*sizeof(REAL_t)
+                    if cP.kernelInterpolantVec is not None:
+                        kernelInterpolantSize += cP.kernelInterpolantVec.shape[0]*cP.kernelInterpolantVec.shape[1]*cP.kernelInterpolantVec.shape[2]*sizeof(REAL_t)
             return kernelInterpolantSize
 
     property nearField_size:
         def __get__(self):
-            if isinstance(self.Anear, Dense_LinearOperator):
-                return self.Anear.num_rows*self.Anear.num_columns
-            elif isinstance(self.Anear, Multiply_Linear_Operator):
-                return self.Anear.A.nnz
-            else:
-                return self.Anear.nnz
+            return self.Anear.getMemorySize()
+
+    property compressionRatio:
+        def __get__(self):
+            fullDense = self.num_rows*self.num_columns*sizeof(REAL_t)
+            return self.getMemorySize()/fullDense
 
     def __repr__(self):
+        fullDense = self.num_rows*self.num_columns*sizeof(REAL_t)
         return '<%dx%d %s %f fill from near field, %f fill from tree, %f fill from clusters, %d tree nodes, %d far-field cluster pairs>' % (self.num_rows,
                                                                                                                                             self.num_columns,
                                                                                                                                             self.__class__.__name__,
-                                                                                                                                            self.nearField_size/self.num_rows/self.num_columns,
-                                                                                                                                            self.tree_size/self.num_rows/self.num_columns,
-                                                                                                                                            self.cluster_size/self.num_rows/self.num_columns,
+                                                                                                                                            self.nearField_size/fullDense,
+                                                                                                                                            self.tree_size/fullDense,
+                                                                                                                                            self.cluster_size/fullDense,
                                                                                                                                             self.tree.nodes,
                                                                                                                                             self.num_far_field_cluster_pairs)
 
     def getMemorySize(self):
-        return self.Anear.getMemorySize() + self.cluster_size*sizeof(REAL_t) + self.tree_size*sizeof(REAL_t)
+        return self.Anear.getMemorySize() + self.cluster_size + self.tree_size
 
     def HDF5write(self, node, version=2, Pnear=None):
         cdef:
@@ -2637,6 +2642,55 @@ cdef class VectorH2Matrix(VectorLinearOperator):
                 self.tree.downwardPassVec(y, componentNo)
         return 0
 
+    cdef INDEX_t matvecTrans(self,
+                             REAL_t[::1] x,
+                             REAL_t[:, ::1] y) except -1:
+        cdef:
+            INDEX_t level, componentNo
+            tree_node n1, n2
+            farFieldClusterPair clusterPair
+        if self.Anear.nnz > 0:
+            with self.PLogger.Timer("h2 matvec near"):
+                self.Anear.matvecTrans(x, y)
+        else:
+            y[:, :] = 0.
+        if len(self.Pfar) > 0:
+            if self.skip_leaves_upward:
+                self.basis.matvecTrans(x, self.leafCoefficientsUp)
+            for componentNo in range(next(self.tree.leaves()).value.shape[0]):
+                with self.PLogger.Timer("h2 upwardPass"):
+                    self.tree.upwardPass(x, componentNo, skip_leaves=self.skip_leaves_upward)
+                    self.tree.resetCoefficientsDown(vecValued=True)
+                with self.PLogger.Timer("h2 far field"):
+                    for level in self.Pfar:
+                        for clusterPair in self.Pfar[level]:
+                            n1, n2 = clusterPair.n1, clusterPair.n2
+                            clusterPair.applyVecTrans(n1.coefficientsUp, n2.coefficientsDownVec)
+                with self.PLogger.Timer("h2 downwardPass"):
+                    self.tree.downwardPassVec(y, componentNo)
+        return 0
+
+    cdef INDEX_t matvecTrans_no_overwrite(self,
+                                          REAL_t[::1] x,
+                                          REAL_t[:, ::1] y) except -1:
+        cdef:
+            INDEX_t level, componentNo
+            tree_node n1, n2
+            farFieldClusterPair clusterPair
+        self.Anear.matvec_no_overwrite(x, y)
+        if len(self.Pfar) > 0:
+            if self.skip_leaves_upward:
+                self.basis.matvecTrans(x, self.leafCoefficientsUp)
+            for componentNo in range(next(self.tree.leaves()).value.shape[0]):
+                self.tree.upwardPass(x, componentNo, skip_leaves=self.skip_leaves_upward)
+                self.tree.resetCoefficientsDown(vecValued=True)
+                for level in self.Pfar:
+                    for clusterPair in self.Pfar[level]:
+                        n1, n2 = clusterPair.n1, clusterPair.n2
+                        clusterPair.applyVecTrans(n1.coefficientsUp, n2.coefficientsDownVec)
+                self.tree.downwardPassVec(y, componentNo)
+        return 0
+
     # cdef INDEX_t matvec_submat(self,
     #                            REAL_t[::1] x,
     #                            REAL_t[::1] y,
@@ -2707,7 +2761,7 @@ cdef class VectorH2Matrix(VectorLinearOperator):
                 kernelInterpolantSize = 0
             for lvl in self.Pfar:
                 for cP in self.Pfar[lvl]:
-                    kernelInterpolantSize += cP.kernelInterpolant.shape[0]*cP.kernelInterpolant.shape[1]
+                    kernelInterpolantSize += cP.kernelInterpolantVec.shape[0]*cP.kernelInterpolantVec.shape[1]
             return kernelInterpolantSize
 
     property nearField_size:
@@ -3621,7 +3675,7 @@ cdef class DistributedH2Matrix_localData(LinearOperator):
         for cluster_lid in range(distClusterMap.getLocalNumElements()):
             cluster_gid = distClusterMap.getGlobalElement(cluster_lid)
             n = self.lcl_node_lookup[gid_to_clusterID[cluster_gid]]
-            lcl_coeffmap_size += n.transferOperator.shape[0]
+            lcl_coeffmap_size += n.transferOperator.shape[1]
         sizes = comm.gather(lcl_coeffmap_size)
         if commRank == 0:
             sizes = np.concatenate(([0], np.cumsum(sizes[:commSize-1])))
@@ -3635,7 +3689,7 @@ cdef class DistributedH2Matrix_localData(LinearOperator):
         for lid_cluster in range(distClusterMap.getLocalNumElements()):
             cluster_gid = distClusterMap.getGlobalElement(lid_cluster)
             n = self.lcl_node_lookup[gid_to_clusterID[cluster_gid]]
-            blockSize = n.transferOperator.shape[0]
+            blockSize = n.transferOperator.shape[1]
             for i in range(lid_coeff, lid_coeff+blockSize):
                 lcl_coeffmap[i, 0] = offset+i
             lid_cluster_to_gid_coeff[lid_cluster] = offset+lid_coeff
@@ -3653,14 +3707,14 @@ cdef class DistributedH2Matrix_localData(LinearOperator):
         for cluster_lid in range(distGhostedClusterMap.getLocalNumElements()):
             cluster_gid = distGhostedClusterMap.getGlobalElement(cluster_lid)
             n = self.node_lookup[gid_to_clusterID[cluster_gid]]
-            lcl_ghosted_coeffmap_size += n.transferOperator.shape[0]
+            lcl_ghosted_coeffmap_size += n.transferOperator.shape[1]
 
         lcl_ghosted_coeffmap = np.zeros((lcl_ghosted_coeffmap_size, 2), dtype=INDEX)
         lid_coeff = 0
         for lid_cluster in range(distGhostedClusterMap.getLocalNumElements()):
             cluster_gid = distGhostedClusterMap.getGlobalElement(lid_cluster)
             n = self.node_lookup[gid_to_clusterID[cluster_gid]]
-            blockSize = n.transferOperator.shape[0]
+            blockSize = n.transferOperator.shape[1]
             gid_coeff = ghosted_lid_cluster_to_gid_coeff[lid_cluster]
             for i in range(blockSize):
                 lcl_ghosted_coeffmap[lid_coeff+i, 0] = gid_coeff+i
@@ -3850,18 +3904,19 @@ def getFractionalOrders(variableFractionalOrder s, meshBase mesh):
 cpdef BOOL_t getAdmissibleClusters(Kernel kernel,
                                    tree_node n1,
                                    tree_node n2,
-                                   refinementParams refParams,
                                    dict Pfar=None,
                                    list Pnear=None,
                                    INDEX_t level=0,
                                    REAL_t[:, :, ::1] boxes1=None,
                                    REAL_t[:, ::1] coords1=None,
+                                   REAL_t[::1] hVector1=None,
                                    REAL_t[:, :, ::1] boxes2=None,
-                                   REAL_t[:, ::1] coords2=None):
+                                   REAL_t[:, ::1] coords2=None,
+                                   REAL_t[::1] hVector2=None):
     cdef:
         tree_node t1, t2
         bint seemsAdmissible
-        REAL_t dist, diam1, diam2, maxDist
+        REAL_t dist, diam1, diam2, maxDist, farFieldInteractionSize
         function horizon
         farFieldClusterPair cp
         BOOL_t addedFarFieldClusters = False
@@ -3873,7 +3928,8 @@ cpdef BOOL_t getAdmissibleClusters(Kernel kernel,
     diam1 = diamBox(n1.box)
     diam2 = diamBox(n2.box)
 
-    seemsAdmissible = refParams.eta*dist >= max(diam1, diam2) and not n1.mixed_node and not n2.mixed_node and (refParams.farFieldInteractionSize <= n1.get_num_dofs()*n2.get_num_dofs()) and n1.canBeAssembled and n2.canBeAssembled
+    farFieldInteractionSize = (n1.interpolation_order*n2.interpolation_order)**kernel.dim
+    seemsAdmissible = n1.refParams.eta*dist >= max(diam1, diam2) and not n1.mixed_node and not n2.mixed_node and (farFieldInteractionSize <= n1.get_num_dofs()*n2.get_num_dofs()) and n1.canBeAssembled and n2.canBeAssembled
 
     horizon = kernel.horizon
     assert isinstance(horizon, constant)
@@ -3903,12 +3959,12 @@ cpdef BOOL_t getAdmissibleClusters(Kernel kernel,
             Pfar[level] = [cp]
         return True
     else:
-        if refParams.attemptRefinement:
+        if n1.refParams.attemptRefinement:
             if n1.get_is_leaf():
-                n1.refine(boxes1, coords1, refParams, False)
+                n1.refine(boxes1, coords1, hVector1, False)
             if n2.get_is_leaf():
-                n2.refine(boxes2, coords2, refParams, False)
-        if (n1.get_is_leaf() and n2.get_is_leaf()) or (level == refParams.maxLevels):
+                n2.refine(boxes2, coords2, hVector2, False)
+        if (n1.get_is_leaf() and n2.get_is_leaf()) or (level == n1.refParams.maxLevels):
             Pnear.append(nearFieldClusterPair(n1, n2))
             # if kernel.finiteHorizon and len(Pnear[len(Pnear)-1].cellsInter) > 0:
             #     if diamUnion > kernel.horizon.value:
@@ -3918,31 +3974,31 @@ cpdef BOOL_t getAdmissibleClusters(Kernel kernel,
             #                                                                                                             diam2,
             #                                                                                                             diamUnion))
             return False
-        elif (refParams.farFieldInteractionSize > (<np.int64_t>n1.get_num_dofs())*(<np.int64_t>n2.get_num_dofs())) and (diamUnion < horizonValue):
+        elif (farFieldInteractionSize > (<np.int64_t>n1.get_num_dofs())*(<np.int64_t>n2.get_num_dofs())) and (diamUnion < horizonValue):
             Pnear.append(nearFieldClusterPair(n1, n2))
             return False
         elif n1.get_is_leaf():
             for t2 in n2.children:
-                addedFarFieldClusters |= getAdmissibleClusters(kernel, n1, t2, refParams,
+                addedFarFieldClusters |= getAdmissibleClusters(kernel, n1, t2,
                                                                Pfar, Pnear,
                                                                level+1,
-                                                               boxes1, coords1,
-                                                               boxes2, coords2)
+                                                               boxes1, coords1, hVector1,
+                                                               boxes2, coords2, hVector2)
         elif n2.get_is_leaf():
             for t1 in n1.children:
-                addedFarFieldClusters |= getAdmissibleClusters(kernel, t1, n2, refParams,
+                addedFarFieldClusters |= getAdmissibleClusters(kernel, t1, n2,
                                                                Pfar, Pnear,
                                                                level+1,
-                                                               boxes1, coords1,
-                                                               boxes2, coords2)
+                                                               boxes1, coords1, hVector1,
+                                                               boxes2, coords2, hVector2)
         else:
             for t1 in n1.children:
                 for t2 in n2.children:
-                    addedFarFieldClusters |= getAdmissibleClusters(kernel, t1, t2, refParams,
+                    addedFarFieldClusters |= getAdmissibleClusters(kernel, t1, t2,
                                                                    Pfar, Pnear,
                                                                    level+1,
-                                                                   boxes1, coords1,
-                                                                   boxes2, coords2)
+                                                                   boxes1, coords1, hVector1,
+                                                                   boxes2, coords2, hVector2)
     if not addedFarFieldClusters:
         if diamUnion < horizonValue:
             del Pnear[lenNearField:]
@@ -3958,8 +4014,10 @@ cpdef BOOL_t getCoveringClusters(Kernel kernel,
                                  INDEX_t level=0,
                                  REAL_t[:, :, ::1] boxes1=None,
                                  REAL_t[:, ::1] coords1=None,
+                                 REAL_t[::1] hVector1=None,
                                  REAL_t[:, :, ::1] boxes2=None,
-                                 REAL_t[:, ::1] coords2=None):
+                                 REAL_t[:, ::1] coords2=None,
+                                 REAL_t[::1] hVector2=None):
     cdef:
         tree_node t1, t2
         REAL_t dist, maxDist
@@ -3981,9 +4039,9 @@ cpdef BOOL_t getCoveringClusters(Kernel kernel,
     else:
         if refParams.attemptRefinement:
             if n1.get_is_leaf():
-                n1.refine(boxes1, coords1, refParams, False)
+                n1.refine(boxes1, coords1, hVector1, False)
             if n2.get_is_leaf():
-                n2.refine(boxes2, coords2, refParams, False)
+                n2.refine(boxes2, coords2, hVector2, False)
         if (n1.get_is_leaf() and n2.get_is_leaf()) or (level == refParams.maxLevels):
             Pnear.append(nearFieldClusterPair(n1, n2))
             return True
@@ -3992,23 +4050,23 @@ cpdef BOOL_t getCoveringClusters(Kernel kernel,
                 addedFarFieldClusters |= getCoveringClusters(kernel, n1, t2, refParams,
                                                              Pnear,
                                                              level+1,
-                                                             boxes1, coords1,
-                                                             boxes2, coords2)
+                                                             boxes1, coords1, hVector1,
+                                                             boxes2, coords2, hVector2)
         elif n2.get_is_leaf():
             for t1 in n1.children:
                 addedFarFieldClusters |= getCoveringClusters(kernel, t1, n2, refParams,
                                                              Pnear,
                                                              level+1,
-                                                             boxes1, coords1,
-                                                             boxes2, coords2)
+                                                             boxes1, coords1, hVector1,
+                                                             boxes2, coords2, hVector2)
         else:
             for t1 in n1.children:
                 for t2 in n2.children:
                     addedFarFieldClusters |= getCoveringClusters(kernel, t1, t2, refParams,
                                                                  Pnear,
                                                                  level+1,
-                                                                 boxes1, coords1,
-                                                                 boxes2, coords2)
+                                                                 boxes1, coords1, hVector1,
+                                                                 boxes2, coords2, hVector2)
 
     # if not addedFarFieldClusters:
     #     if diamUnion < horizonValue:

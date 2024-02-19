@@ -21,6 +21,6 @@ cdef class {SCALAR_label}nonlocalBuilder:
         public FakePLogger PLogger
         public dict params
     cdef inline {SCALAR_label}double_local_matrix_t getLocalMatrix(self, dict params)
-    cdef inline {SCALAR_label}double_local_matrix_t getLocalMatrixBoundaryZeroExterior(self, dict params, BOOL_t infHorizon)
+    cdef inline {SCALAR_label}double_local_matrix_t getLocalMatrixBoundaryZeroExterior(self, {SCALAR_label}Kernel kernel, dict params)
     cpdef {SCALAR}_t getEntry(self, INDEX_t I, INDEX_t J)
     cpdef {SCALAR}_t getEntryCluster(self, INDEX_t I, INDEX_t J)

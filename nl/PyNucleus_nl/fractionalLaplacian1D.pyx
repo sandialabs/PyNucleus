@@ -196,17 +196,20 @@ cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
                  target_order=None,
                  num_dofs=None,
                  **kwargs):
+        super(fractionalLaplacian1D, self).__init__(kernel, mesh, dm, num_dofs, **kwargs)
+        self.setKernel(kernel, quad_order_diagonal, target_order)
+        self.symmetricCells = True
+
+    cpdef void setKernel(self, Kernel kernel, quad_order_diagonal=None, target_order=None):
         cdef:
             REAL_t smin, smax
-        super(fractionalLaplacian1D, self).__init__(kernel, mesh, dm, num_dofs, **kwargs)
-
-        self.symmetricCells = True
+        self.kernel = kernel
 
         # The integrand (excluding the kernel) cancels 2 orders of the singularity within an element.
         self.singularityCancelationIntegrandWithinElement = 2.
         # The integrand (excluding the kernel) cancels 2 orders of the
         # singularity across elements for continuous finite elements.
-        if isinstance(dm, P0_DoFMap):
+        if isinstance(self.DoFMap, P0_DoFMap):
             assert self.kernel.max_singularity > -2., "Discontinuous finite elements are not conforming for singularity order {} <= -2.".format(self.kernel.max_singularity)
             self.singularityCancelationIntegrandAcrossElements = 0.
         else:
@@ -269,7 +272,6 @@ cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
             try:
                 sQR = self.specialQuadRules[(singularityValue, panel)]
             except KeyError:
-
                 qr = singularityCancelationQuadRule1D(panel,
                                                       self.singularityCancelationIntegrandWithinElement+singularityValue,
                                                       self.quad_order_diagonal,
@@ -297,7 +299,6 @@ cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
             try:
                 sQR = self.specialQuadRules[(singularityValue, panel)]
             except KeyError:
-
                 qr = singularityCancelationQuadRule1D(panel,
                                                       self.singularityCancelationIntegrandAcrossElements+singularityValue,
                                                       self.quad_order_diagonal,
@@ -620,6 +621,10 @@ cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
                  num_dofs=None,
                  **kwargs):
         super(fractionalLaplacian1D_boundary, self).__init__(kernel, mesh, dm, num_dofs, **kwargs)
+        self.setKernel(kernel, quad_order_diagonal, target_order)
+
+    cpdef void setKernel(self, Kernel kernel, quad_order_diagonal=None, target_order=None):
+        self.kernel = kernel
 
         smin = max(0.5*(-self.kernel.min_singularity), 0.)
         smax = max(0.5*(-self.kernel.max_singularity), 0.)

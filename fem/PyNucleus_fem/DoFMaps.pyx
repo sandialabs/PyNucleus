@@ -10,7 +10,7 @@ cimport numpy as np
 from libc.math cimport isnan
 from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX, BOOL
 from cpython cimport Py_buffer
-from libc.stdlib cimport malloc, free
+from cpython.mem cimport PyMem_Malloc, PyMem_Free
 from PyNucleus_base.blas cimport assign, assign3, assignScaled, matmat
 from PyNucleus_base.ip_norm cimport vector_t, ip_serial, norm_serial, wrapRealInnerToComplex, wrapRealNormToComplex
 from PyNucleus_base import uninitialized
@@ -343,7 +343,7 @@ cdef class DoFMap:
         if isinstance(localShapeFunctions[0], shapeFunction):
             self.vectorValued = False
             self._localShapeFunctions = localShapeFunctions
-            self._localShapeFunctionsPtr = <void**>malloc(len(localShapeFunctions)*sizeof(void*))
+            self._localShapeFunctionsPtr = <void**>PyMem_Malloc(len(localShapeFunctions)*sizeof(void*))
             for i in range(len(localShapeFunctions)):
                 sf = self._localShapeFunctions[i]
                 self._localShapeFunctionsPtr[i] = <void*>sf
@@ -354,7 +354,7 @@ cdef class DoFMap:
         return <shapeFunction>self._localShapeFunctionsPtr[dofNo]
 
     def __del__(self):
-        free(self._localShapeFunctionsPtr)
+        PyMem_Free(self._localShapeFunctionsPtr)
 
     cpdef void resetUsingFEVector(self, REAL_t[::1] ind):
         cdef:

@@ -36,9 +36,10 @@ cdef class Kernel(twoPointFunction):
         public BOOL_t variableScaling
         public BOOL_t variable
         public BOOL_t piecewise
-        public BOOL_t boundary
         kernel_fun_t kernelFun
         void *c_kernel_params
+    cdef BOOL_t getBoundary(self)
+    cdef void setBoundary(self, BOOL_t boundary)
     cdef REAL_t getSingularityValue(self)
     cdef void setSingularityValue(self, REAL_t singularity)
     cdef REAL_t getHorizonValue(self)
@@ -93,6 +94,7 @@ cdef class FractionalKernel(Kernel):
         public fractionalOrderBase s
         public BOOL_t variableOrder
         public INDEX_t derivative
+        REAL_t[::1] tempVec
     cdef REAL_t getsValue(self)
     cdef void setsValue(self, REAL_t s)
     cdef REAL_t gettemperedValue(self)

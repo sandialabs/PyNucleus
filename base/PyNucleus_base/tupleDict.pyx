@@ -6,7 +6,7 @@
 ###################################################################################
 
 import numpy as np
-from libc.stdlib cimport malloc, realloc, free
+from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 from libc.stdlib cimport qsort
 from . myTypes import INDEX
 
@@ -24,6 +24,9 @@ cdef class indexSet:
 
     def inSet_py(self, INDEX_t i):
         return self.inSet(i)
+
+    cdef INDEX_t position(self, INDEX_t i):
+        raise NotImplementedError()
 
     cpdef void fromSet(self, set s):
         raise NotImplementedError()
@@ -175,6 +178,27 @@ cdef class arrayIndexSet(indexSet):
                 else:
                     high = mid
             return True
+
+    cdef INDEX_t position(self, INDEX_t i):
+        cdef:
+            INDEX_t low = 0
+            INDEX_t high = self.indexArray.shape[0]
+            INDEX_t mid
+        if high-low < 20:
+            for mid in range(low, high):
+                if self.indexArray[mid] == i:
+                    return mid
+            return -1
+        else:
+            while self.indexArray[low] != i:
+                if high-low <= 1:
+                    return -1
+                mid = (low+high) >> 1
+                if self.indexArray[mid] <= i:
+                    low = mid
+                else:
+                    high = mid
+            return low
 
     cpdef void fromSet(self, set s):
         cdef:
@@ -385,6 +409,14 @@ cdef class unsortedArrayIndexSet(arrayIndexSet):
                 return True
         return False
 
+    cdef INDEX_t position(self, INDEX_t i):
+        cdef:
+            INDEX_t j
+        for j in range(self.indexArray.shape[0]):
+            if self.indexArray[j] == i:
+                return j
+        return -1
+
     cpdef void fromSet(self, set s):
         cdef:
             INDEX_t i, k
@@ -446,7 +478,7 @@ cdef class arrayIndexSetIterator(indexSetIterator):
 cdef class bitArray(indexSet):
     def __init__(self, size_t hintMaxLength=1, INDEX_t maxElement=0):
         self.length = max(hintMaxLength, maxElement/(sizeof(MEM_t)*8)+1)
-        self.a = <MEM_t *>malloc(self.length*sizeof(MEM_t))
+        self.a = <MEM_t *>PyMem_Malloc(self.length*sizeof(MEM_t))
         for j in range(self.length):
             self.a[j] = 0
 
@@ -459,7 +491,7 @@ cdef class bitArray(indexSet):
         if k >= self.length:
             l = self.length
             self.length = k+1
-            self.a = <MEM_t *>realloc(self.a, self.length * sizeof(MEM_t))
+            self.a = <MEM_t *>PyMem_Realloc(self.a, self.length * sizeof(MEM_t))
             for j in range(l, self.length):
                 self.a[j] = 0
         self.a[k] |= one << n
@@ -510,7 +542,7 @@ cdef class bitArray(indexSet):
             self.a[j] = 0
 
     def __dealloc__(self):
-        free(self.a)
+        PyMem_Free(self.a)
 
     cdef indexSetIterator getIter(self):
         return bitArrayIterator(self)

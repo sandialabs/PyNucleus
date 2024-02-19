@@ -12,7 +12,7 @@ from scipy.special import factorial
 from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX
 from PyNucleus_base import uninitialized
 from PyNucleus_base.blas cimport mydot
-from libc.stdlib cimport malloc, free
+from cpython.mem cimport PyMem_Malloc, PyMem_Free
 from . interactionDomains cimport CUT
 
 cdef:

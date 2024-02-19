@@ -25,10 +25,17 @@ cdef enum kernelParams:
     fEXPONENTINVERSE = 10*OFFSET
     fTEMPERED=10*OFFSET
     fGREENS_LAMBDA=10*OFFSET
+    fBOUNDARY=11*OFFSET
 
 
 cdef inline BOOL_t isNull(void *c_params, size_t pos):
     return (<void**>((<char*>c_params)+pos))[0] == NULL
+
+cdef inline BOOL_t getBOOL(void *c_params, size_t pos):
+    return (<BOOL_t*>((<char*>c_params)+pos))[0]
+
+cdef inline void setBOOL(void *c_params, size_t pos, BOOL_t val):
+    (<BOOL_t*>((<char*>c_params)+pos))[0] = val
 
 cdef inline INDEX_t getINDEX(void *c_params, size_t pos):
     return (<INDEX_t*>((<char*>c_params)+pos))[0]

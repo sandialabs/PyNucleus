@@ -15,6 +15,7 @@ ctypedef np.uint64_t MEM_t
 
 cdef class indexSet:
     cdef BOOL_t inSet(self, INDEX_t i)
+    cdef INDEX_t position(self, INDEX_t i)
     cpdef void fromSet(self, set s)
     cpdef set toSet(self)
     cpdef INDEX_t[::1] toArray(self)

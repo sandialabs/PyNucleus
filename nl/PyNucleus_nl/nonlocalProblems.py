@@ -220,7 +220,7 @@ class nonlocalMeshFactoryClass(factory):
 
 
 def intervalIndicators(a=-1, b=1, **kwargs):
-    eps = 1e-9
+    eps = 1e-12
     domainIndicator = squareIndicator(np.array([a+eps], dtype=REAL),
                                       np.array([b-eps], dtype=REAL))
     interactionIndicator = Lambda(lambda x: 1. if ((x[0] < a-eps) or (b+eps < x[0])) else 0.)
@@ -229,44 +229,51 @@ def intervalIndicators(a=-1, b=1, **kwargs):
 
 
 def squareIndicators(ax=-1., ay=-1., bx=1., by=1., **kwargs):
-    domainIndicator = squareIndicator(np.array([ax+1e-9, ay+1e-9], dtype=REAL),
-                                      np.array([bx-1e-9, by-1e-9], dtype=REAL))
-    interactionIndicator = constant(1.)-squareIndicator(np.array([ax-1e-9, ay-1e-9], dtype=REAL),
-                                                        np.array([bx+1e-9, by+1e-9], dtype=REAL))
+    eps = 1e-12
+    domainIndicator = squareIndicator(np.array([ax+eps, ay+eps], dtype=REAL),
+                                      np.array([bx-eps, by-eps], dtype=REAL))
+    interactionIndicator = constant(1.)-squareIndicator(np.array([ax-eps, ay-eps], dtype=REAL),
+                                                        np.array([bx+eps, by+eps], dtype=REAL))
     boundaryIndicator = constant(1.)-domainIndicator-interactionIndicator
     return domainIndicator, boundaryIndicator, interactionIndicator
 
 
 def radialIndicators(*args, **kwargs):
-    domainIndicator = radialIndicator(1.-1e-9)
-    interactionIndicator = constant(1.)-radialIndicator(1.+1e-9)
-    boundaryIndicator = radialIndicator(1.+1e-9)-radialIndicator(1.-1e-9)
+    eps = 1e-12
+    domainIndicator = radialIndicator(1.-eps)
+    interactionIndicator = constant(1.)-radialIndicator(1.+eps)
+    boundaryIndicator = radialIndicator(1.+eps)-radialIndicator(1.-eps)
     return domainIndicator, boundaryIndicator, interactionIndicator
 
 
 def twinDiscIndicators(radius=1., sep=0.1, **kwargs):
-    domainIndicator = (radialIndicator(radius-1e-9, np.array([sep/2+radius, 0.], dtype=REAL)) +
-                       radialIndicator(radius-1e-9, np.array([-sep/2-radius, 0.], dtype=REAL)))
-    interactionIndicator = constant(1.)-(radialIndicator(radius+1e-9, np.array([sep/2+radius, 0.], dtype=REAL)) +
-                                         radialIndicator(radius+1e-9, np.array([-sep/2-radius, 0.], dtype=REAL)))
-    boundaryIndicator = ((radialIndicator(radius+1e-9, np.array([sep/2+radius, 0.], dtype=REAL)) +
-                          radialIndicator(radius+1e-9, np.array([-sep/2-radius, 0.], dtype=REAL))) -
-                         (radialIndicator(radius-1e-9, np.array([sep/2+radius, 0.], dtype=REAL)) +
-                          radialIndicator(radius-1e-9, np.array([-sep/2-radius, 0.], dtype=REAL))))
+    eps = 1e-9
+    domainIndicator = (radialIndicator(radius-eps, np.array([sep/2+radius, 0.], dtype=REAL)) +
+                       radialIndicator(radius-eps, np.array([-sep/2-radius, 0.], dtype=REAL)))
+    interactionIndicator = constant(1.)-(radialIndicator(radius+eps, np.array([sep/2+radius, 0.], dtype=REAL)) +
+                                         radialIndicator(radius+eps, np.array([-sep/2-radius, 0.], dtype=REAL)))
+    boundaryIndicator = ((radialIndicator(radius+eps, np.array([sep/2+radius, 0.], dtype=REAL)) +
+                          radialIndicator(radius+eps, np.array([-sep/2-radius, 0.], dtype=REAL))) -
+                         (radialIndicator(radius-eps, np.array([sep/2+radius, 0.], dtype=REAL)) +
+                          radialIndicator(radius-eps, np.array([-sep/2-radius, 0.], dtype=REAL))))
     return domainIndicator, boundaryIndicator, interactionIndicator
 
 
 def boxIndicators(ax=-1., ay=-1., az=-1., bx=1., by=1., bz=1., **kwargs):
-    domainIndicator = squareIndicator(np.array([ax+1e-9, ay+1e-9, az+1e-9], dtype=REAL),
-                                      np.array([bx-1e-9, by-1e-9, bz-1e-9], dtype=REAL))
-    interactionIndicator = constant(1.)-squareIndicator(np.array([ax-1e-9, ay-1e-9, az-1e-9], dtype=REAL),
-                                                        np.array([bx+1e-9, by+1e-9, bz+1e-9], dtype=REAL))
+    eps = 1e-9
+    domainIndicator = squareIndicator(np.array([ax+eps, ay+eps, az+eps], dtype=REAL),
+                                      np.array([bx-eps, by-eps, bz-eps], dtype=REAL))
+    interactionIndicator = constant(1.)-squareIndicator(np.array([ax-eps, ay-eps, az-eps], dtype=REAL),
+                                                        np.array([bx+eps, by+eps, bz+eps], dtype=REAL))
     boundaryIndicator = constant(1.)-domainIndicator-interactionIndicator
     return domainIndicator, boundaryIndicator, interactionIndicator
 
 
 def ballWithInteractions(*args, **kwargs):
-    raise NotImplementedError()
+    radius = kwargs.get('radius')
+    horizon = kwargs.get('horizon')
+    kwargs['radius'] = radius+horizon
+    return ball(**kwargs)
 
 
 nonlocalMeshFactory = nonlocalMeshFactoryClass()
@@ -516,7 +523,7 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
         if self.driver.isMaster:
             self.driver.parser.set_defaults(s='const(0.75)', horizon=np.inf, interaction='fullSpace')
         p = self.driver.addGroup('problem')
-        self.setDriverFlag('domain', acceptedValues=['interval', 'disc', 'Lshape', 'square',
+        self.setDriverFlag('domain', acceptedValues=['interval', 'disc', 'gradedInterval', 'gradedDisc', 'Lshape', 'square',
                                                      'cutoutCircle', 'disconnectedInterval', 'disconnectedDomain',
                                                      'ball'], group=p)
         self.setDriverFlag('problem', acceptedValues=['constant', 'notPeriodic', 'plateau',
@@ -553,6 +560,8 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                         noRef = 21
                     else:
                         raise NotImplementedError(element)
+            elif domain == 'gradedInterval':
+                noRef = 6
             elif domain == 'disconnectedInterval':
                 noRef = 40
             elif domain == 'disc':
@@ -560,6 +569,8 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                     noRef = 5
                 else:
                     noRef = 7
+            elif domain == 'gradedDisc':
+                noRef = 2
             elif domain == 'square':
                 noRef = 20
             elif domain == 'Lshape':
@@ -579,11 +590,17 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
         if domain == 'interval':
             radius = 1.
             meshParams.update({'a': -radius, 'b': radius})
+        elif domain == 'gradedInterval':
+            radius = 1.
+            meshParams.update({'a': -radius, 'b': radius, 'h': 0.1})
         elif domain == 'disconnectedInterval':
             meshParams['sep'] = 0.1
         elif domain == 'disc':
             radius = 1.
             meshParams.update({'h': 0.78, 'radius': radius})
+        elif domain == 'gradedDisc':
+            radius = 1.
+            meshParams.update({'radius': radius, 'h': 0.78})
         elif domain == 'square':
             meshParams.update({'N': 3, 'ax': -1, 'ay': -1, 'bx': 1, 'by': 1})
         elif domain == 'Lshape':
@@ -610,7 +627,7 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
         assert normalized
 
         boundaryCondition = HOMOGENEOUS_DIRICHLET
-        if domain == 'interval':
+        if domain in ('interval', 'gradedInterval'):
             radius = 1.
 
             if problem == 'constant':
@@ -692,7 +709,7 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                 self.rhs = Lambda(lambda x: 1. if x[0] > 0.5 else 0.)
             else:
                 raise NotImplementedError(problem)
-        elif domain == 'disc':
+        elif domain in ('disc', 'gradedDisc'):
             radius = 1.
 
             if problem == 'constant':
@@ -812,10 +829,12 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
             self.exactL2Squared = None
 
     @generates(['eta', 'target_order'])
-    def getApproximationParams(self, dim, kernel, element):
+    def getApproximationParams(self, dim, domain, kernel, element):
         s = kernel.s
         elementOrder = str2DoFMapOrder(element)
-        if dim == 1:
+        if domain in ('gradedInterval', ):
+            self.target_order = (1+elementOrder)/dim
+        elif dim == 1:
             self.target_order = (1+elementOrder-s.min)/dim
         else:
             self.target_order = 1/dim
@@ -841,6 +860,10 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
             kernel = getKernel(dim=dim, kernel=kType, s=sFun, horizon=horizon)
         else:
             kernel = getKernel(dim=dim, kernel=kType, horizon=horizon)
+        if domain in ('disc', 'gradedDisc'):
+            domain = 'square'
+            radius = domainParams.get('radius', 1.)
+            domainParams = {'ax': -radius,  'ay': -radius, 'bx': radius,  'by': radius, }
         mesh, _ = nonlocalMeshFactory(domain, kernel=kernel, boundaryCondition=HOMOGENEOUS_DIRICHLET, **domainParams)
         while mesh.num_vertices < targetDoFsAux:
             mesh = mesh.refine()

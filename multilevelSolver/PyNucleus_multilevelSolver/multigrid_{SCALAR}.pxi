@@ -167,6 +167,8 @@ cdef class {SCALAR_label}multigrid({SCALAR_label_lc_}iterative_solver):
             {SCALAR_label}levelMemory lvl
             tuple smoother
 
+        {SCALAR_label_lc_}iterative_solver.setup(self, A)
+
         ########################################################################
         # set smoothers
         lvl = self.levels[0]

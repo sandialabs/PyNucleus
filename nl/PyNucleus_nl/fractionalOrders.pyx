@@ -12,7 +12,7 @@ cimport numpy as np
 from libc.math cimport sqrt, atan, fabs as abs, pow
 from PyNucleus_fem.meshCy cimport meshBase, cellFinder2
 from PyNucleus_fem.DoFMaps cimport shapeFunction, fe_vector, DoFMap
-from libc.stdlib cimport malloc
+from cpython.mem cimport PyMem_Malloc, PyMem_Free
 from libc.string cimport memcpy
 
 include "kernel_params.pxi"
@@ -96,7 +96,7 @@ cdef class constFractionalOrder(fractionalOrderBase):
 cdef class variableFractionalOrder(fractionalOrderBase):
     def __init__(self, REAL_t smin, REAL_t smax, BOOL_t symmetric, INDEX_t numParameters=1):
         super(variableFractionalOrder, self).__init__(smin, smax, symmetric, numParameters)
-        self.c_params = malloc(NUM_FRAC_ORDER_PARAMS*OFFSET)
+        self.c_params = PyMem_Malloc(NUM_FRAC_ORDER_PARAMS*OFFSET)
 
     cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
         cdef:
@@ -116,6 +116,9 @@ cdef class variableFractionalOrder(fractionalOrderBase):
 
     def __add__(self, variableFractionalOrder other):
         return sumFractionalOrder(self, 1., other, 1.)
+
+    def __dealloc__(self):
+        PyMem_Free(self.c_params)
 
 
 cdef class extendedFunction(function):
@@ -557,8 +560,7 @@ cdef class lookupExtended(extendedFunction):
             REAL_t val, val2
             INDEX_t cellNo, dof, k
         cellNo = self.cellFinder.findCell(x)
-        if cellNo == -1:
-            return 0.
+        assert cellNo != -1, "Cannot find a cell for x={}".format(np.array(x))
         val = 0.
         for k in range(self.dm.dofs_per_element):
             dof = self.dm.cell2dof(cellNo, k)
@@ -574,8 +576,7 @@ cdef class lookupExtended(extendedFunction):
             REAL_t val, val2
             INDEX_t cellNo, dof, k
         cellNo = self.cellFinder.findCellPtr(x)
-        if cellNo == -1:
-            return 0.
+        assert cellNo != -1, "Cannot find a cell for x={}".format([x[i] for i in range(self.mesh.dim)])
         val = 0.
         for k in range(self.dm.dofs_per_element):
             dof = self.dm.cell2dof(cellNo, k)
@@ -591,8 +592,7 @@ cdef class lookupExtended(extendedFunction):
             INDEX_t cellNo, dof, k
             REAL_t val
         cellNo = self.cellFinder.findCell(x)
-        if cellNo == -1:
-            return
+        assert cellNo != -1, "Cannot find a cell for x={}".format(np.array(x))
         for dof in range(self.dm.num_dofs):
             grad[dof] = 0.
         for k in range(self.dm.dofs_per_element):
@@ -608,8 +608,7 @@ cdef class lookupExtended(extendedFunction):
             INDEX_t cellNo, dof, k
             REAL_t val
         cellNo = self.cellFinder.findCellPtr(x)
-        if cellNo == -1:
-            return
+        assert cellNo != -1, "Cannot find a cell for x={}".format([x[i] for i in range(self.mesh.dim)])
         for dof in range(self.dm.num_dofs):
             grad[dof] = 0.
         for k in range(self.dm.dofs_per_element):
