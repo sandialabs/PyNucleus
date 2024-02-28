@@ -10,7 +10,6 @@ from PyNucleus.fem.mesh import intervalWithInteraction
 from PyNucleus.fem.DoFMaps import P1_DoFMap
 from PyNucleus.fem.functions import Lambda, constant
 from PyNucleus.nl.fractionalOrders import (constFractionalOrder,
-                                           leftRightFractionalOrder,
                                            variableConstFractionalOrder)
 from PyNucleus.nl.nonlocalAssembly import nonlocalBuilder
 from PyNucleus.nl.kernelNormalization import variableFractionalLaplacianScaling

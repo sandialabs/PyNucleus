@@ -55,4 +55,7 @@ setup(name='PyNucleus',
       license_files=['LICENSE'],
       python_requires='>=3.10',
       install_requires=requirements,
+      extras_require={'testing': ['pytest', 'pytest-html', 'pytest-xdist'],
+                      'docs': ['Sphinx', 'sphinxcontrib-programoutput', 'sphinx-gallery', 'sphinx-rtd-theme'],
+                      'dev': ['flake8', 'flake8-junit-report', 'cython-lint']},
       zip_safe=False)

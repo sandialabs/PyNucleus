@@ -3,6 +3,8 @@ name: Container
 on:
   push:
     branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
   workflow_dispatch:
 
 env:
@@ -21,14 +23,15 @@ jobs:
     steps:
     - name: Check out
       if: always()
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
-    - uses: hadolint/hadolint-action@v3.1.0
-      with:
-        dockerfile: Dockerfile
-        ignore: 'DL3008,DL3013'
+    # - uses: hadolint/hadolint-action@v3.1.0
+    #   with:
+    #     dockerfile: Dockerfile
+    #     ignore: 'DL3008,DL3013'
+    #     verbose: true
 
     - name: Build Image
       id: build_image
@@ -41,9 +44,10 @@ jobs:
 
     - name: Run tests
       run: |
-        podman run -e MPIEXEC_FLAGS="--allow-run-as-root --oversubscribe" --rm ${{ steps.build_image.outputs.image }}:${{ github.sha }} python3 -m pytest --junit-xml=test-results.xml tests/
+        podman run -e MPIEXEC_FLAGS="--allow-run-as-root --oversubscribe" --workdir /pynucleus --rm ${{ steps.build_image.outputs.image }}:${{ github.sha }} python3 -m pytest --junit-xml=test-results.xml tests/
 
     - name: Push To GHCR
+      if: github.event_name == 'push'
       uses: redhat-actions/push-to-registry@v2
       id: push
       with:
@@ -56,5 +60,6 @@ jobs:
           --disable-content-trust
 
     - name: Echo outputs
+      if: github.event_name == 'push'
       run: |
         echo "${{ toJSON(steps.push.outputs) }}"

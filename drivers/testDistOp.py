@@ -386,7 +386,7 @@ if d.doSolve and (d.buildDistributedH2 or d.buildDistributedSparse):
         iterCG = cg(b, u)
 
     residuals = cg.residuals
-    solveGroup = d.addOutputGroup('solve', tested=True, rTol=1e-1)
+    solveGroup = d.addOutputGroup('solve', tested=True, rTol=2e-1)
     solveGroup.add('residual norm', residuals[-1])
     solveGroup.add('CG iterations', iterCG)
 

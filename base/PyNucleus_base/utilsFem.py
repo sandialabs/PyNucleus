@@ -1376,6 +1376,8 @@ def runDriver(path, py, python=None, timeout=600, ranks=None, cacheDir='',
             cache += str(ranks)
             runOutput += str(ranks)
         py += ['--test', '--testCache={}'.format(cache)]
+        if 'OVERWRITE_CACHE' in os.environ:
+            overwriteCache = True
         if overwriteCache:
             py += ['--overwriteCache']
     else:

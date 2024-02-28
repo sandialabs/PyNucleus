@@ -377,8 +377,6 @@ class leftRight1DfiniteHorizon(test1D):
     horizon = constant(1.0)
 
 
-
-
 class const2D_025(test2D):
     __test__ = True
     s = variableConstFractionalOrder(0.25)

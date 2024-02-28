@@ -2,6 +2,8 @@
 extend-ignore =
     # E402: module level import not at top of file
     E402,
+    # E741 ambiguous variable name
+    E741,
     # H301: one import per line
     H301,
     # H306: imports not in alphabetical order

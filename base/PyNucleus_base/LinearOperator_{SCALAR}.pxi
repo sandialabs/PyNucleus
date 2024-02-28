@@ -97,6 +97,7 @@ cdef class {SCALAR_label}LinearOperator:
         cdef:
             np.ndarray[{SCALAR}_t, ndim=1] y
             {SCALAR}_t[::1] x_mv
+            {SCALAR_label}TimeStepperLinearOperator tsOp
         try:
             x_mv = x
             y = np.zeros((self.num_rows), dtype={SCALAR})
@@ -107,6 +108,9 @@ cdef class {SCALAR_label}LinearOperator:
                 return {SCALAR_label}Product_Linear_Operator(self, x)
             elif isinstance(self, {SCALAR_label}LinearOperator) and hasattr(x, 'ndim') and x.ndim == 2:
                 return self.dotMV(x)
+            elif isinstance(self, {SCALAR_label}TimeStepperLinearOperator) and isinstance(x, (float, int, {SCALAR})):
+                tsOp = self
+                return {SCALAR_label}TimeStepperLinearOperator(self, tsOp.M, tsOp.S, tsOp.facS*x, tsOp.facM*x)
             elif isinstance(self, {SCALAR_label}LinearOperator) and isinstance(x, (float, int, {SCALAR})):
                 return {SCALAR_label}Multiply_Linear_Operator(self, x)
             elif isinstance(x, {SCALAR_label}LinearOperator) and isinstance(self, (float, int, {SCALAR})):
@@ -339,6 +343,35 @@ cdef class {SCALAR_label}TimeStepperLinearOperator({SCALAR_label}LinearOperator)
             assign3(y, y, 1.0, self.z, self.facM)
         return 0
 
+    cdef INDEX_t matvecTrans(self,
+                             {SCALAR}_t[::1] x,
+                             {SCALAR}_t[::1] y) except -1:
+        if self.facS != 0.:
+            self.S.matvecTrans(x, y)
+            if self.facS != 1.0:
+                scaleScalar(y, self.facS)
+        if self.facM == 1.0:
+            self.M.matvecTrans_no_overwrite(x, y)
+        else:
+            self.M.matvecTrans(x, self.z)
+            assign3(y, y, 1.0, self.z, self.facM)
+        return 0
+
+    cdef INDEX_t matvecTrans_no_overwrite(self,
+                                          {SCALAR}_t[::1] x,
+                                          {SCALAR}_t[::1] y) except -1:
+        if self.facS == 1.0:
+            self.S.matvecTrans_no_overwrite(x, y)
+        elif self.facS != 0.:
+            self.S.matvecTrans(x, self.z)
+            assign3(y, y, 1.0, self.z, self.facS)
+        if self.facM == 1.0:
+            self.M.matvecTrans_no_overwrite(x, y)
+        elif self.facM != 0.:
+            self.M.matvecTrans(x, self.z)
+            assign3(y, y, 1.0, self.z, self.facM)
+        return 0
+
     def get_diagonal(self):
         return (self.facM*np.array(self.M.diagonal, copy=False) +
                 self.facS*np.array(self.S.diagonal, copy=False))
@@ -413,6 +446,22 @@ cdef class {SCALAR_label}Multiply_Linear_Operator({SCALAR_label}LinearOperator):
             scaleScalar(y, self.factor)
         return 0
 
+    cdef INDEX_t matvecTrans(self,
+                             {SCALAR}_t[::1] x,
+                             {SCALAR}_t[::1] y) except -1:
+        self.A.matvecTrans(x, y)
+        scaleScalar(y, self.factor)
+        return 0
+
+    cdef INDEX_t matvecTrans_no_overwrite(self,
+                                          {SCALAR}_t[::1] x,
+                                          {SCALAR}_t[::1] y) except -1:
+        if self.factor != 0.:
+            scaleScalar(y, 1./self.factor)
+            self.A.matvecTrans_no_overwrite(x, y)
+            scaleScalar(y, self.factor)
+        return 0
+
     def isSparse(self):
         return self.A.isSparse()
 
@@ -472,15 +521,29 @@ cdef class {SCALAR_label}Product_Linear_Operator({SCALAR_label}LinearOperator):
     cdef INDEX_t matvec(self,
                         {SCALAR}_t[::1] x,
                         {SCALAR}_t[::1] y) except -1:
-        self.B(x, self.temporaryMemory)
-        self.A(self.temporaryMemory, y)
+        self.B.matvec(x, self.temporaryMemory)
+        self.A.matvec(self.temporaryMemory, y)
         return 0
 
     cdef INDEX_t matvec_no_overwrite(self,
                                      {SCALAR}_t[::1] x,
                                      {SCALAR}_t[::1] y) except -1:
-        self.B(x, self.temporaryMemory)
+        self.B.matvec(x, self.temporaryMemory)
         self.A.matvec_no_overwrite(self.temporaryMemory, y)
+        return 0
+
+    cdef INDEX_t matvecTrans(self,
+                             {SCALAR}_t[::1] x,
+                             {SCALAR}_t[::1] y) except -1:
+        self.A.matvecTrans(x, self.temporaryMemory)
+        self.B.matvecTrans(self.temporaryMemory, y)
+        return 0
+
+    cdef INDEX_t matvecTrans_no_overwrite(self,
+                                          {SCALAR}_t[::1] x,
+                                          {SCALAR}_t[::1] y) except -1:
+        self.A.matvecTrans(x, self.temporaryMemory)
+        self.B.matvecTrans_no_overwrite(self.temporaryMemory, y)
         return 0
 
     cdef void _residual(self,

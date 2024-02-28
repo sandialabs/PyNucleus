@@ -1519,14 +1519,16 @@ cdef class tree_node:
 
     def HDF5writeNew(self, node):
         cdef:
-            INDEX_t c = -1
+            INDEX_t c = -1, valueSize = -1
             tree_node n
             indexSetIterator it = arrayIndexSetIterator()
             INDEX_t dim = self.box.shape[0], i, j
         numNodes = self.get_max_id()+1
+        interpolationOrders = uninitialized((numNodes), dtype=INDEX)
         indptrChildren = uninitialized((numNodes+1), dtype=INDEX)
         boxes = uninitialized((numNodes, dim, 2), dtype=REAL)
         for n in self.get_tree_nodes():
+            interpolationOrders[n.id] = n.interpolation_order
             indptrChildren[n.id+1] = len(n.children)
             for i in range(dim):
                 for j in range(2):
@@ -1547,18 +1549,20 @@ cdef class tree_node:
         node.create_dataset('boxes', data=boxes, compression=COMPRESSION)
         del children
 
-        M = self.children[0].transferOperator.shape[0]
-        transferOperators = uninitialized((numNodes, M, M), dtype=REAL)
+        node.create_dataset('interpolationOrders', data=interpolationOrders, compression=COMPRESSION)
+
+        trOps = node.create_group('transferOperators')
         for n in self.get_tree_nodes():
             try:
                 if n.transferOperator.shape[0] > 0:
-                    transferOperators[n.id, :, :] = n.transferOperator
-                else:
-                    transferOperators[n.id, :, :] = 0.0
+                    trOps.create_dataset(str(n.id), data=np.array(n.transferOperator), compression=COMPRESSION)
             except:
                 pass
-        node.create_dataset('transferOperators', data=transferOperators,
-                            compression=COMPRESSION)
+            if n.coefficientsDown is not None:
+                valueSize = 1
+            elif n.coefficientsDownVec is not None:
+                valueSize = n.coefficientsDownVec.shape[1]
+        node.attrs['valueSize'] = valueSize
 
         indptrDofs = uninitialized((numNodes+1), dtype=INDEX)
         for n in self.get_tree_nodes():
@@ -1606,30 +1610,11 @@ cdef class tree_node:
         cells.HDF5write(node['cells'])
         del cells
 
-        noCoefficients = next(self.leaves()).value.shape[0]
-        values = uninitialized((maxDof+1, noCoefficients, M), dtype=REAL)
-        mapping = {}
-        k = 0
+        values = node.create_group('values')
         for n in self.leaves():
-            mapping[n.id] = k, k+n.value.shape[1]
-            k += n.value.shape[1]
-            values[mapping[n.id][0]:mapping[n.id][1], :, :] = np.swapaxes(n.value, 0, 1)
-        node.create_group('mapping')
-        keys = uninitialized((len(mapping)), dtype=INDEX)
-        vals = uninitialized((len(mapping), 2), dtype=INDEX)
-        k = 0
-        for i in mapping:
-            keys[k] = i
-            vals[k][0] = mapping[i][0]
-            vals[k][1] = mapping[i][1]
-            k += 1
-        node['mapping'].create_dataset('keys', data=keys, compression=COMPRESSION)
-        node['mapping'].create_dataset('vals', data=vals, compression=COMPRESSION)
-        node.create_dataset('values', data=values,
-                            compression=COMPRESSION)
-
+            values.create_dataset(str(n.id), data=np.array(n.value), compression=COMPRESSION)
         node.attrs['dim'] = self.dim
-        node.attrs['M'] = M
+        writeRefinementParams(node.create_group('refinementParams'), self.refParams)
 
     @staticmethod
     def HDF5readNew(node):
@@ -1637,36 +1622,50 @@ cdef class tree_node:
             list nodes
             LinearOperator children
             REAL_t[:, :, ::1] boxes
-            INDEX_t M
             tree_node n
+            INDEX_t M, dim
             INDEX_t k, start, end, my_id
             dict mapping
+            INDEX_t[::1] interpolationOrders
             INDEX_t[::1] keys
             INDEX_t[:, ::1] vals
             indexSet cluster_dofs
             LinearOperator dofs
+            refinementParams refParams
+            INDEX_t valueSize
         children = LinearOperator.HDF5read(node['children'])
         nodes = [0]*children.shape[0]
-        M = node.attrs['M']
 
-        transferOperators = np.array(node['transferOperators'], dtype=REAL)
+        valueSize = node.attrs['valueSize']
+        refParams = readRefinementParams(node['refinementParams'])
+        interpolationOrders = np.array(node['interpolationOrders'], dtype=INDEX)
+        trOps = node['transferOperators']
         boxes = np.array(node['boxes'], dtype=REAL)
-        tree = readNode(nodes, 0, None, boxes, children, M, transferOperators)
+        dim = node.attrs['dim']
+        tree = readNode(nodes, 0, None, children)
         dofs = LinearOperator.HDF5read(node['dofs'])
         cells = LinearOperator.HDF5read(node['cells'])
-        keys = np.array(node['mapping']['keys'], dtype=INDEX)
-        vals = np.array(node['mapping']['vals'], dtype=INDEX)
-        mapping = {}
-        for k in range(keys.shape[0]):
-            mapping[keys[k]] = k
-        values = np.array(node['values'], dtype=REAL)
+        for n in tree.get_tree_nodes():
+            n.refParams = refParams
+            n.box = uninitialized((boxes.shape[1],
+                                   boxes.shape[2]),
+                                  dtype=REAL)
+            for i in range(boxes.shape[1]):
+                for j in range(boxes.shape[2]):
+                    n.box[i, j] = boxes[n.id, i, j]
+            n.interpolation_order = interpolationOrders[n.id]
+            M = n.interpolation_order**dim
+            n.coefficientsUp = uninitialized((M), dtype=REAL)
+            if valueSize == 1:
+                n.coefficientsDown = uninitialized((M), dtype=REAL)
+            else:
+                n.coefficientsDownVec = uninitialized((M, valueSize), dtype=REAL)
+            if str(n.id) in trOps:
+                n.transferOperator = np.array(trOps[str(n.id)], dtype=REAL)
         for n in tree.leaves():
             n._dofs = arrayIndexSet(dofs.indices[dofs.indptr[n.id]:dofs.indptr[n.id+1]], sorted=True)
             n._cells = arrayIndexSet(cells.indices[cells.indptr[n.id]:cells.indptr[n.id+1]], sorted=True)
-            my_id = mapping[n.id]
-            start = vals[my_id, 0]
-            end = vals[my_id, 1]
-            n.value = np.ascontiguousarray(np.swapaxes(np.array(values[start:end, :, :], dtype=REAL), 0, 1))
+            n.value = np.array(node['values'][str(n.id)])
         # setDoFsFromChildren(tree)
         return tree, nodes
 
@@ -1868,30 +1867,54 @@ cdef class tree_node:
         return s
 
 
-cdef tree_node readNode(list nodes, INDEX_t myId, parent, REAL_t[:, :, ::1] boxes, LinearOperator children, INDEX_t M, REAL_t[:, :, ::1] transferOperators):
+cdef tree_node readNode(list nodes, INDEX_t myId, parent, LinearOperator children):
     cdef:
         indexSet bA = arrayIndexSet()
-        tree_node n = tree_node(parent, bA, boxes)
+        REAL_t[:, :, ::1] fake_boxes = np.empty((0, 0, 0), dtype=REAL)
+        REAL_t[::1] fake_hVector = np.empty((0), dtype=REAL)
+        refinementParams refParams
+        tree_node n = tree_node(parent, bA, fake_boxes, fake_hVector, refParams)
         INDEX_t i, j
     n.id = myId
     nodes[myId] = n
-    n.transferOperator = uninitialized((transferOperators.shape[1],
-                                        transferOperators.shape[2]),
-                                       dtype=REAL)
-    n.box = uninitialized((boxes.shape[1],
-                           boxes.shape[2]),
-                          dtype=REAL)
-    for i in range(transferOperators.shape[1]):
-        for j in range(transferOperators.shape[2]):
-            n.transferOperator[i, j] = transferOperators[myId, i, j]
-    for i in range(boxes.shape[1]):
-        for j in range(boxes.shape[2]):
-            n.box[i, j] = boxes[myId, i, j]
-    n.coefficientsUp = uninitialized((M), dtype=REAL)
-    n.coefficientsDown = uninitialized((M), dtype=REAL)
     for i in range(children.indptr[myId], children.indptr[myId+1]):
-        n.children.append(readNode(nodes, children.indices[i], n, boxes, children, M, transferOperators))
+        n.children.append(readNode(nodes, children.indices[i], n, children))
     return n
+
+
+cdef void writeRefinementParams(node, refinementParams refParams):
+    node.attrs['maxLevels'] = refParams.maxLevels
+    node.attrs['maxLevelsMixed'] = refParams.maxLevelsMixed
+    node.attrs['minSize'] = refParams.minSize
+    node.attrs['minMixedSize'] = refParams.minMixedSize
+    node.attrs['refType'] = refParams.refType
+    node.attrs['splitEveryDim'] = refParams.splitEveryDim
+    node.attrs['eta'] = refParams.eta
+    node.attrs['farFieldInteractionSize'] = refParams.farFieldInteractionSize
+    node.attrs['interpolation_order'] = refParams.interpolation_order
+    node.attrs['attemptRefinement'] = refParams.attemptRefinement
+    node.attrs['targetOrder'] = refParams.targetOrder
+    node.attrs['meshDiam'] = refParams.meshDiam
+    node.attrs['maxSingularity'] = refParams.maxSingularity
+
+
+cdef readRefinementParams(node):
+    cdef:
+        refinementParams refParams
+    refParams.maxLevels = node.attrs['maxLevels']
+    refParams.maxLevelsMixed = node.attrs['maxLevelsMixed']
+    refParams.minSize = node.attrs['minSize']
+    refParams.minMixedSize = node.attrs['minMixedSize']
+    refParams.refType = node.attrs['refType']
+    refParams.splitEveryDim = node.attrs['splitEveryDim']
+    refParams.eta = node.attrs['eta']
+    refParams.farFieldInteractionSize = node.attrs['farFieldInteractionSize']
+    refParams.interpolation_order = node.attrs['interpolation_order']
+    refParams.attemptRefinement = node.attrs['attemptRefinement']
+    refParams.targetOrder = node.attrs['targetOrder']
+    refParams.meshDiam = node.attrs['meshDiam']
+    refParams.maxSingularity = node.attrs['maxSingularity']
+    return refParams
 
 
 cdef indexSet setDoFsFromChildren(tree_node n):

@@ -5,11 +5,12 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-DEF DISTANT = 0
-DEF COMMON_VERTEX = -1
-DEF COMMON_EDGE = -2
-DEF COMMON_FACE = -3
-DEF COMMON_VOLUME = -4
-DEF SEPARATED = -5
-DEF IGNORED = -6
-DEF ON_HORIZON = -7
+cdef enum elementPositionType:
+    DISTANT = 0
+    COMMON_VERTEX = -1
+    COMMON_EDGE = -2
+    COMMON_FACE = -3
+    COMMON_VOLUME = -4
+    SEPARATED = -5
+    IGNORED = -6
+    ON_HORIZON = -7
