@@ -1,0 +1,8 @@
+Timers: {}
+TimersH2: {}
+info: {}
+matvec errors:
+  '|(A_sparse - A_distributed_bcast) * x|': 3.317510977531871e-05
+  '|(A_sparse - A_distributed_halo) * x|': 3.317510977531871e-05
+stats: {}
+sysInfo: {}

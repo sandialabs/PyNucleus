@@ -64,15 +64,10 @@ Getting started
    installation
 
 
-Examples
---------
-
 .. toctree::
    :maxdepth: 2
 
-   example1
-   example2
-   example3
+   auto_examples/index
 
 Drivers
 -------

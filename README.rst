@@ -73,9 +73,13 @@ and open ``docs/build/index.html`` in your browser.
 Possible ways to install and use PyNucleus
 ==================================
 
+There are several ways to install and run PyNucleus:
+
 * container image
 * Spack installation
 * manual installation
+
+The easiest way to get up and running is probably the container image.
 
 
 Container image
@@ -84,44 +88,47 @@ Container image
 The simplest way to use PyNucleus is to pull a container image from the GitHub Container Registry.
 This requires an installation of either
 
-* podman (https://podman.io/) and podman-compose (https://github.com/containers/podman-compose) or
-* Docker (https://www.docker.com/) and Docker Compose (https://docs.docker.com/compose/install/).
+* `podman <https://podman.io/>`_ and `podman-compose <https://github.com/containers/podman-compose?tab=readme-ov-file#installation>`_ or
+* `Docker <https://www.docker.com/>`_ and `Docker Compose <https://docs.docker.com/compose/install/>`_.
 
 For many Linux distributions these can be installed from the package repositories.
-In what follows we will assume that we are using podman.
+In what follows we will assume that we are using `podman`.
 All commands for Docker should be identical up to the substitution of `podman` with `docker`.
 
-For example, on Ubuntu podman can be installed with
+For example, on Ubuntu podman and podman-compose can be installed with
 
 .. code-block:: shell
 
    sudo apt-get install podman podman-compose
 
-Instructions for other platforms can be found here: https://podman.io/docs/installation
+Instructions for other platforms can be found `here <https://podman.io/docs/installation>`_.
 
-Once podman is installed, we can download a copy of https://github.com/sandialabs/PyNucleus/blob/master/compose.yaml and save it to an empty directory.
+Once podman is installed, we download a copy of `compose.yaml <https://github.com/sandialabs/PyNucleus/blob/master/compose.yaml>`_ and save it to an empty directory.
+
+.. warning::
+   Please do not copy this file to your home directory and launch the container from there.
+   The container keeps its state in the directory where it is launched from.
+
 In that directory we then run
 
 .. code-block:: shell
 
-   podman compose run pynucleus
+   podman-compose run pynucleus
 
-This launches a shell on the container with PyNucleus.
+podman will download a container image for PyNucleus and then launch a shell in the container.
+
+.. note::
+   The download of the image will only happen once, but it could be several GB in size.
+
 A simple way to test if things work is to run
 
 .. code-block:: shell
 
    drivers/runFractional.py
 
-This should print some information about the solution of a fractional Laplacian problem and open up several plots.
+This should print some information about the solution of a fractional Laplacian problem and show several plots.
 
-For development using PyNucleus it can be useful to launch a Jupyter notebook server:
-
-.. code-block:: shell
-
-   podman compose up pynucleus-jupyter
-
-and then open the Jupyter notebook interface at https://localhost:8889
+For development using PyNucleus there is the Jupyter notebook interface that is available while the container is running at https://localhost:8889 on the host system.
 
 
 Spack install

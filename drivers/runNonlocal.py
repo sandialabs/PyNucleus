@@ -7,7 +7,7 @@
 ###################################################################################
 
 from mpi4py import MPI
-from PyNucleus import driver, NEUMANN
+from PyNucleus import driver
 from PyNucleus.nl import (nonlocalPoissonProblem,
                           discretizedNonlocalProblem)
 

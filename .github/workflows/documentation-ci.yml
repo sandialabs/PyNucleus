@@ -1,22 +1,16 @@
-name: Documentation
+name: Documentation CI
 
 on:
-  push:
+  pull_request:
     branches: [ "master" ]
-  workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
   id-token: write
 
 jobs:
 
   linux:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
@@ -69,14 +63,7 @@ jobs:
       run: |
         make docs
 
-    - name: Setup Pages
-      uses: actions/configure-pages@v4
-
     - name: Upload artifact
-      uses: actions/upload-pages-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         path: 'docs/build'
-
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4

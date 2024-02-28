@@ -44,17 +44,17 @@ jobs:
     steps:
     - name: Check out repo
       if: always()
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Pull ccache cache
       if: always()
       id: ccache-restore
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         path: /home/runner/.cache/ccache
         key: ccache-${{ env.BUILD_IDENTIFIER }}
 
-    - uses: actions/setup-python@v4
+    - uses: actions/setup-python@v5
       if: always()
       with:
         python-version: ${{ matrix.py-version }}
@@ -89,7 +89,7 @@ jobs:
 
     - name: Push ccache cache
       if: always()
-      uses: actions/cache/save@v3
+      uses: actions/cache/save@v4
       with:
         path: /home/runner/.cache/ccache
         key: ccache-${{ env.BUILD_IDENTIFIER }}
@@ -115,7 +115,7 @@ jobs:
         mv cython-lint.xml cython-lint-${{ env.BUILD_IDENTIFIER }}.xml
 
     - name: Archive results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: Results (${{ env.BUILD_PRETTY_IDENTIFIER }})
@@ -154,12 +154,12 @@ jobs:
 
     steps:
     - name: Check out repo
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Pull ccache cache
       if: always()
       id: ccache-restore
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         path: /Users/runner/Library/Caches/ccache
         key: ccache-${{ runner.os }}-${{ matrix.py-version }}
@@ -167,7 +167,7 @@ jobs:
     - name: Setup GNU Fortran
       uses: fortran-lang/setup-fortran@v1
 
-    - uses: actions/setup-python@v4
+    - uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.py-version }}
 
@@ -203,7 +203,7 @@ jobs:
 
     - name: Push ccache cache
       if: always()
-      uses: actions/cache/save@v3
+      uses: actions/cache/save@v4
       with:
         path: /Users/runner/Library/Caches/ccache
         key: ccache-${{ runner.os }}-${{ matrix.py-version }}
@@ -229,7 +229,7 @@ jobs:
         mv cython-lint.xml cython-lint-${{ runner.os }}-${{ matrix.py-version }}.xml
 
     - name: Archive results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: Results ${{ github.job }}

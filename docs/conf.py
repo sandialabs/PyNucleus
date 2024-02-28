@@ -38,7 +38,8 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.viewcode',
     'sphinxcontrib.programoutput',
-    'matplotlib.sphinxext.plot_directive'
+    'matplotlib.sphinxext.plot_directive',
+    'sphinx_gallery.gen_gallery'
 ]
 
 autodoc_default_options = {
@@ -47,6 +48,26 @@ autodoc_default_options = {
     'undoc-members': True,
     'show-inheritance': True,
     'special-members': '__init__,__call__'
+}
+
+
+from sphinx_gallery.sorting import _SortKey
+
+examples_filenames_in_order = ['example_pde.py',
+                               'example_nonlocal.py',
+                               'example_InfHorizonDirichlet.py',
+                               'example_Neumann.py',
+                               'example_operator_interpolation.py']
+
+class ExplicitExampleOrder(_SortKey):
+    def __call__(self, filename):
+        return examples_filenames_in_order.index(filename)
+
+
+sphinx_gallery_conf = {
+    'examples_dirs': ['../examples'],
+    'filename_pattern': '/example',
+    'within_subsection_order': ExplicitExampleOrder
 }
 
 # Add any paths that contain templates here, relative to this directory.
@@ -63,10 +84,11 @@ exclude_patterns = ['build', 'Thumbs.db', '.DS_Store']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'bizstyle'
+html_theme = 'sphinx_rtd_theme'
 
 html_theme_options = {
-    'sidebarwidth': '400px'
+    'sidebarwidth': '400px',
+    'collapse_navigation': False,
 }
 
 

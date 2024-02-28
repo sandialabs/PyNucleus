@@ -115,8 +115,8 @@ clean_package :
 
 .PHONY: docs
 docs :
-	cd docs && make
 	$(PYTHON) -m sphinx -b html docs docs/build
+	find docs/build/_downloads -name "*.ipynb" | xargs -I {} cp {} examples
 
 clean_docs :
 	cd docs; rm -rf build
@@ -169,7 +169,7 @@ prereq:
 	$(PYTHON) -m pip install $(PIP_FLAGS) $(PIP_INSTALL_FLAGS) scikit-sparse
 
 prereq-extra:
-	$(PYTHON) -m pip install $(PIP_FLAGS) pytest pytest-html pytest-xdist Sphinx sphinxcontrib-programoutput flake8 flake8-junit-report cython-lint
+	$(PYTHON) -m pip install $(PIP_FLAGS) pytest pytest-html pytest-xdist Sphinx sphinxcontrib-programoutput sphinx-gallery sphinx-rtd-theme flake8 flake8-junit-report cython-lint
 
 flake8:
 	$(PYTHON) -m flake8 --output-file=flake8.txt --exit-zero drivers examples packageTools base metisCy fem multilevelSolver nl tests
