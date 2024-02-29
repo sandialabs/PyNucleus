@@ -57,6 +57,6 @@ RUN python3 -m venv $VIRTUAL_ENV && \
     python -m pip install --no-cache-dir ipykernel && \
     rm -rf build packageTools/build base/build metisCy/build fem/build multilevelSolver/build nl/build && \
     python -m ipykernel install --name=PyNucleus && \
-    echo '[ ! -z "$TERM" -a -r /pynucleus/README.container.rst ] && printf "\e[32m" && cat /pyncleus/README.container.rst && printf "\e[0m"' >> /etc/bash.bashrc
+    echo '[ ! -z "$TERM" -a -r /pynucleus/README.container.rst ] && printf "\e[32m" && cat /pynucleus/README.container.rst && printf "\e[0m"' >> /etc/bash.bashrc
 
 WORKDIR /root

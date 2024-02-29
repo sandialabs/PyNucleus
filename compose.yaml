@@ -27,10 +27,10 @@ services:
     hostname: pynucleus-container
     command: >
       sh -c "
-             mkdir -p /root/notebooks &&
+             mkdir -p /root/examples &&
              mkdir -p /root/drivers &&
-             cp --update=none /pynucleus/examples/* /root/examples &&
-             cp --update=none /pynucleus/drivers/* /root/drivers &&
+             cp -r --update=none /pynucleus/examples/* /root/examples &&
+             cp -r --update=none /pynucleus/drivers/* /root/drivers &&
              if [ ! -f /root/.bashrc ]; then echo \"alias ls='ls --color=auto -FN'\" >> /root/.bashrc ; fi &&
              if [ ! -f /root/.inputrc ]; then echo \"set completion-ignore-case On\" >> /root/.inputrc ; fi &&
              jupyter notebook --port=8888 --no-browser --ip=0.0.0.0 --allow-root --NotebookApp.token='' --NotebookApp.password='' --notebook-dir=/root/ --KernelSpecManager.ensure_native_kernel=False --KernelSpecManager.allowed_kernelspecs=pynucleus > /dev/null 2>&1 &
