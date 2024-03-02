@@ -25,3 +25,17 @@ services:
       - 8889:8889
     network_mode: host
     hostname: pynucleus-container
+
+  tests:
+    image: ghcr.io/sandialabs/pynucleus:latest
+    build: .
+    environment:
+      - MPIEXEC_FLAGS=--allow-run-as-root --oversubscribe
+    workdir: /pynucleus
+    volumes:
+      - $PWD:/root
+    entrypoint: python3 -m pytest --junit-xml /root/test-results.xml
+
+  quick-test:
+    image: ghcr.io/sandialabs/pynucleus:latest
+    entrypoint: mpiexec -n 4 /pynucleus/drivers/runFractional.py
