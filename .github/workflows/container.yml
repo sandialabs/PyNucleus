@@ -16,57 +16,96 @@ env:
 
 jobs:
 
-  container:
-    runs-on: ubuntu-latest
-    timeout-minutes: 300
+  # container:
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 300
+
+  #   steps:
+  #   - name: Check out
+  #     if: always()
+  #     uses: actions/checkout@v4
+  #     with:
+  #       fetch-depth: 0
+
+  #   # - uses: hadolint/hadolint-action@v3.1.0
+  #   #   with:
+  #   #     dockerfile: Dockerfile
+  #   #     ignore: 'DL3008,DL3013'
+  #   #     verbose: true
+
+  #   - name: Build Image
+  #     id: build_image
+  #     uses: redhat-actions/buildah-build@v2
+  #     with:
+  #       image: ${{ env.IMAGE_NAME }}
+  #       tags: ${{ env.IMAGE_TAGS }}
+  #       containerfiles: |
+  #         ./Dockerfile
+  #       build-args: |
+  #         PYNUCLEUS_BUILD_PARALLELISM=4
+
+  #   - name: Run tests
+  #     run: |
+  #       podman run \
+  #       -e MPIEXEC_FLAGS="--allow-run-as-root --oversubscribe" \
+  #       --workdir /pynucleus \
+  #       --rm \
+  #       --entrypoint='["python3", "-m", "pytest", "--junit-xml", "test-results.xml"]' \
+  #       ${{ steps.build_image.outputs.image }}:${{ github.sha }}
+
+  #   - name: Push To GHCR
+  #     if: github.event_name == 'push'
+  #     uses: redhat-actions/push-to-registry@v2
+  #     id: push
+  #     with:
+  #       image: ${{ steps.build_image.outputs.image }}
+  #       tags: ${{ steps.build_image.outputs.tags }}
+  #       registry: ${{ env.IMAGE_REGISTRY }}
+  #       username: ${{ env.REGISTRY_USER }}
+  #       password: ${{ env.REGISTRY_PASSWORD }}
+  #       extra-args: |
+  #         --disable-content-trust
+
+  #   - name: Echo outputs
+  #     if: github.event_name == 'push'
+  #     run: |
+  #       echo "${{ toJSON(steps.push.outputs) }}"
+
+  # container-test:
+  #   needs: container
+  #   if: github.event_name == 'push'
+
+  #   strategy:
+  #     matrix:
+  #       include:
+  #         - runner: 'ubuntu-latest'
+
+  #   name: Container test ${{ matrix.runner }}
+  #   runs-on: ${{ matrix.runner }}
+
+  #   steps:
+  #   - name: Check out
+  #     uses: actions/checkout@v4
+
+  #   - name: Install podman-compose
+  #     run: pip install podman-compose
+
+  #   - name: Run container test
+  #     run: podman-compose run quick-test
+
+  container-test-mac:
+    # needs: container
+    # if: github.event_name == 'push'
+
+    name: Container test MacOS
+    runs-on: macos-latest
 
     steps:
     - name: Check out
-      if: always()
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
 
-    # - uses: hadolint/hadolint-action@v3.1.0
-    #   with:
-    #     dockerfile: Dockerfile
-    #     ignore: 'DL3008,DL3013'
-    #     verbose: true
-
-    - name: Build Image
-      id: build_image
-      uses: redhat-actions/buildah-build@v2
-      with:
-        image: ${{ env.IMAGE_NAME }}
-        tags: ${{ env.IMAGE_TAGS }}
-        containerfiles: |
-          ./Dockerfile
-        build-args: |
-          PYNUCLEUS_BUILD_PARALLELISM=4
-
-    - name: Run tests
+    - name: Run container
       run: |
-        podman run \
-        -e MPIEXEC_FLAGS="--allow-run-as-root --oversubscribe" \
-        --workdir /pynucleus \
-        --rm \
-        --entrypoint='["python3", "-m", "pytest", "--junit-xml", "test-results.xml"]' \
-        ${{ steps.build_image.outputs.image }}:${{ github.sha }}
-
-    - name: Push To GHCR
-      if: github.event_name == 'push'
-      uses: redhat-actions/push-to-registry@v2
-      id: push
-      with:
-        image: ${{ steps.build_image.outputs.image }}
-        tags: ${{ steps.build_image.outputs.tags }}
-        registry: ${{ env.IMAGE_REGISTRY }}
-        username: ${{ env.REGISTRY_USER }}
-        password: ${{ env.REGISTRY_PASSWORD }}
-        extra-args: |
-          --disable-content-trust
-
-    - name: Echo outputs
-      if: github.event_name == 'push'
-      run: |
-        echo "${{ toJSON(steps.push.outputs) }}"
+        brew install docker && \
+        colima start --runtime docker && \
+        docker run --entrypoint="mpiexec -n 4 /pynucleus/drivers/runFractional.py" ghcr.io/sandialabs/pynucleus:latest
