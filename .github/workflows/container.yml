@@ -70,3 +70,25 @@ jobs:
       if: github.event_name == 'push'
       run: |
         echo "${{ toJSON(steps.push.outputs) }}"
+
+  container-test:
+    needs: container
+    if: github.event_name == 'push'
+
+    strategy:
+      matrix:
+        include:
+          - runner: 'ubuntu-latest'
+
+    name: Container test ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+    - name: Check out
+      uses: actions/checkout@v4
+
+    - name: Install podman-compose
+      run: pip install podman-compose
+
+    - name: Run container test
+      run: podman-compose run quick-test
