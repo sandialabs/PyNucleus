@@ -15,23 +15,13 @@ services:
       - HTTP_PROXY=${HTTP_PROXY}
       - HTTPS_PROXY=${HTTPS_PROXY}
     volumes:
-      # The current directory on host gets mapped to /pynucleus/root in the container
+      # The current directory on host gets mapped to /root in the container
       - $PWD:/root
       # map files to container to allow GUI windows
       - /tmp/.X11-unix:/tmp/.X11-unix
       - $XAUTHORITY:/root/.Xauthority
     ports:
       # Expose a Jupyter notebook server from the container
-      - 8889:8888
+      - 8889:8889
     network_mode: host
     hostname: pynucleus-container
-    command: >
-      sh -c "
-             mkdir -p /root/examples &&
-             mkdir -p /root/drivers &&
-             cp -r --update=none /pynucleus/examples/* /root/examples &&
-             cp -r --update=none /pynucleus/drivers/* /root/drivers &&
-             if [ ! -f /root/.bashrc ]; then echo \"alias ls='ls --color=auto -FN'\" >> /root/.bashrc ; fi &&
-             if [ ! -f /root/.inputrc ]; then echo \"set completion-ignore-case On\" >> /root/.inputrc ; fi &&
-             jupyter notebook --port=8888 --no-browser --ip=0.0.0.0 --allow-root --NotebookApp.token='' --NotebookApp.password='' --notebook-dir=/root/ --KernelSpecManager.ensure_native_kernel=False --KernelSpecManager.allowed_kernelspecs=pynucleus > /dev/null 2>&1 &
-             /bin/bash"
