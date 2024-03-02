@@ -1,4 +1,4 @@
-# VERSION:        0.1
+# VERSION:        1.0
 # DESCRIPTION:    Dockerized PyNucleus build
 # AUTHOR:         Christian Glusa
 
@@ -6,41 +6,26 @@
 FROM debian:testing
 LABEL maintainer Christian Glusa
 
-ENV LANG en_US.UTF-8
-
 # install packages needed for build
 RUN sed -i 's/Components: main/Components: main contrib non-free/' /etc/apt/sources.list.d/debian.sources \
   && apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y \
-        locales \
-        autoconf automake gcc g++ make gfortran wget zlib1g-dev libffi-dev \
-        tk-dev \
-        libssl-dev ca-certificates cmake \
-        git less \
-        libboost-dev  \
+        gcc g++ make gfortran \
+        libssl-dev ca-certificates \
+        git less nano \
+        libmetis-dev libparmetis-dev \
         hdf5-tools \
         libsuitesparse-dev \
         libarpack2-dev \
         mpi-default-bin mpi-default-dev \
-        python3 python3-dev python-is-python3 python3-pip python3-mpi4py cython3 python3-numpy python3-scipy python3-matplotlib python3-tk python3-venv \
-        libmetis-dev libparmetis-dev \
-        texlive texlive-extra-utils texlive-latex-extra ttf-staypuft dvipng cm-super \
-        jupyter-notebook \
-        emacs-nox vim \
+        python3 python3-dev python-is-python3 python3-pip \
+        python3-numpy python3-scipy python3-matplotlib python3-mpi4py cython3 python3-yaml python3-h5py python3-tk jupyter-notebook \
   --no-install-recommends \
-  && rm -rf /var/lib/apt/lists/* \
-  && sed -i -e "s/# $LANG.*/$LANG UTF-8/" /etc/locale.gen \
-  && dpkg-reconfigure --frontend=noninteractive locales \
-  && update-locale LANG=$LANG
+  && rm -rf /var/lib/apt/lists/*
 
 # allow running MPI as root in the container
 # bind MPI ranks to hwthreads
-ENV LANG=en_US.UTF-8 \
-    LANGUAGE=en_US:en \
-    LC_ALL=en_US.UTF-8 \
-    VIRTUAL_ENV=/pynucleus/venv \
-    PATH="/pynucleus/venv/bin:$PATH" \
-    OMPI_MCA_hwloc_base_binding_policy=hwthread \
+ENV OMPI_MCA_hwloc_base_binding_policy=hwthread \
     MPIEXEC_FLAGS=--allow-run-as-root \
     OMPI_ALLOW_RUN_AS_ROOT=1 \
     OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
@@ -49,14 +34,32 @@ COPY . /pynucleus
 
 WORKDIR /pynucleus
 
-RUN python3 -m venv $VIRTUAL_ENV && \
-    make prereq PIP_FLAGS=--no-cache-dir && \
-    make prereq-extra PIP_FLAGS=--no-cache-dir && \
-    make install && \
+ARG PYNUCLEUS_BUILD_PARALLELISM=1
+
+# Build PyNucleus
+RUN make prereq PIP_FLAGS="--no-cache-dir --break-system-packages" && \
+    make prereq-extra PIP_FLAGS="--no-cache-dir --break-system-packages" && \
+    make install PIP_INSTALL_FLAGS="--no-cache-dir --break-system-packages" && \
     make docs && \
-    python -m pip install --no-cache-dir ipykernel && \
-    rm -rf build packageTools/build base/build metisCy/build fem/build multilevelSolver/build nl/build && \
+    find . -type f -name '*.c' -exec rm {} + && \
+    find . -type f -name '*.cpp' -exec rm {} + && \
+    rm -rf build packageTools/build base/build metisCy/build fem/build multilevelSolver/build nl/build
+
+# Set up Jupyter notebooks, greeting, some bash things
+RUN python -m pip install --no-cache-dir --break-system-packages ipykernel && \
     python -m ipykernel install --name=PyNucleus && \
-    echo '[ ! -z "$TERM" -a -r /pynucleus/README.container.rst ] && printf "\e[32m" && cat /pynucleus/README.container.rst && printf "\e[0m"' >> /etc/bash.bashrc
+    echo '[ ! -z "$TERM" -a -r /pynucleus/README.container.rst ] && printf "\e[32m" && cat /pynucleus/README.container.rst && printf "\e[0m"' >> /etc/bash.bashrc && \
+    echo "alias ls='ls --color=auto -FN'" >> /etc/bash.bashrc && \
+    echo "set completion-ignore-case On" >> /etc/inputrc
 
 WORKDIR /root
+
+# Copy examples and drivers to user home, launch Jupyter notebook server
+ENTRYPOINT mkdir -p /root/examples && \
+           mkdir -p /root/drivers && \
+           cp -r --no-clobber /pynucleus/examples/* /root/examples && \
+           cp -r --no-clobber /pynucleus/drivers/* /root/drivers && \
+           jupyter notebook --port=8889 --no-browser --ip=0.0.0.0 --allow-root --NotebookApp.token='' --NotebookApp.password='' --notebook-dir=/root/ --KernelSpecManager.ensure_native_kernel=False --KernelSpecManager.allowed_kernelspecs=pynucleus > /dev/null 2>&1 & \
+           /bin/bash
+
+EXPOSE 8889

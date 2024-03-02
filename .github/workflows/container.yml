@@ -41,10 +41,17 @@ jobs:
         tags: ${{ env.IMAGE_TAGS }}
         containerfiles: |
           ./Dockerfile
+        build-args: |
+          PYNUCLEUS_BUILD_PARALLELISM=4
 
     - name: Run tests
       run: |
-        podman run -e MPIEXEC_FLAGS="--allow-run-as-root --oversubscribe" --workdir /pynucleus --rm ${{ steps.build_image.outputs.image }}:${{ github.sha }} python3 -m pytest --junit-xml=test-results.xml tests/
+        podman run \
+        -e MPIEXEC_FLAGS="--allow-run-as-root --oversubscribe" \
+        --workdir /pynucleus \
+        --rm \
+        --entrypoint='["python3", "-m", "pytest", "--junit-xml", "test-results.xml"]' \
+        ${{ steps.build_image.outputs.image }}:${{ github.sha }}
 
     - name: Push To GHCR
       if: github.event_name == 'push'

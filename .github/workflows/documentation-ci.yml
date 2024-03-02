@@ -26,7 +26,7 @@ jobs:
       uses: actions/cache/restore@v4
       with:
         path: /home/runner/.cache/ccache
-        key: ccache
+        key: ccache-documentation-ci
 
     - uses: actions/setup-python@v5
       with:
@@ -57,7 +57,7 @@ jobs:
       uses: actions/cache/save@v4
       with:
         path: /home/runner/.cache/ccache
-        key: ccache
+        key: ccache-documentation-ci
 
     - name: Build documentation
       run: |
