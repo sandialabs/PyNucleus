@@ -95,12 +95,12 @@ class solverFactory(factory):
                 solvers[k].setPreconditioner(solvers[k+1].asPreconditioner())
             return solvers[0]
 
-    def __repr__(self):
+    def __str__(self):
         s = ''
         if self.singleLevelSolverFactory.numRegistered() > 0:
             s += 'Single level solvers:\n'
-            s += repr(self.singleLevelSolverFactory)
+            s += str(self.singleLevelSolverFactory)
         if self.multiLevelSolverFactory.numRegistered() > 0:
             s += 'Multi level solvers:\n'
-            s += repr(self.multiLevelSolverFactory)
+            s += str(self.multiLevelSolverFactory)
         return s

@@ -1,53 +1,53 @@
 
-PyNucleus.multilevelSolver package
+PyNucleus_multilevelSolver package
 ===================================
 
 .. automodule:: PyNucleus_multilevelSolver
 
 
-PyNucleus.multilevelSolver.coarseSolvers module
+PyNucleus_multilevelSolver.coarseSolvers module
 ------------------------------------------------
 
 .. automodule:: PyNucleus_multilevelSolver.coarseSolvers
 
 
-PyNucleus.multilevelSolver.connectors module
+PyNucleus_multilevelSolver.connectors module
 ---------------------------------------------
 
 .. automodule:: PyNucleus_multilevelSolver.connectors
 
 
-PyNucleus.multilevelSolver.geometricMG module
+PyNucleus_multilevelSolver.geometricMG module
 ----------------------------------------------
 
 .. automodule:: PyNucleus_multilevelSolver.geometricMG
 
 
-PyNucleus.multilevelSolver.hierarchies module
+PyNucleus_multilevelSolver.hierarchies module
 ----------------------------------------------
 
 .. automodule:: PyNucleus_multilevelSolver.hierarchies
 
 
-PyNucleus.multilevelSolver.levels module
+PyNucleus_multilevelSolver.levels module
 -----------------------------------------
 
 .. automodule:: PyNucleus_multilevelSolver.levels
 
 
-PyNucleus.multilevelSolver.multigrid module
+PyNucleus_multilevelSolver.multigrid module
 --------------------------------------------
 
 .. automodule:: PyNucleus_multilevelSolver.multigrid
 
 
-PyNucleus.multilevelSolver.restrictionProlongation module
+PyNucleus_multilevelSolver.restrictionProlongation module
 ----------------------------------------------------------
 
 .. automodule:: PyNucleus_multilevelSolver.restrictionProlongation
 
 
-PyNucleus.multilevelSolver.smoothers module
+PyNucleus_multilevelSolver.smoothers module
 --------------------------------------------
 
 .. automodule:: PyNucleus_multilevelSolver.smoothers

@@ -8,7 +8,7 @@
 
 from mpi4py import MPI
 from PyNucleus import driver
-from PyNucleus.nl import (nonlocalPoissonProblem,
+from PyNucleus_nl import (nonlocalPoissonProblem,
                           discretizedNonlocalProblem)
 
 ##################################################

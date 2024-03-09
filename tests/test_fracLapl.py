@@ -8,17 +8,17 @@
 from __future__ import division
 import numpy as np
 import numpy.linalg
-from PyNucleus.fem.mesh import simpleInterval, circle
-from PyNucleus.fem.DoFMaps import P1_DoFMap, P2_DoFMap
-from PyNucleus.fem.functions import constant
-from PyNucleus.nl.nonlocalAssembly import (assembleNonlocalOperator,
+from PyNucleus_fem.mesh import simpleInterval, circle
+from PyNucleus_fem.DoFMaps import P1_DoFMap, P2_DoFMap
+from PyNucleus_fem.functions import constant
+from PyNucleus_nl.nonlocalAssembly import (assembleNonlocalOperator,
                                            nonlocalBuilder)
-from PyNucleus.nl.clusterMethodCy import H2Matrix
-from PyNucleus.base.myTypes import REAL
+from PyNucleus_nl.clusterMethodCy import H2Matrix
+from PyNucleus_base.myTypes import REAL
 from scipy.special import gamma
-from PyNucleus.nl.kernels import getFractionalKernel
-from PyNucleus.nl.fractionalOrders import constFractionalOrder
-from PyNucleus.nl.kernelNormalization import variableFractionalLaplacianScaling
+from PyNucleus_nl.kernels import getFractionalKernel
+from PyNucleus_nl.fractionalOrders import constFractionalOrder
+from PyNucleus_nl.kernelNormalization import variableFractionalLaplacianScaling
 import pytest
 import logging
 LOGGER = logging.getLogger(__name__)

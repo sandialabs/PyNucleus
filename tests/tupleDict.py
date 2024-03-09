@@ -6,8 +6,8 @@
 ###################################################################################
 
 import numpy as np
-from PyNucleus.base import INDEX
-from PyNucleus.base.tupleDict import tupleDictINDEX
+from PyNucleus_base import INDEX
+from PyNucleus_base.tupleDict import tupleDictINDEX
 from copy import deepcopy
 
 

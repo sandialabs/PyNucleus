@@ -7,17 +7,17 @@
 ###################################################################################
 
 import numpy as np
-from PyNucleus.base import driver, solverFactory
-from PyNucleus.base.solvers import iterative_solver
-from PyNucleus.base.ip_norm import ip_serial, norm_serial
-from PyNucleus.fem import NO_BOUNDARY, HOMOGENEOUS_NEUMANN
-from PyNucleus.fem.functions import indicatorFunctor
-from PyNucleus.fem.quadrature import simplexXiaoGimbutas
-from PyNucleus.fem.DoFMaps import fe_vector, str2DoFMap
-from PyNucleus.fem.splitting import meshSplitter, dofmapSplitter
-from PyNucleus.nl.helpers import getFracLapl
-from PyNucleus.nl import FRACTIONAL
-from PyNucleus.nl.nonlocalProblems import nonlocalInterfaceProblem
+from PyNucleus_base import driver, solverFactory
+from PyNucleus_base.solvers import iterative_solver
+from PyNucleus_base.ip_norm import ip_serial, norm_serial
+from PyNucleus_fem import NO_BOUNDARY, HOMOGENEOUS_NEUMANN
+from PyNucleus_fem.functions import indicatorFunctor
+from PyNucleus_fem.quadrature import simplexXiaoGimbutas
+from PyNucleus_fem.DoFMaps import fe_vector, str2DoFMap
+from PyNucleus_fem.splitting import meshSplitter, dofmapSplitter
+from PyNucleus_nl.helpers import getFracLapl
+from PyNucleus_nl import FRACTIONAL
+from PyNucleus_nl.nonlocalProblems import nonlocalInterfaceProblem
 
 d = driver()
 nIP = nonlocalInterfaceProblem(d)

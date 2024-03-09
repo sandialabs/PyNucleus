@@ -23,13 +23,13 @@
 from mpi4py import MPI
 import numpy as np
 from pathlib import Path
-from PyNucleus.base import driver, solverFactory
-from PyNucleus.base.linear_operators import TimeStepperLinearOperator
-from PyNucleus.fem.femCy import assembleNonlinearity
-from PyNucleus.multilevelSolver import hierarchyManager
-from PyNucleus.nl import paramsForFractionalHierarchy
-from PyNucleus.nl.nonlocalProblems import brusselatorProblem
-from PyNucleus.base.timestepping import EulerIMEX, ARS3, koto
+from PyNucleus_base import driver, solverFactory
+from PyNucleus_base.linear_operators import TimeStepperLinearOperator
+from PyNucleus_fem.femCy import assembleNonlinearity
+from PyNucleus_multilevelSolver import hierarchyManager
+from PyNucleus_nl import paramsForFractionalHierarchy
+from PyNucleus_nl.nonlocalProblems import brusselatorProblem
+from PyNucleus_base.timestepping import EulerIMEX, ARS3, koto
 import h5py
 
 ###############################################################################

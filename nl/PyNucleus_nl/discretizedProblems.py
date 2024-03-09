@@ -22,7 +22,6 @@ from PyNucleus_fem.DoFMaps import Product_DoFMap
 from PyNucleus_multilevelSolver import hierarchyManager
 from copy import copy
 from . helpers import paramsForFractionalHierarchy
-from . kernelsCy import FRACTIONAL
 from . nonlocalProblems import (DIRICHLET,
                                 NEUMANN, HOMOGENEOUS_NEUMANN,
                                 transientFractionalProblem)
@@ -196,7 +195,7 @@ class stationaryModelSolution(classWithComputedDependencies):
             plt.gca().set_aspect('equal')
 
     def plotSolutionComponents(self, plotDefaults={}):
-        from PyNucleus.fem.mesh import plotManager
+        from PyNucleus_fem.mesh import plotManager
         pm = plotManager(self.u.dm.scalarDM.mesh, self.u.dm.scalarDM,
                          defaults=plotDefaults)
         for c in range(self.u.dm.numComponents):
@@ -388,7 +387,7 @@ class discretizedNonlocalProblem(problem):
             params['assemble'] = 'restrictionProlongation' if solverType.find('mg') >= 0 else 'dofmap only last'
             params['logging'] = True
             if self.debugAssemblyTimes:
-                from PyNucleus.base.utilsFem import TimerManager
+                from PyNucleus_base.utilsFem import TimerManager
                 tm = TimerManager(self.driver.logger, comm=self.driver.comm, memoryProfiling=False, loggingSubTimers=True)
                 params['PLogger'] = tm.PLogger
 
@@ -673,6 +672,8 @@ class discretizedNonlocalProblem(problem):
 
     def report(self, group):
         group.add('kernel', repr(self.continuumProblem.kernel))
+        group.add('problem', self.continuumProblem.problemDescription)
+        group.add('has analytic solution', self.continuumProblem.analyticSolution is not None)
         group.add('h', self.finalMesh.h)
         group.add('hmin', self.finalMesh.hmin)
         if self.continuumProblem.kernel is not None:

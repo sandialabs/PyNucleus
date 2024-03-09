@@ -6,7 +6,7 @@
 ###################################################################################
 
 from mpi4py import MPI
-from PyNucleus.base.utilsFem import runDriver
+from PyNucleus_base.utilsFem import runDriver
 import os
 import inspect
 import pytest
@@ -42,15 +42,15 @@ def symmetric(request):
 
 
 @pytest.mark.slow
-def testGMG(extra):
+def testGMG(extras):
     base = getPath()+'/../'
     py = 'runSerialGMG.py'
     path = base+'drivers'
     cacheDir = getPath()+'/'
-    runDriver(path, py, cacheDir=cacheDir, extra=extra)
+    runDriver(path, py, cacheDir=cacheDir, extra=extras)
 
 
-def testParallelGMG(ranks, domain, element, symmetric, extra):
+def testParallelGMG(ranks, domain, element, symmetric, extras):
     base = getPath()+'/../'
     py = ['runParallelGMG.py',
           '--domain', domain,
@@ -59,18 +59,18 @@ def testParallelGMG(ranks, domain, element, symmetric, extra):
         py.append('--symmetric')
     path = base+'drivers'
     cacheDir = getPath()+'/'
-    runDriver(path, py, ranks=ranks, cacheDir=cacheDir, relTol=3e-2, extra=extra)
+    runDriver(path, py, ranks=ranks, cacheDir=cacheDir, relTol=3e-2, extra=extras)
 
 
 ################################################################################
 # multigrid for Helmholtz
 
-def testHelmholtz(ranks, domain, extra):
+def testHelmholtz(ranks, domain, extras):
     base = getPath()+'/../'
     py = ['runHelmholtz.py', '--domain', domain]
     path = base+'drivers'
     cacheDir = getPath()+'/'
-    runDriver(path, py, ranks=ranks, cacheDir=cacheDir, extra=extra)
+    runDriver(path, py, ranks=ranks, cacheDir=cacheDir, extra=extras)
 
 
 ################################################################################
@@ -82,7 +82,7 @@ def domainNoRef(request):
     return request.param
 
 
-def testInterface(domainNoRef, extra):
+def testInterface(domainNoRef, extras):
     domain, noRef = domainNoRef
     base = getPath()+'/../'
     py = ['interfaceProblem.py',
@@ -90,4 +90,4 @@ def testInterface(domainNoRef, extra):
           '--noRef', str(noRef)]
     path = base+'drivers'
     cacheDir = getPath()+'/'
-    runDriver(path, py, ranks=1, cacheDir=cacheDir, relTol=5e-2, extra=extra)
+    runDriver(path, py, ranks=1, cacheDir=cacheDir, relTol=5e-2, extra=extras)

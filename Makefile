@@ -177,7 +177,7 @@ flake8:
 	rm flake8.txt
 
 cython-lint:
-	- cython-lint --max-line-length=160 drivers examples packageTools base metisCy fem multilevelSolver nl tests > cython-lint.txt 2>&1
+	- cython-lint --max-line-length=160 --ignore="E741" drivers examples packageTools base metisCy fem multilevelSolver nl tests > cython-lint.txt 2>&1
 	flake8_junit cython-lint.txt cython-lint.xml
 	rm cython-lint.txt
 	sed 's/name="flake8"/name="cython-lint"/g' cython-lint.xml > cython-lint2.xml

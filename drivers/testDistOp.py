@@ -7,7 +7,7 @@
 ###################################################################################
 
 from mpi4py import MPI
-from PyNucleus.base import driver
+from PyNucleus_base import driver
 from PyNucleus import (dofmapFactory,
                        solverFactory,
                        nonlocalMeshFactory,
@@ -15,9 +15,9 @@ from PyNucleus import (dofmapFactory,
                        DIRICHLET,
                        NEUMANN,
                        HOMOGENEOUS_NEUMANN)
-from PyNucleus.fem.mesh import plotManager
-from PyNucleus.base.utilsFem import TimerManager, timerOutputGroup
-from PyNucleus.nl import nonlocalPoissonProblem, FRACTIONAL
+from PyNucleus_fem.mesh import plotManager
+from PyNucleus_base.utilsFem import TimerManager, timerOutputGroup
+from PyNucleus_nl import nonlocalPoissonProblem, FRACTIONAL
 from PyNucleus_nl.clusterMethodCy import (DistributedH2Matrix_globalData,
                                           DistributedH2Matrix_localData)
 import numpy as np

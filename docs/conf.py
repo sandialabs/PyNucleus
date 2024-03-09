@@ -98,4 +98,4 @@ html_theme_options = {
 # html_static_path = ['_static']
 
 
-# autodoc_mock_imports = ["PyNucleus.base"]
+# autodoc_mock_imports = ["PyNucleus_base"]

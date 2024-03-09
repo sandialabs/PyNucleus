@@ -9,9 +9,9 @@
 from __future__ import division
 import mpi4py.MPI as MPI
 import numpy as np
-from PyNucleus.base import driver, solverFactory
-from PyNucleus.fem import diffusionProblem
-from PyNucleus.multilevelSolver import (V, FMG_V,
+from PyNucleus_base import driver, solverFactory
+from PyNucleus_fem import diffusionProblem
+from PyNucleus_multilevelSolver import (V, FMG_V,
                                         hierarchyManager,
                                         inputConnector,
                                         paramsForSerialMG)
