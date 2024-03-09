@@ -13,6 +13,7 @@ RUN sed -i 's/Components: main/Components: main contrib non-free/' /etc/apt/sour
         gcc g++ make gfortran \
         libssl-dev ca-certificates \
         git less nano \
+        libopenblas0-serial \
         libmetis-dev libparmetis-dev \
         hdf5-tools \
         libsuitesparse-dev \
@@ -57,8 +58,8 @@ WORKDIR /root
 # Copy examples and drivers to user home, launch Jupyter notebook server
 ENTRYPOINT mkdir -p /root/examples && \
            mkdir -p /root/drivers && \
-           cp -r --no-clobber /pynucleus/examples/* /root/examples && \
-           cp -r --no-clobber /pynucleus/drivers/* /root/drivers && \
+           cp -r --update=none /pynucleus/examples/* /root/examples && \
+           cp -r --update=none /pynucleus/drivers/* /root/drivers && \
            jupyter notebook --port=8889 --no-browser --ip=0.0.0.0 --allow-root --NotebookApp.token='' --NotebookApp.password='' --notebook-dir=/root/ --KernelSpecManager.ensure_native_kernel=False --KernelSpecManager.allowed_kernelspecs=pynucleus > /dev/null 2>&1 & \
            /bin/bash
 
