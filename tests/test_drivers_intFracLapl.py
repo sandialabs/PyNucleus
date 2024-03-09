@@ -5,7 +5,7 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-from PyNucleus.base.utilsFem import runDriver
+from PyNucleus_base.utilsFem import runDriver
 import os
 import inspect
 import pytest
@@ -52,8 +52,12 @@ def runNonlocal_params(request):
 
 
 @pytest.mark.slow
-def testNonlocal(runNonlocal_params, extra):
-    domain, kernel, problem, solver, matrixFormat = runNonlocal_params
+def testNonlocal(runNonlocal_params, extras):
+    if len(runNonlocal_params) == 5:
+        domain, kernel, problem, solver, matrixFormat = runNonlocal_params
+        interaction = None
+    else:
+        domain, kernel, problem, solver, matrixFormat, interaction = runNonlocal_params
     base = getPath()+'/../'
     py = ['runNonlocal.py',
           '--domain', domain,
@@ -61,12 +65,14 @@ def testNonlocal(runNonlocal_params, extra):
           '--problem', problem,
           '--solver', solver,
           '--matrixFormat', matrixFormat]
+    if interaction is not None:
+        py += ['--interaction', interaction]
     # if kernel != 'fractional':
     path = base+'drivers'
     cacheDir = getPath()+'/'
     if problem == 'poly-Neumann' and domain == 'square':
         return pytest.skip('not implemented')
-    runDriver(path, py, cacheDir=cacheDir, extra=extra)
+    runDriver(path, py, cacheDir=cacheDir, extra=extras)
 
 
 @pytest.fixture(scope='module', params=[
@@ -106,7 +112,7 @@ def runFractional_params(request):
 
 
 @pytest.mark.slow
-def testFractional(runFractional_params, extra):
+def testFractional(runFractional_params, extras):
     domain, s, problem, element, solver, matrixFormat, ranks = runFractional_params
     base = getPath()+'/../'
     py = ['runFractional.py',
@@ -120,11 +126,11 @@ def testFractional(runFractional_params, extra):
     cacheDir = getPath()+'/'
     if ranks == 1:
         ranks = None
-    runDriver(path, py, cacheDir=cacheDir, extra=extra, ranks=ranks)
+    runDriver(path, py, cacheDir=cacheDir, extra=extras, ranks=ranks)
 
 
 @pytest.mark.slow
-def testFractionalHeat(runFractional_params, extra):
+def testFractionalHeat(runFractional_params, extras):
     domain, s, problem, element, solver, matrixFormat, ranks = runFractional_params
     base = getPath()+'/../'
     py = ['runFractionalHeat.py',
@@ -138,16 +144,16 @@ def testFractionalHeat(runFractional_params, extra):
     cacheDir = getPath()+'/'
     if ranks == 1:
         ranks = None
-    runDriver(path, py, cacheDir=cacheDir, extra=extra, ranks=ranks)
+    runDriver(path, py, cacheDir=cacheDir, extra=extras, ranks=ranks)
 
 
 @pytest.mark.slow
-def testVariableOrder(extra):
+def testVariableOrder(extras):
     base = getPath()+'/../'
     py = 'variableOrder.py'
     path = base+'drivers'
     cacheDir = getPath()+'/'
-    runDriver(path, py, cacheDir=cacheDir, extra=extra)
+    runDriver(path, py, cacheDir=cacheDir, extra=extras)
 
 
 @pytest.fixture(scope='module', params=[
@@ -172,7 +178,7 @@ def runDistOp_params(request):
 
 
 @pytest.mark.slow
-def testMatvecs(runDistOp_params, extra):
+def testMatvecs(runDistOp_params, extras):
     base = getPath()+'/../'
     domain, fractionalOrder = runDistOp_params
     if domain == 'interval':
@@ -196,7 +202,7 @@ def testMatvecs(runDistOp_params, extra):
     py += ['--no-write']
     path = base+'drivers'
     cacheDir = getPath()+'/'
-    runDriver(path, py, ranks=4, cacheDir=cacheDir, extra=extra)
+    runDriver(path, py, ranks=4, cacheDir=cacheDir, extra=extras)
 
 
 @pytest.fixture(scope='module', params=[
@@ -219,7 +225,7 @@ def runNonlocalInterface_params(request):
 
 
 @pytest.mark.slow
-def testNonlocalInterface(runNonlocalInterface_params, extra):
+def testNonlocalInterface(runNonlocalInterface_params, extras):
     domain, kernel1, kernel2, s11, s22, horizon1, horizon2, problem = runNonlocalInterface_params
     s12 = s11
     s21 = s22
@@ -237,4 +243,4 @@ def testNonlocalInterface(runNonlocalInterface_params, extra):
           '--problem', problem]
     path = base+'drivers'
     cacheDir = getPath()+'/'
-    runDriver(path, py, cacheDir=cacheDir, extra=extra)
+    runDriver(path, py, cacheDir=cacheDir, extra=extras)

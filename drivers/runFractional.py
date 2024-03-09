@@ -8,7 +8,7 @@
 
 from mpi4py import MPI
 from PyNucleus import driver
-from PyNucleus.nl import (fractionalLaplacianProblem,
+from PyNucleus_nl import (fractionalLaplacianProblem,
                           discretizedNonlocalProblem)
 from PyNucleus_nl.fractionalOrders import singleVariableUnsymmetricFractionalOrder
 
@@ -16,8 +16,9 @@ from PyNucleus_nl.fractionalOrders import singleVariableUnsymmetricFractionalOrd
 
 
 d = driver(MPI.COMM_WORLD)
-d.add('saveOperators', False)
-d.add('vtkOutput', "")
+io = d.addGroup('input/output').group
+d.add('saveOperators', False, help="add operators to data file", group=io)
+d.add('vtkOutput', "", help="write solution to VTK file", group=io)
 p = fractionalLaplacianProblem(d, False)
 discrProblem = discretizedNonlocalProblem(d, p)
 

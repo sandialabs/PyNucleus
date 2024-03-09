@@ -9,10 +9,10 @@
 from __future__ import division, print_function
 from mpi4py import MPI
 import numpy as np
-from PyNucleus.base import driver, solverFactory
-from PyNucleus.fem import diffusionProblem
-from PyNucleus.fem.mesh import accumulate2global
-from PyNucleus.multilevelSolver import (V, FMG_V,
+from PyNucleus_base import driver, solverFactory
+from PyNucleus_fem import diffusionProblem
+from PyNucleus_fem.mesh import accumulate2global
+from PyNucleus_multilevelSolver import (V, FMG_V,
                                         hierarchyManager,
                                         inputConnector,
                                         pCoarsenConnector,

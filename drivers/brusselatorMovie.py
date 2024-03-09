@@ -12,10 +12,10 @@ from path import Path
 from shutil import rmtree
 import h5py
 from subprocess import Popen
-from PyNucleus.base import driver
-from PyNucleus.fem import meshNd
-from PyNucleus.fem.DoFMaps import DoFMap
-from PyNucleus.nl.nonlocalProblems import brusselatorProblem
+from PyNucleus_base import driver
+from PyNucleus_fem import meshNd
+from PyNucleus_fem.DoFMaps import DoFMap
+from PyNucleus_nl.nonlocalProblems import brusselatorProblem
 
 d = driver()
 brusselatorProblem(d)

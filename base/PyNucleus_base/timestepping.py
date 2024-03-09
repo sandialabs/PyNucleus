@@ -15,11 +15,13 @@ class Stepper:
     """
     Solve
 
-    f(t, u, u_t) = A(t, u_t) + B(t, u) - g(t) = 0
+    f(t, u, u_t) = A(t, u_t) + B(t, u) - g(t) = 0.
 
-    mass:                  t, u  -> A(t, u)
-    explicit:              t, u  -> B(t, u)
-    forcing:               t     -> g(t)
+    We assume that A is linear in its second argument. Let
+
+    mass:                  t, u           -> A(t, u)
+    explicit:              t, u           -> B(t, u)
+    forcing:               t              -> g(t)
     implicitSolverBuilder: t, alpha, beta -> solver for alpha*A(t, u)+beta*B(t, u) = g
 
     """
@@ -51,9 +53,12 @@ class Stepper:
 
 
 class CrankNicolson(Stepper):
+    """
+    1/dt*A(t+dt, u_{k+1}) + theta*B(t+dt, u_{k+1}) = (1-theta)*g(t_{k}) + theta*g(t_{k+1}) + 1/dt*A(t_{k}, u_{k}) - (1-theta)*B(t_{k}, u_{k})
+    """
     def __init__(self, dm, mass, solverBuilder, forcing, explicit=None, theta=0.5, dt=None,
                  solverIsTimeDependent=False, explicitIslinearAndTimeIndependent=False):
-        assert theta > 0 and theta <= 1.
+        assert theta >= 0 and theta <= 1.
         self.theta = theta
         super(CrankNicolson, self).__init__(dm, mass, solverBuilder, forcing, explicit, dt, solverIsTimeDependent, explicitIslinearAndTimeIndependent)
         if self.theta < 1.:
@@ -73,12 +78,16 @@ class CrankNicolson(Stepper):
             return self.solverBuilder(t+dt, 1./dt, self.theta)
 
     def setRHS(self, t, dt, rhs):
-        self.forcing(t+dt, rhs)
-        if self.theta < 1.:
+        if self.theta > 0. and self.theta < 1.:
+            self.forcing(t+dt, rhs)
             rhs *= self.theta
             self.forcing(t, self.rhs2)
             self.rhs2 *= (1.-self.theta)
             rhs += self.rhs2
+        elif self.theta == 0.:
+            self.forcing(t, rhs)
+        elif self.theta == 1.:
+            self.forcing(t+dt, rhs)
 
     def step(self, t, dt, u, forcingVector=None):
         if dt is None:
@@ -105,6 +114,9 @@ class CrankNicolson(Stepper):
         return t+dt
 
     def residual(self, t, dt, ut, ut_plus_dt, residual, alpha=1., beta=1., forcingVector=None):
+        # alpha/dt*[A(t+dt, ut_plus_dt) - A(t, ut)]
+        # + beta*[(1-theta)*B(t, ut) + theta*B(t+dt, ut_plus_dt)]
+        # - (1-theta)*g(t) - theta*g(t+dt)
         if abs(alpha/dt) > 0:
             self.mass(t, ut, self.rhs)
             self.mass(t+dt, ut_plus_dt, self.rhs2)
@@ -134,6 +146,8 @@ class CrankNicolson(Stepper):
         residual -= self.rhs
 
     def apply_jacobian(self, t, dt, ut, ut_plus_dt, residual, alpha=1., beta=1.):
+        # alpha/dt*[A(t+dt, ut_plus_dt) - A(t, ut)]
+        # + beta*[(1-theta)*B(t, ut) + theta*B(t+dt, ut_plus_dt)]
         if abs(alpha/dt) > 0:
             self.mass(t, ut, self.rhs)
             self.mass(t+dt, ut_plus_dt, self.rhs2)
@@ -157,30 +171,21 @@ class CrankNicolson(Stepper):
             residual += self.rhs2
 
 
-class ExplicitEuler(Stepper):
-    def __init__(self, dm, mass, solverBuilder, forcing, explicit, solverIsTimeDependent=False):
-        assert explicit is not None
-        super(ExplicitEuler, self).__init__(dm, mass, solverBuilder, forcing, explicit, 0., solverIsTimeDependent)
-        self.rhs = self.dm.zeros()
-        self.rhs2 = self.dm.zeros()
-
-    def step(self, t, dt, u):
-        self.forcing(t+dt, self.rhs)
-        self.rhs *= dt
-        self.explicit(t, u, self.rhs2)
-        self.rhs2 *= -dt
-        self.rhs += self.rhs2
-        if not self.solverIsTimeDependent:
-            solver = self.solver
-        else:
-            solver = self.solverBuilder(t+dt, 0.)
-        if isinstance(solver, iterative_solver):
-            solver.setInitialGuess(u)
-        solver(self.rhs, u)
-        return t+dt
+class ExplicitEuler(CrankNicolson):
+    """
+    1/dt*A(t+dt, u_{k+1}) = g(t_{k}) + 1/dt*A(t_{k}, u_{k}) - B(t_{k}, u_{k})
+    """
+    def __init__(self, dm, mass, solverBuilder, forcing, explicit=None, dt=None, solverIsTimeDependent=False):
+        super(ExplicitEuler, self).__init__(dm, mass, solverBuilder, forcing, explicit,
+                                            dt=dt,
+                                            theta=0.,
+                                            solverIsTimeDependent=solverIsTimeDependent)
 
 
 class ImplicitEuler(CrankNicolson):
+    """
+    1/dt*A(t+dt, u_{k+1}) + B(t+dt, u_{k+1}) = g(t_{k+1}) + 1/dt*A(t_{k}, u_{k})
+    """
     def __init__(self, dm, mass, solverBuilder, forcing, explicit=None, dt=None, solverIsTimeDependent=False):
         super(ImplicitEuler, self).__init__(dm, mass, solverBuilder, forcing, explicit,
                                             dt=dt,

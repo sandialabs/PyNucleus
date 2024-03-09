@@ -51,7 +51,7 @@ Nonlocal problems
 import matplotlib.pyplot as plt
 from time import time
 from PyNucleus import kernelFactory
-kernelFactory.print()
+print(kernelFactory)
 
 # %%
 

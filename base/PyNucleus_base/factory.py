@@ -51,13 +51,6 @@ class factory:
             return len(self.classes) + len(self.aliases)
 
     def __str__(self):
-        s = ''
-        for canonical_name in self.classes:
-            a = [self.aliases[canonical_alias][0] for canonical_alias in self.aliases if self.aliases[canonical_alias][1] == canonical_name]
-            s += '{} {} {}\n'.format(canonical_name, a, self.classes[canonical_name])
-        return s
-
-    def __repr__(self):
         s = 'Available:\n'
         for canonical_name in self.classes:
             name = self.classes[canonical_name][0]
@@ -77,6 +70,3 @@ class factory:
             else:
                 s += '\'{}\', signature: \'{}\'\n'.format(name, sig)
         return s
-
-    def print(self):
-        print(repr(self))

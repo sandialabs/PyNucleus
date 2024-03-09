@@ -1,17 +1,17 @@
 
-PyNucleus.metisCy package
+PyNucleus_metisCy package
 ==========================
 
 .. automodule:: PyNucleus_metisCy
 
 
-PyNucleus.metisCy.metisCy module
+PyNucleus_metisCy.metisCy module
 ---------------------------------
 
 .. automodule:: PyNucleus_metisCy.metisCy
 
 
-PyNucleus.metisCy.parmetisCy module
+PyNucleus_metisCy.parmetisCy module
 ------------------------------------
 
 .. automodule:: PyNucleus_metisCy.parmetisCy

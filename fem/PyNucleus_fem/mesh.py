@@ -11,7 +11,7 @@ mpi4py.rc.initialize = False
 from mpi4py import MPI
 import numpy as np
 from PyNucleus_base.factory import factory
-from PyNucleus_base.myTypes import INDEX, REAL, TAG
+from PyNucleus_base.myTypes import INDEX, REAL, BOOL, TAG
 from PyNucleus_base.linear_operators import sparseGraph
 from PyNucleus_base import uninitialized, uninitialized_like
 from . meshCy import (meshBase,
@@ -581,7 +581,7 @@ def doubleSquareWithInteractionsCorners(ax=0., ay=0., bx=1., by=1., cx=2., cy=1.
                                         h=None,
                                         returnSketch=False,
                                         **kwargs):
-    from PyNucleus.fem.meshConstruction import (line,
+    from PyNucleus_fem.meshConstruction import (line,
                                                 polygon)
     assert horizon2 >= horizon1
     assert horizon1 >= 0
@@ -2993,7 +2993,7 @@ def stitchOverlappingMeshes(meshes, overlapManagers):
     globalCellLookup = []
     for mySubdomainNo in range(numPartitions):
         translate = -np.ones((meshes[mySubdomainNo].num_vertices), dtype=INDEX)
-        idx = np.ones((meshes[mySubdomainNo].cells.shape[0]), dtype=np.bool)
+        idx = np.ones((meshes[mySubdomainNo].cells.shape[0]), dtype=BOOL)
         lookup = -np.ones((meshes[mySubdomainNo].num_cells), dtype=INDEX)
         for otherSubdomainNo in range(mySubdomainNo):
             if otherSubdomainNo not in overlapManagers[mySubdomainNo].overlaps:

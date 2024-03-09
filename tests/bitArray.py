@@ -6,8 +6,8 @@
 ###################################################################################
 
 import numpy as np
-from PyNucleus.base import INDEX
-from PyNucleus.base.tupleDict import arrayIndexSet, bitArray
+from PyNucleus_base import INDEX
+from PyNucleus_base.tupleDict import arrayIndexSet, bitArray
 
 
 def test_arrayIndexSet():

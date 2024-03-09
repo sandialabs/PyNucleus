@@ -8,16 +8,16 @@
 
 from mpi4py import MPI
 import numpy as np
-from PyNucleus.base import COMPLEX, driver, solverFactory
-from PyNucleus.base.linear_operators import wrapRealToComplexCSR
-from PyNucleus.fem.femCy import (assembleSurfaceMass,
+from PyNucleus_base import COMPLEX, driver, solverFactory
+from PyNucleus_base.linear_operators import wrapRealToComplexCSR
+from PyNucleus_fem.femCy import (assembleSurfaceMass,
                                  getSurfaceDoFMap)
-from PyNucleus.fem import (PHYSICAL,
+from PyNucleus_fem import (PHYSICAL,
                            NO_BOUNDARY,
                            helmholtzProblem)
-from PyNucleus.fem.mesh import plotManager
-from PyNucleus.fem.functions import real, imag
-from PyNucleus.multilevelSolver import (EmptyHierarchy,
+from PyNucleus_fem.mesh import plotManager
+from PyNucleus_fem.functions import real, imag
+from PyNucleus_multilevelSolver import (EmptyHierarchy,
                                         hierarchyManager,
                                         inputConnector,
                                         paramsForMG)

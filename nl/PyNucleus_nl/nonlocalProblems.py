@@ -525,15 +525,18 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
         p = self.driver.addGroup('problem')
         self.setDriverFlag('domain', acceptedValues=['interval', 'disc', 'gradedInterval', 'gradedDisc', 'Lshape', 'square',
                                                      'cutoutCircle', 'disconnectedInterval', 'disconnectedDomain',
-                                                     'ball'], group=p)
+                                                     'ball'],
+                           help="spatial domain", group=p)
         self.setDriverFlag('problem', acceptedValues=['constant', 'notPeriodic', 'plateau',
-                                                      'sin', 'cos', 3, 'source', 'zeroFlux', 'Greens', 'knownSolution'], group=p)
-        self.setDriverFlag('element', acceptedValues=['P1', 'P2', 'P3', 'P0'], group=p)
+                                                      'sin', 'cos', 3, 'source', 'zeroFlux', 'Greens', 'knownSolution'],
+                           help="select a problem to solve", group=p)
+        self.setDriverFlag('element', acceptedValues=['P1', 'P2', 'P3', 'P0'], help="finite element space", group=p)
         self.setDriverFlag('adaptive', acceptedValues=['residualMelenk', 'residualNochetto',
                                                        'residual', 'hierarchical', 'knownSolution', None],
-                           argInterpreter=lambda v: None if v == 'None' else v, group=p)
-        self.setDriverFlag('noRef', -1, group=p)
-        self.setDriverFlag('targetDoFsAux', 0)
+                           argInterpreter=lambda v: None if v == 'None' else v,
+                           help="type of error indicator", group=p)
+        self.setDriverFlag('noRef', -1, help="number of uniform mesh refinements applied to initial mesh", group=p)
+        self.setDriverFlag('targetDoFsAux', 0, help="number of degrees of freedom for the fractional order (0 = do not discretize order)")
 
     def processCmdline(self, params):
         noRef = params['noRef']
@@ -617,7 +620,7 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                 'mesh_domain', 'mesh_params', 'tag', 'boundaryCondition',
                 'domainIndicator', 'interactionIndicator', 'fluxIndicator',
                 'zeroExterior',
-                'rhsData', 'dirichletData', 'fluxData'])
+                'rhsData', 'dirichletData', 'fluxData', 'problemDescription'])
     def processProblem(self, kernel, dim, domain, domainParams, problem, normalized):
         s = kernel.s
         self.analyticSolution = None
@@ -631,6 +634,7 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
             radius = 1.
 
             if problem == 'constant':
+                self.problemDescription = "Constant forcing, homogeneous Dirichlet volume condition"
                 self.rhs = constant(1.)
                 if (isinstance(s, (constFractionalOrder, variableConstFractionalOrder, constantNonSymFractionalOrder)) or
                         (isinstance(s, feFractionalOrder) and np.array(s.vec).min() == np.array(s.vec).max())):
@@ -643,10 +647,13 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                     L2_ex = np.sqrt(C**2 * np.sqrt(np.pi) * Gamma(1+2*sValue)/Gamma(3/2+2*sValue) * radius**2)
                     self.analyticSolution = solFractional(sValue, dim, radius)
             elif problem == 'sin':
+                self.problemDescription = "Sin function forcing, homogeneous Dirichlet volume condition"
                 self.rhs = Lambda(lambda x: np.sin(np.pi*x[0]))
             elif problem == 'cos':
+                self.problemDescription = "Cos function forcing, homogeneous Dirichlet volume condition"
                 self.rhs = Lambda(lambda x: np.cos(np.pi*x[0]/2.))
             elif problem == 'plateau':
+                self.problemDescription = "Sign function forcing, homogeneous Dirichlet volume condition"
                 self.rhs = Lambda(np.sign)
 
                 # def e(n):
@@ -656,10 +663,12 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                 # exactHsSquared = sum([e(n) for n in range(1000000)])
                 self.exactHsSquared = 2**(1-2*s) / (2*s+1) / Gamma(s+1)**2
             elif isinstance(problem, int):
+                self.problemDescription = "Family of forcings with known solutions, homogeneous Dirichlet volume condition"
                 self.rhs = rhsFractional1D(s, problem)
                 self.exactHsSquared = 2**(2*s)/(2*problem+s+0.5) * Gamma(1+s)**2 * binom(s+problem, problem)**2
                 self.analyticSolution = solFractional1D(s, problem)
             elif problem == 'zeroFlux':
+                self.problemDescription = "Linear solution, homogeneous Neumann volume condition"
                 boundaryCondition = HOMOGENEOUS_NEUMANN
 
                 if kernel.variable:
@@ -684,6 +693,7 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                 self.analyticSolution = functionFactory('x0')
                 L2_ex = np.sqrt(2/3)
             elif problem == 'knownSolution':
+                self.problemDescription = "Known analytic solution for variable fractional order, homogeneous Dirichlet volume condition"
                 from scipy.special import hyp2f1
                 assert isinstance(s, (constFractionalOrder, variableConstFractionalOrder,
                                       constantNonSymFractionalOrder, singleVariableUnsymmetricFractionalOrder)), s
@@ -700,12 +710,14 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                 self.analyticSolution = functionFactory('Lambda', lambda x: (1.-x[0]**2)**beta)
                 L2_ex = np.sqrt(np.sqrt(np.pi) * Gamma(1+2*beta)/Gamma(3/2+2*beta) * radius**2)
             elif problem == 'Greens':
+                self.problemDescription = "Narrow indicator function forcing, homogeneous Neumann volume condition"
                 boundaryCondition = HOMOGENEOUS_NEUMANN
                 self.rhs = functionFactory('squareIndicator', np.array([-0.1]), np.array([0.1]))
             else:
                 raise NotImplementedError(problem)
         elif domain == 'disconnectedInterval':
             if problem == 'constant':
+                self.problemDescription = "Constant forcing, homogeneous Dirichlet volume condition"
                 self.rhs = Lambda(lambda x: 1. if x[0] > 0.5 else 0.)
             else:
                 raise NotImplementedError(problem)
@@ -713,6 +725,7 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
             radius = 1.
 
             if problem == 'constant':
+                self.problemDescription = "Constant forcing, homogeneous Dirichlet volume condition"
                 self.rhs = constant(1.)
                 if isinstance(s, (constFractionalOrder, variableConstFractionalOrder, constantNonSymFractionalOrder)):
                     C = 2.**(-2.*s.value)*Gamma(dim/2.)/Gamma((dim+2.*s.value)/2.)/Gamma(1.+s.value)
@@ -720,6 +733,7 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                     L2_ex = np.sqrt(C**2 * np.pi/(1+2*s.value)*radius**2)
                     self.analyticSolution = solFractional(s.value, dim, radius)
             elif problem == 'notPeriodic':
+                self.problemDescription = "Family of forcings with known solutions, homogeneous Dirichlet volume condition"
                 n = 2
                 freq = 2
                 self.exactHsSquared = 2**(2*s-1)/(2*n+s+freq+1) * Gamma(1+s+n)**2/Gamma(1+n)**2 * (np.pi+np.sin(4*np.pi*freq)/(4*freq))
@@ -729,6 +743,7 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                 self.exactHsSquared += 2**(2*s-1)/(2*n+s+freq+1) * Gamma(1+s+n)**2/Gamma(1+n)**2 * (np.pi+np.sin(4*np.pi*freq)/(4*freq))
                 self.rhs = rhsFractional2D_nonPeriodic(s)
             elif problem == 'plateau':
+                self.problemDescription = "Sign function forcing, homogeneous Dirichlet volume condition"
                 self.rhs = Lambda(lambda x: x[0] > 0)
                 try:
                     from mpmath import meijerg
@@ -742,13 +757,16 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                     for k in range(100000):
                         self.exactHsSquared += 2**(-2*s) / Gamma(s+3)**2 / (2*np.pi) * (2*k+s+2) * (k+1) / binom(k+s+1.5, s+2)**2
             elif isinstance(problem, tuple):
+                self.problemDescription = "Family of forcings with known solutions, homogeneous Dirichlet volume condition"
                 n, freq = problem
                 self.exactHsSquared = 2**(2*s-1)/(2*n+s+freq+1) * Gamma(1+s+n)**2/Gamma(1+n)**2 * (np.pi+np.sin(4*np.pi*freq)/(4*freq))
 
                 self.rhs = rhsFractional2D(s, n=n, l=freq)
             elif problem == 'sin':
+                self.problemDescription = "Radial sin function forcing, homogeneous Dirichlet volume condition"
                 self.rhs = Lambda(lambda x: np.sin(np.pi*(x[0]**2+x[1]**2)))
             elif problem == 'knownSolution':
+                self.problemDescription = "Known analytic solution for variable fractional order, homogeneous Dirichlet volume condition"
                 from scipy.special import hyp2f1
                 assert isinstance(s, (constFractionalOrder, variableConstFractionalOrder,
                                       constantNonSymFractionalOrder, singleVariableUnsymmetricFractionalOrder)), s
@@ -768,8 +786,10 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                 raise NotImplementedError(problem)
         elif domain == 'square':
             if problem == 'constant':
+                self.problemDescription = "Constant forcing, homogeneous Dirichlet volume condition"
                 self.rhs = constant(1.)
             elif problem == 'sin':
+                self.problemDescription = "Tensor sin function forcing, homogeneous Dirichlet volume condition"
                 self.rhs = Lambda(lambda x: np.sin(np.pi*x[0])*np.sin(np.pi*x[1]))
             elif problem == 'source':
                 self.rhs = (functionFactory.build('radialIndicator', radius=0.3, center=np.array([0.2, 0.6], dtype=REAL)) -
@@ -778,21 +798,26 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                 raise NotImplementedError(problem)
         elif domain == 'Lshape':
             if problem == 'constant':
+                self.problemDescription = "Constant forcing, homogeneous Dirichlet volume condition"
                 self.rhs = constant(1.)
             elif problem == 'sin':
+                self.problemDescription = "Tensor sin function forcing, homogeneous Dirichlet volume condition"
                 self.rhs = Lambda(lambda x: np.sin(np.pi*x[0])*np.sin(np.pi*x[1]))
             else:
                 raise NotImplementedError(problem)
         elif domain == 'cutoutCircle':
             if problem == 'constant':
+                self.problemDescription = "Constant forcing, homogeneous Dirichlet volume condition"
                 self.rhs = constant(1.)
             elif problem == 'sin':
+                self.problemDescription = "Radial sin function forcing, homogeneous Dirichlet volume condition"
                 self.rhs = Lambda(lambda x: np.sin(np.pi*(x[0]**2+x[1]**2)))
             else:
                 raise NotImplementedError(problem)
         elif domain == 'ball':
             radius = 1.
             if problem == 'constant':
+                self.problemDescription = "Constant forcing, homogeneous Dirichlet volume condition"
                 self.rhs = constant(1.)
                 if isinstance(s, (constFractionalOrder, variableConstFractionalOrder, constantNonSymFractionalOrder)):
                     C = 2.**(-2.*s.value)*Gamma(dim/2.)/Gamma((dim+2.*s.value)/2.)/Gamma(1.+s.value)
@@ -869,16 +894,6 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
             mesh = mesh.refine()
         self.dmAux = dofmapFactory('P1', mesh, NO_BOUNDARY)
 
-    def getIdentifier(self, params):
-        keys = ['domain', 'problem', 's', 'noRef', 'element', 'adaptive']
-        d = []
-        for k in keys:
-            try:
-                d.append((k, str(getattr(self, k))))
-            except KeyError:
-                d.append((k, str(params[k])))
-        return '-'.join(['fracLaplAdaptive'] + [key + '=' + v for key, v in d])
-
 
 class nonlocalPoissonProblem(nonlocalBaseProblem):
     def setDriverArgs(self):
@@ -919,7 +934,8 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                 'tag', 'zeroExterior', 'boundaryCondition',
                 'domainIndicator', 'fluxIndicator', 'interactionIndicator',
                 'rhs', 'rhsData', 'dirichletData', 'fluxData',
-                'analyticSolution', 'exactL2Squared', 'exactHsSquared'])
+                'analyticSolution', 'exactL2Squared', 'exactHsSquared',
+                'problemDescription'])
     def processProblem(self, kernel, domain, problem, normalized):
         if kernel is not None:
             kType = kernel.kernelType
@@ -937,6 +953,8 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
         self.analyticSolution = None
         self.exactL2Squared = None
         self.exactHsSquared = None
+
+        self.problemDescription = ""
 
         if problem in ('poly-Neumann', 'exact-sin-Neumann', 'zeroFlux'):
             self.boundaryCondition = NEUMANN
@@ -1420,16 +1438,6 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
         myMeshParams = copy(mesh_params)
         myMeshParams['hTarget'] = hTarget
         self.mesh, _ = nonlocalMeshFactory.build(mesh_domain, **myMeshParams)
-
-    def getIdentifier(self, params):
-        keys = ['domain', 'problem', 's', 'horizon', 'phi', 'noRef']
-        d = []
-        for k in keys:
-            try:
-                d.append((k, str(getattr(self, k))))
-            except KeyError:
-                d.append((k, str(params[k])))
-        return '-'.join(['nonlocal'] + [key + '=' + v for key, v in d])
 
 
 class transientFractionalProblem(fractionalLaplacianProblem):
@@ -2254,16 +2262,6 @@ class nonlocalInterfaceProblem(problem):
         self.local_H10ex_left = local_H10ex_left
         self.local_H10ex_right = local_H10ex_right
 
-    def getIdentifier(self, params):
-        keys = ['domain', 'problem', 'kernel1', 'kernel2']
-        d = []
-        for k in keys:
-            try:
-                d.append((k, str(getattr(self, k))))
-            except KeyError:
-                d.append((k, str(params[k])))
-        return '/'.join(['nonlocalInterface'] + [key + '=' + v for key, v in d])
-
 
 class brusselatorProblem(problem):
     """
@@ -2308,7 +2306,7 @@ class brusselatorProblem(problem):
                 'mesh',
                 'zeroExterior'])
     def processProblem(self, domain, bc, noRef, problem, T):
-        from PyNucleus.fem.femCy import brusselator
+        from PyNucleus_fem.femCy import brusselator
 
         if problem == 'spots':
             self.alpha = self.beta = 0.75
@@ -2407,15 +2405,5 @@ class brusselatorProblem(problem):
                                                 kernel=self.kernelU,
                                                 boundaryCondition=self.boundaryCondition)
         self.zeroExterior = nI['zeroExterior']
-
-    def getIdentifier(self, params):
-        keys = ['domain', 'problem', 'alpha', 'beta', 'noRef', 'bc']
-        d = []
-        for k in keys:
-            try:
-                d.append((k, str(getattr(self, k))))
-            except KeyError:
-                d.append((k, str(params[k])))
-        return '-'.join(['brusselator'] + [key + '=' + v for key, v in d])
 
 

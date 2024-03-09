@@ -1,101 +1,101 @@
 
-PyNucleus.fem package
+PyNucleus_fem package
 ======================
 
 .. automodule:: PyNucleus_fem
 
 
-PyNucleus.fem.DoFMaps module
+PyNucleus_fem.DoFMaps module
 -----------------------------
 
 .. automodule:: PyNucleus_fem.DoFMaps
 
 
-PyNucleus.fem.algebraicOverlaps module
+PyNucleus_fem.algebraicOverlaps module
 ---------------------------------------
 
 .. automodule:: PyNucleus_fem.algebraicOverlaps
 
 
-PyNucleus.fem.boundaryLayerCy module
+PyNucleus_fem.boundaryLayerCy module
 -------------------------------------
 
 .. automodule:: PyNucleus_fem.boundaryLayerCy
 
 
-PyNucleus.fem.distributed.operators module
+PyNucleus_fem.distributed.operators module
 --------------------------------------------
 
 .. automodule:: PyNucleus_fem.distributed_operators
 
 
-PyNucleus.fem.femCy module
+PyNucleus_fem.femCy module
 ---------------------------
 
 .. automodule:: PyNucleus_fem.femCy
 
 
-PyNucleus.fem.functions module
+PyNucleus_fem.functions module
 -------------------------------
 
 .. automodule:: PyNucleus_fem.functions
 
 
-PyNucleus.fem.mesh module
+PyNucleus_fem.mesh module
 --------------------------
 
 .. automodule:: PyNucleus_fem.mesh
 
 
-PyNucleus.fem.meshConstruction module
+PyNucleus_fem.meshConstruction module
 --------------------------------------
 
 .. automodule:: PyNucleus_fem.meshConstruction
 
 
-PyNucleus.fem.meshCy module
+PyNucleus_fem.meshCy module
 ----------------------------
 
 .. automodule:: PyNucleus_fem.meshCy
 
 
-PyNucleus.fem.meshOverlaps module
+PyNucleus_fem.meshOverlaps module
 ----------------------------------
 
 .. automodule:: PyNucleus_fem.meshOverlaps
 
 
-PyNucleus.fem.meshPartitioning module
+PyNucleus_fem.meshPartitioning module
 --------------------------------------
 
 .. automodule:: PyNucleus_fem.meshPartitioning
 
 
-PyNucleus.fem.pdeProblems module
+PyNucleus_fem.pdeProblems module
 ---------------------------------
 
 .. automodule:: PyNucleus_fem.pdeProblems
 
 
-PyNucleus.fem.quadrature module
+PyNucleus_fem.quadrature module
 --------------------------------
 
 .. automodule:: PyNucleus_fem.quadrature
 
 
-PyNucleus.fem.repartitioner module
+PyNucleus_fem.repartitioner module
 -----------------------------------
 
 .. automodule:: PyNucleus_fem.repartitioner
 
 
-PyNucleus.fem.simplexMapper module
+PyNucleus_fem.simplexMapper module
 -----------------------------------
 
 .. automodule:: PyNucleus_fem.simplexMapper
 
 
-PyNucleus.fem.splitting module
+PyNucleus_fem.splitting module
 -------------------------------
 
 .. automodule:: PyNucleus_fem.splitting

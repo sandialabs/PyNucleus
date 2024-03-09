@@ -6,14 +6,14 @@
 ###################################################################################
 
 import numpy as np
-from PyNucleus.fem.mesh import intervalWithInteraction
-from PyNucleus.fem.DoFMaps import P1_DoFMap
-from PyNucleus.fem.functions import Lambda, constant
-from PyNucleus.nl.fractionalOrders import (constFractionalOrder,
+from PyNucleus_fem.mesh import intervalWithInteraction
+from PyNucleus_fem.DoFMaps import P1_DoFMap
+from PyNucleus_fem.functions import Lambda, constant
+from PyNucleus_nl.fractionalOrders import (constFractionalOrder,
                                            variableConstFractionalOrder)
-from PyNucleus.nl.nonlocalAssembly import nonlocalBuilder
-from PyNucleus.nl.kernelNormalization import variableFractionalLaplacianScaling
-from PyNucleus.nl.kernels import getFractionalKernel
+from PyNucleus_nl.nonlocalAssembly import nonlocalBuilder
+from PyNucleus_nl.kernelNormalization import variableFractionalLaplacianScaling
+from PyNucleus_nl.kernels import getFractionalKernel
 from scipy.linalg import solve
 import pytest
 

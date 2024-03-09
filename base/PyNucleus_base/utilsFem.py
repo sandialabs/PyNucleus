@@ -310,7 +310,7 @@ def saveDictToHDF5(params, f, ignore=set()):
 def loadDictFromHDF5(f):
     import h5py
     from . linear_operators import LinearOperator
-    from PyNucleus.fem.DoFMaps import DoFMap
+    from PyNucleus_fem.DoFMaps import DoFMap
     params = {}
     for key in f.attrs:
         if isinstance(f.attrs[key], h5py.Empty):
@@ -352,7 +352,7 @@ def loadDictFromHDF5(f):
                 else:
                     params[key] = LinearOperator.HDF5read(f[key])
             elif 'vertices' in f[key] and 'cells' in f[key]:
-                from PyNucleus.fem.mesh import meshNd
+                from PyNucleus_fem.mesh import meshNd
                 params[key] = meshNd.HDF5read(f[key])
             else:
                 params[key] = loadDictFromHDF5(f[key])
@@ -369,7 +369,7 @@ def loadDictFromHDF5(f):
 
 
 def processDictForYaml(params):
-    from PyNucleus.fem.functions import function
+    from PyNucleus_fem.functions import function
     paramsNew = {}
     for key in params:
         if isinstance(params[key], dict):
@@ -411,7 +411,7 @@ def updateFromDefaults(params, defaults):
             updateFromDefaults(params[key], defaults[key])
 
 
-def getMPIinfo(grp):
+def getMPIinfo(grp, verbose=False):
     from sys import modules
     if 'mpi4py.MPI' in modules:
         import mpi4py
@@ -427,13 +427,15 @@ def getMPIinfo(grp):
         if MPI.COMM_WORLD.rank == 0:
             hosts = ','.join(set(hosts))
         grp.add('MPI library', '{}'.format(MPI.Get_library_version()[:-1]))
-        for label, value in [('MPI standard supported', MPI.Get_version()),
-                             ('Vendor', MPI.get_vendor()),
-                             ('Level of thread support', t[MPI.Query_thread()]),
-                             ('Is threaded', MPI.Is_thread_main()),
-                             ('Threads requested', mpi4py.rc.threads),
-                             ('Thread level requested', mpi4py.rc.thread_level),
-                             ('Hosts', hosts),
+        if verbose:
+            for label, value in [('MPI standard supported', MPI.Get_version()),
+                                 ('Vendor', MPI.get_vendor()),
+                                 ('Level of thread support', t[MPI.Query_thread()]),
+                                 ('Is threaded', MPI.Is_thread_main()),
+                                 ('Threads requested', mpi4py.rc.threads),
+                                 ('Thread level requested', mpi4py.rc.thread_level)]:
+                grp.add(label, value)
+        for label, value in [('Hosts', hosts),
                              ('Communicator size', MPI.COMM_WORLD.size)]:
             grp.add(label, value)
 
@@ -487,8 +489,8 @@ def getSystemInfo(grp, argv=None, envVars=[('OMP_NUM_THREADS', True)]):
             versions[(version, sha)].append(pkg)
         except KeyError:
             versions[(version, sha)] = [pkg]
-    for version in versions:
-        grp.add('PyNucleus_'+(','.join(versions[version])), version)
+    for version, sha in versions:
+        grp.add('PyNucleus_'+(','.join(versions[(version, sha)])), '{}, {}'.format(version, sha))
 
 
 class MPIFileHandler(logging.Handler):
@@ -1382,6 +1384,7 @@ def runDriver(path, py, python=None, timeout=600, ranks=None, cacheDir='',
             py += ['--overwriteCache']
     else:
         py += ['--test']
+    py += ['--disableFileLog']
     if extra is not None:
         plotDir.mkdir(exist_ok=True, parents=True)
         py += ['--plotFolder={}'.format(plotDir), '--plotFormat=png']
@@ -1444,7 +1447,7 @@ class parametrizedArg:
                 fields.append('True|False')
             else:
                 raise NotImplementedError()
-        self.regexp = re.compile(name+'\('+','.join(['\s*(' + f + ')\s*' for f in fields])+'\)')
+        self.regexp = re.compile(name+'\(?'+','.join(['\s*(' + f + ')\s*' for f in fields])+'\)?')
 
     def match(self, s):
         return self.regexp.match(s) is not None
@@ -1841,7 +1844,13 @@ class driverAddon:
         pass
 
     def getIdentifier(self, params):
-        return ''
+        from sys import argv
+        identifier = '-'.join(argv)
+        pos = identifier.rfind('/')
+        if pos >= 0:
+            return identifier[pos+1:]
+        else:
+            return identifier
 
     def process(self, params):
         self.processCmdline(params)

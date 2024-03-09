@@ -19,7 +19,7 @@ A simple PDE problem
 # ---------
 #
 # The creation of different groups of objects, such as finite element spaces or meshes, use factories.
-# The available classes that a factory provides can be displayed by calling the ``print()`` method of the factory.
+# The available classes that a factory provides can be displayed by calling the ``print()`` function on it.
 # An object is built by passing the name of the desired class and additional parameters to the factory.
 # If this sounds vague now, don't worry, the examples below will make it clear.
 #
@@ -31,7 +31,7 @@ A simple PDE problem
 
 import matplotlib.pyplot as plt
 from PyNucleus import meshFactory
-meshFactory.print()
+print(meshFactory)
 
 # %%
 # We see what the different meshes that the ``meshFactory`` can construct and the default values for associated parameters.
@@ -60,7 +60,7 @@ mesh.plot()
 # We build a piecewise linear finite element space.
 
 from PyNucleus import dofmapFactory
-dofmapFactory.print()
+print(dofmapFactory)
 
 # %%
 # We use a piecewise linear continuous finite element space.
@@ -95,7 +95,7 @@ dm.plot()
 #
 # Functions are created using the ``functionFactory``.
 from PyNucleus import functionFactory
-functionFactory.print()
+print(functionFactory)
 
 # %%
 # We will consider two different forcing functions :math:`f`.
@@ -154,7 +154,7 @@ print('Linear system matrix:', laplacian)
 # Now that we have assembled our linear system, we want to solve it.
 
 from PyNucleus import solverFactory
-solverFactory.print()
+print(solverFactory)
 
 # %%
 # We choose to set up an LU direct solver.

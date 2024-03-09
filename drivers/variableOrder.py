@@ -8,19 +8,19 @@
 
 import numpy as np
 from numpy.linalg import norm as npnorm
-from PyNucleus.base.ip_norm import ip_serial, norm_serial
-from PyNucleus.base import driver, solverFactory, krylov_solver
-from PyNucleus.base.linear_operators import invDiagonal
-from PyNucleus.fem import (str2DoFMap,
+from PyNucleus_base.ip_norm import ip_serial, norm_serial
+from PyNucleus_base import driver, solverFactory, krylov_solver
+from PyNucleus_base.linear_operators import invDiagonal
+from PyNucleus_fem import (str2DoFMap,
                            meshFactory,
                            functionFactory)
-from PyNucleus.fem.mesh import plotManager
-from PyNucleus.nl.fractionalOrders import (constFractionalOrder,
+from PyNucleus_fem.mesh import plotManager
+from PyNucleus_nl.fractionalOrders import (constFractionalOrder,
                                            variableConstFractionalOrder,
                                            leftRightFractionalOrder,
                                            smoothedLeftRightFractionalOrder,
                                            innerOuterFractionalOrder)
-from PyNucleus.nl.kernels import getFractionalKernel
+from PyNucleus_nl.kernels import getFractionalKernel
 
 
 d = driver()

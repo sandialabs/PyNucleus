@@ -9,24 +9,24 @@
 
 from mpi4py import MPI
 import numpy as np
-from PyNucleus.base.myTypes import REAL, INDEX
-from PyNucleus.base import uninitialized
-from PyNucleus.base.tupleDict import arrayIndexSet
-from PyNucleus.fem.DoFMaps import P0_DoFMap, P1_DoFMap
-from PyNucleus.fem.functions import constant
-from PyNucleus.nl import nonlocalBuilder
-from PyNucleus.nl.kernels import getFractionalKernel
-from PyNucleus.nl.nonlocalAssembly import nearFieldClusterPair
-from PyNucleus.nl.clusterMethodCy import (H2Matrix,
+from PyNucleus_base.myTypes import REAL, INDEX
+from PyNucleus_base import uninitialized
+from PyNucleus_base.tupleDict import arrayIndexSet
+from PyNucleus_fem.DoFMaps import P0_DoFMap, P1_DoFMap
+from PyNucleus_fem.functions import constant
+from PyNucleus_nl import nonlocalBuilder
+from PyNucleus_nl.kernels import getFractionalKernel
+from PyNucleus_nl.nonlocalAssembly import nearFieldClusterPair
+from PyNucleus_nl.clusterMethodCy import (H2Matrix,
                                           getDoFBoxesAndCells,
                                           tree_node)
-from PyNucleus.nl.fractionalOrders import (constFractionalOrder,
+from PyNucleus_nl.fractionalOrders import (constFractionalOrder,
                                            variableConstFractionalOrder,
                                            leftRightFractionalOrder,
                                            layersFractionalOrder,
                                            singleVariableUnsymmetricFractionalOrder)
-from PyNucleus.base import driver
-from PyNucleus.nl.nonlocalProblems import nonlocalMeshFactory, HOMOGENEOUS_DIRICHLET
+from PyNucleus_base import driver
+from PyNucleus_nl.nonlocalProblems import nonlocalMeshFactory, HOMOGENEOUS_DIRICHLET
 import pytest
 
 epsRelDense = 3e-2

@@ -8,7 +8,7 @@
 
 from mpi4py import MPI
 from PyNucleus import driver
-from PyNucleus.nl import (transientFractionalProblem,
+from PyNucleus_nl import (transientFractionalProblem,
                           discretizedTransientProblem)
 
 ##################################################
