@@ -10,6 +10,7 @@ on:
 env:
     IMAGE_NAME: pynucleus
     IMAGE_TAGS: latest ${{ github.sha }}
+    TEST_IMAGE_TAG: ${{ github.sha }}
     IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
     REGISTRY_USER: ${{ github.actor }}
     REGISTRY_PASSWORD: ${{ github.token }}
@@ -21,6 +22,12 @@ jobs:
     timeout-minutes: 300
 
     steps:
+    - name: Change image tags for PRs
+      if: github.event_name == 'pull_request'
+      run: |
+        echo "IMAGE_TAGS=pr-${{ github.event.number }}" >> $GITHUB_ENV
+        echo "TEST_IMAGE_TAG=pr-${{ github.event.number }}" >> $GITHUB_ENV
+
     - name: Check out
       if: always()
       uses: actions/checkout@v4
@@ -44,6 +51,19 @@ jobs:
         build-args: |
           PYNUCLEUS_BUILD_PARALLELISM=4
 
+    - name: Push To GHCR
+      if: github.event_name == 'pull_request'
+      uses: redhat-actions/push-to-registry@v2
+      id: push-pr
+      with:
+        image: ${{ steps.build_image.outputs.image }}
+        tags: ${{ env.IMAGE_TAGS }}
+        registry: ${{ env.IMAGE_REGISTRY }}
+        username: ${{ env.REGISTRY_USER }}
+        password: ${{ env.REGISTRY_PASSWORD }}
+        extra-args: |
+          --disable-content-trust
+
     - name: Run tests
       run: |
         podman run \
@@ -51,7 +71,7 @@ jobs:
         --workdir /pynucleus \
         --rm \
         --entrypoint='["python3", "-m", "pytest", "--junit-xml", "test-results.xml"]' \
-        ${{ steps.build_image.outputs.image }}:${{ github.sha }}
+        ${{ steps.build_image.outputs.image }}:${{ env.TEST_IMAGE_TAG }}
 
     - name: Push To GHCR
       if: github.event_name == 'push'
@@ -73,7 +93,6 @@ jobs:
 
   container-test:
     needs: container
-    if: github.event_name == 'push'
 
     strategy:
       matrix:
