@@ -24,7 +24,9 @@ services:
       # Expose a Jupyter notebook server from the container
       - 8889:8889
     network_mode: host
+    user: root
     hostname: pynucleus-container
+    command: bash
 
   tests:
     image: ghcr.io/sandialabs/pynucleus:latest
