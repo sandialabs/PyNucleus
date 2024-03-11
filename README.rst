@@ -75,12 +75,22 @@ Possible ways to install and use PyNucleus
 
 There are several ways to install and run PyNucleus:
 
+* JupyterHub cloud instance
 * container image
 * Spack installation
 * manual installation
 
-The easiest way to get up and running is probably the container image.
+The easiest way to get up and running is probably to run it in the cloud. For a local installation we recommend the container image.
 
+Running in the cloud
+--------------------
+
+PyNucleus can be run directly for free from the browser on a JupyterHub server hosted at `mybinder.org <https://mybinder.org/>`_.
+
+.. |binder| image:: https://mybinder.org/badge_logo.svg
+   :target: https://mybinder.org/v2/gh/sandialabs/PyNucleus/binder
+
+Just click here to launch a notebook server: |binder|
 
 Container image
 ----------------
