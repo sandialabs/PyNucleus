@@ -77,7 +77,7 @@ jobs:
 
     - name: Install
       if: always()
-      run: python -m pip install wheel && python -m pip list && make install PIP_INSTALL_FLAGS="--no-use-pep517 -vvv"
+      run: python -m pip list && make install PIP_INSTALL_FLAGS="--no-use-pep517 -vvv"
 
     - name: Remove ccache cache
       if: ${{ steps.ccache-restore.outputs.cache-hit }}
