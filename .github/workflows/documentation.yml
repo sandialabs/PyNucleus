@@ -44,7 +44,7 @@ jobs:
         sudo apt-get install mpi-default-bin mpi-default-dev libmetis-dev libparmetis-dev libsuitesparse-dev ccache
 
     - name: Install Python dependencies
-      run: make prereq && make prereq-extra && python -m pip install wheel
+      run: make prereq && make prereq-extra
 
     - name: Install
       run: make dev
