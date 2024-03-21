@@ -1,3 +1,10 @@
+.. |CI_status| image:: https://github.com/sandialabs/PyNucleus/actions/workflows/build.yml/badge.svg?branch=master
+   :target: https://github.com/sandialabs/PyNucleus/actions/workflows/build.yml
+
+.. |binder| image:: https://mybinder.org/badge_logo.svg
+   :target: https://mybinder.org/v2/gh/sandialabs/PyNucleus/binder
+
+|CI_status| |binder|
 
 Welcome to PyNucleus!
 =====================================
@@ -86,9 +93,6 @@ Running in the cloud
 --------------------
 
 PyNucleus can be run directly for free from the browser on a JupyterHub server hosted at `mybinder.org <https://mybinder.org/>`_.
-
-.. |binder| image:: https://mybinder.org/badge_logo.svg
-   :target: https://mybinder.org/v2/gh/sandialabs/PyNucleus/binder
 
 Just click here to launch a notebook server: |binder|
 
