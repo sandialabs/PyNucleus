@@ -56,7 +56,7 @@ jobs:
           PYNUCLEUS_BUILD_PARALLELISM=4
 
     - name: Push To GHCR
-      if: github.event_name == 'pull_request'
+      if: (github.event_name == 'pull_request') && (github.actor != 'dependabot[bot]')
       uses: redhat-actions/push-to-registry@v2
       id: push-pr
       with:
@@ -78,7 +78,7 @@ jobs:
         ${{ steps.build_image.outputs.image }}:${{ env.TEST_IMAGE_TAG }}
 
     - name: Push To GHCR
-      if: (github.event_name == 'push') && (github.actor != 'dependabot[bot]')
+      if: github.event_name == 'push'
       uses: redhat-actions/push-to-registry@v2
       id: push
       with:
