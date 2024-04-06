@@ -78,7 +78,7 @@ and open ``docs/build/index.html`` in your browser.
 
 
 Possible ways to install and use PyNucleus
-==================================
+==========================================
 
 There are several ways to install and run PyNucleus:
 
