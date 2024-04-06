@@ -372,7 +372,7 @@ def squareWithInteractions(ax, ay, bx, by,
                                                center+(innerRadius, innerRadius))
             mesh = frame.mesh(max_volume=h**2, min_angle=30, **kwargs)
         else:
-            mesh = frame.mesh(max_volume=h**2, min_angle=30, **kwargs)
+            mesh = frame.mesh(max_volume=0.5*h**2, min_angle=20, **kwargs)
 
             eps = 1e-10
             idx1 = np.logical_and(np.absolute(mesh.vertices_as_array[:, 0]-ax) < eps,
@@ -383,6 +383,7 @@ def squareWithInteractions(ax, ay, bx, by,
                                                  mesh.vertices_as_array[:, 1] <= by+eps))
             yVals1 = np.sort(mesh.vertices_as_array[idx1, 1])
             yVals2 = np.sort(mesh.vertices_as_array[idx2, 1])
+            assert yVals1.shape[0] == yVals2.shape[0], (yVals1, yVals2)
             assert np.allclose(yVals1, yVals2), (yVals1, yVals2)
 
             idx3 = np.logical_and(np.absolute(mesh.vertices_as_array[:, 1]-ay) < eps,
@@ -393,6 +394,7 @@ def squareWithInteractions(ax, ay, bx, by,
                                                  mesh.vertices_as_array[:, 0] <= bx+eps))
             xVals3 = np.sort(mesh.vertices_as_array[idx3, 0])
             xVals4 = np.sort(mesh.vertices_as_array[idx4, 0])
+            assert xVals3.shape[0] == xVals4.shape[0], (xVals3, xVals4)
             assert np.allclose(xVals3, xVals4), (xVals3, xVals4)
             mesh2 = uniformSquare(ax=ax, ay=ay, bx=bx, by=by, xVals=xVals3, yVals=yVals1)
             mesh = snapMeshes(mesh, mesh2)
@@ -1077,7 +1079,7 @@ def gradedIntervals(intervals, h):
                 Ms[2*intNo] = max(int(np.ceil(1/(1-(1-h/radius)**(1/mu1)))), 1)
                 Ms[2*intNo+1] = 0
             else:
-                radius = 0.5*(interval[1]-interval[0])
+                radius = interval[1]-interval[0]
                 Ms[2*intNo] = max(int(np.ceil(1/(1-(1-h/radius)**(1/mu1)))), 1)
                 Ms[2*intNo+1] = max(int(np.ceil(1/(1-(1-h/radius)**(1/mu2)))), 1)
     points = np.zeros((Ms.sum()+1, 1), dtype=REAL)
@@ -1116,10 +1118,10 @@ def gradedIntervals(intervals, h):
     return mesh
 
 
-def graded_interval(h, mu=2., mu2=None, radius=1.):
+def graded_interval(h, mu=2., mu2=None, a=-1., b=1.):
     if mu2 is None:
         mu2 = mu
-    intervals = [(-radius, radius, mu, mu2)]
+    intervals = [(a, b, mu, mu2)]
     return gradedIntervals(intervals, h)
 
 

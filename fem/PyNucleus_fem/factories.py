@@ -172,7 +172,7 @@ meshFactory.register('simpleSquare', simpleSquare, 2)
 meshFactory.register('crossSquare', crossSquare, 2, aliases=['squareCross'])
 meshFactory.register('unitSquare', uniformSquare, 2,
                      params={'N': 2, 'ax': 0., 'ay': 0., 'bx': 1., 'by': 1.},
-                     aliases=['square'])
+                     aliases=['square', 'rectangle'])
 meshFactory.register('gradedSquare', gradedSquare, 2)
 meshFactory.register('gradedBox', gradedBox, 3, aliases=['gradedCube'])
 meshFactory.register('squareWithInteraction', squareWithInteractions, 2)
