@@ -866,6 +866,13 @@ cdef class DoFMap:
                 else:
                     return self.scalarDM.assembleNonlocal(kernel, matrixFormat, None, returnNearField, **kwargs)
             else:
+
+                if dm2 is not None and matrixFormat.upper() == 'H2':
+                    dmFull, R_interior, R_bc = self.getFullDoFMap(dm2)
+                    A = dmFull.assembleNonlocal(kernel, matrixFormat=matrixFormat, returnNearField=returnNearField, **kwargs)
+                    A = R_interior*A*R_bc.transpose()
+                    return A
+
                 if isinstance(kernel, ComplexKernel):
                     from PyNucleus_nl.nonlocalAssembly import ComplexnonlocalBuilder
 

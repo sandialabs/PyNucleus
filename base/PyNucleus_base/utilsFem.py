@@ -1784,6 +1784,11 @@ class driverAddon:
         self.setDriverArgs()
         self.driver.addToProcessHook(self.process)
 
+        try:
+            self.driver.addGroup('input/output').add('identifier', 'auto', help='identifier used as prefix for output ("auto" sets the identifier based on invocation)')
+        except argparse.ArgumentError:
+            pass
+
     def addParametrizedArg(self, name, params=[]):
         self.__parametrized_args__[name] = parametrizedArg(name, params)
 
@@ -1854,8 +1859,10 @@ class driverAddon:
 
     def process(self, params):
         self.processCmdline(params)
-        if self.driver.identifier == '':
+        if params['identifier'] == 'auto':
             self.driver.setIdentifier(self.getIdentifier(params))
+        else:
+            self.driver.setIdentifier(params['identifier'])
 
 
 class problem(classWithComputedDependencies,

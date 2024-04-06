@@ -8,6 +8,7 @@
 from timeit import default_timer as time
 from collections import OrderedDict
 from . memProfile import memRegionsAreEnabled as memRegionsAreEnabledPy
+include "malloc.pxi"
 
 cdef REAL_t MB = 1./2**20
 cdef BOOL_t memRegionsAreEnabled = memRegionsAreEnabledPy
@@ -72,6 +73,7 @@ cdef class Timer(FakeTimer):
             self.startTime_unsynced = time()
             self.comm.Barrier()
         if self.memoryProfiling:
+            malloc_trim(0)
             self.startMem = self.parent.process.memory_info()[0]*MB
         if self.memoryRegionsAreEnabled:
             startMemRegion(self.key)
@@ -83,6 +85,7 @@ cdef class Timer(FakeTimer):
             self.comm.Barrier()
         self.elapsed += time()-self.startTime
         if self.memoryProfiling:
+            malloc_trim(0)
             self.endMem = self.parent.process.memory_info()[0]*MB
         if self.memoryRegionsAreEnabled:
             endMemRegion(self.key)
