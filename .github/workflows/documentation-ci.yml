@@ -24,16 +24,16 @@ jobs:
 
     steps:
     - name: Check out repo
-      uses: actions/checkout@v4
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
     - name: Pull ccache cache
       id: ccache-restore
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
       with:
         path: /home/runner/.cache/ccache
         key: ccache-documentation-ci
 
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
       with:
         python-version: '3.11'
 
@@ -59,7 +59,7 @@ jobs:
       continue-on-error: true
 
     - name: Push ccache cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
       with:
         path: /home/runner/.cache/ccache
         key: ccache-documentation-ci
@@ -69,6 +69,6 @@ jobs:
         make docs
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
       with:
         path: 'docs/build'
