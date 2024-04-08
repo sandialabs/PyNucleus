@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
 
-  linux:
+  linux-ci:
     strategy:
       matrix:
         include:
@@ -141,7 +141,7 @@ jobs:
         reporter: java-junit
         fail-on-error: false
 
-  mac:
+  mac-ci:
 
     strategy:
       matrix:
