@@ -37,7 +37,8 @@ from . twoPointFunctions import (constantTwoPoint,
                                  leftRightTwoPoint,
                                  interfaceTwoPoint,
                                  smoothedLeftRightTwoPoint,
-                                 lambdaTwoPoint)
+                                 lambdaTwoPoint,
+                                 lookupTwoPoint)
 from . interactionDomains import (fullSpace,
                                   ball1_retriangulation,
                                   ball1_barycenter,
@@ -103,6 +104,7 @@ twoPointFunctionFactory.register('tempered', temperedTwoPoint, aliases=['tempere
 twoPointFunctionFactory.register('leftRight', leftRightTwoPoint, aliases=['leftRightTwoPoint'])
 twoPointFunctionFactory.register('interface', interfaceTwoPoint, aliases=['interfaceTwoPoint'])
 twoPointFunctionFactory.register('lambda', lambdaTwoPoint)
+twoPointFunctionFactory.register('lookup', lookupTwoPoint)
 
 interactionFactory = factory()
 interactionFactory.register('fullSpace', fullSpace, aliases=['full'])

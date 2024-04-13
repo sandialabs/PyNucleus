@@ -1105,7 +1105,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
         # We want to capture all element x element interactions.
         # We set up a temporary dofmap and construct a near field wrt that.
         if self.dm2 is None:
-            treeDM = dofmapFactory('P1', self.dm.mesh, -1)
+            treeDM = dofmapFactory(DoFMap2str(self.dm), self.dm.mesh, -1)
         else:
             treeDM = self.dm.combine(self.dm2)
 

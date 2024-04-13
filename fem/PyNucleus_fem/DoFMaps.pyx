@@ -2264,6 +2264,21 @@ def str2DoFMap(element):
         raise NotImplementedError('Unknown DoFMap: {}'.format(element))
 
 
+def DoFMap2str(dm):
+    if isinstance(dm, P0_DoFMap):
+        return 'P0'
+    elif isinstance(dm, P1_DoFMap):
+        return 'P1'
+    elif isinstance(dm, P2_DoFMap):
+        return 'P2'
+    elif isinstance(dm, P3_DoFMap):
+        return 'P3'
+    elif isinstance(dm, N1e_DoFMap):
+        return 'N1e'
+    else:
+        raise NotImplementedError('Unknown DoFMap: {}'.format(type(dm)))
+
+
 def getAvailableDoFMaps():
     return ['P0', 'P1', 'P2', 'P3', 'N1e']
 

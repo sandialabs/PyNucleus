@@ -23,6 +23,14 @@ cdef class {SCALAR_label}constantTwoPoint({SCALAR_label}twoPointFunction):
         public {SCALAR}_t value
 
 
+cdef class {SCALAR_label}lookupTwoPoint({SCALAR_label}twoPointFunction):
+    cdef:
+        public DoFMap dm
+        cellFinder2 cellFinder
+        {SCALAR}_t[::1] vals1, vals2
+        {SCALAR}_t[:, ::1] A
+
+
 cdef class {SCALAR_label}parametrizedTwoPointFunction({SCALAR_label}twoPointFunction):
     cdef:
         void *params
