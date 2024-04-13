@@ -151,6 +151,101 @@ cdef class {SCALAR_label}constantTwoPoint({SCALAR_label}twoPointFunction):
         return {SCALAR_label}constantTwoPoint, (self.value, )
 
 
+cdef class {SCALAR_label}lookupTwoPoint({SCALAR_label}twoPointFunction):
+    def __init__(self, DoFMap dm, {SCALAR}_t[:, ::1] A, BOOL_t symmetric, cellFinder2 cF=None):
+        super({SCALAR_label}lookupTwoPoint, self).__init__(symmetric, 1)
+        self.dm = dm
+        self.A = A
+        if cF is None:
+            self.cellFinder = cellFinder2(self.dm.mesh)
+        else:
+            self.cellFinder = cF
+        self.vals1 = uninitialized((self.dm.dofs_per_element), dtype={SCALAR})
+        self.vals2 = uninitialized((self.dm.dofs_per_element), dtype={SCALAR})
+
+    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, {SCALAR}_t[::1] value):
+        cdef:
+            shapeFunction shapeFun
+            REAL_t val
+            INDEX_t cellNo1, cellNo2, dof1, dof2, k1, k2
+        cellNo1 = self.cellFinder.findCell(x)
+        if cellNo1 == -1:
+            value[0] = 0.
+            return
+        for k1 in range(self.dm.dofs_per_element):
+            dof2 = self.dm.cell2dof(cellNo1, k1)
+            if dof2 >= 0:
+                shapeFun = self.dm.getLocalShapeFunction(k1)
+                shapeFun.evalPtr(&self.cellFinder.bary[0], NULL, &val)
+                self.vals1[k1] = val
+            else:
+                self.vals1[k1] = 0.
+
+        cellNo2 = self.cellFinder.findCell(y)
+        if cellNo2 == -1:
+            value[0] = 0.
+            return
+        for k2 in range(self.dm.dofs_per_element):
+            dof1 = self.dm.cell2dof(cellNo2, k2)
+            if dof1 >= 0:
+                shapeFun = self.dm.getLocalShapeFunction(k2)
+                shapeFun.evalPtr(&self.cellFinder.bary[0], NULL, &val)
+                self.vals2[k2] = val
+            else:
+                self.vals2[k2] = 0.
+
+        value[0] = 0.
+        for k1 in range(self.dm.dofs_per_element):
+            dof1 = self.dm.cell2dof(cellNo1, k1)
+            for k2 in range(self.dm.dofs_per_element):
+                dof2 = self.dm.cell2dof(cellNo2, k2)
+                value[0] += self.vals1[k1]*self.A[dof1, dof2]*self.vals2[k2]
+
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, {SCALAR}_t* value):
+        cdef:
+            shapeFunction shapeFun
+            REAL_t val
+            INDEX_t cellNo1, cellNo2, dof, dof1, dof2, k1, k2
+        cellNo1 = self.cellFinder.findCellPtr(x)
+        if cellNo1 == -1:
+            value[0] = 0.
+            return
+        for k1 in range(self.dm.dofs_per_element):
+            dof = self.dm.cell2dof(cellNo1, k1)
+            if dof >= 0:
+                shapeFun = self.dm.getLocalShapeFunction(k1)
+                shapeFun.evalPtr(&self.cellFinder.bary[0], NULL, &val)
+                self.vals1[k1] = val
+            else:
+                self.vals1[k1] = 0.
+
+        cellNo2 = self.cellFinder.findCellPtr(y)
+        if cellNo2 == -1:
+            value[0] = 0.
+            return
+        for k2 in range(self.dm.dofs_per_element):
+            dof = self.dm.cell2dof(cellNo2, k2)
+            if dof >= 0:
+                shapeFun = self.dm.getLocalShapeFunction(k2)
+                shapeFun.evalPtr(&self.cellFinder.bary[0], NULL, &val)
+                self.vals2[k2] = val
+            else:
+                self.vals2[k2] = 0.
+
+        value[0] = 0.
+        for k1 in range(self.dm.dofs_per_element):
+            dof1 = self.dm.cell2dof(cellNo1, k1)
+            for k2 in range(self.dm.dofs_per_element):
+                dof2 = self.dm.cell2dof(cellNo2, k2)
+                value[0] += self.vals1[k1]*self.A[dof1, dof2]*self.vals2[k2]
+
+    def __repr__(self):
+        return 'lookup {}'.format(self.dm)
+
+    def __reduce__(self):
+        return {SCALAR_label}lookupTwoPoint, (self.dm, np.array(self.A), self.symmetric)
+
+
 cdef class {SCALAR_label}parametrizedTwoPointFunction({SCALAR_label}twoPointFunction):
     def __init__(self, BOOL_t symmetric, INDEX_t valueSize):
         super({SCALAR_label}parametrizedTwoPointFunction, self).__init__(symmetric, valueSize)

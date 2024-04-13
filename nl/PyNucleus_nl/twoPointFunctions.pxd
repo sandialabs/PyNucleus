@@ -8,6 +8,8 @@
 cimport numpy as np
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, COMPLEX_t, BOOL_t
 from PyNucleus_fem.functions cimport function, complexFunction
+from PyNucleus_fem.DoFMaps cimport DoFMap, shapeFunction
+from PyNucleus_fem.meshCy cimport cellFinder2
 
 
 include "twoPointFunctions_decl_REAL.pxi"

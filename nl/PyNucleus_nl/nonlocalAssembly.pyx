@@ -18,6 +18,7 @@ from PyNucleus_base.ip_norm cimport (ip_distributed_nonoverlapping,
                                      norm_distributed_nonoverlapping)
 from PyNucleus_fem.functions cimport function, constant
 from PyNucleus_fem.DoFMaps cimport P0_DoFMap, P1_DoFMap, Product_DoFMap
+from PyNucleus_fem.DoFMaps import DoFMap2str
 from PyNucleus_fem.meshCy cimport sortEdge, encode_edge, decode_edge
 from PyNucleus_fem.femCy cimport local_matrix_t
 from PyNucleus_fem.femCy import assembleMatrix, mass_1d_sym_scalar_anisotropic, mass_2d_sym_scalar_anisotropic
