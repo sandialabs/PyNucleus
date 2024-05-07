@@ -34,7 +34,7 @@ jobs:
 
     - name: Check out
       if: always()
-      uses: actions/checkout@v4.1.3
+      uses: actions/checkout@v4.1.5
       with:
         fetch-depth: 0
 
@@ -108,7 +108,7 @@ jobs:
 
     steps:
     - name: Check out
-      uses: actions/checkout@v4.1.3
+      uses: actions/checkout@v4.1.5
 
     - name: Install podman-compose
       run: pip install podman-compose
@@ -124,7 +124,7 @@ jobs:
 
     steps:
       - name: Checkout binder branch
-        uses: actions/checkout@v4.1.3
+        uses: actions/checkout@v4.1.5
         with:
           ref: binder
 
