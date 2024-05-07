@@ -39,6 +39,8 @@ def idfunc(param):
     ('interval', 'constant', 'poly-Neumann', 'lu', 'H2'),
     ('interval', 'inverseDistance', 'poly-Dirichlet', 'lu', 'H2'),
     ('interval', 'inverseDistance', 'poly-Neumann', 'lu', 'H2'),
+    ('interval', 'gaussian', 'gaussian', 'lu', 'H2', 'fullSpace'),
+    ('interval', 'exponential', 'exponential', 'lu', 'H2', 'fullSpace'),
     ('square', 'fractional', 'poly-Dirichlet', 'cg-mg', 'H2'),
     ('square', 'fractional', 'poly-Neumann', 'cg-mg', 'H2'),
     ('square', 'constant', 'poly-Dirichlet', 'cg-mg', 'H2'),
@@ -65,8 +67,14 @@ def testNonlocal(runNonlocal_params, extras):
           '--problem', problem,
           '--solver', solver,
           '--matrixFormat', matrixFormat]
+    if kernel == 'exponential':
+        py += ['--exponentialRate', str(8.0)]
+    elif kernel == 'gaussian':
+        py += ['--gaussianVariance', str(0.1)]
     if interaction is not None:
         py += ['--interaction', interaction]
+        if interaction == 'fullSpace':
+            py += ['--horizon', 'inf']
     # if kernel != 'fractional':
     path = base+'drivers'
     cacheDir = getPath()+'/'

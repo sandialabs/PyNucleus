@@ -123,14 +123,15 @@ class test:
             blocks, jumps = {}, {}
         dofs = arrayIndexSet(np.arange(self.dm.num_dofs, dtype=INDEX))
         hVector = self.builder.getHVector(self.dm)
+        coords = self.dm.getDoFCoordinates()
         refParams = self.builder.getH2RefinementParams()
-        root = tree_node(None, dofs, boxes, hVector, refParams)
+        root = tree_node(None, dofs, boxes, coords, hVector, refParams)
         if len(blocks) > 1:
             for key in blocks:
                 subDofs = arrayIndexSet()
                 subDofs.fromSet(blocks[key])
                 if len(subDofs) > 0:
-                    root.children.append(tree_node(root, subDofs, boxes, hVector, refParams, mixed_node=key == np.inf))
+                    root.children.append(tree_node(root, subDofs, boxes, coords, hVector, refParams, mixed_node=key == np.inf))
             root._dofs = None
             assert self.dm.num_dofs == sum([len(c.dofs) for c in root.children])
             assert len(root.children) > 1
@@ -138,7 +139,7 @@ class test:
             for n in root.leaves():
                 n.refParams["maxLevels"] = maxLevels
                 n.refParams["maxLevelsMixed"] = maxLevels
-                n.refine(boxes, centers, hVector)
+                n.refine()
         root.set_id()
         # enter cells in leaf nodes
         for n in root.leaves():

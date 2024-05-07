@@ -57,51 +57,52 @@ if d.buildDistributedSparse:
     assert not d.buildDistributedH2
     assert nPP.kernel.horizon.value < np.inf
 
-if nPP.domain == 'gradedInterval':
-    if d.horizonToMeshSize <= 0. or nPP.kernel.horizon.value == np.inf:
-        h = 0.03/2**(d.noRef-6)
+with d.timer('set up mesh and dofmap'):
+    if nPP.domain == 'gradedInterval':
+        if d.horizonToMeshSize <= 0. or nPP.kernel.horizon.value == np.inf:
+            h = 0.03/2**(d.noRef-6)
+        else:
+            h = nPP.kernel.horizon.value/d.horizonToMeshSize
+        mesh, _ = nonlocalMeshFactory(nPP.domain,
+                                      kernel=nPP.kernel,
+                                      boundaryCondition=HOMOGENEOUS_DIRICHLET,
+                                      h=h)
+    elif nPP.domain == 'disc':
+        if d.horizonToMeshSize <= 0. or nPP.kernel.horizon.value == np.inf:
+            h = 0.04/2**(nPP.noRef-3)
+        else:
+            h = nPP.kernel.horizon.value/d.horizonToMeshSize/np.sqrt(2)
+        mesh, _ = nonlocalMeshFactory(nPP.domain,
+                                      kernel=nPP.kernel,
+                                      boundaryCondition=HOMOGENEOUS_DIRICHLET,
+                                      h=h,
+                                      max_volume=h**2/2,
+                                      projectNodeToOrigin=False)
+    elif d.domain == 'gradedDisc':
+        if d.horizonToMeshSize <= 0. or nPP.kernel.horizon.value == np.inf:
+            h = 0.06/2**(d.noRef-6)
+        else:
+            h = nPP.kernel.horizon.value/d.horizonToMeshSize
+        mesh, _ = nonlocalMeshFactory(nPP.domain,
+                                      kernel=nPP.kernel,
+                                      boundaryCondition=HOMOGENEOUS_DIRICHLET,
+                                      h=h,
+                                      max_volume=h**2/2)
     else:
-        h = nPP.kernel.horizon.value/d.horizonToMeshSize
-    mesh, _ = nonlocalMeshFactory(nPP.domain,
-                                  kernel=nPP.kernel,
-                                  boundaryCondition=HOMOGENEOUS_DIRICHLET,
-                                  h=h)
-elif nPP.domain == 'disc':
-    if d.horizonToMeshSize <= 0. or nPP.kernel.horizon.value == np.inf:
-        h = 0.04/2**(nPP.noRef-3)
+        if d.horizonToMeshSize <= 0. or nPP.kernel.horizon.value == np.inf:
+            mesh = nPP.mesh
+            for _ in range(nPP.noRef):
+                mesh = mesh.refine()
+        else:
+            mesh = nPP.mesh
+            while d.horizonToMeshSize > np.around(nPP.kernel.horizon.value/mesh.h, 5):
+                mesh = mesh.refine()
+    if nPP.boundaryCondition == HOMOGENEOUS_DIRICHLET:
+        dm = dofmapFactory(nPP.element, mesh, nPP.domainIndicator)
     else:
-        h = nPP.kernel.horizon.value/d.horizonToMeshSize/np.sqrt(2)
-    mesh, _ = nonlocalMeshFactory(nPP.domain,
-                                  kernel=nPP.kernel,
-                                  boundaryCondition=HOMOGENEOUS_DIRICHLET,
-                                  h=h,
-                                  max_volume=h**2/2,
-                                  projectNodeToOrigin=False)
-elif d.domain == 'gradedDisc':
-    if d.horizonToMeshSize <= 0. or nPP.kernel.horizon.value == np.inf:
-        h = 0.06/2**(d.noRef-6)
-    else:
-        h = nPP.kernel.horizon.value/d.horizonToMeshSize
-    mesh, _ = nonlocalMeshFactory(nPP.domain,
-                                  kernel=nPP.kernel,
-                                  boundaryCondition=HOMOGENEOUS_DIRICHLET,
-                                  h=h,
-                                  max_volume=h**2/2)
-else:
-    if d.horizonToMeshSize <= 0. or nPP.kernel.horizon.value == np.inf:
-        mesh = nPP.mesh
-        for _ in range(nPP.noRef):
-            mesh = mesh.refine()
-    else:
-        mesh = nPP.mesh
-        while d.horizonToMeshSize > np.around(nPP.kernel.horizon.value/mesh.h, 5):
-            mesh = mesh.refine()
-if nPP.boundaryCondition == HOMOGENEOUS_DIRICHLET:
-    dm = dofmapFactory(nPP.element, mesh, nPP.domainIndicator)
-else:
-    dm = dofmapFactory(nPP.element, mesh, nPP.domainIndicator+nPP.fluxIndicator)
+        dm = dofmapFactory(nPP.element, mesh, nPP.domainIndicator+nPP.fluxIndicator)
 
-assert d.comm.allreduce(dm.num_dofs, op=MPI.MAX) == dm.num_dofs
+    assert d.comm.allreduce(dm.num_dofs, op=MPI.MAX) == dm.num_dofs
 
 info = d.addOutputGroup('info')
 info.add('Global mesh', dm.mesh)

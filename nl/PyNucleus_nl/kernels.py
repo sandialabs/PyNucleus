@@ -170,6 +170,9 @@ def getIntegrableKernel(dim,
                         phi=None,
                         boundary=False,
                         monomialPower=np.nan,
+                        variance=1.,
+                        exponentialRate=1.0,
+                        a=1.,
                         max_horizon=np.nan):
     dim_ = _getDim(dim)
     kType = _getKernelType(kernel)
@@ -179,7 +182,7 @@ def getIntegrableKernel(dim,
     if scaling is None:
         if normalized:
             if isinstance(horizonFun, constant):
-                scaling = constantIntegrableScaling(kType, interaction, dim_, horizonFun.value)
+                scaling = constantIntegrableScaling(kType, interaction, dim_, horizonFun.value, gaussian_variance=variance, exponentialRate=exponentialRate)
             else:
                 scaling = variableIntegrableScaling(kType, interaction)
         else:
@@ -187,7 +190,7 @@ def getIntegrableKernel(dim,
     if (not scaling.symmetric) or (phi is not None and not phi.symmetric):
         piecewise = False
     return Kernel(dim_, kType=kType, horizon=horizonFun, interaction=interaction, scaling=scaling, phi=phi, piecewise=piecewise,
-                  boundary=boundary, monomialPower=monomialPower, max_horizon=max_horizon)
+                  boundary=boundary, monomialPower=monomialPower, max_horizon=max_horizon, variance=variance, exponentialRate=exponentialRate, a=a)
 
 
 def getKernel(dim,
@@ -200,7 +203,9 @@ def getKernel(dim,
               phi=None,
               kernel=FRACTIONAL,
               boundary=False,
-              max_horizon=np.nan):
+              max_horizon=np.nan,
+              variance=1.,
+              exponentialRate=1.0):
     kType = _getKernelType(kernel)
     if kType == FRACTIONAL:
         return getFractionalKernel(dim, s, horizon, interaction, scaling, normalized, piecewise, phi, boundary, max_horizon=max_horizon)
@@ -212,6 +217,8 @@ def getKernel(dim,
                                    interaction=interaction,
                                    normalized=normalized,
                                    piecewise=piecewise, phi=phi,
-                                   max_horizon=max_horizon)
+                                   max_horizon=max_horizon,
+                                   variance=variance,
+                                   exponentialRate=exponentialRate)
 
 

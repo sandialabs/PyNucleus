@@ -11,7 +11,7 @@ cimport numpy as np
 from libc.math cimport sin, cos, M_PI as pi
 from libcpp.map cimport map
 from cpython.long cimport PyLong_FromSsize_t
-from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX
+from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX, BOOL
 from PyNucleus_base import uninitialized
 from PyNucleus_base.intTuple cimport intTuple
 from PyNucleus_base.ip_norm cimport (ip_distributed_nonoverlapping,
@@ -43,6 +43,7 @@ from PyNucleus_base.linear_operators cimport (CSR_LinearOperator,
                                               ComplexDense_LinearOperator,
                                               ComplexdiagonalOperator)
 from PyNucleus_fem.splitting import dofmapSplitter
+from PyNucleus_fem.DoFMaps import getSubMapRestrictionProlongation
 from PyNucleus_fem import dofmapFactory
 from . twoPointFunctions cimport constantTwoPoint
 from . fractionalOrders cimport (fractionalOrderBase,
@@ -63,7 +64,10 @@ from . clusterMethodCy cimport (refinementType,
                                 refinementParams,
                                 GEOMETRIC,
                                 MEDIAN,
-                                BARYCENTER)
+                                BARYCENTER,
+                                queryAdmissibility,
+                                INADMISSIBLE)
+from copy import deepcopy
 import logging
 from logging import INFO
 import warnings
@@ -372,6 +376,8 @@ cdef class nearFieldClusterPair:
     def __init__(self, tree_node n1, tree_node n2):
         self.n1 = n1
         self.n2 = n2
+        self.cellsUnion = None
+        self.cellsInter = None
 
     cdef void set_cells(self):
         cdef:
@@ -387,6 +393,10 @@ cdef class nearFieldClusterPair:
 
     def set_cells_py(self):
         self.set_cells()
+
+    cdef void releaseCells(self):
+        self.cellsUnion = None
+        self.cellsInter = None
 
     def plot(self, color='red', edgecolor=None):
         import matplotlib.pyplot as plt

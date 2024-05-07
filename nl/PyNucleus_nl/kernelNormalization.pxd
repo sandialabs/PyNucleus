@@ -98,5 +98,7 @@ cdef class constantIntegrableScaling(constantTwoPoint):
         INDEX_t dim
         REAL_t horizon
         interactionDomain interaction
+        REAL_t gaussian_variance
+        REAL_t exponentialRate
 
 

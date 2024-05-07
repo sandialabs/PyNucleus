@@ -311,7 +311,7 @@ def squareWithInteractions(ax, ay, bx, by,
                            preserveLinesVertical=[],
                            **kwargs):
     if h is None:
-        h = horizon
+        h = horizon-1e-8
     if innerRadius > 0:
         uniform = False
     if not uniform:

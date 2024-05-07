@@ -13,6 +13,7 @@ from PyNucleus_fem.mesh import (simpleInterval, intervalWithInteraction,
                                 uniformSquare, squareWithInteractions,
                                 discWithInteraction,
                                 gradedDiscWithInteraction,
+                                graded_interval,
                                 double_graded_interval,
                                 double_graded_interval_with_interaction,
                                 discWithIslands,
@@ -61,7 +62,7 @@ from . fractionalOrders import (constFractionalOrder,
                                 singleVariableUnsymmetricFractionalOrder,
                                 feFractionalOrder)
 from . kernelsCy import (getKernelEnum,
-                         FRACTIONAL, INDICATOR, PERIDYNAMIC, GAUSSIAN,
+                         FRACTIONAL, INDICATOR, PERIDYNAMIC, GAUSSIAN, EXPONENTIAL, POLYNOMIAL,
                          LOGINVERSEDISTANCE, MONOMIAL,
                          )
 from . kernels import (getFractionalKernel,
@@ -122,6 +123,8 @@ kernelFactory.register('fractional', getFractionalKernel)
 kernelFactory.register('indicator', getIntegrableKernel, params={'kernel': INDICATOR}, aliases=['constant'])
 kernelFactory.register('inverseDistance', getIntegrableKernel, params={'kernel': PERIDYNAMIC}, aliases=['peridynamic', 'inverseOfDistance'])
 kernelFactory.register('gaussian', getIntegrableKernel, params={'kernel': GAUSSIAN})
+kernelFactory.register('exponential', getIntegrableKernel, params={'kernel': EXPONENTIAL})
+kernelFactory.register('polynomial', getIntegrableKernel, params={'kernel': POLYNOMIAL})
 kernelFactory.register('logInverseDistance', getIntegrableKernel, params={'kernel': LOGINVERSEDISTANCE})
 kernelFactory.register('monomial', getIntegrableKernel, params={'kernel': MONOMIAL})
 
@@ -281,8 +284,8 @@ def ballWithInteractions(*args, **kwargs):
 nonlocalMeshFactory = nonlocalMeshFactoryClass()
 nonlocalMeshFactory.register('interval', simpleInterval, intervalWithInteraction, 1, intervalIndicators,
                              {'a': -1, 'b': 1}, {'a': -1, 'b': 1})
-nonlocalMeshFactory.register('gradedInterval', double_graded_interval, double_graded_interval_with_interaction, 1, intervalIndicators,
-                             {'a': -1, 'b': 1, 'mu_ll': 2., 'mu_rr': 2.}, {'a': -1, 'b': 1, 'mu_ll': 2., 'mu_rr': 2.})
+nonlocalMeshFactory.register('gradedInterval', graded_interval, double_graded_interval_with_interaction, 1, intervalIndicators,
+                             {'a': -1, 'b': 1, 'mu': 2., 'mu2': 2.}, {'a': -1, 'b': 1, 'mu_ll': 2., 'mu_rr': 2.})
 nonlocalMeshFactory.register('square', uniformSquare, squareWithInteractions, 2, squareIndicators,
                              {'N': 2, 'M': 2, 'ax': -1, 'ay': -1, 'bx': 1, 'by': 1}, {'ax': -1, 'ay': -1, 'bx': 1, 'by': 1}, aliases=['rectangle'])
 nonlocalMeshFactory.register('disc', discWithInteraction, discWithInteraction, 2, radialIndicators,
@@ -315,7 +318,7 @@ class nonlocalBaseProblem(problem):
 
     def setDriverArgs(self):
         p = self.driver.addGroup('kernel')
-        self.setDriverFlag('kernelType', acceptedValues=['fractional', 'constant', 'inverseDistance', 'gaussian', 'local'], help='type of kernel', group=p)
+        self.setDriverFlag('kernelType', acceptedValues=['fractional', 'constant', 'inverseDistance', 'gaussian', 'exponential', 'local'], help='type of kernel', group=p)
         self.addParametrizedArg('const', [float])
         self.addParametrizedArg('varconst', [float])
         self.addParametrizedArg('constantNonSym', [float])
@@ -341,7 +344,9 @@ class nonlocalBaseProblem(problem):
         self.setDriverFlag('phi', 'const(1.)', argInterpreter=self.argInterpreter(['const', 'twoDomain', 'twoDomainNonSym', 'tempered']),
                            help='kernel coefficient', group=p)
         self.setDriverFlag('normalized', True, help='kernel normalization', group=p)
-        self.setDriverFlag('discretizedOrder', False, help='Use a FE function for the fractional order s.')
+        self.setDriverFlag('discretizedOrder', False, help='Use a FE function for the fractional order s.', group=p)
+        self.setDriverFlag('gaussianVariance', 1.0, help='Variance of Gaussian kernel with infinite horizon.', group=p)
+        self.setDriverFlag('exponentialRate', 1.0, help='Parameter of exponential kernel.', group=p)
 
     def processCmdline(self, params):
         dim = nonlocalMeshFactory.getDim(params['domain'])
@@ -410,7 +415,7 @@ class nonlocalBaseProblem(problem):
 
     @generates(['kernel', 'rangedKernel'])
     def processKernel(self, dim, kernelType, sType, sArgs, phiType, phiArgs, horizon, interaction, normalized, admissibleParams,
-                      discretizedOrder, dmAux, feOrder):
+                      discretizedOrder, dmAux, feOrder, gaussianVariance, exponentialRate):
 
         if kernelType == 'local':
             self.kernel = None
@@ -490,7 +495,8 @@ class nonlocalBaseProblem(problem):
             horizonFun = functionFactory('constant', horizon)
 
         max_horizon = np.nan
-        if horizon == np.inf:
+        if (horizon == np.inf) or interaction == 'fullSpace':
+            assert horizon == np.inf
             interactionFun = fullSpace()
         elif interaction == 'ball2':
             interactionFun = ball2_retriangulation(horizonFun)
@@ -505,7 +511,9 @@ class nonlocalBaseProblem(problem):
 
         self.kernel = getKernel(dim=dim, kernel=kType, s=sFun, horizon=horizonFun, normalized=normalized, phi=phiFun,
                                 interaction=interactionFun, piecewise=sFun.symmetric if sFun is not None else True,
-                                max_horizon=max_horizon)
+                                max_horizon=max_horizon,
+                                variance=gaussianVariance,
+                                exponentialRate=exponentialRate)
 
     def report(self, group):
         group.add('kernel', self.kernel)
@@ -907,7 +915,7 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
         self.setDriverFlag('problem', 'poly-Dirichlet',
                            argInterpreter=self.argInterpreter(['indicator', 'polynomial', 'quadratic'],
                                                               acceptedValues=['poly-Dirichlet',
-                                                                              'poly-Neumann', 'zeroFlux', 'source', 'constant',
+                                                                              'poly-Neumann', 'zeroFlux', 'source', 'constant', 'gaussian', 'exponential',
                                                                               'exact-sin-Dirichlet', 'exact-sin-Neumann', 'sin-Dirichlet', 'discontinuous']),
                            help="select a problem to solve")
         self.setDriverFlag('hTarget', argInterpreter=float, help="mesh size of initial mesh")
@@ -962,7 +970,7 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
             self.boundaryCondition = NEUMANN
         elif self.parametrizedArg('indicator').match(problem):
             self.boundaryCondition = HOMOGENEOUS_DIRICHLET
-        elif problem in ('source', 'constant'):
+        elif problem in ('source', 'constant', 'gaussian', 'exponential'):
             self.boundaryCondition = HOMOGENEOUS_DIRICHLET
         else:
             self.boundaryCondition = DIRICHLET
@@ -984,7 +992,7 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                 self.fluxData = constant(0)
                 self.dirichletData = Lambda(lambda x: 1-x[0]**2)
                 if ((kType == FRACTIONAL and isinstance(sFun, constFractionalOrder)) or
-                        kType in (INDICATOR, PERIDYNAMIC, GAUSSIAN)) and phiFun is None and normalized:
+                        kType in (INDICATOR, PERIDYNAMIC, GAUSSIAN, EXPONENTIAL)) and phiFun is None and normalized:
                     self.analyticSolution = Lambda(lambda x: 1-x[0]**2)
             elif self.parametrizedArg('polynomial').match(problem):
                 self.domainIndicator = domainIndicator
@@ -994,7 +1002,7 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                 polyOrder = self.parametrizedArg('polynomial').interpret(problem)[0]
                 knownSolution = (((kType == FRACTIONAL and isinstance(sFun, (constFractionalOrder, variableConstFractionalOrder,
                                                                              singleVariableUnsymmetricFractionalOrder))) or
-                                  (kType in (INDICATOR, PERIDYNAMIC, GAUSSIAN))) and
+                                  (kType in (INDICATOR, PERIDYNAMIC, GAUSSIAN, EXPONENTIAL))) and
                                  phiFun is None and
                                  normalized and
                                  0 <= polyOrder <= 3)
@@ -1174,8 +1182,42 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                 self.fluxData = constant(0)
                 self.dirichletData = constant(0.)
                 if (kType == FRACTIONAL) and (isinstance(self.kernel.s, constFractionalOrder) or
-                                              isinstance(self.kernel.s, variableConstFractionalOrder)) and self.kernel.horizon == np.inf:
+                                              isinstance(self.kernel.s, variableConstFractionalOrder)) and not self.kernel.finiteHorizon:
                     self.analyticSolution = functionFactory('solFractional', dim=1, s=self.kernel.s.value)
+            elif problem == 'gaussian':
+                if kType == GAUSSIAN and not self.kernel.finiteHorizon:
+                    gaussian_variance = self.kernel.getKernelParam('variance')
+                else:
+                    gaussian_variance = 1.0
+                self.domainIndicator = domainIndicator
+                self.fluxIndicator = constant(0)
+                self.interactionIndicator = interactionIndicator+boundaryIndicator
+                self.rhsData = functionFactory('Lambda', lambda x:
+                                               np.exp(-0.5*x[0]**2/gaussian_variance)
+                                               -np.exp(-0.25*x[0]**2/gaussian_variance)/np.sqrt(2))
+                self.fluxData = constant(0)
+                self.dirichletData = constant(0.)
+                if (kType == GAUSSIAN) and not self.kernel.finiteHorizon:
+                    # not quite correct:
+                    # The Dirichlet data should really be np.exp(-0.5*x[0]**2/gaussian_variance),
+                    # but this will do as long as the variance is small enough.
+                    self.analyticSolution = functionFactory('Lambda', lambda x: np.exp(-0.5*x[0]**2/gaussian_variance))
+            elif problem == 'exponential':
+                if kType == EXPONENTIAL and not self.kernel.finiteHorizon:
+                    exponentialRate = self.kernel.getKernelParam('exponentialRate')
+                else:
+                    exponentialRate = 1.0
+                self.domainIndicator = domainIndicator
+                self.fluxIndicator = constant(0)
+                self.interactionIndicator = interactionIndicator+boundaryIndicator
+                self.rhsData = functionFactory('Lambda', lambda x: np.exp(-exponentialRate*abs(x[0])) * (1/exponentialRate-abs(x[0])) * kernel.scalingValue * 2.0)
+                self.fluxData = constant(0)
+                self.dirichletData = constant(0.)
+                if (kType == EXPONENTIAL) and not self.kernel.finiteHorizon:
+                    # not quite correct:
+                    # The Dirichlet data should really be np.exp(-exponentialRate*abs(x[0])),
+                    # but this will do as long as the exponentialRate is small enough.
+                    self.analyticSolution = functionFactory('Lambda', lambda x: np.exp(-exponentialRate*abs(x[0])))
             elif problem == 'discontinuous':
                 self.domainIndicator = domainIndicator
                 self.fluxIndicator = constant(0)

@@ -459,7 +459,7 @@ cdef class {SCALAR_label_lc_}multi_fe_vector:
             else:
                 v1 = self
                 alpha = other
-                v2 = {SCALAR_label_lc_}multi_fe_vector(np.empty((v1.data.shape[0], v1.data.shape[0]), dtype={SCALAR}), v1.dm)
+                v2 = {SCALAR_label_lc_}multi_fe_vector(np.empty((v1.data.shape[0], v1.data.shape[1]), dtype={SCALAR}), v1.dm)
                 {SCALAR_label_lc_}assignScaled_2d(v2.data, v1.data, alpha)
                 return v2
         else:
@@ -475,6 +475,9 @@ cdef class {SCALAR_label_lc_}multi_fe_vector:
                 v2 = {SCALAR_label_lc_}multi_fe_vector(np.empty((v1.data.shape[0], v1.data.shape[1]), dtype={SCALAR}), v1.dm)
                 {SCALAR_label_lc_}assignScaled_2d(v2.data, v1.data, alpha)
                 return v2
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
 
     def scale(self, {SCALAR}_t[::1] other):
         cdef:

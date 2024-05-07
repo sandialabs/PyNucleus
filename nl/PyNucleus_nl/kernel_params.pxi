@@ -93,3 +93,5 @@ cpdef enum:
     MONOMIAL = 5
     GREENS_2D = 6
     GREENS_3D = 7
+    EXPONENTIAL = 8
+    POLYNOMIAL = 9
