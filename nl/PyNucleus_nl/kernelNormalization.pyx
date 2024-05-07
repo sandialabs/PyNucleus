@@ -19,7 +19,8 @@ from scipy.special import zeta
 from PyNucleus_fem.functions cimport constant
 from cpython.mem cimport PyMem_Malloc
 from libc.string cimport memcpy
-from . interactionDomains cimport (ball2_retriangulation, ball2_barycenter,
+from . interactionDomains cimport (fullSpace,
+                                   ball2_retriangulation, ball2_barycenter,
                                    ballInf_retriangulation, ballInf_barycenter,
                                    ellipse_retriangulation, ellipse_barycenter)
 
@@ -91,6 +92,16 @@ cdef class constantFractionalLaplacianScaling(constantTwoPoint):
 
     def __repr__(self):
         return '{}({},{} -> {})'.format(self.__class__.__name__, self.s, self.horizon, self.value)
+
+    def getLongDescription(self):
+        if self.horizon < inf:
+            descr = '\\frac{(2-2s) horizon^{2s-2} d \\Gamma(d/2)}{\\pi^{d/2}}'
+        else:
+            if (self.tempered == 0.) or (self.s == 0.5):
+                descr = '\\frac{2^{2s}s \\Gamma(s+d/2)}{\\pi^{d/2} \\Gamma(1-s)}'
+            else:
+                descr = '\\frac{\\Gamma(d/2)}{2 |\\Gamma(-2s)| \\pi^{d/2}}'
+        return descr
 
 
 cdef class constantFractionalLaplacianScalingDerivative(twoPointFunction):
@@ -212,11 +223,13 @@ cdef class constantFractionalLaplacianScalingDerivative(twoPointFunction):
 
 
 cdef class constantIntegrableScaling(constantTwoPoint):
-    def __init__(self, kernelType kType, interactionDomain interaction, INDEX_t dim, REAL_t horizon):
+    def __init__(self, kernelType kType, interactionDomain interaction, INDEX_t dim, REAL_t horizon, REAL_t gaussian_variance=1.0, REAL_t exponentialRate=1.0):
         self.kType = kType
         self.dim = dim
         self.interaction = interaction
         self.horizon = horizon
+        self.gaussian_variance = gaussian_variance
+        self.exponentialRate = exponentialRate
         if self.horizon <= 0.:
             value = np.nan
         else:
@@ -244,25 +257,73 @@ cdef class constantIntegrableScaling(constantTwoPoint):
                     raise NotImplementedError()
             elif kType == GAUSSIAN:
                 if dim == 1:
-                    # value = 4.0/sqrt(pi)/(horizon/3.)**3 / 2.
-                    value = 4.0/sqrt(pi)/(erf(3.0)-6.0*exp(-9.0)/sqrt(pi))/(horizon/3.0)**3 / 2.
+                    if horizon < inf:
+                        # value = 4.0/sqrt(pi)/(horizon/3.)**3 / 2.
+                        value = 4.0/sqrt(pi)/(erf(3.0)-6.0*exp(-9.0)/sqrt(pi))/(horizon/3.0)**3 / 2.
+                    else:
+                        value = 1.0/sqrt(2.0*pi*gaussian_variance) / 2.
                 elif dim == 2:
                     if isinstance(self.interaction, (ball2_retriangulation, ball2_barycenter, ellipse_retriangulation, ellipse_barycenter)):
                         # value = 4.0/pi/(horizon/3.0)**4 / 2.
                         value = 4.0/pi/(1.0-10.0*exp(-9.0))/(horizon/3.0)**4 / 2.
+                    elif isinstance(self.interaction, fullSpace):
+                        value = 1.0/(2.0*pi*gaussian_variance) / 2.
                     else:
                         raise NotImplementedError()
                 else:
                     raise NotImplementedError()
+            elif kType == EXPONENTIAL:
+                if dim == 1:
+                    if horizon < inf:
+                        value = exponentialRate**3/(2.0-exp(-exponentialRate*horizon)*(2.0 + 2.0*exponentialRate*horizon + (exponentialRate*horizon)**2)) / 2.
+                    else:
+                        value = exponentialRate**3/2.0 / 2.
+                else:
+                    raise NotImplementedError()
+            elif kType == POLYNOMIAL:
+                value = 0.5
             else:
                 raise NotImplementedError()
         super(constantIntegrableScaling, self).__init__(value)
 
     def __reduce__(self):
-        return constantIntegrableScaling, (self.kType, self.interaction, self.dim, self.horizon)
+        return constantIntegrableScaling, (self.kType, self.interaction, self.dim, self.horizon, self.gaussian_variance, self.exponentialRate)
 
     def __repr__(self):
         return '{}({} -> {})'.format(self.__class__.__name__, self.horizon, self.value)
+
+    def getLongDescription(self):
+        descr = ''
+        if self.kType == INDICATOR:
+            if self.dim == 1:
+                descr = '\\frac{3}{\\delta^3}'
+            elif self.dim == 2:
+                if isinstance(self.interaction, (ball2_retriangulation, ball2_barycenter, ellipse_retriangulation, ellipse_barycenter)):
+                    descr = '\\frac{8}{\\pi\\delta^4}'
+                elif isinstance(self.interaction, (ballInf_retriangulation, ballInf_barycenter)):
+                    descr = '\\frac{3}{4\\delta^4}'
+        elif self.kType == PERIDYNAMIC:
+            if self.dim == 1:
+                descr = '\\frac{2}{\\delta^2}'
+            if self.dim == 2:
+                if isinstance(self.interaction, (ball2_retriangulation, ball2_barycenter, ellipse_retriangulation, ellipse_barycenter)):
+                    descr = '\\frac{6}{\\pi\\delta^3}'
+        elif self.kType == GAUSSIAN:
+            if self.horizon < inf:
+                if self.dim == 1:
+                    descr = '\\frac{4}{\\sqrt(\\pi) (\\operatorname{erf}(3)-6\\exp(-9)/\\sqrt(\\pi)) (\\delta/3)^3}'
+                elif self.dim == 2:
+                    descr = '\\frac{4.0}{\\pi (1-10\\exp(-9)) (\\delta/3)^4}'
+            else:
+                descr = '\\frac{1}{(2\\pi\\sigma)^{d/2}}'
+        elif self.kType == EXPONENTIAL:
+            if self.horizon < inf:
+                descr = '\\frac{a^3}{2-exp(-a\\delta) (2+2a\\delta + (a\\delta)^2)}'
+            else:
+                descr = '\\frac{a^3}{2}'
+        elif self.kType == POLYNOMIAL:
+            descr = ''
+        return descr
 
 
 cdef class variableFractionalLaplacianScaling(parametrizedTwoPointFunction):
@@ -454,6 +515,22 @@ cdef class variableFractionalLaplacianScaling(parametrizedTwoPointFunction):
 
     def __reduce__(self):
         return variableFractionalLaplacianScaling, (self.symmetric, self.normalized, self.boundary, self.derivative)
+
+    def getLongDescription(self):
+        cdef:
+            REAL_t horizon2 = getREAL(self.params, fHORIZON2)
+        if self.normalized:
+            if horizon2 < inf:
+                descr_C = '\\frac{(2-2s) horizon^{2s-2} d \\Gamma(d/2)}{\\pi^{d/2}}'
+            else:
+                descr_C = '\\frac{2^{2s} s \\Gamma(s+d/2)}{\\pi^{d/2} \\Gamma(1-s)}'
+        else:
+            descr_C = ''
+        if self.derivative == 0:
+            return descr_C
+        else:
+            descr = "MISSING"
+        return descr
 
 
 cdef class variableIntegrableScaling(parametrizedTwoPointFunction):

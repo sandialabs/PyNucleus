@@ -460,12 +460,14 @@ class discretizedNonlocalProblem(problem):
             if solverType.find('mg') >= 0:
                 for subHierarchy in hM.builtHierarchies:
                     for level in subHierarchy.algebraicLevels:
+                        level.Timer = self.timer
                         level.PLogger = level.Timer.PLogger
                         assemblyParams['PLogger'] = level.PLogger
                         level.params.update(assemblyParams)
                         level.build(ASSEMBLY)
             else:
                 level = hM.builtHierarchies[-1].algebraicLevels[-1]
+                level.Timer = self.timer
                 level.PLogger = level.Timer.PLogger
                 assemblyParams['PLogger'] = level.PLogger
                 level.params.update(assemblyParams)
@@ -672,6 +674,7 @@ class discretizedNonlocalProblem(problem):
 
     def report(self, group):
         group.add('kernel', repr(self.continuumProblem.kernel))
+        group.add('kernel expression', self.continuumProblem.kernel.getLongDescription())
         group.add('problem', self.continuumProblem.problemDescription)
         group.add('has analytic solution', self.continuumProblem.analyticSolution is not None)
         group.add('h', self.finalMesh.h)
@@ -693,7 +696,7 @@ class discretizedNonlocalProblem(problem):
                                ('interpolation order', 'interpolation_order'),
                                ('numAssembledCellPairs', 'numAssembledCellPairs'),
                                ('numIntegrations', 'numIntegrations')]:
-                group.add(label, self.hierarchy[-1]['Timer'].PLogger[key][0])
+                group.add(label, self.hierarchy[-1]['Timer'].PLogger[key][-1])
         if isinstance(self.A, (Dense_LinearOperator,
                                H2Matrix,
                                DistributedH2Matrix_globalData,

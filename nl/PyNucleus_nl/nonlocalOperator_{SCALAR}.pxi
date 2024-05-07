@@ -208,6 +208,12 @@ cdef class {SCALAR_label}double_local_matrix_t:
     def setMesh2_py(self, meshBase mesh2):
         self.setMesh2(mesh2)
 
+    def setVerticesCells1_py(self, REAL_t[:, ::1] vertices1, INDEX_t[:, ::1] cells1):
+        self.setVerticesCells1(vertices1, cells1)
+
+    def setVerticesCells2_py(self, REAL_t[:, ::1] vertices2, INDEX_t[:, ::1] cells2):
+        self.setVerticesCells2(vertices2, cells2)
+
     def setCell1_py(self, INDEX_t cellNo1):
         self.setCell1(cellNo1)
 

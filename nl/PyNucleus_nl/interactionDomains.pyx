@@ -294,6 +294,9 @@ cdef class interactionDomain(parametrizedTwoPointFunction):
     def __reduce__(self):
         return interactionDomain, (self.horizonFun, self.complement, self.symmetric)
 
+    def getLongDescription(self):
+        return ''
+
 
 cdef class barycenterDomain(interactionDomain):
     def __init__(self, function horizonFun, BOOL_t isComplement, BOOL_t symmetric):
@@ -793,6 +796,9 @@ cdef class fullSpace(interactionDomain):
         dim = getINDEX(self.params, fKDIM)
         return 'R^{}'.format(dim)
 
+    def __reduce__(self):
+        return fullSpace, ()
+
 
 cdef class ball2_retriangulation(retriangulationDomain):
     """l2 ball interaction domain"""
@@ -905,6 +911,9 @@ cdef class ball2_retriangulation(retriangulationDomain):
     def __reduce__(self):
         return ball2_retriangulation, (self.horizonFun, )
 
+    def getLongDescription(self):
+        return '\\chi_{|x-y|_2<\\delta}'
+
 
 cdef class ball2_barycenter(barycenterDomain):
     """l2 ball interaction domain"""
@@ -988,6 +997,9 @@ cdef class ball2_barycenter(barycenterDomain):
 
     def __reduce__(self):
         return ball2_barycenter, (self.horizonFun, )
+
+    def getLongDescription(self):
+        return '\\chi_{|x-y|_2<\\delta}'
 
 
 cdef class ballInf_retriangulation(retriangulationDomain):
@@ -1127,6 +1139,9 @@ cdef class ballInf_retriangulation(retriangulationDomain):
     def __reduce__(self):
         return ballInf_retriangulation, (self.horizonFun, )
 
+    def getLongDescription(self):
+        return '\\chi_{|x-y|_\infty<\\delta}'
+
 
 cdef class ballInf_barycenter(barycenterDomain):
     """l-inf ball interaction domain"""
@@ -1226,6 +1241,9 @@ cdef class ballInf_barycenter(barycenterDomain):
     def __reduce__(self):
         return ballInf_barycenter, (self.horizonFun, )
 
+    def getLongDescription(self):
+        return '\\chi_{|x-y|_\infty<\\delta}'
+
 
 cdef class ball2Complement(retriangulationDomain):
     def __init__(self, function horizonFun):
@@ -1303,6 +1321,9 @@ cdef class ball2Complement(retriangulationDomain):
 
     def __repr__(self):
         return '|x-y|_2 > {}'.format(self.horizonFun)
+
+    def getLongDescription(self):
+        return '\\chi_{|x-y|_2>\\delta}'
 
 
 cdef class linearTransformInteraction(interactionDomain):
@@ -1586,6 +1607,9 @@ cdef class ball1_retriangulation(linearTransformInteraction):
     def __reduce__(self):
         return ball1_retriangulation, (self.horizonFun, )
 
+    def getLongDescription(self):
+        return '\\chi_{|x-y|_1<\\delta}'
+
 
 cdef class ball1_barycenter(linearTransformInteraction):
     "l1 ball interaction domain"
@@ -1631,6 +1655,9 @@ cdef class ball1_barycenter(linearTransformInteraction):
 
     def __reduce__(self):
         return ball1_barycenter, (self.horizonFun, )
+
+    def getLongDescription(self):
+        return '\\chi_{|x-y|_1<\\delta}'
 
 
 cdef class ball2_dilation_barycenter(barycenterDomain):

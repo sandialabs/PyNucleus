@@ -54,6 +54,10 @@ def getKernelEnum(str kernelTypeString):
         return PERIDYNAMIC
     elif kernelTypeString.upper() == "GAUSSIAN":
         return GAUSSIAN
+    elif kernelTypeString.upper() == "EXPONENTIAL":
+        return EXPONENTIAL
+    elif kernelTypeString.upper() == "POLYNOMIAL":
+        return POLYNOMIAL
     elif kernelTypeString.upper() == "LOGINVERSEDISTANCE":
         return LOGINVERSEDISTANCE
     elif kernelTypeString.upper() == "MONOMIAL":
@@ -437,6 +441,66 @@ cdef REAL_t gaussianKernel2Dboundary(REAL_t *x, REAL_t *y, void *c_params):
         return 0.
 
 
+cdef REAL_t exponentialKernel1D(REAL_t *x, REAL_t *y, void *c_params):
+    cdef:
+        interactionDomain interaction = <interactionDomain>((<void**>(c_params+fINTERACTION))[0])
+        REAL_t C, a
+        REAL_t d2, inter
+    interaction.evalPtr(1, x, y, &inter)
+    if inter != 0.:
+        d2 = interaction.dist2
+        C = getREAL(c_params, fSCALING)
+        a = getREAL(c_params, fEXPONENTINVERSE)
+        return C*exp(-a*sqrt(d2))
+    else:
+        return 0.
+
+
+cdef REAL_t exponentialKernel1Dboundary(REAL_t *x, REAL_t *y, void *c_params):
+    cdef:
+        interactionDomain interaction = <interactionDomain>((<void**>(c_params+fINTERACTION))[0])
+        REAL_t C, a
+        REAL_t d2, inter
+    interaction.evalPtr(1, x, y, &inter)
+    if inter != 0.:
+        d2 = interaction.dist2
+        C = getREAL(c_params, fSCALING)
+        a = getREAL(c_params, fEXPONENTINVERSE)
+        return 2.0*C*exp(-a*sqrt(d2))/a
+    else:
+        return 0.
+
+
+cdef REAL_t polynomialKernel1D(REAL_t *x, REAL_t *y, void *c_params):
+    cdef:
+        interactionDomain interaction = <interactionDomain>((<void**>(c_params+fINTERACTION))[0])
+        REAL_t C, a
+        REAL_t d2, inter
+    interaction.evalPtr(1, x, y, &inter)
+    if inter != 0.:
+        d2 = interaction.dist2
+        C = getREAL(c_params, fSCALING)
+        a = getREAL(c_params, fEXPONENTINVERSE)
+        return C*(a**3*d2)/(a**2+d2)**2
+    else:
+        return 0.
+
+
+cdef REAL_t polynomialKernel1Dboundary(REAL_t *x, REAL_t *y, void *c_params):
+    cdef:
+        interactionDomain interaction = <interactionDomain>((<void**>(c_params+fINTERACTION))[0])
+        REAL_t C, a
+        REAL_t d2, inter
+    interaction.evalPtr(1, x, y, &inter)
+    if inter != 0.:
+        d2 = interaction.dist2
+        C = getREAL(c_params, fSCALING)
+        a = getREAL(c_params, fEXPONENTINVERSE)
+        return C*(-a**2/(2*sqrt(d2)) + a**3/2/(a**2+d2))
+    else:
+        return 0.
+
+
 cdef REAL_t logInverseDistance2D(REAL_t *x, REAL_t *y, void *c_params):
     cdef:
         REAL_t C = getREAL(c_params, fSCALING)
@@ -588,6 +652,14 @@ cdef class Kernel(twoPointFunction):
             self.min_singularity = 0.
             self.max_singularity = 0.
             self.singularityValue = 0.
+        elif self.kernelType == EXPONENTIAL:
+            self.min_singularity = 0.
+            self.max_singularity = 0.
+            self.singularityValue = 0.
+        elif self.kernelType == POLYNOMIAL:
+            self.min_singularity = 0.
+            self.max_singularity = 0.
+            self.singularityValue = 0.
         elif self.kernelType == LOGINVERSEDISTANCE:
             self.min_singularity = 0.
             self.max_singularity = 0.
@@ -610,7 +682,17 @@ cdef class Kernel(twoPointFunction):
             self.max_horizon = self.horizon.value
             self.finiteHorizon = self.horizon.value != np.inf
             if self.kernelType == GAUSSIAN:
-                setREAL(self.c_kernel_params, fEXPONENTINVERSE, 1.0/(self.horizonValue/3.)**2)
+                if self.finiteHorizon:
+                    setREAL(self.c_kernel_params, fEXPONENTINVERSE, 1.0/(self.horizonValue/3.)**2)
+                else:
+                    variance = kwargs.get('variance', 1.0)
+                    setREAL(self.c_kernel_params, fEXPONENTINVERSE, 0.5/variance**self.dim)
+            elif self.kernelType == EXPONENTIAL:
+                exponentialRate = kwargs.get('exponentialRate', 1.0)
+                setREAL(self.c_kernel_params, fEXPONENTINVERSE, exponentialRate)
+            elif self.kernelType == POLYNOMIAL:
+                a = kwargs.get('a', 1.0)
+                setREAL(self.c_kernel_params, fEXPONENTINVERSE, a)
 
         self.interaction = interaction
         self.complement = self.interaction.complement
@@ -642,6 +724,10 @@ cdef class Kernel(twoPointFunction):
                         self.kernelFun = peridynamicKernel1D
                     elif self.kernelType == GAUSSIAN:
                         self.kernelFun = gaussianKernel1D
+                    elif self.kernelType == EXPONENTIAL:
+                        self.kernelFun = exponentialKernel1D
+                    elif self.kernelType == POLYNOMIAL:
+                        self.kernelFun = polynomialKernel1D
                 elif dim == 2:
                     if self.kernelType == INDICATOR:
                         self.kernelFun = indicatorKernel2D
@@ -649,6 +735,10 @@ cdef class Kernel(twoPointFunction):
                         self.kernelFun = peridynamicKernel2D
                     elif self.kernelType == GAUSSIAN:
                         self.kernelFun = gaussianKernel2D
+                    elif self.kernelType == EXPONENTIAL:
+                        raise NotImplementedError()
+                    elif self.kernelType == POLYNOMIAL:
+                        raise NotImplementedError()
                     elif self.kernelType == LOGINVERSEDISTANCE:
                         self.kernelFun = logInverseDistance2D
                 elif dim == 3:
@@ -656,6 +746,12 @@ cdef class Kernel(twoPointFunction):
                         self.kernelFun = peridynamicKernel3D
                     elif self.kernelType == MONOMIAL:
                         self.kernelFun = monomial3D
+                    elif self.kernelType == GAUSSIAN:
+                        raise NotImplementedError()
+                    elif self.kernelType == EXPONENTIAL:
+                        raise NotImplementedError()
+                    elif self.kernelType == POLYNOMIAL:
+                        raise NotImplementedError()
                 else:
                     raise NotImplementedError()
             else:
@@ -666,6 +762,10 @@ cdef class Kernel(twoPointFunction):
                         self.kernelFun = peridynamicKernel1Dboundary
                     elif self.kernelType == GAUSSIAN:
                         self.kernelFun = gaussianKernel1Dboundary
+                    elif self.kernelType == EXPONENTIAL:
+                        self.kernelFun = exponentialKernel1Dboundary
+                    elif self.kernelType == POLYNOMIAL:
+                        self.kernelFun = polynomialKernel1Dboundary
                 elif dim == 2:
                     if self.kernelType == INDICATOR:
                         self.kernelFun = indicatorKernel2Dboundary
@@ -673,8 +773,17 @@ cdef class Kernel(twoPointFunction):
                         self.kernelFun = peridynamicKernel2Dboundary
                     elif self.kernelType == GAUSSIAN:
                         self.kernelFun = gaussianKernel2Dboundary
+                    elif self.kernelType == EXPONENTIAL:
+                        raise NotImplementedError()
+                    elif self.kernelType == POLYNOMIAL:
+                        raise NotImplementedError()
                 elif dim == 3:
-                    pass
+                    if self.kernelType == GAUSSIAN:
+                        raise NotImplementedError()
+                    elif self.kernelType == EXPONENTIAL:
+                        raise NotImplementedError()
+                    elif self.kernelType == POLYNOMIAL:
+                        raise NotImplementedError()
                 else:
                     raise NotImplementedError()
         else:
@@ -688,6 +797,10 @@ cdef class Kernel(twoPointFunction):
                         setFun(self.c_kernel_params, fEVAL, peridynamicKernel1D)
                     elif self.kernelType == GAUSSIAN:
                         setFun(self.c_kernel_params, fEVAL, gaussianKernel1D)
+                    elif self.kernelType == EXPONENTIAL:
+                        setFun(self.c_kernel_params, fEVAL, exponentialKernel1D)
+                    elif self.kernelType == POLYNOMIAL:
+                        setFun(self.c_kernel_params, fEVAL, polynomialKernel1D)
                 elif dim == 2:
                     if self.kernelType == INDICATOR:
                         setFun(self.c_kernel_params, fEVAL, indicatorKernel2D)
@@ -695,6 +808,10 @@ cdef class Kernel(twoPointFunction):
                         setFun(self.c_kernel_params, fEVAL, peridynamicKernel2D)
                     elif self.kernelType == GAUSSIAN:
                         setFun(self.c_kernel_params, fEVAL, gaussianKernel2D)
+                    elif self.kernelType == EXPONENTIAL:
+                        raise NotImplementedError()
+                    elif self.kernelType == POLYNOMIAL:
+                        raise NotImplementedError()
                     elif self.kernelType == LOGINVERSEDISTANCE:
                         setFun(self.c_kernel_params, fEVAL, logInverseDistance2D)
                 elif dim == 3:
@@ -702,6 +819,12 @@ cdef class Kernel(twoPointFunction):
                         setFun(self.c_kernel_params, fEVAL, peridynamicKernel3D)
                     elif self.kernelType == MONOMIAL:
                         setFun(self.c_kernel_params, fEVAL, monomial3D)
+                    elif self.kernelType == GAUSSIAN:
+                        raise NotImplementedError()
+                    elif self.kernelType == EXPONENTIAL:
+                        raise NotImplementedError()
+                    elif self.kernelType == POLYNOMIAL:
+                        raise NotImplementedError()
                 else:
                     raise NotImplementedError()
             else:
@@ -712,6 +835,10 @@ cdef class Kernel(twoPointFunction):
                         setFun(self.c_kernel_params, fEVAL, peridynamicKernel1Dboundary)
                     elif self.kernelType == GAUSSIAN:
                         setFun(self.c_kernel_params, fEVAL, gaussianKernel1Dboundary)
+                    elif self.kernelType == EXPONENTIAL:
+                        setFun(self.c_kernel_params, fEVAL, exponentialKernel1Dboundary)
+                    elif self.kernelType == POLYNOMIAL:
+                        setFun(self.c_kernel_params, fEVAL, polynomialKernel1Dboundary)
                 elif dim == 2:
                     if self.kernelType == INDICATOR:
                         setFun(self.c_kernel_params, fEVAL, indicatorKernel2Dboundary)
@@ -719,8 +846,17 @@ cdef class Kernel(twoPointFunction):
                         setFun(self.c_kernel_params, fEVAL, peridynamicKernel2Dboundary)
                     elif self.kernelType == GAUSSIAN:
                         setFun(self.c_kernel_params, fEVAL, gaussianKernel2Dboundary)
+                    elif self.kernelType == EXPONENTIAL:
+                        raise NotImplementedError()
+                    elif self.kernelType == POLYNOMIAL:
+                        raise NotImplementedError()
                 elif dim == 3:
-                    pass
+                    if self.kernelType == GAUSSIAN:
+                        raise NotImplementedError()
+                    elif self.kernelType == EXPONENTIAL:
+                        raise NotImplementedError()
+                    elif self.kernelType == POLYNOMIAL:
+                        raise NotImplementedError()
                 else:
                     raise NotImplementedError()
 
@@ -798,6 +934,75 @@ cdef class Kernel(twoPointFunction):
     cdef void setScalingValue(self, REAL_t scaling):
         setREAL(self.c_kernel_params, fSCALING, scaling)
 
+    def getLongDescription(self):
+        cdef:
+            str descr = ''
+            dict params = {}
+        params['d'] = self.dim
+        if self.finiteHorizon:
+            params['\\delta'] = self.horizon
+        if self.kernelType == INDICATOR:
+            descr = ''
+        elif self.kernelType == PERIDYNAMIC:
+            descr = '\\frac{1}{|x-y|}'
+        elif self.kernelType == FRACTIONAL:
+            descr = '\\frac{1}{|x-y|^{d+2s}}'
+        elif self.kernelType == GAUSSIAN:
+            if self.finiteHorizon:
+                exponentInverse = self.getKernelParam('exponentInverse')
+                params['a'] = exponentInverse
+                descr = '\\exp(-a |x-y|^2)'
+            else:
+                variance = self.getKernelParam('variance')
+                params['\\sigma'] = variance
+                descr = '\\exp(-0.5 |x-y|^2/\\sigma^{d})'
+        elif self.kernelType == EXPONENTIAL:
+            exponentialRate = self.getKernelParam('exponentialRate')
+            params['a'] = exponentialRate
+            descr = '\\exp(-a |x-y|)'
+        elif self.kernelType == POLYNOMIAL:
+            a = self.getKernelParam('a')
+            params['a'] = a
+            descr = '\\frac{a^3 |x-y|^2}{(a^2 + |x-y|^2)^2}'
+        paramsStr = ', '.join([k+'='+str(v) for k, v in params.items()])
+        return self.scaling.getLongDescription() + ' ' + descr + ' ' + self.interaction.getLongDescription() + ', ' + paramsStr
+
+    def getKernelParams(self):
+        params = []
+        if self.kernelType == GAUSSIAN:
+            if self.finiteHorizon:
+                params.append('exponentInverse')
+            else:
+                params.append('variance')
+        elif self.kernelType == EXPONENTIAL:
+            params.append('exponentialRate')
+        elif self.kernelType == POLYNOMIAL:
+            params.append('a')
+        elif self.kernelType == MONOMIAL:
+            params.append('monomialPower')
+        return params
+
+    def getKernelParam(self, str param):
+        if self.kernelType == GAUSSIAN:
+            if self.finiteHorizon:
+                if param == 'exponentInverse':
+                    return getREAL(self.c_kernel_params, fEXPONENTINVERSE)
+            else:
+                if param == 'variance':
+                    exponentInverse = getREAL(self.c_kernel_params, fEXPONENTINVERSE)
+                    variance = 1.0/(2.0*exponentInverse)**(1.0/self.dim)
+                    return variance
+        elif self.kernelType == EXPONENTIAL:
+            if param == 'exponentialRate':
+                return getREAL(self.c_kernel_params, fEXPONENTINVERSE)
+        elif self.kernelType == POLYNOMIAL:
+            if param == 'a':
+                return getREAL(self.c_kernel_params, fEXPONENTINVERSE)
+        elif self.kernelType == MONOMIAL:
+            if param == 'monomialPower':
+                return self.getSingularityValue()
+        raise NotImplementedError("Parameter not available: {}".format(param))
+
     cdef void evalParamsOnSimplices(self, REAL_t[::1] center1, REAL_t[::1] center2, REAL_t[:, ::1] simplex1, REAL_t[:, ::1] simplex2):
         # Set the horizon.
         if self.variableHorizon:
@@ -810,6 +1015,8 @@ cdef class Kernel(twoPointFunction):
             if self.variableHorizon:
                 self.horizonValue = self.horizon.eval(x)
                 if self.kernelType == GAUSSIAN:
+                    setREAL(self.c_kernel_params, fEXPONENTINVERSE, 1.0/(self.horizonValue/3.)**2)
+                elif self.kernelType == POLYNOMIAL:
                     setREAL(self.c_kernel_params, fEXPONENTINVERSE, 1.0/(self.horizonValue/3.)**2)
             if self.variableScaling:
                 self.scaling.evalPtr(x.shape[0], &x[0], &y[0], &scalingValue)
@@ -826,6 +1033,8 @@ cdef class Kernel(twoPointFunction):
                 self.horizonValue = self.horizon.eval(x)
                 if self.kernelType == GAUSSIAN:
                     setREAL(self.c_kernel_params, fEXPONENTINVERSE, 1.0/(self.horizonValue/3.)**2)
+                elif self.kernelType == POLYNOMIAL:
+                    setREAL(self.c_kernel_params, fEXPONENTINVERSE, 1.0/(self.horizonValue/3.)**2)
             if self.variableScaling:
                 self.scaling.evalPtr(x.shape[0], &x[0], &y[0], &scalingValue)
                 self.scalingValue = scalingValue
@@ -839,6 +1048,8 @@ cdef class Kernel(twoPointFunction):
                 xA = <REAL_t[:dim]> x
                 self.horizonValue = self.horizon.eval(xA)
                 if self.kernelType == GAUSSIAN:
+                    setREAL(self.c_kernel_params, fEXPONENTINVERSE, 1.0/(self.horizonValue/3.)**2)
+                elif self.kernelType == POLYNOMIAL:
                     setREAL(self.c_kernel_params, fEXPONENTINVERSE, 1.0/(self.horizonValue/3.)**2)
             if self.variableScaling:
                 self.scaling.evalPtr(dim, x, y, &scalingValue)
@@ -894,19 +1105,30 @@ cdef class Kernel(twoPointFunction):
         return newKernel
 
     def __repr__(self):
+        extraInfo = {}
+        for p in self.getKernelParams():
+            extraInfo[p] = self.getKernelParam(p)
         if self.kernelType == INDICATOR:
             kernelName = 'indicator'
         elif self.kernelType == PERIDYNAMIC:
             kernelName = 'peridynamic'
         elif self.kernelType == GAUSSIAN:
             kernelName = 'Gaussian'
+        elif self.kernelType == EXPONENTIAL:
+            kernelName = 'exponential'
+        elif self.kernelType == POLYNOMIAL:
+            kernelName = 'polynomial'
         elif self.kernelType == LOGINVERSEDISTANCE:
             kernelName = 'logInverseDistance'
         elif self.kernelType == MONOMIAL:
             kernelName = 'monomial'
         else:
             raise NotImplementedError()
-        return "{}({}{}, {}, {})".format(self.__class__.__name__, kernelName, '' if not self.boundary else '-boundary', repr(self.interaction), self.scaling)
+        if len(extraInfo) > 0:
+            extraInfo = ', '.join([str(k)+'='+str(v) for k, v in extraInfo.items()])
+            return "{}({}{}, {}, {}, {})".format(self.__class__.__name__, kernelName, '' if not self.boundary else '-boundary', repr(self.interaction), self.scaling, extraInfo)
+        else:
+            return "{}({}{}, {}, {})".format(self.__class__.__name__, kernelName, '' if not self.boundary else '-boundary', repr(self.interaction), self.scaling)
 
     def __reduce__(self):
         return ComplexKernel, (self.dim, self.kernelType, self.horizon, self.interaction, self.scaling, self.phi, self.piecewise, self.boundary, self.valueSize)

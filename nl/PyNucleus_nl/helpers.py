@@ -433,7 +433,7 @@ def paramsForFractionalHierarchy(noRef, global_params, onRanks=range(1)):
                         'kernel': global_params.get('kernel', None),
                         'genKernel': global_params.get('genKernel', False),
                         'target_order': global_params.get('target_order', None),
-                        'eta': global_params.get('eta', None),
+                        'eta': global_params.get('eta', 3.),
                         'rangedOpParams': global_params.get('rangedOpParams', {}),
                         'cached': global_params.get('cached', False),
                         'boundaryCondition': global_params.get('boundaryCondition', HOMOGENEOUS_DIRICHLET),

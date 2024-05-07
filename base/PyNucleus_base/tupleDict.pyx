@@ -208,7 +208,8 @@ cdef class arrayIndexSet(indexSet):
         for i in s:
             self.indexArray[k] = i
             k += 1
-        qsort(&self.indexArray[0], self.indexArray.shape[0], sizeof(INDEX_t), compareIndices)
+        if k > 1:
+            qsort(&self.indexArray[0], self.indexArray.shape[0], sizeof(INDEX_t), compareIndices)
 
     cpdef set toSet(self):
         cdef:

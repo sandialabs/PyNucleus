@@ -22,7 +22,8 @@ from PyNucleus_base.performanceLogger cimport PLogger, FakePLogger
 from PyNucleus_fem.DoFMaps cimport DoFMap
 from PyNucleus_fem.meshCy cimport meshBase
 from . fractionalOrders cimport fractionalOrderBase
-from . kernelsCy cimport FractionalKernel
+from . kernelsCy cimport Kernel, FractionalKernel
+
 
 cdef class transferMatrixBuilder:
     cdef:
@@ -67,9 +68,13 @@ cdef class tree_node:
         public INDEX_t distFromRoot
         public indexSet _dofs
         public indexSet _local_dofs
+        public indexSet secondary_dofs
         INDEX_t _num_dofs
         public indexSet _cells
         public REAL_t[:, ::1] box
+        public REAL_t[:, :, ::1] boxes
+        public REAL_t[:, ::1] coords
+        public REAL_t[::1] hVector
         public REAL_t[:, ::1] transferOperator
         public REAL_t[:, :, ::1] value
         public REAL_t[::1] coefficientsUp
@@ -82,6 +87,11 @@ cdef class tree_node:
         public REAL_t hmin
         public INDEX_t interpolation_order
         public refinementParams refParams
+    cdef void init(self, REAL_t[:, :, ::1] boxes, REAL_t[:, ::1] coords, REAL_t[::1] hVector)
+    cdef void releaseData(self, BOOL_t recurse=*)
+    cdef void releaseDoFs(self, BOOL_t recurse=*)
+    cdef void releaseLocalDoFs(self, BOOL_t recurse=*)
+    cdef void releaseCells(self, BOOL_t recurse=*)
     cdef indexSet get_dofs(self)
     cdef indexSet get_local_dofs(self)
     cdef INDEX_t get_num_dofs(self)
@@ -247,3 +257,14 @@ cdef class DistributedH2Matrix_localData(LinearOperator):
                         REAL_t[::1] x,
                         REAL_t[::1] y) except -1
     cpdef tuple convert(self)
+
+
+cdef enum admissibilityType:
+    ADMISSIBLE = 0
+    INADMISSIBLE = 1
+    ZERO = 2
+
+
+cpdef admissibilityType queryAdmissibility(Kernel kernel,
+                                           tree_node n1,
+                                           tree_node n2)

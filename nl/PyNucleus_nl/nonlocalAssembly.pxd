@@ -22,6 +22,7 @@ from . clusterMethodCy cimport (tree_node,
 from . nonlocalOperator cimport (double_local_matrix_t,
                                  Complexdouble_local_matrix_t,
                                  nonlocalOperator,
+                                 ComplexnonlocalOperator,
                                  panelType,
                                  MASK_t)
 from . fractionalLaplacian1D cimport (fractionalLaplacian1D,
@@ -56,3 +57,4 @@ cdef class nearFieldClusterPair:
         public tree_node n1, n2
         public indexSet cellsUnion, cellsInter
     cdef void set_cells(self)
+    cdef void releaseCells(self)
