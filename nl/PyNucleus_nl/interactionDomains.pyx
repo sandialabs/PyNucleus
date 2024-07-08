@@ -295,7 +295,7 @@ cdef class interactionDomain(parametrizedTwoPointFunction):
         return interactionDomain, (self.horizonFun, self.complement, self.symmetric)
 
     def getLongDescription(self):
-        return ''
+        return 'MISSING DESCRIPTION'
 
 
 cdef class barycenterDomain(interactionDomain):
@@ -659,7 +659,8 @@ cdef class retriangulationDomain(interactionDomain):
                         self.A_Node[self.iterEnd_Node, outside2, outside2] = c2
                         self.vol_Node[self.iterEnd_Node] = bary[outside1]*c2+bary[outside2]*c1-c1*c2
                         self.iterEnd_Node += 1
-                else:
+                elif numIntersections == 2:
+
                     self.A_Node[self.iterEnd_Node, :, :] = 0.
                     self.A_Node[self.iterEnd_Node, inside, inside] = 1
                     self.A_Node[self.iterEnd_Node, outside1, outside1] = c1
@@ -685,6 +686,26 @@ cdef class retriangulationDomain(interactionDomain):
                     self.A_Node[self.iterEnd_Node, outside2, outside2] = c2
                     self.A_Node[self.iterEnd_Node, inside, outside2] = 1-c2
                     self.vol_Node[self.iterEnd_Node] = c2*(1-intersections[1])
+                    self.iterEnd_Node += 1
+
+                else:
+
+                    self.A_Node[self.iterEnd_Node, :, :] = 0.
+                    self.A_Node[self.iterEnd_Node, inside, inside] = 1
+                    self.A_Node[self.iterEnd_Node, outside1, outside1] = c1
+                    self.A_Node[self.iterEnd_Node, inside, outside1] = 1-c1
+                    self.A_Node[self.iterEnd_Node, outside2, outside2] = intersections[0]
+                    self.A_Node[self.iterEnd_Node, outside1, outside2] = 1-intersections[0]
+                    self.vol_Node[self.iterEnd_Node] = c1*intersections[0]
+                    self.iterEnd_Node += 1
+
+                    self.A_Node[self.iterEnd_Node, :, :] = 0.
+                    self.A_Node[self.iterEnd_Node, inside, inside] = 1
+                    self.A_Node[self.iterEnd_Node, outside1, outside1] = 1-intersections[0]
+                    self.A_Node[self.iterEnd_Node, outside2, outside1] = intersections[0]
+                    self.A_Node[self.iterEnd_Node, outside2, outside2] = c2
+                    self.A_Node[self.iterEnd_Node, inside, outside2] = 1-c2
+                    self.vol_Node[self.iterEnd_Node] = c2*(1-intersections[0])
                     self.iterEnd_Node += 1
 
             elif numInside == 2:
@@ -1561,6 +1582,9 @@ cdef class ellipse_barycenter(linearTransformInteraction):
     def __reduce__(self):
         return ellipse_barycenter, (self.horizonFun, self.a, self.b, self.theta)
 
+    def getLongDescription(self):
+        return '\\chi_{ellipse(x,y;a,b,\\theta)<\\delta}'
+
 
 cdef class ball1_retriangulation(linearTransformInteraction):
     "l1 ball interaction domain"
@@ -1662,7 +1686,7 @@ cdef class ball1_barycenter(linearTransformInteraction):
 
 cdef class ball2_dilation_barycenter(barycenterDomain):
     def __init__(self, sqrtAffineFunction horizonFun):
-        super(ball2_dilation_barycenter, self).__init__(horizonFun, False, False)
+        super(ball2_dilation_barycenter, self).__init__(horizonFun, False, True)
         self.c = horizonFun.c
         self.d = np.linalg.norm(horizonFun.w)
         self.w = np.array(horizonFun.w)/self.d
@@ -1799,10 +1823,13 @@ cdef class ball2_dilation_barycenter(barycenterDomain):
     def __reduce__(self):
         return ballInf_retriangulation, (self.horizonFun, )
 
+    def getLongDescription(self):
+        return '\\chi_{|x-y|_2<\\delta(x)} \\chi_{|x-y|_2<\\delta(y)}'
+
 
 cdef class ball2_dilation_retriangulation(retriangulationDomain):
     def __init__(self, sqrtAffineFunction horizonFun):
-        super(ball2_dilation_retriangulation, self).__init__(horizonFun, False, False)
+        super(ball2_dilation_retriangulation, self).__init__(horizonFun, False, True)
         self.c = horizonFun.c
         self.d = np.linalg.norm(horizonFun.w)
         self.w = np.array(horizonFun.w)/self.d
@@ -1946,11 +1973,11 @@ cdef class ball2_dilation_retriangulation(retriangulationDomain):
         A = -p*0.5
         B = sqrt(A**2-q)
         c = A-B
-        if (c >= 0) and (c <= 1):
+        if (c >= -1e-12) and (c <= 1+1e-12):
             intersections[numIntersections] = c
             numIntersections += 1
         c = A+B
-        if (c >= 0) and (c <= 1):
+        if (c >= -1e-12) and (c <= 1+1e-12):
             intersections[numIntersections] = c
             numIntersections += 1
         return numIntersections
@@ -2030,3 +2057,6 @@ cdef class ball2_dilation_retriangulation(retriangulationDomain):
                     break
             if doExit:
                 break
+
+    def getLongDescription(self):
+        return '\\chi_{|x-y|_2<\\delta(x)} \\chi_{|x-y|_2<\\delta(y)}'

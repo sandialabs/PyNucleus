@@ -231,7 +231,7 @@ class helmholtzProblem(problem):
             else:
                 raise NotImplementedError(problem)
         elif domain == 'cube':
-            self.noRef = 5
+            self.noRef = 6
 
             def n(x):
                 if x[2] == 0:

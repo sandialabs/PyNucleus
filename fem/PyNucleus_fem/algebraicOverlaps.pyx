@@ -1312,7 +1312,7 @@ cdef class algebraicOverlapManager:
                 v[i] = m
                 m += 1
         self.unique(v)
-        return np.array(v, copy=False, dtype=INDEX)
+        return np.asarray(v, dtype=INDEX)
 
     def __repr__(self):
         s = ''

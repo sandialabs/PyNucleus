@@ -35,7 +35,7 @@ def paramsForSerialMG(noRef, global_params):
 
 
 def paramsForMG(noRef, onRanks, global_params, dim, element, repartitionFactor=0.05,
-                max_coarse_grid_size=5000):
+                max_coarse_grid_size=4500):
     from . connectors import repartitionConnector
 
     numProcsAvail = len(onRanks)
@@ -61,7 +61,7 @@ def paramsForMG(noRef, onRanks, global_params, dim, element, repartitionFactor=0
         else:
             raise NotImplementedError()
     elif dim == 3:
-        numInitialCells = 6
+        numInitialCells = 48
         if element in ('P1', 1):
             cells2dofsFactor = 1./6.
         elif element in ('P2', 2):
