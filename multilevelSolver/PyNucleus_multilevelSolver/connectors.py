@@ -241,7 +241,7 @@ class repartitionConnector(hierarchyConnector):
             with self.Timer('Building distribute from \'{}\' to \'{}\''.format(label1, self.label2)):
                 self.algOM.prepareDistributeRepartition(dm)
             if self.debugOverlaps:
-                from PyNucleus_fem import solSin1D, solSin2D, solSin3D
+                from PyNucleus_fem.factories import solSin1D, solSin2D, solSin3D
                 if subdomain.dim == 1:
                     xOld = dm.interpolate(solSin1D)
                 elif subdomain.dim == 2:
@@ -270,7 +270,7 @@ class repartitionConnector(hierarchyConnector):
             with self.Timer('Building distribute from \'{}\' to \'{}\''.format(label1, self.label2)):
                 self.algOMnew.prepareDistributeRepartition(dmNew)
             if self.debugOverlaps:
-                from PyNucleus_fem import solSin1D, solSin2D, solSin3D
+                from PyNucleus_fem.factories import solSin1D, solSin2D, solSin3D
                 if subdomainNew.dim == 1:
                     xNew = dmNew.interpolate(solSin1D)
                 elif subdomainNew.dim == 2:
@@ -312,7 +312,7 @@ class repartitionConnector(hierarchyConnector):
                 self.algOM.prepareDistributeRepartitionSend(dm)
                 self.algOMnew.prepareDistributeRepartition(dmNew, doSend=False)
             if self.debugOverlaps:
-                from PyNucleus_fem import solSin1D, solSin2D, solSin3D
+                from PyNucleus_fem.factories import solSin1D, solSin2D, solSin3D
                 if subdomain.dim == 1:
                     xOld = dm.interpolate(solSin1D)
                 elif subdomain.dim == 2:

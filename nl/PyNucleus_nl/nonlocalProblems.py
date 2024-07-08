@@ -24,7 +24,8 @@ from PyNucleus_fem.mesh import (simpleInterval, intervalWithInteraction,
 from PyNucleus_fem.functions import (Lambda, constant,
                                      indicatorFunctor, squareIndicator, radialIndicator,
                                      solFractional1D, rhsFractional1D,
-                                     solFractional, rhsFractional2D)
+                                     solFractional, rhsFractional2D,
+                                     sqrtAffineFunction)
 from PyNucleus_fem.DoFMaps import P1_DoFMap, str2DoFMapOrder
 from PyNucleus_fem.mesh import meshFactory as meshFactoryClass
 from PyNucleus_fem import (PHYSICAL, NO_BOUNDARY,
@@ -911,9 +912,10 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
         self.setDriverFlag('domain', 'interval', acceptedValues=['gradedInterval', 'square', 'disc', 'gradedDisc', 'discWithIslands'], help='spatial domain')
         self.addParametrizedArg('indicator', [float, float])
         self.addParametrizedArg('polynomial', [int])
+        self.addParametrizedArg('linear', [float, float])
         self.addParametrizedArg('quadratic', [float, float, float])
         self.setDriverFlag('problem', 'poly-Dirichlet',
-                           argInterpreter=self.argInterpreter(['indicator', 'polynomial', 'quadratic'],
+                           argInterpreter=self.argInterpreter(['indicator', 'polynomial', 'linear', 'quadratic'],
                                                               acceptedValues=['poly-Dirichlet',
                                                                               'poly-Neumann', 'zeroFlux', 'source', 'constant', 'gaussian', 'exponential',
                                                                               'exact-sin-Dirichlet', 'exact-sin-Neumann', 'sin-Dirichlet', 'discontinuous']),
@@ -1266,6 +1268,7 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
             self.domainIndicator = domainIndicator
             self.interactionIndicator = interactionIndicator+boundaryIndicator
             if problem == 'poly-Dirichlet' and isinstance(interactionFun, (ball2_retriangulation, ball2_barycenter)):
+                self.problemDescription = "constant rhs with zero Dirichlet condition"
                 self.fluxIndicator = constant(0)
                 self.rhsData = constant(2)
                 self.fluxData = constant(0)
@@ -1275,7 +1278,23 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                         phiFun is None and
                         normalized):
                     self.analyticSolution = Lambda(lambda x: 1-x[0]**2)
+            elif self.parametrizedArg('linear').match(problem):
+                self.problemDescription = "rhs giving rise to quadratic solution"
+                A = np.zeros((2), dtype=REAL)
+                A[0], A[1] = self.parametrizedArg('linear').interpret(problem)
+                if isinstance(kernel.horizon, sqrtAffineFunction):
+                    w = kernel.horizon.w
+                    c = kernel.horizon.c
+                    self.fluxIndicator = constant(0)
+                    self.rhsData = (-0.5*kernel.scalingValue*np.pi * np.vdot(A, w)) * functionFactory('Lambda', lambda x: np.vdot(w, x) + c+0.25*np.linalg.norm(w)**2)
+                    self.fluxData = constant(0)
+                    self.dirichletData = functionFactory('Lambda', lambda x: np.vdot(A, x))
+                    if (kType == INDICATOR) and (phiFun is None) and (not normalized) and isinstance(interactionFun, ball2_retriangulation):
+                        self.analyticSolution = self.dirichletData
+                else:
+                    raise NotImplementedError()
             elif self.parametrizedArg('quadratic').match(problem):
+                self.problemDescription = "rhs giving rise to quadratic solution"
                 B = np.zeros((2, 2), dtype=REAL)
                 B[0, 0], B[0, 1], B[1, 1] = self.parametrizedArg('quadratic').interpret(problem)
                 B[1, 0] = B[0, 1]

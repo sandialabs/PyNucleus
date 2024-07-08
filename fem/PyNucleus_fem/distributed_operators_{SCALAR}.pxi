@@ -127,7 +127,7 @@ cdef class {SCALAR_label}CSR_DistributedLinearOperator({SCALAR_label}Distributed
 
         k = 0
         for i in range(self.num_rows):
-            if self.overlap_indices[k] == i:
+            if k < self.overlap_indices.shape[0] and self.overlap_indices[k] == i:
                 k += 1
                 continue
             temp = 0.0
@@ -173,7 +173,7 @@ cdef class {SCALAR_label}CSR_DistributedLinearOperator({SCALAR_label}Distributed
 
         k = 0
         for i in range(self.num_rows):
-            if self.overlap_indices[k] == i:
+            if k < self.overlap_indices.shape[0] and self.overlap_indices[k] == i:
                 k += 1
                 continue
             temp = rhs[i]

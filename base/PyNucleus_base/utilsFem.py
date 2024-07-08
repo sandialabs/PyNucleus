@@ -1356,7 +1356,7 @@ def diffDict(d1, d2, aTol, relTol):
     return diff
 
 
-def runDriver(path, py, python=None, timeout=600, ranks=None, cacheDir='',
+def runDriver(path, py, python=None, timeout=900, ranks=None, cacheDir='',
               overwriteCache=False,
               aTol=1e-12, relTol=1e-2, extra=None):
     from subprocess import Popen, PIPE, TimeoutExpired
@@ -1481,6 +1481,7 @@ class propertyBuilder:
             self.declareGeneratedProperty(prop)
 
     def __call__(self):
+        from PyNucleus_fem.DoFMaps import fe_vector, complex_fe_vector
         cached_args = {}
         args = []
         needToBuild = False
@@ -1494,6 +1495,14 @@ class propertyBuilder:
                     if isinstance(newValue, np.ndarray):
                         cached_args[prop] = newValue.copy()
                         if (newValue != oldValue).any():
+                            dependencyLogger.log(self.logLevel, 'Values for {} differ: \'{}\' != \'{}\', calling \'{}\''.format(prop, oldValue,
+                                                                                                                                newValue, self.fun.__name__))
+                            needToBuild = True
+                        else:
+                            dependencyLogger.log(self.logLevel, 'Values for {} are identical: \'{}\' == \'{}\''.format(prop, oldValue, newValue))
+                    elif isinstance(newValue, (fe_vector, complex_fe_vector)):
+                        cached_args[prop] = newValue.copy()
+                        if oldValue is None or (newValue.toarray() != oldValue.toarray()).any():
                             dependencyLogger.log(self.logLevel, 'Values for {} differ: \'{}\' != \'{}\', calling \'{}\''.format(prop, oldValue,
                                                                                                                                 newValue, self.fun.__name__))
                             needToBuild = True

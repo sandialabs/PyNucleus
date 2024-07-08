@@ -64,6 +64,8 @@ def getKernelEnum(str kernelTypeString):
         return MONOMIAL
     elif kernelTypeString.upper() == "GREENS_2D":
         return GREENS_2D
+    elif kernelTypeString.upper() == "PERIODIC_FRACTIONAL":
+        return PERIODIC_FRACTIONAL
     else:
         raise NotImplementedError(kernelTypeString)
 
@@ -1131,7 +1133,7 @@ cdef class Kernel(twoPointFunction):
             return "{}({}{}, {}, {})".format(self.__class__.__name__, kernelName, '' if not self.boundary else '-boundary', repr(self.interaction), self.scaling)
 
     def __reduce__(self):
-        return ComplexKernel, (self.dim, self.kernelType, self.horizon, self.interaction, self.scaling, self.phi, self.piecewise, self.boundary, self.valueSize)
+        return Kernel, (self.dim, self.kernelType, self.horizon, self.interaction, self.scaling, self.phi, self.piecewise, self.boundary, self.valueSize)
 
     def plot(self, x0=None):
         "Plot the kernel function."
@@ -1552,7 +1554,7 @@ cdef class ComplexKernel(ComplextwoPointFunction):
 
 
 cdef class FractionalKernel(Kernel):
-    """A kernel functions that can be used to define a fractional operator."""
+    """A kernel function that can be used to define a fractional operator."""
 
     def __init__(self,
                  INDEX_t dim,
@@ -1907,6 +1909,8 @@ cdef class FractionalKernel(Kernel):
         newKernel = getFractionalKernel(dim=self.dim, s=s, horizon=horizon, interaction=interaction, scaling=scaling, piecewise=self.piecewise, boundary=self.boundary, derivative=self.derivative)
         if isinstance(newKernel.scaling, parametrizedTwoPointFunction):
             assert newKernel.getParamPtrAddr() == newKernel.scaling.getParamPtrAddr()
+        if isinstance(newKernel.interaction, parametrizedTwoPointFunction):
+            assert newKernel.getParamPtrAddr() == newKernel.interaction.getParamPtrAddr()
         if isinstance(self.scaling, parametrizedTwoPointFunction):
             assert self.getParamPtrAddr() == self.scaling.getParamPtrAddr()
         return newKernel
@@ -1949,8 +1953,12 @@ cdef class FractionalKernel(Kernel):
                                         derivative=self.derivative)
         if isinstance(newKernel.scaling, parametrizedTwoPointFunction):
             assert newKernel.getParamPtrAddr() == newKernel.scaling.getParamPtrAddr(), (newKernel.getParamPtrAddr(), newKernel.scaling.getParamPtrAddr())
+        if isinstance(newKernel.interaction, parametrizedTwoPointFunction):
+            assert newKernel.getParamPtrAddr() == newKernel.interaction.getParamPtrAddr(), (newKernel.getParamPtrAddr(), newKernel.interaction.getParamPtrAddr())
         if isinstance(self.scaling, parametrizedTwoPointFunction):
             assert self.getParamPtrAddr() == self.scaling.getParamPtrAddr(), (self.getParamPtrAddr(), self.scaling.getParamPtrAddr())
+        if isinstance(self.interaction, parametrizedTwoPointFunction):
+            assert self.getParamPtrAddr() == self.interaction.getParamPtrAddr(), (self.getParamPtrAddr(), self.interaction.getParamPtrAddr())
         return newKernel
 
     def getComplementKernel(self):
@@ -1962,6 +1970,7 @@ cdef class FractionalKernel(Kernel):
         cdef:
             constantFractionalLaplacianScaling scal
             variableFractionalLaplacianScaling scalVar
+            interactionDomain interaction = deepcopy(self.interaction)
         if isinstance(self.scaling, constantFractionalLaplacianScaling):
             scal = self.scaling
             scaling = constantFractionalLaplacianScalingDerivative(scal.dim, scal.s, scal.horizon, True, False, 1, scal.tempered)
@@ -1972,12 +1981,22 @@ cdef class FractionalKernel(Kernel):
             scaling = constantFractionalLaplacianScalingDerivative(self.dim, self.sValue, np.nan, False, self.boundary, 1, 0.)
         else:
             raise NotImplementedError()
-        return FractionalKernel(self.dim, self.s, self.horizon, self.interaction, scaling, self.phi, False, self.boundary, 1, self.temperedValue)
+        derivativeKernel = FractionalKernel(self.dim, self.s, self.horizon, interaction, scaling, self.phi, False, self.boundary, 1, self.temperedValue)
+        if isinstance(derivativeKernel.scaling, parametrizedTwoPointFunction):
+            assert derivativeKernel.getParamPtrAddr() == derivativeKernel.scaling.getParamPtrAddr(), (derivativeKernel.getParamPtrAddr(), derivativeKernel.scaling.getParamPtrAddr())
+        if isinstance(derivativeKernel.interaction, parametrizedTwoPointFunction):
+            assert derivativeKernel.getParamPtrAddr() == derivativeKernel.interaction.getParamPtrAddr(), (derivativeKernel.getParamPtrAddr(), derivativeKernel.interaction.getParamPtrAddr())
+        if isinstance(self.scaling, parametrizedTwoPointFunction):
+            assert self.getParamPtrAddr() == self.scaling.getParamPtrAddr(), (self.getParamPtrAddr(), self.scaling.getParamPtrAddr())
+        if isinstance(self.interaction, parametrizedTwoPointFunction):
+            assert self.getParamPtrAddr() == self.interaction.getParamPtrAddr(), (self.getParamPtrAddr(), self.interaction.getParamPtrAddr())
+        return derivativeKernel
 
     def getHessianKernel(self):
         cdef:
             constantFractionalLaplacianScaling scal
             variableFractionalLaplacianScaling scalVar
+            interactionDomain interaction = deepcopy(self.interaction)
         if isinstance(self.scaling, constantFractionalLaplacianScaling):
             scal = self.scaling
             scaling = constantFractionalLaplacianScalingDerivative(scal.dim, scal.s, scal.horizon, True, False, 2, scal.tempered)
@@ -1988,7 +2007,16 @@ cdef class FractionalKernel(Kernel):
             scaling = variableFractionalLaplacianScaling(scalVar.symmetric, scalVar.normalized, scalVar.boundary, 2)
         else:
             raise NotImplementedError()
-        return FractionalKernel(self.dim, self.s, self.horizon, self.interaction, scaling, self.phi, False, self.boundary, 2, self.temperedValue)
+        hessianKernel = FractionalKernel(self.dim, self.s, self.horizon, interaction, scaling, self.phi, False, self.boundary, 2, self.temperedValue)
+        if isinstance(hessianKernel.scaling, parametrizedTwoPointFunction):
+            assert hessianKernel.getParamPtrAddr() == hessianKernel.scaling.getParamPtrAddr(), (hessianKernel.getParamPtrAddr(), hessianKernel.scaling.getParamPtrAddr())
+        if isinstance(hessianKernel.interaction, parametrizedTwoPointFunction):
+            assert hessianKernel.getParamPtrAddr() == hessianKernel.interaction.getParamPtrAddr(), (hessianKernel.getParamPtrAddr(), hessianKernel.interaction.getParamPtrAddr())
+        if isinstance(self.scaling, parametrizedTwoPointFunction):
+            assert self.getParamPtrAddr() == self.scaling.getParamPtrAddr(), (self.getParamPtrAddr(), self.scaling.getParamPtrAddr())
+        if isinstance(self.interaction, parametrizedTwoPointFunction):
+            assert self.getParamPtrAddr() == self.interaction.getParamPtrAddr(), (self.getParamPtrAddr(), self.interaction.getParamPtrAddr())
+        return hessianKernel
 
     def __repr__(self):
         if self.temperedValue != 0.:
@@ -2048,7 +2076,7 @@ cdef class RangedFractionalKernel(FractionalKernel):
         dim = self.dim
         horizon = self.horizon
         tempered = self.tempered
-        interactionDomain = self.interaction
+        interactionDomain = deepcopy(self.interaction)
         if self.normalized:
             scaling = constantFractionalLaplacianScaling(dim, sFun.value, horizon.value, tempered=tempered)
         else:

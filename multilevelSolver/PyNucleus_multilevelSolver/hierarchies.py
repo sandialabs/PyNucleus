@@ -154,7 +154,7 @@ class hierarchy:
                             multLvlAlgOvManager.levels[lvl].prepareDistribute()
 
                     if self.params['debugOverlaps']:
-                        from PyNucleus_fem import solSin1D, solSin2D, solSin3D
+                        from PyNucleus_fem.factories import solSin1D, solSin2D, solSin3D
                         for lvl in range(len(self.algebraicLevels)):
                             if self.algebraicLevels[lvl].DoFMap is not None:
                                 dm = self.algebraicLevels[lvl].DoFMap

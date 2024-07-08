@@ -10,6 +10,9 @@ cdef class {SCALAR_label}twoPointFunction:
         self.symmetric = symmetric
         self.valueSize = valueSize
 
+    def getLongDescription(self):
+        return "MISSING_DESCRIPTION"
+
     def __call__(self, REAL_t[::1] x, REAL_t[::1] y):
         cdef:
             {SCALAR}_t[::1] value = uninitialized((self.valueSize), dtype={SCALAR})
@@ -137,6 +140,9 @@ cdef class {SCALAR_label}constantTwoPoint({SCALAR_label}twoPointFunction):
     def __init__(self, {SCALAR}_t value):
         super({SCALAR_label}constantTwoPoint, self).__init__(True, 1)
         self.value = value
+
+    def getLongDescription(self):
+        return "{}".format(self.value)
 
     cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, {SCALAR}_t[::1] value):
         value[0] = self.value

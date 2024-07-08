@@ -47,6 +47,7 @@ jobs:
       OMPI_CXX: ${{ matrix.cxx-compiler }}
       BUILD_PRETTY_IDENTIFIER: "Linux ${{ matrix.c-compiler }} Python ${{ matrix.py-version }}"
       BUILD_IDENTIFIER: "Linux-${{ matrix.c-compiler }}-${{ matrix.py-version }}"
+      OMP_NUM_THREADS: 1
 
     steps:
     - name: Check out repo
@@ -70,7 +71,7 @@ jobs:
       if: always()
       run: |
         sudo apt-get update
-        sudo apt-get install mpi-default-bin mpi-default-dev libmetis-dev libparmetis-dev libsuitesparse-dev ccache
+        sudo apt-get install -yq mpi-default-bin mpi-default-dev libmetis-dev libparmetis-dev libsuitesparse-dev ccache
 
     - name: Get ccache config dir
       if: always()
@@ -149,7 +150,7 @@ jobs:
       fail-fast: false
     name: Mac clang Python ${{ matrix.py-version }}
 
-    runs-on: macos-latest
+    runs-on: macos-12
     timeout-minutes: 180
     env:
       MPIEXEC_FLAGS: "--allow-run-as-root --oversubscribe"
@@ -158,6 +159,7 @@ jobs:
       SUITESPARSE_LIBRARY_DIR: /usr/local/Cellar/brewsci-suite-sparse/4.5.5_2/lib
       LDFLAGS: -L/usr/local/opt/brewsci-metis/lib -L/usr/local/opt/brewsci-parmetis/lib
       CPPFLAGS: -I/usr/local/opt/brewsci-metis/include -I/usr/local/opt/brewsci-parmetis/include
+      OMP_NUM_THREADS: 1
 
     steps:
     - name: Check out repo

@@ -157,6 +157,12 @@ def getFractionalKernel(dim,
                     phi = fac
         kernel = FractionalKernel(dim_, sFun, horizonFun, interaction, scaling, phi, piecewise=piecewise, boundary=boundary,
                                   derivative=derivative, tempered=tempered, max_horizon=max_horizon)
+
+    from . twoPointFunctions import parametrizedTwoPointFunction
+    if isinstance(kernel.scaling, parametrizedTwoPointFunction):
+        assert kernel.getParamPtrAddr() == kernel.scaling.getParamPtrAddr()
+    if isinstance(kernel.interaction, parametrizedTwoPointFunction):
+        assert kernel.getParamPtrAddr() == kernel.interaction.getParamPtrAddr()
     return kernel
 
 

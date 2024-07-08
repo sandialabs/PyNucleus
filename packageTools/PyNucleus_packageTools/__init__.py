@@ -273,6 +273,8 @@ class package:
         kwargs['extra_link_args'] = self.config['linkArgs']
         kwargs['define_macros'] = self.config['macros']
         kwargs['include_dirs'] = self.config['includeDirs']
+        if 'includeDirs' in kwargs:
+            kwargs['include_dirs'] += kwargs['includeDirs']
         self.extensions.append(Extension(self.full_name+'.'+ext_name, **kwargs))
 
     def setup(self, **kwargs):
