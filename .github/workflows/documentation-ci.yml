@@ -69,6 +69,6 @@ jobs:
         make docs
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v4.3.4
       with:
         path: 'docs/build'
