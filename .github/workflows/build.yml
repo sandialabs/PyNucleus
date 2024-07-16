@@ -52,7 +52,7 @@ jobs:
     steps:
     - name: Check out repo
       if: always()
-      uses: actions/checkout@v4.1.5
+      uses: actions/checkout@v4.1.7
 
     - name: Pull ccache cache
       if: always()
@@ -163,7 +163,7 @@ jobs:
 
     steps:
     - name: Check out repo
-      uses: actions/checkout@v4.1.5
+      uses: actions/checkout@v4.1.7
 
     - name: Pull ccache cache
       if: always()
