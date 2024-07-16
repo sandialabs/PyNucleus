@@ -123,7 +123,7 @@ jobs:
         mv cython-lint.xml cython-lint-${{ env.BUILD_IDENTIFIER }}.xml
 
     - name: Archive results
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v4.3.4
       if: always()
       with:
         name: Results (${{ env.BUILD_PRETTY_IDENTIFIER }})
@@ -238,7 +238,7 @@ jobs:
         mv cython-lint.xml cython-lint-${{ runner.os }}-${{ matrix.py-version }}.xml
 
     - name: Archive results
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v4.3.4
       if: always()
       with:
         name: Results ${{ github.job }}
