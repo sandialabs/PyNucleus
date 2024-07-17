@@ -19,6 +19,9 @@ env:
     REGISTRY_USER: ${{ github.actor }}
     REGISTRY_PASSWORD: ${{ github.token }}
 
+permissions:
+  contents: read
+
 jobs:
 
   container:
@@ -26,6 +29,11 @@ jobs:
     timeout-minutes: 300
 
     steps:
+    - name: Harden Runner
+      uses: step-security/harden-runner@17d0e2bd7d51742c71671bd19fa12bdc9d40a3d6 # v2.8.1
+      with:
+        egress-policy: audit
+
     - name: Change image tags for PRs
       if: github.event_name == 'pull_request'
       run: |
@@ -34,7 +42,7 @@ jobs:
 
     - name: Check out
       if: always()
-      uses: actions/checkout@v4.1.7
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       with:
         fetch-depth: 0
 
@@ -46,7 +54,7 @@ jobs:
 
     - name: Build Image
       id: build_image
-      uses: redhat-actions/buildah-build@v2
+      uses: redhat-actions/buildah-build@7a95fa7ee0f02d552a32753e7414641a04307056 # v2.13
       with:
         image: ${{ env.IMAGE_NAME }}
         tags: ${{ env.IMAGE_TAGS }}
@@ -57,7 +65,7 @@ jobs:
 
     - name: Push To GHCR
       if: (github.event_name == 'pull_request') && (github.actor != 'dependabot[bot]')
-      uses: redhat-actions/push-to-registry@v2
+      uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2.8
       id: push-pr
       with:
         image: ${{ steps.build_image.outputs.image }}
@@ -79,7 +87,7 @@ jobs:
 
     - name: Push To GHCR
       if: github.event_name == 'push'
-      uses: redhat-actions/push-to-registry@v2
+      uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2.8
       id: push
       with:
         image: ${{ steps.build_image.outputs.image }}
@@ -107,8 +115,13 @@ jobs:
     runs-on: ${{ matrix.runner }}
 
     steps:
+    - name: Harden Runner
+      uses: step-security/harden-runner@17d0e2bd7d51742c71671bd19fa12bdc9d40a3d6 # v2.8.1
+      with:
+        egress-policy: audit
+
     - name: Check out
-      uses: actions/checkout@v4.1.7
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
     - name: Install podman-compose
       run: pip install podman-compose
@@ -117,14 +130,22 @@ jobs:
       run: podman-compose run quick-test
 
   update-binder-image:
+    permissions:
+      contents: write  # for peter-evans/create-pull-request to create branch
+      pull-requests: write  # for peter-evans/create-pull-request to create a PR
     needs: container
     if: github.event_name == 'push'
 
     runs-on: ubuntu-latest
 
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@17d0e2bd7d51742c71671bd19fa12bdc9d40a3d6 # v2.8.1
+        with:
+          egress-policy: audit
+
       - name: Checkout binder branch
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: binder
 
@@ -133,7 +154,7 @@ jobs:
           python generateDockerfile.py ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }}
 
       - name: Create PR
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773c # v6.1.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "Update Dockerfile"

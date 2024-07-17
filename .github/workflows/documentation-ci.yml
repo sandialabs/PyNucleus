@@ -23,17 +23,22 @@ jobs:
       PYNUCLEUS_BUILD_PARALLELISM: 2
 
     steps:
+    - name: Harden Runner
+      uses: step-security/harden-runner@17d0e2bd7d51742c71671bd19fa12bdc9d40a3d6 # v2.8.1
+      with:
+        egress-policy: audit
+
     - name: Check out repo
-      uses: actions/checkout@v4.1.7
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
     - name: Pull ccache cache
       id: ccache-restore
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
       with:
         path: /home/runner/.cache/ccache
         key: ccache-documentation-ci
 
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
       with:
         python-version: '3.11'
 
@@ -59,7 +64,7 @@ jobs:
       continue-on-error: true
 
     - name: Push ccache cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
       with:
         path: /home/runner/.cache/ccache
         key: ccache-documentation-ci
@@ -69,6 +74,6 @@ jobs:
         make docs
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v4.3.4
+      uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
       with:
         path: 'docs/build'

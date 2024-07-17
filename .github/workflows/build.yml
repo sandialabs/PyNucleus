@@ -50,19 +50,24 @@ jobs:
       OMP_NUM_THREADS: 1
 
     steps:
+    - name: Harden Runner
+      uses: step-security/harden-runner@17d0e2bd7d51742c71671bd19fa12bdc9d40a3d6 # v2.8.1
+      with:
+        egress-policy: audit
+
     - name: Check out repo
       if: always()
-      uses: actions/checkout@v4.1.7
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
     - name: Pull ccache cache
       if: always()
       id: ccache-restore
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
       with:
         path: /home/runner/.cache/ccache
         key: ccache-${{ env.BUILD_IDENTIFIER }}
 
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
       if: always()
       with:
         python-version: ${{ matrix.py-version }}
@@ -97,7 +102,7 @@ jobs:
 
     - name: Push ccache cache
       if: always()
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
       with:
         path: /home/runner/.cache/ccache
         key: ccache-${{ env.BUILD_IDENTIFIER }}
@@ -123,7 +128,7 @@ jobs:
         mv cython-lint.xml cython-lint-${{ env.BUILD_IDENTIFIER }}.xml
 
     - name: Archive results
-      uses: actions/upload-artifact@v4.3.4
+      uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
       if: always()
       with:
         name: Results (${{ env.BUILD_PRETTY_IDENTIFIER }})
@@ -133,7 +138,7 @@ jobs:
           cython-lint-${{ env.BUILD_IDENTIFIER }}.xml
 
     - name: Report results
-      uses: dorny/test-reporter@v1
+      uses: dorny/test-reporter@9098107e2aa7ed7d1150f776ddea55f55c80016b # v1
       if: always()
       with:
         name: Report (${{ env.BUILD_PRETTY_IDENTIFIER }})
@@ -162,21 +167,26 @@ jobs:
       OMP_NUM_THREADS: 1
 
     steps:
+    - name: Harden Runner
+      uses: step-security/harden-runner@17d0e2bd7d51742c71671bd19fa12bdc9d40a3d6 # v2.8.1
+      with:
+        egress-policy: audit
+
     - name: Check out repo
-      uses: actions/checkout@v4.1.7
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
     - name: Pull ccache cache
       if: always()
       id: ccache-restore
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
       with:
         path: /Users/runner/Library/Caches/ccache
         key: ccache-${{ runner.os }}-${{ matrix.py-version }}
 
     - name: Setup GNU Fortran
-      uses: fortran-lang/setup-fortran@v1
+      uses: fortran-lang/setup-fortran@8821f57b53846d35d62632eb51c60ac6c4bff4ce # v1.6.1
 
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
       with:
         python-version: ${{ matrix.py-version }}
 
@@ -212,7 +222,7 @@ jobs:
 
     - name: Push ccache cache
       if: always()
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
       with:
         path: /Users/runner/Library/Caches/ccache
         key: ccache-${{ runner.os }}-${{ matrix.py-version }}
@@ -238,7 +248,7 @@ jobs:
         mv cython-lint.xml cython-lint-${{ runner.os }}-${{ matrix.py-version }}.xml
 
     - name: Archive results
-      uses: actions/upload-artifact@v4.3.4
+      uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
       if: always()
       with:
         name: Results ${{ github.job }}
@@ -248,7 +258,7 @@ jobs:
           cython-lint-${{ runner.os }}-${{ matrix.py-version }}.xml
 
     - name: Report results
-      uses: dorny/test-reporter@v1
+      uses: dorny/test-reporter@9098107e2aa7ed7d1150f776ddea55f55c80016b # v1
       if: always()
       with:
         name: Report (${{ github.job }})
