@@ -24,17 +24,22 @@ jobs:
       PYNUCLEUS_BUILD_PARALLELISM: 2
 
     steps:
+    - name: Harden Runner
+      uses: step-security/harden-runner@17d0e2bd7d51742c71671bd19fa12bdc9d40a3d6 # v2.8.1
+      with:
+        egress-policy: audit
+
     - name: Check out repo
-      uses: actions/checkout@v4.1.7
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
     - name: Pull ccache cache
       id: ccache-restore
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
       with:
         path: /home/runner/.cache/ccache
         key: ccache
 
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
       with:
         python-version: '3.11'
 
@@ -60,7 +65,7 @@ jobs:
       continue-on-error: true
 
     - name: Push ccache cache
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
       with:
         path: /home/runner/.cache/ccache
         key: ccache
@@ -70,13 +75,13 @@ jobs:
         make docs
 
     - name: Setup Pages
-      uses: actions/configure-pages@v5
+      uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
 
     - name: Upload artifact
-      uses: actions/upload-pages-artifact@v3
+      uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
       with:
         path: 'docs/build'
 
     - name: Deploy to GitHub Pages
       id: deployment
-      uses: actions/deploy-pages@v4
+      uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
