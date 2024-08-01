@@ -7,6 +7,7 @@
 
 import numpy as np
 cimport numpy as np
+include "mpi-compat.pxd"
 import mpi4py.rc
 mpi4py.rc.initialize = False
 from mpi4py import MPI

@@ -820,6 +820,9 @@ cdef class fullSpace(interactionDomain):
     def __reduce__(self):
         return fullSpace, ()
 
+    def getLongDescription(self):
+        return ''
+
 
 cdef class ball2_retriangulation(retriangulationDomain):
     """l2 ball interaction domain"""

@@ -5,8 +5,5 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-include "mpi-compat.pxd"
-from . myTypes cimport INDEX_t, REAL_t, COMPLEX_t, BOOL_t
-
-include "SchurComplement_decl_REAL.pxi"
-include "SchurComplement_decl_COMPLEX.pxi"
+cdef extern from "mpi-compat.h":
+    pass
