@@ -5,6 +5,7 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
+include "mpi-compat.pxd"
 import mpi4py.rc
 mpi4py.rc.initialize = False
 from mpi4py cimport MPI

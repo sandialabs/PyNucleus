@@ -204,7 +204,7 @@ class package:
 
             out, err = Popen([self.config['compiler_c++'], '--version'], stdout=PIPE, stderr=PIPE).communicate()
             assert len(err) == 0, err
-            print('C++ compiler \'{}\' description:\n{}\n'.format(self.config['compiler_c'], out.decode()[:-1]))
+            print('C++ compiler \'{}\' description:\n{}\n'.format(self.config['compiler_c++'], out.decode()[:-1]))
 
     def setInclude(self):
         assert self.configLoaded

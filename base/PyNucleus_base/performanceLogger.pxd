@@ -5,6 +5,7 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
+include "mpi-compat.pxd"
 from . myTypes cimport BOOL_t, REAL_t
 ctypedef object OrderedDict_t
 import mpi4py.rc
