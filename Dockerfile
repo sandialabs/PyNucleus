@@ -3,7 +3,7 @@
 # AUTHOR:         Christian Glusa
 
 # Base docker image
-FROM ghcr.io/sandialabs/pynucleus:fad3385a41477816d1404fcee2134b1473558a07
+FROM ghcr.io/sandialabs/pynucleus:a54a3491d79aad7684aed78b1a8880db5fccdf09
 LABEL maintainer Christian Glusa
 
 # Uninstall jupyter notebook server
