@@ -138,7 +138,7 @@ jobs:
           cython-lint-${{ env.BUILD_IDENTIFIER }}.xml
 
     - name: Report results
-      uses: dorny/test-reporter@9098107e2aa7ed7d1150f776ddea55f55c80016b # v1
+      uses: dorny/test-reporter@1a288b62f8b75c0f433cbfdbc2e4800fbae50bd7 # v1
       if: always()
       with:
         name: Report (${{ env.BUILD_PRETTY_IDENTIFIER }})
@@ -258,7 +258,7 @@ jobs:
           cython-lint-${{ runner.os }}-${{ matrix.py-version }}.xml
 
     - name: Report results
-      uses: dorny/test-reporter@9098107e2aa7ed7d1150f776ddea55f55c80016b # v1
+      uses: dorny/test-reporter@1a288b62f8b75c0f433cbfdbc2e4800fbae50bd7 # v1
       if: always()
       with:
         name: Report (${{ github.job }})
