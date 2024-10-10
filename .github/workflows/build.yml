@@ -128,7 +128,7 @@ jobs:
         mv cython-lint.xml cython-lint-${{ env.BUILD_IDENTIFIER }}.xml
 
     - name: Archive results
-      uses: actions/upload-artifact@84480863f228bb9747b473957fcc9e309aa96097 # v4.4.2
+      uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
       if: always()
       with:
         name: Results (${{ env.BUILD_PRETTY_IDENTIFIER }})
@@ -248,7 +248,7 @@ jobs:
         mv cython-lint.xml cython-lint-${{ runner.os }}-${{ matrix.py-version }}.xml
 
     - name: Archive results
-      uses: actions/upload-artifact@84480863f228bb9747b473957fcc9e309aa96097 # v4.4.2
+      uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
       if: always()
       with:
         name: Results ${{ github.job }}
