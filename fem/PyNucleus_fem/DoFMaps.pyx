@@ -722,7 +722,8 @@ cdef class DoFMap:
                           BOOL_t reorder=False,
                           diffusivity=None,
                           INDEX_t[::1] cellIndices=None,
-                          DoFMap dm2=None):
+                          DoFMap dm2=None,
+                          simplexQuadratureRule qr=None):
         """This function assembles the stiffness matrix for a given
         diffusivity function:
 
@@ -760,7 +761,8 @@ cdef class DoFMap:
                                  reorder,
                                  diffusivity,
                                  cellIndices,
-                                 dm2=dm2)
+                                 dm2=dm2,
+                                 qr=qr)
 
     def assembleRHS(self,
                     fun,
@@ -983,7 +985,7 @@ cdef class DoFMap:
         for i in range(numCoords):
             for k in range(dim):
                 coords[i, k] = 0.
-            for j in range(dim+1):
+            for j in range(cell.shape[0]):
                 for k in range(dim):
                     coords[i, k] += self.nodes[i, j]*cell[j, k]
 

@@ -825,13 +825,13 @@ cdef class fractionalLaplacian2D(nonlocalLaplacian2D):
                    panelType panel,
                    MASK_t mask=ALL):
         cdef:
-            INDEX_t k, m, i, j, I, J, dofs_per_element, dim = 2, l
+            INDEX_t k, m, i, j, I, J, dofs_per_element, dim = self.DoFMap.mesh.dim, l
             INDEX_t valueSize = self.kernel.valueSize
             REAL_t vol, val
             quadratureRule qr
             REAL_t[:, ::1] PSI
-            REAL_t x[2]
-            REAL_t y[2]
+            REAL_t x[3]
+            REAL_t y[3]
 
         if panel >= 1:
             self.eval_distant(contrib, panel, mask)
@@ -1125,12 +1125,12 @@ cdef class fractionalLaplacian2D_nonsym(fractionalLaplacian2D):
                    panelType panel,
                    MASK_t mask=ALL):
         cdef:
-            INDEX_t k, m, i, j, I, J, dofs_per_element, dim = 2, l
+            INDEX_t k, m, i, j, I, J, dofs_per_element, dim = self.DoFMap.mesh.dim, l
             REAL_t vol, val
             quadratureRule qr
             REAL_t[:, :, ::1] PHI
-            REAL_t x[2]
-            REAL_t y[2]
+            REAL_t x[3]
+            REAL_t y[3]
             INDEX_t valueSize = self.kernel.valueSize
 
         if panel >= 1:
@@ -1334,9 +1334,9 @@ cdef class fractionalLaplacian2D_boundary(fractionalLaplacian2DZeroExterior):
             quadratureRule qr
             REAL_t[:, ::1] PHI
             INDEX_t dofs_per_element = self.DoFMap.dofs_per_element
-            INDEX_t dim = 2
-            REAL_t x[2]
-            REAL_t y[2]
+            INDEX_t dim = self.DoFMap.mesh.dim
+            REAL_t x[3]
+            REAL_t y[3]
             INDEX_t valueSize = self.kernel.valueSize
 
         if panel >= 1:

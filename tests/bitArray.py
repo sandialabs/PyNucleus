@@ -40,7 +40,6 @@ def test_arrayIndexSet():
     for i in aIS:
         print(i)
 
-
     aIS.fromSet({759, 760, 761, 762, 763, 764, 765, 766, 767})
     aIS2 = arrayIndexSet()
     aIS2.fromSet({751, 752, 753, 754, 755, 756, 757, 758, 759})
@@ -71,7 +70,6 @@ def test_bitArray():
     bA.set_py(3)
     print(bA.toSet())
 
-
     assert bA.inSet_py(0)
     assert bA.inSet_py(3)
     assert bA.inSet_py(65)
@@ -98,7 +96,6 @@ def test_bitArray():
         bA.set_py(k)
     print(bA.toSet())
     assert len(bA) == 64
-
 
     bA2 = bitArray()
     print(bA2.toSet())

@@ -13,6 +13,7 @@ cimport numpy as np
 # from libcpp.map cimport map
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 from libc.stdlib cimport qsort
+from scipy.linalg.cython_lapack cimport dgetrf, dgetrs
 
 from PyNucleus_base.myTypes import INDEX, REAL, TAG
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, ENCODE_t, TAG_t
@@ -292,11 +293,13 @@ cdef class meshBase:
         self.num_cells = self.cells.shape[0]
         self.dim = self.vertices.shape[1]
         self.manifold_dim = self.cells.shape[1]-1
-        if self.dim == 1:
+        if self.manifold_dim == 0:
+            self.simplexMapper = simplexMapper0D(self)
+        elif self.manifold_dim == 1:
             self.simplexMapper = simplexMapper1D(self)
-        elif self.dim == 2:
+        elif self.manifold_dim == 2:
             self.simplexMapper = simplexMapper2D(self)
-        elif self.dim == 3:
+        elif self.manifold_dim == 3:
             self.simplexMapper = simplexMapper3D(self)
         else:
             raise NotImplementedError()
@@ -653,15 +656,15 @@ cdef class meshBase:
 
     def getCellCenters(self):
         cdef:
-            REAL_t[:, ::1] simplex = uninitialized((self.dim+1, self.dim), dtype=REAL)
+            REAL_t[:, ::1] simplex = uninitialized((self.manifold_dim+1, self.dim), dtype=REAL)
             INDEX_t j, k
             REAL_t[:, ::1] centers = np.zeros((self.num_cells, self.dim), dtype=REAL)
-            REAL_t fac = 1./(self.dim+1)
+            REAL_t fac = 1./(self.manifold_dim+1)
             INDEX_t cellNo
 
         for cellNo in range(self.num_cells):
             self.getSimplex(cellNo, simplex)
-            for j in range(self.dim+1):
+            for j in range(self.manifold_dim+1):
                 for k in range(self.dim):
                     centers[cellNo, k] += simplex[j, k]
             for k in range(self.dim):
@@ -670,7 +673,7 @@ cdef class meshBase:
 
     def getProjectedCenters(self):
         cdef:
-            REAL_t[:, ::1] simplex = uninitialized((self.dim+1, self.dim), dtype=REAL)
+            REAL_t[:, ::1] simplex = uninitialized((self.manifold_dim+1, self.dim), dtype=REAL)
             INDEX_t j, k
             REAL_t[::1] mins = uninitialized((self.dim), dtype=REAL)
             REAL_t[::1] maxs = uninitialized((self.dim), dtype=REAL)
@@ -682,7 +685,7 @@ cdef class meshBase:
             for k in range(self.dim):
                 mins[k] = simplex[0, k]
                 maxs[k] = simplex[0, k]
-            for j in range(1, self.dim+1):
+            for j in range(1, self.manifold_dim+1):
                 for k in range(self.dim):
                     mins[k] = min(mins[k], simplex[j, k])
                     maxs[k] = max(maxs[k], simplex[j, k])
@@ -694,13 +697,23 @@ cdef class meshBase:
         cdef:
             INDEX_t i
         self.getSimplex(cellNo, simplexMem)
-        if self.dim == 1:
-            getBarycentricCoords1D(simplexMem, vertex, baryMem)
-        elif self.dim == 2:
-            getBarycentricCoords2D(simplexMem, vertex, baryMem)
+        if self.manifold_dim == 1:
+            if self.dim == 1:
+                getBarycentricCoords1D(simplexMem, vertex, baryMem)
+            elif self.dim == 2:
+                getBarycentricCoords1Din2D(simplexMem, vertex, baryMem)
+            elif self.dim == 3:
+                getBarycentricCoords1Din3D(simplexMem, vertex, baryMem)
+        elif self.manifold_dim == 2:
+            if self.dim == 2:
+                getBarycentricCoords2D(simplexMem, vertex, baryMem)
+            elif self.dim == 3:
+                getBarycentricCoords2Din3D(simplexMem, vertex, baryMem)
+            else:
+                raise NotImplementedError()
         else:
             raise NotImplementedError()
-        for i in range(self.dim+1):
+        for i in range(self.manifold_dim+1):
             if baryMem[i] < -tol:
                 return False
         return True
@@ -709,20 +722,30 @@ cdef class meshBase:
         cdef:
             INDEX_t i
         self.getSimplex(cellNo, simplexMem)
-        if self.dim == 1:
-            getBarycentricCoords1DPtr(simplexMem, vertex, baryMem)
-        elif self.dim == 2:
-            getBarycentricCoords2DPtr(simplexMem, vertex, baryMem)
+        if self.manifold_dim == 1:
+            if self.dim == 1:
+                getBarycentricCoords1DPtr(simplexMem, vertex, baryMem)
+            elif self.dim == 2:
+                getBarycentricCoords1Din2DPtr(simplexMem, vertex, baryMem)
+            elif self.dim == 3:
+                getBarycentricCoords1Din3DPtr(simplexMem, vertex, baryMem)
+        elif self.manifold_dim == 2:
+            if self.dim == 2:
+                getBarycentricCoords2DPtr(simplexMem, vertex, baryMem)
+            elif self.dim == 3:
+                getBarycentricCoords2Din3DPtr(simplexMem, vertex, baryMem)
+            else:
+                raise NotImplementedError()
         else:
             raise NotImplementedError()
-        for i in range(self.dim+1):
+        for i in range(self.manifold_dim+1):
             if baryMem[i] < -tol:
                 return False
         return True
 
     def vertexInCell_py(self, REAL_t[::1] vertex, INDEX_t cellNo, REAL_t tol=0.):
-        simplex = uninitialized((self.dim+1, self.dim), dtype=REAL)
-        bary = uninitialized((self.dim+1), dtype=REAL)
+        simplex = uninitialized((self.manifold_dim+1, self.dim), dtype=REAL)
+        bary = uninitialized((self.manifold_dim+1), dtype=REAL)
         return self.vertexInCell(vertex, cellNo, simplex, bary, tol)
 
     def getCellConnectivity(self, INDEX_t common_nodes=-1):
@@ -1503,6 +1526,18 @@ cdef REAL_t volume0D(REAL_t[:, ::1] span):
     return 1.
 
 
+# Methods for computing the pseudo-determinant |J| of the Jacobian J of the transformation G from the reference element \hat{K} to the element K:
+#
+# \hat{K} \subset \mathbb{R}^manifold_dim
+# K       \subset \mathbb{R}^dim
+#
+# G : \hat{K} -> K
+#
+# J = \nabla G
+#
+# |J| = sqrt(det(J^T \cdot J))
+
+
 cdef REAL_t volume1D(REAL_t[::1] v0):
     cdef REAL_t s = 0.0
     for i in range(v0.shape[0]):
@@ -1572,11 +1607,19 @@ cdef REAL_t volume2Dsimplex(REAL_t[:, ::1] simplex):
     return abs(v00*v11-v10*v01)*0.5
 
 
-cdef REAL_t volume1Din2Dsimplex(REAL_t[:, ::1] simplex):
+cdef REAL_t volume1Din2Dsimplex(const REAL_t[:, ::1] simplex):
     cdef:
         REAL_t v0 = simplex[1, 0]-simplex[0, 0]
         REAL_t v1 = simplex[1, 1]-simplex[0, 1]
     return sqrt(v0*v0 + v1*v1)
+
+
+cdef REAL_t volume1Din3Dsimplex(const REAL_t[:, ::1] simplex):
+    cdef:
+        REAL_t v0 = simplex[1, 0]-simplex[0, 0]
+        REAL_t v1 = simplex[1, 1]-simplex[0, 1]
+        REAL_t v2 = simplex[1, 2]-simplex[0, 2]
+    return sqrt(v0*v0 + v1*v1 + v2*v2)
 
 
 cdef REAL_t volume3Dsimplex(REAL_t[:, ::1] simplex):
@@ -1604,8 +1647,8 @@ cdef REAL_t volume2Din3Dsimplex(REAL_t[:, ::1] simplex):
         REAL_t v11 = simplex[2, 1]-simplex[0, 1]
         REAL_t v12 = simplex[2, 2]-simplex[0, 2]
     return sqrt(abs((v01*v12-v02*v11)**2
-                    - (v00*v12-v02*v10)**2
-                    + (v00*v11-v01*v11)**2))*0.5
+                    + (v00*v12-v02*v10)**2
+                    + (v00*v11-v01*v10)**2))*0.5
 
 
 def hdeltaCy(meshBase mesh):
@@ -2098,22 +2141,6 @@ cdef class faceVals:
         return True
 
 
-cdef inline BOOL_t inCell1D(REAL_t[:, ::1] simplex, REAL_t[::1] x):
-    cdef:
-        REAL_t bary_mem[2]
-        REAL_t[::1] bary = bary_mem
-    getBarycentricCoords1D(simplex, x, bary)
-    return bary[0] >= 0 and bary[1] >= 0
-
-
-cdef inline BOOL_t inCell2D(REAL_t[:, ::1] simplex, REAL_t[::1] x):
-    cdef:
-        REAL_t bary_mem[3]
-        REAL_t[::1] bary = bary_mem
-    getBarycentricCoords2D(simplex, x, bary)
-    return bary[0] >= 0 and bary[1] >= 0 and bary[2] >= 0
-
-
 cdef class cellFinder(object):
     def __init__(self, meshBase mesh, INDEX_t numCandidates=-1):
         cdef:
@@ -2166,8 +2193,8 @@ cdef class cellFinder2:
         self.diamInv = uninitialized((mesh.dim), dtype=REAL)
         for j in range(mesh.dim):
             self.diamInv[j] = L / (x_max[j]-self.x_min[j]) / 1.01
-        self.simplex = uninitialized((mesh.dim+1, mesh.dim), dtype=REAL)
-        self.bary = uninitialized((mesh.dim+1), dtype=REAL)
+        self.simplex = uninitialized((mesh.manifold_dim+1, mesh.dim), dtype=REAL)
+        self.bary = uninitialized((mesh.manifold_dim+1), dtype=REAL)
 
         maxKeyPerDim = 0
         for j in range(mesh.dim):
@@ -2221,7 +2248,7 @@ cdef class cellFinder2:
             rowPtr[vertex+1] += rowPtr[vertex]
         indices = np.zeros((rowPtr[mesh.num_vertices]), dtype=INDEX)
         for cellNo in range(mesh.num_cells):
-            for vertexNo in range(mesh.dim+1):
+            for vertexNo in range(mesh.manifold_dim+1):
                 vertex = mesh.cells[cellNo, vertexNo]
                 indices[rowPtr[vertex]] = cellNo
                 rowPtr[vertex] += 1
@@ -2352,6 +2379,30 @@ cdef void getBarycentricCoords1D(REAL_t[:, ::1] simplex, REAL_t[::1] x, REAL_t[:
     bary[1] = 1.-bary[0]
 
 
+cdef void getBarycentricCoords1Din2D(REAL_t[:, ::1] simplex, REAL_t[::1] x, REAL_t[::1] bary):
+    cdef:
+        REAL_t vol
+    vol = sqrt((simplex[0, 0]-simplex[1, 0])**2+(simplex[0, 1]-simplex[1, 1])**2)
+    if abs(simplex[1, 0]-simplex[0, 0]) > 1e-10:
+        bary[0] = (x[0]-simplex[1, 0])/vol
+    else:
+        bary[0] = (x[1]-simplex[1, 1])/vol
+    bary[1] = 1.-bary[0]
+
+
+cdef void getBarycentricCoords1Din3D(REAL_t[:, ::1] simplex, REAL_t[::1] x, REAL_t[::1] bary):
+    cdef:
+        REAL_t vol
+    vol = sqrt((simplex[0, 0]-simplex[1, 0])**2+(simplex[0, 1]-simplex[1, 1])**2+(simplex[0, 2]-simplex[1, 2])**2)
+    if abs(simplex[1, 0]-simplex[0, 0]) > 1e-10:
+        bary[0] = (x[0]-simplex[1, 0])/vol
+    elif abs(simplex[1, 1]-simplex[0, 1]) > 1e-10:
+        bary[0] = (x[1]-simplex[1, 1])/vol
+    else:
+        bary[0] = (x[2]-simplex[1, 2])/vol
+    bary[1] = 1.-bary[0]
+
+
 cdef void getBarycentricCoords2D(REAL_t[:, ::1] simplex, REAL_t[::1] x, REAL_t[::1] bary):
     cdef:
         REAL_t vol
@@ -2364,11 +2415,55 @@ cdef void getBarycentricCoords2D(REAL_t[:, ::1] simplex, REAL_t[::1] x, REAL_t[:
     bary[2] = 1. - bary[0] - bary[1]
 
 
+cdef void getBarycentricCoords2Din3D(REAL_t[:, ::1] simplex, REAL_t[::1] x, REAL_t[::1] bary):
+    cdef:
+        REAL_t a[9]
+        int ipv[3]
+        int info
+        INDEX_t j, k
+        int M = 3
+        int N = 3
+        int lda = 3
+        int nrhs = 1
+        int ldb = 3
+    for j in range(3):
+        for k in range(3):
+            a[3*j+k] = simplex[j, k]
+        bary[j] = x[j]
+
+    dgetrf(&M, &N, &a[0], &lda, &ipv[0], &info)
+    dgetrs('N', &N, &nrhs, &a[0], &lda, &ipv[0], &bary[0], &ldb, &info)
+
+
 cdef void getBarycentricCoords1DPtr(REAL_t[:, ::1] simplex, REAL_t* x, REAL_t[::1] bary):
     cdef:
         REAL_t vol
     vol = simplex[0, 0]-simplex[1, 0]
     bary[0] = (x[0]-simplex[1, 0])/vol
+    bary[1] = 1.-bary[0]
+
+
+cdef void getBarycentricCoords1Din2DPtr(REAL_t[:, ::1] simplex, REAL_t* x, REAL_t[::1] bary):
+    cdef:
+        REAL_t vol
+    vol = sqrt((simplex[0, 0]-simplex[1, 0])**2+(simplex[0, 1]-simplex[1, 1])**2)
+    if abs(simplex[1, 0]-simplex[0, 0]) > 1e-10:
+        bary[0] = (x[0]-simplex[1, 0])/vol
+    else:
+        bary[0] = (x[1]-simplex[1, 1])/vol
+    bary[1] = 1.-bary[0]
+
+
+cdef void getBarycentricCoords1Din3DPtr(REAL_t[:, ::1] simplex, REAL_t* x, REAL_t[::1] bary):
+    cdef:
+        REAL_t vol
+    vol = sqrt((simplex[0, 0]-simplex[1, 0])**2+(simplex[0, 1]-simplex[1, 1])**2+(simplex[0, 2]-simplex[1, 2])**2)
+    if abs(simplex[1, 0]-simplex[0, 0]) > 1e-10:
+        bary[0] = (x[0]-simplex[1, 0])/vol
+    elif abs(simplex[1, 1]-simplex[0, 1]) > 1e-10:
+        bary[0] = (x[1]-simplex[1, 1])/vol
+    else:
+        bary[0] = (x[2]-simplex[1, 2])/vol
     bary[1] = 1.-bary[0]
 
 
@@ -2382,6 +2477,26 @@ cdef void getBarycentricCoords2DPtr(REAL_t[:, ::1] simplex, REAL_t* x, REAL_t[::
     bary[1] = ((x[0]-simplex[2, 0])*(simplex[0, 1]-simplex[2, 1]) -
                (x[1]-simplex[2, 1])*(simplex[0, 0]-simplex[2, 0]))/vol
     bary[2] = 1. - bary[0] - bary[1]
+
+
+cdef void getBarycentricCoords2Din3DPtr(REAL_t[:, ::1] simplex, REAL_t* x, REAL_t[::1] bary):
+    cdef:
+        REAL_t a[9]
+        int ipv[3]
+        int info
+        INDEX_t j, k
+        int M = 3
+        int N = 3
+        int lda = 3
+        int nrhs = 1
+        int ldb = 3
+    for j in range(3):
+        for k in range(3):
+            a[3*j+k] = simplex[j, k]
+        bary[j] = x[j]
+
+    dgetrf(&M, &N, &a[0], &lda, &ipv[0], &info)
+    dgetrs('N', &N, &nrhs, &a[0], &lda, &ipv[0], &bary[0], &ldb, &info)
 
 
 def getSubmesh2(mesh, INDEX_t[::1] newCellIndices, INDEX_t num_cells=-1):

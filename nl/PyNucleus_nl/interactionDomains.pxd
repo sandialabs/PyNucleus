@@ -8,7 +8,7 @@
 
 from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, COMPLEX_t, BOOL_t
 from PyNucleus_fem.functions cimport function, matrixFunction
-from . twoPointFunctions cimport parametrizedTwoPointFunction
+from . twoPointFunctions cimport twoPointFunction, parametrizedTwoPointFunction
 
 cdef enum RELATIVE_POSITION_t:
     INTERACT
@@ -20,6 +20,7 @@ cdef class interactionDomain(parametrizedTwoPointFunction):
     cdef:
         public RELATIVE_POSITION_t relPos
         public BOOL_t complement
+        public REAL_t dist
         public REAL_t dist2
         public function horizonFun
         BOOL_t identityMapping
@@ -38,6 +39,9 @@ cdef class interactionDomain(parametrizedTwoPointFunction):
     cdef BOOL_t nextSubSimplex_Simplex(self, REAL_t[:, ::1] A, REAL_t[::1] b, REAL_t *vol)
     cdef void startLoopSubSimplices_Node(self, REAL_t[::1] node1, REAL_t[:, ::1] simplex2)
     cdef BOOL_t nextSubSimplex_Node(self, REAL_t[:, ::1] A, REAL_t *vol)
+    cdef REAL_t minDist2FromBox(self, const REAL_t[:, ::1] box, const REAL_t[::1] vector)
+    cdef REAL_t distBoxes(self, REAL_t[:, ::1] box1, REAL_t[:, ::1] box2)
+    cdef REAL_t maxDistBoxes(self, REAL_t[:, ::1] box1, REAL_t[:, ::1] box2)
 
 
 cdef class barycenterDomain(interactionDomain):

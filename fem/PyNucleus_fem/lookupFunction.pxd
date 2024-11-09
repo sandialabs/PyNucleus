@@ -30,3 +30,12 @@ cdef class vectorLookupFunction(vectorFunction):
         REAL_t[::1] temp
         REAL_t[:, ::1] simplex
         REAL_t[:, ::1] gradients
+
+
+cdef class UniformLookup1D(function):
+    cdef:
+        REAL_t a
+        REAL_t b
+        REAL_t[::1] vals
+        REAL_t dx
+        REAL_t invDx

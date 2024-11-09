@@ -98,7 +98,7 @@ cdef class constantFractionalLaplacianScaling(constantTwoPoint):
             descr = '\\frac{(2-2s) horizon^{2s-2} d \\Gamma(d/2)}{\\pi^{d/2}}'
         else:
             if (self.tempered == 0.) or (self.s == 0.5):
-                descr = '\\frac{2^{2s}s \\Gamma(s+d/2)}{\\pi^{d/2} \\Gamma(1-s)}'
+                descr = '\\frac{2^{2s} s \\Gamma(s+d/2)}{\\pi^{d/2} \\Gamma(1-s)}'
             else:
                 descr = '\\frac{\\Gamma(d/2)}{2 |\\Gamma(-2s)| \\pi^{d/2}}'
         return descr

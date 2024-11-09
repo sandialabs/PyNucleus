@@ -118,35 +118,6 @@ cdef inline bint distFromSimplex(const REAL_t[:, ::1] simplex,
     return False
 
 
-cdef REAL_t distBoxes(REAL_t[:, ::1] box1, REAL_t[:, ::1] box2):
-    cdef:
-        REAL_t dist = 0., a2, b1
-        INDEX_t i
-    for i in range(box1.shape[0]):
-        if box1[i, 0] > box2[i, 0]:
-            b1 = box2[i, 1]
-            a2 = box1[i, 0]
-        else:
-            b1 = box1[i, 1]
-            a2 = box2[i, 0]
-        dist += max(a2-b1, 0)**2
-    return sqrt(dist)
-
-
-cdef REAL_t maxDistBoxes(REAL_t[:, ::1] box1, REAL_t[:, ::1] box2):
-    cdef:
-        REAL_t dist = 0., a2, b1
-        INDEX_t i
-    for i in range(box1.shape[0]):
-        if box1[i, 0] > box2[i, 0]:
-            b1 = box2[i, 0]
-            a2 = box1[i, 1]
-        else:
-            b1 = box1[i, 0]
-            a2 = box2[i, 1]
-        dist += max(a2-b1, 0)**2
-    return sqrt(dist)
-
 cdef REAL_t diamBox(REAL_t[:, ::1] box):
     cdef:
         REAL_t d = 0.
@@ -4043,13 +4014,13 @@ cpdef admissibilityType queryAdmissibility(Kernel kernel,
         function horizon
         REAL_t horizonValue
 
-    dist = distBoxes(n1.box, n2.box)
+    dist = kernel.interaction.distBoxes(n1.box, n2.box)
 
     if kernel.finiteHorizon:
         horizon = kernel.horizon
         assert isinstance(horizon, constant)
         horizonValue = horizon.value
-        maxDist = maxDistBoxes(n1.box, n2.box)
+        maxDist = kernel.interaction.maxDistBoxes(n1.box, n2.box)
         if not kernel.complement:
             if  dist > horizonValue:
                 # return True, since we don't want fully ignored cluster pairs to be merged into near field ones.
@@ -4089,7 +4060,7 @@ cpdef BOOL_t getAdmissibleClusters(Kernel kernel,
         REAL_t[:, ::1] boxUnion
         REAL_t diamUnion = 0.
         REAL_t horizonValue
-    dist = distBoxes(n1.box, n2.box)
+    dist = kernel.interaction.distBoxes(n1.box, n2.box)
     diam1 = diamBox(n1.box)
     diam2 = diamBox(n2.box)
 
@@ -4101,7 +4072,7 @@ cpdef BOOL_t getAdmissibleClusters(Kernel kernel,
     horizonValue = horizon.value
 
     if kernel.finiteHorizon:
-        maxDist = maxDistBoxes(n1.box, n2.box)
+        maxDist = kernel.interaction.maxDistBoxes(n1.box, n2.box)
         if not kernel.complement:
             if  dist > horizonValue:
                 # return True, since we don't want fully ignored cluster pairs to be merged into near field ones.
@@ -4177,8 +4148,8 @@ cpdef BOOL_t getCoveringClusters(Kernel kernel,
         function horizon
         BOOL_t addedFarFieldClusters = False
         REAL_t horizonValue
-    dist = distBoxes(n1.box, n2.box)
-    maxDist = maxDistBoxes(n1.box, n2.box)
+    dist = kernel.interaction.distBoxes(n1.box, n2.box)
+    maxDist = kernel.interaction.maxDistBoxes(n1.box, n2.box)
 
     horizon = kernel.horizon
     assert isinstance(horizon, constant)

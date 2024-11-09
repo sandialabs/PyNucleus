@@ -27,7 +27,7 @@ from PyNucleus_base import driver, solverFactory
 from PyNucleus_base.linear_operators import TimeStepperLinearOperator
 from PyNucleus_fem.femCy import assembleNonlinearity
 from PyNucleus_multilevelSolver import hierarchyManager
-from PyNucleus_nl import paramsForFractionalHierarchy
+from PyNucleus_nl.helpers import paramsForFractionalHierarchy
 from PyNucleus_nl.nonlocalProblems import brusselatorProblem
 from PyNucleus_base.timestepping import EulerIMEX, ARS3, koto
 import h5py

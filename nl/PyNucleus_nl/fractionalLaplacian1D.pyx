@@ -358,10 +358,10 @@ cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
             quadratureRule qr
             REAL_t[:, ::1] PSI
             INDEX_t dofs_per_element = self.DoFMap.dofs_per_element
-            INDEX_t dim = 1
+            INDEX_t dim = self.kernel.dim
             INDEX_t valueSize = self.kernel.valueSize
-            REAL_t x[1]
-            REAL_t y[1]
+            REAL_t x[2]
+            REAL_t y[2]
 
         if panel >= 1:
             self.eval_distant(contrib, panel, mask)
@@ -558,9 +558,9 @@ cdef class fractionalLaplacian1D_nonsym(fractionalLaplacian1D):
             quadratureRule qr
             REAL_t[:, :, ::1] PHI
             INDEX_t dofs_per_element = self.DoFMap.dofs_per_element
-            INDEX_t dim = 1
-            REAL_t x[1]
-            REAL_t y[1]
+            INDEX_t dim = self.DoFMap.mesh.dim
+            REAL_t x[2]
+            REAL_t y[2]
             INDEX_t valueSize = self.kernel.valueSize
 
         if panel >= 1:
@@ -727,9 +727,9 @@ cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
             REAL_t[:, ::1] PHI
             REAL_t[:, ::1] simplex1 = self.simplex1
             REAL_t[:, ::1] simplex2 = self.simplex2
-            INDEX_t dim = 1
-            REAL_t x[1]
-            REAL_t y[1]
+            INDEX_t dim = self.DoFMap.mesh.dim
+            REAL_t x[2]
+            REAL_t y[2]
             INDEX_t dofs_per_element = self.DoFMap.dofs_per_element
             INDEX_t valueSize = self.kernel.valueSize
 

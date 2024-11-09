@@ -217,12 +217,12 @@ def formatScientificLatex(a, useEnotation=True):
         exp = int(np.floor(np.log10(a)))
         mantissa = a/10**exp
         if useEnotation:
-            return '{:.3}\mathrm{{e}}{{{}}}'.format(mantissa, exp)
+            return '{:.3}\\mathrm{{e}}{{{}}}'.format(mantissa, exp)
         else:
             return '{:.3} \\times 10^{{{}}}'.format(mantissa, exp)
     elif abs(a) == 0:
         if useEnotation:
-            return '0.00\mathrm{{e}}{0}'
+            return '0.00\\mathrm{{e}}{0}'
         else:
             return '0.00 \\times 10^{0}'
     else:

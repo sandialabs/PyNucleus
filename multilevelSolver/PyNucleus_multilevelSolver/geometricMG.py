@@ -34,13 +34,13 @@ def paramsForSerialMG(noRef, global_params):
     return hierarchies, connectors
 
 
-def paramsForMG(noRef, onRanks, global_params, dim, element, repartitionFactor=0.05,
+def paramsForMG(noRef, onRanks, global_params, manifold_dim, element, repartitionFactor=0.05,
                 max_coarse_grid_size=4500):
     from . connectors import repartitionConnector
 
     numProcsAvail = len(onRanks)
     onRanks = np.array(list(onRanks), dtype=INDEX)
-    if dim == 1:
+    if manifold_dim == 1:
         numInitialCells = 2
         if element in ('P1', 1):
             cells2dofsFactor = 1
@@ -50,7 +50,7 @@ def paramsForMG(noRef, onRanks, global_params, dim, element, repartitionFactor=0
             cells2dofsFactor = 3
         else:
             raise NotImplementedError()
-    elif dim == 2:
+    elif manifold_dim == 2:
         numInitialCells = 8
         if element in ('P1', 1):
             cells2dofsFactor = 0.5
@@ -60,7 +60,7 @@ def paramsForMG(noRef, onRanks, global_params, dim, element, repartitionFactor=0
             cells2dofsFactor = 4.5
         else:
             raise NotImplementedError()
-    elif dim == 3:
+    elif manifold_dim == 3:
         numInitialCells = 48
         if element in ('P1', 1):
             cells2dofsFactor = 1./6.
@@ -72,7 +72,7 @@ def paramsForMG(noRef, onRanks, global_params, dim, element, repartitionFactor=0
             raise NotImplementedError()
     else:
         raise NotImplementedError()
-    uniformRefinementMutiplier = 2**dim
+    uniformRefinementMutiplier = 2**manifold_dim
     numCells = numInitialCells * uniformRefinementMutiplier**np.arange(noRef+1)
     cg = 0
     while numCells[cg+1]*cells2dofsFactor < max_coarse_grid_size and cg < noRef-1:

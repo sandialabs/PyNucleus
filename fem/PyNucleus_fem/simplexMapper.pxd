@@ -21,6 +21,7 @@ cdef class simplexMapper:
         INDEX_t[:, ::1] temp_edges2
         INDEX_t iteration_counter
         INDEX_t dim
+        INDEX_t manifold_dim
 
     cdef void startLoopOverCellNodes(self, INDEX_t[::1] cell)
     cdef BOOL_t loopOverCellNodes(self, INDEX_t *node)
@@ -102,6 +103,10 @@ cdef class simplexMapper:
     cdef void getEncodedFaceSimplex(self,
                                     tuple hv,
                                     REAL_t[:, ::1] faceSimplex)
+
+
+cdef class simplexMapper0D(simplexMapper):
+    pass
 
 
 cdef class simplexMapper1D(simplexMapper):

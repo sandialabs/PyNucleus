@@ -503,7 +503,7 @@ def assembleNearField(list Pnear,
     return A
 
 
-cdef INDEX_t[:, ::1] boundaryVertices(INDEX_t[:, ::1] cells, indexSet cellIds):
+cdef INDEX_t[:, ::1] boundaryVertices(INDEX_t[:, ::1] cells, indexSet cellIds, dict periodicIdentification={}):
     cdef:
         INDEX_t c0, c1, i, k
         np.ndarray[INDEX_t, ndim=2] bvertices_mem
@@ -522,6 +522,12 @@ cdef INDEX_t[:, ::1] boundaryVertices(INDEX_t[:, ::1] cells, indexSet cellIds):
             bvertices.remove(c1)
         except KeyError:
             bvertices.add(c1)
+    for c0 in periodicIdentification:
+        c1 = periodicIdentification[c0]
+        if c0 in bvertices and c1 in bvertices:
+            bvertices.remove(c0)
+            bvertices.remove(c1)
+            print('removing', c0, c1)
     bvertices_mem = uninitialized((len(bvertices), 1), dtype=INDEX)
     bvertices_mv = bvertices_mem
     i = 0

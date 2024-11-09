@@ -20,8 +20,10 @@ from . meshCy cimport (meshBase,
                        volume1D_in_2D,
                        volume2Dnew,
                        volume3D, volume3Dnew,
-                       volume2D_in_3D)
-from . mesh import NO_BOUNDARY
+                       volume2D_in_3D,
+                       volume1Din2Dsimplex,
+                       volume1Din3Dsimplex)
+from . mesh import NO_BOUNDARY, meshNd
 from PyNucleus_base.linear_operators cimport (LinearOperator,
                                               CSR_LinearOperator,
                                               SSS_LinearOperator)
@@ -61,6 +63,18 @@ cdef class local_matrix_t:
             INDEX_t i
         for i in range(self.dim+1):
             self.cell[i] = cell[i]
+
+
+# Methods for computing the pseudo-determinant |J| of the Jacobian J of the transformation G from the reference element \hat{K} to the element K:
+#
+# \hat{K} \subset \mathbb{R}^manifold_dim
+# K       \subset \mathbb{R}^dim
+#
+# G : \hat{K} -> K
+#
+# J = \nabla G
+#
+# |J| = sqrt(det(J^T \cdot J))
 
 
 cdef inline REAL_t simplexVolume1D(const REAL_t[:, ::1] simplex,
@@ -547,6 +561,32 @@ cdef inline REAL_t simplexVolumeAndProducts2D(const REAL_t[:, ::1] simplex,
     innerProducts[5] = mydot(temp[2, :], temp[2, :])
     return vol
 
+
+cdef inline REAL_t simplexVolumeAndProducts2Din3D(const REAL_t[:, ::1] simplex,
+                                                  REAL_t[::1] innerProducts,
+                                                  REAL_t[:, ::1] temp):
+    # innerProducts needs to bed of size 6
+    # temp needs to bed of size 3x3
+    cdef:
+        REAL_t vol
+        INDEX_t j
+
+    # Calculate volume
+    for j in range(3):
+        temp[0, j] = simplex[2, j]-simplex[1, j]
+        temp[1, j] = simplex[0, j]-simplex[2, j]
+        temp[2, j] = simplex[1, j]-simplex[0, j]
+    vol = volume2D_in_3D(temp[1, :], temp[2, :])
+    # inner product of barycentric gradients
+    innerProducts[0] = mydot(temp[0, :], temp[0, :])
+    innerProducts[1] = mydot(temp[0, :], temp[1, :])
+    innerProducts[2] = mydot(temp[0, :], temp[2, :])
+    innerProducts[3] = mydot(temp[1, :], temp[1, :])
+    innerProducts[4] = mydot(temp[1, :], temp[2, :])
+    innerProducts[5] = mydot(temp[2, :], temp[2, :])
+    return vol
+
+
 cdef inline REAL_t simplexVolumeGradientsProducts2D(const REAL_t[:, ::1] simplex,
                                                     REAL_t[::1] innerProducts,
                                                     REAL_t[:, ::1] gradients):
@@ -925,7 +965,7 @@ cdef class mass_quadrature_matrix(local_matrix_t):
         # evaluate local shape functions on quadrature nodes
         self.PHI = uninitialized((dm.dofs_per_element, qr.num_nodes), dtype=REAL)
         for I in range(dm.dofs_per_element):
-            sf = dm.localShapeFunctions[I]
+            sf = dm.getLocalShapeFunction(I)
             for k in range(qr.num_nodes):
                 sf.evalStrided(&qr.nodes[0, k], NULL, qr.nodes.shape[1], &self.PHI[I, k])
 
@@ -938,8 +978,6 @@ cdef class stiffness_quadrature_matrix(mass_quadrature_matrix):
         REAL_t[::1] innerProducts
 
     def __init__(self, function diffusivity, simplexQuadratureRule qr):
-        from . DoFMaps import P1_DoFMap
-        from . mesh import meshNd
         fakeMesh = meshNd(uninitialized((0, self.dim), dtype=REAL),
                           uninitialized((0, self.dim+1), dtype=INDEX))
         dm = P1_DoFMap(fakeMesh)
@@ -1012,12 +1050,119 @@ cdef class stiffness_1d_in_2d_sym_P1(stiffness_2d_sym):
                           const REAL_t[:, ::1] simplex,
                           REAL_t[::1] contrib):
         cdef:
-            REAL_t vol = 1.0/6.0
+            REAL_t vol = 1.0
 
-        vol /= simplexVolume1Din2D(simplex, self.temp)
+        vol /= volume1Din2Dsimplex(simplex)
 
         contrib[0] = contrib[2] = vol
         contrib[1] = -vol
+
+
+cdef class stiffness_1d_in_2d_sym_P2(stiffness_2d_sym):
+    cdef inline void eval(self,
+                          const REAL_t[:, ::1] simplex,
+                          REAL_t[::1] contrib):
+        cdef:
+            REAL_t vol = 0.333333333333333
+
+        vol /= volume1Din2Dsimplex(simplex)
+
+        contrib[0] = 7*vol
+        contrib[1] = vol
+        contrib[2] = -8*vol
+        contrib[3] = 7*vol
+        contrib[4] = -8*vol
+        contrib[5] = 16*vol
+
+
+cdef class stiffness_1d_in_3d_sym_P1(stiffness_3d_sym):
+    cdef inline void eval(self,
+                          const REAL_t[:, ::1] simplex,
+                          REAL_t[::1] contrib):
+        cdef:
+            REAL_t vol = 1.0
+
+        vol /= volume1Din3Dsimplex(simplex)
+
+        contrib[0] = contrib[2] = vol
+        contrib[1] = -vol
+
+
+cdef class stiffness_2d_in_3d_sym_P1(stiffness_3d_sym):
+    cdef inline void eval(self,
+                          const REAL_t[:, ::1] simplex,
+                          REAL_t[::1] contrib):
+        cdef:
+            REAL_t vol = 0.250000000000000
+            REAL_t l00, l01, l02, l11, l12, l22
+
+        vol /= simplexVolumeAndProducts2Din3D(simplex, self.innerProducts, self.temp)
+        l00 = self.innerProducts[0]
+        l01 = self.innerProducts[1]
+        l02 = self.innerProducts[2]
+        l11 = self.innerProducts[3]
+        l12 = self.innerProducts[4]
+        l22 = self.innerProducts[5]
+
+        contrib[0] = l00*vol
+        contrib[1] = l01*vol
+        contrib[2] = l02*vol
+        contrib[3] = l11*vol
+        contrib[4] = l12*vol
+        contrib[5] = l22*vol
+
+
+cdef class stiffness_2d_in_3d_sym_P2(stiffness_3d_sym):
+    cdef inline void eval(self,
+                          const REAL_t[:, ::1] simplex,
+                          REAL_t[::1] contrib):
+        cdef:
+            REAL_t vol = 0.0833333333333333
+            REAL_t l00, l01, l02, l11, l12, l22
+
+        vol /= simplexVolumeAndProducts2Din3D(simplex, self.innerProducts, self.temp)
+        l00 = self.innerProducts[0]
+        l01 = self.innerProducts[1]
+        l02 = self.innerProducts[2]
+        l11 = self.innerProducts[3]
+        l12 = self.innerProducts[4]
+        l22 = self.innerProducts[5]
+
+        contrib[0] = 3*l00*vol
+        contrib[1] = -l01*vol
+        contrib[2] = -l02*vol
+        contrib[3] = 4*l01*vol
+        contrib[4] = 0
+        contrib[5] = 4*l02*vol
+        contrib[6] = 3*l11*vol
+        contrib[7] = -l12*vol
+        contrib[8] = 4*l01*vol
+        contrib[9] = 4*l12*vol
+        contrib[10] = 0
+        contrib[11] = 3*l22*vol
+        contrib[12] = 0
+        contrib[13] = 4*l12*vol
+        contrib[14] = 4*l02*vol
+        contrib[15] = 8*vol*(l00 + l01 + l11)
+        contrib[16] = 4*vol*(l01 + 2*l02 + l11 + l12)
+        contrib[17] = 4*vol*(l00 + l01 + l02 + 2*l12)
+        contrib[18] = 8*vol*(l11 + l12 + l22)
+        contrib[19] = 4*vol*(2*l01 + l02 + l12 + l22)
+        contrib[20] = 8*vol*(l00 + l02 + l22)
+
+
+
+# cdef class stiffness_1d_in_2d_sym_P1(stiffness_2d_sym):
+#     cdef inline void eval(self,
+#                           const REAL_t[:, ::1] simplex,
+#                           REAL_t[::1] contrib):
+#         cdef:
+#             REAL_t vol = 1.0/6.0
+
+#         vol /= simplexVolume1Din2D(simplex, self.temp)
+
+#         contrib[0] = contrib[2] = vol
+#         contrib[1] = -vol
 
 
 cdef class stiffness_2d_sym_anisotropic_P1(stiffness_2d_sym):
@@ -1381,6 +1526,39 @@ cdef class mass_1d_in_2d_sym_P2(mass_2d):
         contrib[5] = 16.0*vol
 
 
+cdef class mass_2d_in_3d_sym_P2(mass_3d):
+    cdef inline void eval(self,
+                          const REAL_t[:, ::1] simplex,
+                          REAL_t[::1] contrib):
+        cdef:
+            REAL_t vol = 0.00555555555555556
+
+        vol *= simplexVolume2Din3D(simplex, self.temp)
+
+        contrib[0] = 6*vol
+        contrib[1] = -vol
+        contrib[2] = -vol
+        contrib[3] = 0
+        contrib[4] = -4*vol
+        contrib[5] = 0
+        contrib[6] = 6*vol
+        contrib[7] = -vol
+        contrib[8] = 0
+        contrib[9] = 0
+        contrib[10] = -4*vol
+        contrib[11] = 6*vol
+        contrib[12] = -4*vol
+        contrib[13] = 0
+        contrib[14] = 0
+        contrib[15] = 32*vol
+        contrib[16] = 16*vol
+        contrib[17] = 16*vol
+        contrib[18] = 32*vol
+        contrib[19] = 16*vol
+        contrib[20] = 32*vol
+
+
+
 include "mass_1D_P0.pxi"
 include "mass_2D_P0.pxi"
 include "mass_3D_P0.pxi"
@@ -1492,6 +1670,13 @@ def assembleMass(DoFMap dm,
                     local_matrix = mass_1d_in_2d_sym_P1()
                 elif dim == 3:
                     local_matrix = mass_2d_in_3d_sym_P1()
+                else:
+                    raise NotImplementedError()
+            elif isinstance(dm, P2_DoFMap):
+                if dim == 2:
+                    local_matrix = mass_1d_in_2d_sym_P2()
+                elif dim == 3:
+                    local_matrix = mass_2d_in_3d_sym_P2()
                 else:
                     raise NotImplementedError()
             else:
@@ -1773,7 +1958,8 @@ def assembleStiffness(DoFMap dm,
                       BOOL_t reorder=False,
                       diffusivity=None,
                       INDEX_t[::1] cellIndices=None,
-                      DoFMap dm2=None):
+                      DoFMap dm2=None,
+                      simplexQuadratureRule qr=None):
     cdef:
         INDEX_t dim = dm.mesh.dim
         INDEX_t manifold_dim = dm.mesh.manifold_dim
@@ -1813,8 +1999,22 @@ def assembleStiffness(DoFMap dm,
             if isinstance(dm, P1_DoFMap):
                 if dim == 2:
                     local_matrix = stiffness_1d_in_2d_sym_P1()
+                elif dim == 3:
+                    local_matrix = stiffness_2d_in_3d_sym_P1()
                 else:
                     raise NotImplementedError()
+            elif isinstance(dm, P2_DoFMap):
+                if dim == 2:
+                    local_matrix = stiffness_1d_in_2d_sym_P2()
+                elif dim == 3:
+                    local_matrix = stiffness_2d_in_3d_sym_P2()
+                else:
+                    raise NotImplementedError()
+            else:
+                raise NotImplementedError()
+        elif dim-2 == manifold_dim:
+            if dim == 3:
+                local_matrix = stiffness_1d_in_3d_sym_P1()
             else:
                 raise NotImplementedError()
         else:
@@ -1822,14 +2022,14 @@ def assembleStiffness(DoFMap dm,
     elif isinstance(diffusivity, matrixFunction):
         if isinstance(dm, P1_DoFMap):
             if dim == 1:
-                local_matrix = scalar_coefficient_stiffness_1d_sym_P1(diffusivity[(0, 0)])
+                local_matrix = scalar_coefficient_stiffness_1d_sym_P1(diffusivity[(0, 0)], qr=qr)
             elif dim == 2:
                 local_matrix = stiffness_2d_sym_anisotropic3_P1(diffusivity)
             else:
                 raise NotImplementedError()
         elif isinstance(dm, P2_DoFMap):
             if dim == 1:
-                local_matrix = scalar_coefficient_stiffness_1d_sym_P2(diffusivity[(0, 0)])
+                local_matrix = scalar_coefficient_stiffness_1d_sym_P2(diffusivity[(0, 0)], qr=qr)
             else:
                 raise NotImplementedError()
         else:
@@ -1837,20 +2037,20 @@ def assembleStiffness(DoFMap dm,
     else:
         if isinstance(dm, P1_DoFMap):
             if dim == 1:
-                local_matrix = scalar_coefficient_stiffness_1d_sym_P1(diffusivity)
+                local_matrix = scalar_coefficient_stiffness_1d_sym_P1(diffusivity, qr=qr)
             elif dim == 2:
-                local_matrix = scalar_coefficient_stiffness_2d_sym_P1(diffusivity)
+                local_matrix = scalar_coefficient_stiffness_2d_sym_P1(diffusivity, qr=qr)
             elif dim == 3:
-                local_matrix = scalar_coefficient_stiffness_3d_sym_P1(diffusivity)
+                local_matrix = scalar_coefficient_stiffness_3d_sym_P1(diffusivity, qr=qr)
             else:
                 raise NotImplementedError()
         elif isinstance(dm, P2_DoFMap):
             if dim == 1:
-                local_matrix = scalar_coefficient_stiffness_1d_sym_P2(diffusivity)
+                local_matrix = scalar_coefficient_stiffness_1d_sym_P2(diffusivity, qr=qr)
             elif dim == 2:
-                local_matrix = scalar_coefficient_stiffness_2d_sym_P2(diffusivity)
+                local_matrix = scalar_coefficient_stiffness_2d_sym_P2(diffusivity, qr=qr)
             elif dim == 3:
-                local_matrix = scalar_coefficient_stiffness_3d_sym_P2(diffusivity)
+                local_matrix = scalar_coefficient_stiffness_3d_sym_P2(diffusivity, qr=qr)
             else:
                 raise NotImplementedError()
         else:

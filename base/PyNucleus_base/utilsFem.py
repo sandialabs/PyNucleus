@@ -1069,6 +1069,14 @@ class driver:
         if self.comm:
             params = self.comm.bcast(params, root=0)
         self.params = params
+
+        if params['test']:
+            import psutil
+            p = psutil.Process()
+            try:
+                p.cpu_affinity(list(range(psutil.cpu_count())))
+            except AttributeError:
+                pass
         self._timer = TimerManager(self.logger, comm=self.comm, memoryProfiling=params['showMemory'])
 
         for fun in self.processHook:

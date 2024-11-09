@@ -1035,6 +1035,9 @@ cdef class {SCALAR_label}nonlocalBuilder:
             'classical-refactored'
         )
 
+        if opType == 'du_dv_gamma':
+            opType = 'Laplacian'
+
         # nonlocal Laplacians
         if opType == 'Laplacian':
             if quadType == 'classical-refactored':
@@ -1859,9 +1862,9 @@ cdef class {SCALAR_label}nonlocalBuilder:
                         clusterDofs2 = cluster.n2.get_dofs()
 
                         # surface of the union of clusters n1 and n2
-                        if self.mesh.dim == 1:
+                        if self.mesh.manifold_dim == 1:
                             surface_cells = boundaryVertices(cells, cluster.cellsUnion)
-                        elif self.mesh.dim == 2:
+                        elif self.mesh.manifold_dim == 2:
                             surface_cells = boundaryEdges(cells, cluster.cellsUnion)
                         else:
                             raise NotImplementedError()

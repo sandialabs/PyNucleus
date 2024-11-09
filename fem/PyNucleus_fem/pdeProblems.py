@@ -9,12 +9,14 @@ import numpy as np
 from PyNucleus_base import REAL
 from PyNucleus_base.utilsFem import problem
 from . functions import complexLambda, wrapRealToComplexFunction, waveFunction, radialIndicator
+from . import functionFactory
 
 
 class diffusionProblem(problem):
     def setDriverArgs(self):
         p = self.driver.addGroup('problem')
-        self.setDriverFlag('domain', 'square', acceptedValues=['interval', 'cube', 'standardSimplex3D', 'fichera', 'gradedSquare', 'gradedCube'], group=p)
+        self.setDriverFlag('domain', 'square', acceptedValues=['interval', 'cube', 'standardSimplex3D', 'fichera', 'gradedSquare', 'gradedCube',
+                                                               'sphere1', 'sphere2'], group=p)
         self.setDriverFlag('problem', 'sin', acceptedValues=['reac-sin', 'diffusivity-sin', 'poly', 'fichera', 'cos'], group=p)
         self.setDriverFlag('noRef', argInterpreter=int, group=p)
         self.setDriverFlag('element', 'P1', acceptedValues=['P1', 'P2', 'P3'], group=p)
@@ -28,6 +30,9 @@ class diffusionProblem(problem):
         if domain in ('interval', 'unitInterval'):
             if noRef is None:
                 noRef = {'P1': 15, 'P2': 14, 'P3': 13}[element]
+        elif domain in ('sphere1', ):
+            if noRef is None:
+                noRef = {'P1': 10, 'P2': 9, 'P3': 8}[element]
         elif domain in ('square', 'unitSquare', 'gradedSquare'):
             if noRef is None:
                 noRef = {'P1': 9, 'P2': 8, 'P3': 7}[element]
@@ -35,6 +40,9 @@ class diffusionProblem(problem):
             if noRef is None:
                 noRef = {'P1': 9, 'P2': 8, 'P3': 7}[element]
         elif domain == 'graded_disc':
+            if noRef is None:
+                noRef = {'P1': 5, 'P2': 4, 'P3': 3}[element]
+        elif domain in ('sphere2', ):
             if noRef is None:
                 noRef = {'P1': 5, 'P2': 4, 'P3': 3}[element]
         elif domain in ('cube', 'gradedCube'):
@@ -49,7 +57,7 @@ class diffusionProblem(problem):
         params['noRef'] = noRef
         super().processCmdline(params)
 
-    @problem.generates(['dim', 'diffusivity', 'reaction', 'rhsFun', 'exactSolution', 'L2ex', 'H10ex', 'boundaryCond'])
+    @problem.generates(['dim', 'manifold_dim', 'diffusivity', 'reaction', 'rhsFun', 'exactSolution', 'L2ex', 'H10ex', 'boundaryCond', 'nontrivialNullspace'])
     def processProblem(self, domain, problem, noRef, element, symmetric, reorder):
         from . functions import constant, Lambda
         from . factories import (meshFactory, rhsFunSin1D,
@@ -58,6 +66,8 @@ class diffusionProblem(problem):
         self.diffusivity = None
         self.reaction = None
         self.dim = meshFactory.getDim(domain)
+        self.manifold_dim = meshFactory.getManifoldDim(domain)
+        self.nontrivialNullspace = False
         if domain in ('interval', 'unitInterval'):
             if problem == 'sin':
                 self.rhsFun = rhsFunSin1D
@@ -72,6 +82,17 @@ class diffusionProblem(problem):
                 self.H10ex = (np.pi**2 + 10.)/2
                 self.reaction = 10.
                 self.boundaryCond = None
+            else:
+                raise NotImplementedError()
+        elif domain in ('sphere1', ):
+            if problem == 'sin':
+                n = 1
+                self.exactSolution = functionFactory('Lambda', lambda x: np.sin(n*np.arctan2(x[1], x[0])))
+                self.rhsFun = n**2 * self.exactSolution
+                self.L2ex = np.pi
+                self.H10ex = np.pi*n**2
+                self.boundaryCond = None
+                self.nontrivialNullspace = True
             else:
                 raise NotImplementedError()
         elif domain in ('square', 'unitSquare', 'gradedSquare'):
@@ -128,6 +149,52 @@ class diffusionProblem(problem):
                 self.L2ex = None
                 self.H10ex = None
                 self.boundaryCond = None
+            else:
+                raise NotImplementedError()
+        elif domain in ('sphere2', ):
+            if problem == 'sin':
+                from scipy.special import sph_harm
+
+                n = 1
+                m = -1
+
+                assert n >= 0
+                assert abs(m) <= n
+
+                ev = n*(n+1)
+                if m == 0:
+                    self.exactSolution = functionFactory('Lambda', lambda x: sph_harm(m, n, np.arccos(x[2]), np.arctan2(np.sqrt(x[0]**2+x[1]**2), x[2])).real)
+                elif m < 0:
+                    self.exactSolution = functionFactory('Lambda',
+                                                         lambda x: (np.sqrt(0.5)*1j*(sph_harm(m, n, np.arccos(x[2]), np.arctan2(np.sqrt(x[0]**2+x[1]**2), x[2]))
+                                                                                     - (-1)**m * sph_harm(-m, n, np.arccos(x[2]),
+                                                                                                          np.arctan2(np.sqrt(x[0]**2+x[1]**2), x[2])))).real)
+                else:
+                    self.exactSolution = functionFactory('Lambda', lambda x:
+                                                         (np.sqrt(0.5)*(sph_harm(-m, n, np.arccos(x[2]), np.arctan2(np.sqrt(x[0]**2+x[1]**2), x[2]))
+                                                                        + (-1)**m * sph_harm(m, n, np.arccos(x[2]),
+                                                                                             np.arctan2(np.sqrt(x[0]**2+x[1]**2), x[2])))).real)
+
+                def fun(x):
+                    r = np.linalg.norm(x)
+                    theta = np.arccos(x[2] / r)
+                    phi = np.sign(x[1]) * np.arccos(x[0]/np.sqrt(x[0]**2+x[1]**2))
+                    # theta \\in [0, pi]
+                    # phi \\in [-pi, pi]
+                    if m == 0:
+                        return sph_harm(m, n, phi, theta).real
+                    elif m > 0:
+                        return (np.sqrt(0.5)*1j*(sph_harm(m, n, phi, theta) - (-1)**m * sph_harm(-m, n, phi, theta))).real
+                    else:
+                        return np.sqrt(0.5)*(sph_harm(-m, n, phi, theta) + (-1)**m * sph_harm(m, n, phi, theta)).real
+
+                self.exactSolution = functionFactory('Lambda', fun)
+
+                self.rhsFun = ev * self.exactSolution
+                self.L2ex = 1.0
+                self.H10ex = ev
+                self.boundaryCond = None
+                self.nontrivialNullspace = True
             else:
                 raise NotImplementedError()
         elif domain in ('cube', 'gradedCube'):

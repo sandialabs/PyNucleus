@@ -56,11 +56,15 @@ class meshFactory(factory):
     def __init__(self):
         super(meshFactory, self).__init__()
         self.dims = {}
+        self.manifold_dims = {}
 
-    def register(self, name, classType, dim, params={}, aliases=[]):
+    def register(self, name, classType, dim, params={}, aliases=[], manifold_dim=None):
         super(meshFactory, self).register(name, classType, params, aliases)
         name = self.getCanonicalName(name)
         self.dims[name] = dim
+        if manifold_dim is None:
+            manifold_dim = dim
+        self.manifold_dims[name] = manifold_dim
 
     def build(self, name, noRef=0, hTarget=None, surface=False, **kwargs):
         if isinstance(name, meshNd):
@@ -88,6 +92,12 @@ class meshFactory(factory):
         if name in self.aliases:
             name = self.aliases[name][1]
         return self.dims[name]
+
+    def getManifoldDim(self, name):
+        name = self.getCanonicalName(name)
+        if name in self.aliases:
+            name = self.aliases[name][1]
+        return self.manifold_dims[name]
 
 
 def pacman(h=0.1, **kwargs):
@@ -1466,6 +1476,45 @@ def gradeUniformBall(mesh,
     gradeMesh(mesh, grading)
 
 
+def sphere1(numCells=10, radius=1.):
+    vertices = np.zeros((numCells, 2), dtype=REAL)
+    cells = np.zeros((numCells, 2), dtype=INDEX)
+    for i in range(numCells):
+        theta = 2*np.pi*i/numCells
+        vertices[i, 0] = radius*np.cos(theta)
+        vertices[i, 1] = radius*np.sin(theta)
+        cells[i, 0] = i
+        cells[i, 1] = (i+1) % numCells
+    mesh = mesh1d(vertices, cells)
+    from . meshCy import radialMeshTransformer
+    mesh.setMeshTransformation(radialMeshTransformer())
+    return mesh
+
+
+def sphere(dim, radius=1., h=0.5):
+    import gmsh
+    from tempfile import TemporaryDirectory
+    import os
+
+    with TemporaryDirectory() as tmp:
+        filename = os.path.join(tmp, 'mesh.mesh.msh')
+        gmsh.initialize()
+        gmsh.model.add("sphere")
+        if dim == 1:
+            gmsh.model.occ.addCircle(0., 0., 0., radius)
+        elif dim == 2:
+            gmsh.model.occ.addSphere(0., 0., 0., radius)
+        gmsh.model.occ.synchronize()
+        gmsh.option.setNumber("Mesh.MeshSizeMax", h)
+        gmsh.model.mesh.generate(dim)
+        gmsh.write(filename)
+        gmsh.finalize()
+        mesh = meshNd.readMesh(filename)
+    from . meshCy import radialMeshTransformer
+    mesh.setMeshTransformation(radialMeshTransformer())
+    return mesh
+
+
 class meshNd(meshBase):
     def __init__(self, vertices, cells):
         super(meshNd, self).__init__(vertices, cells)
@@ -1544,9 +1593,9 @@ class meshNd(meshBase):
 
     def get_boundary_faces(self):
         if not hasattr(self, '_boundaryFaces'):
-            if self.dim <= 2:
+            if self.manifold_dim <= 2:
                 self._boundaryFaces = uninitialized((0, 3), dtype=INDEX)
-            elif self.dim == 3:
+            elif self.manifold_dim == 3:
                 self._boundaryFaces = boundaryFacesWithOrientation(self.vertices, self.cells)
             return self._boundaryFaces
         else:
@@ -1900,20 +1949,21 @@ class meshNd(meshBase):
         vertices = mesh.points.astype(REAL)
         dim = vertices.shape[1]
         assert len(mesh.cells)
-        cell_type = mesh.cells[0].type
+        cell_type = mesh.cells[-1].type
+        for k in range(dim-1, -1, -1):
+            if np.unique(vertices[:, k]).shape[0] > 1:
+                dim = k+1
+                break
+        vertices = np.ascontiguousarray(vertices[:, :dim])
         if cell_type == 'line':
-            dim = 1
             meshType = mesh1d
         elif cell_type == 'triangle':
-            dim = 2
             meshType = mesh2d
         elif cell_type == 'tetra':
-            dim = 3
             meshType = mesh3d
         else:
-            raise NotImplementedError()
-        vertices = np.ascontiguousarray(vertices[:, :dim])
-        cells = mesh.cells[0].data.astype(INDEX)
+            raise NotImplementedError(cell_type)
+        cells = mesh.cells[-1].data.astype(INDEX)
         return meshType(vertices, cells)
 
     def getPartitions(self, numPartitions, partitioner='metis', partitionerParams={}):
@@ -1989,14 +2039,14 @@ class meshNd(meshBase):
     surface = property(fget=get_surface)
 
     def get_surface_mesh(self, tag=None):
-        if self.dim == 1:
+        if self.manifold_dim == 1:
             bv = self.getBoundaryVerticesByTag(tag)
             cells = uninitialized((len(bv), 1), dtype=INDEX)
             cells[:, 0] = bv
             surface = mesh0d(self.vertices, cells)
-        elif self.dim == 2:
+        elif self.manifold_dim == 2:
             surface = mesh1d(self.vertices, self.getBoundaryEdgesByTag(tag))
-        elif self.dim == 3:
+        elif self.manifold_dim == 3:
             surface = mesh2d(self.vertices, self.getBoundaryFacesByTag(tag))
         else:
             raise NotImplementedError()
@@ -2082,23 +2132,23 @@ class mesh1d(meshNd):
     def plotPrepocess(self, x, DoFMap):
         from . DoFMaps import P0_DoFMap
         if not isinstance(DoFMap, P0_DoFMap):
-            positions = uninitialized((DoFMap.num_dofs+DoFMap.num_boundary_dofs), dtype=REAL)
+            positions = uninitialized((DoFMap.num_dofs+DoFMap.num_boundary_dofs, self.dim), dtype=REAL)
             dof2pos = np.full((DoFMap.num_boundary_dofs), dtype=INDEX, fill_value=-1)
             bDoF = DoFMap.num_dofs
-            simplex = uninitialized((self.dim+1, self.dim), dtype=REAL)
+            simplex = uninitialized((self.manifold_dim+1, self.dim), dtype=REAL)
             for cellNo in range(self.num_cells):
                 self.getSimplex_py(cellNo, simplex)
                 for i in range(DoFMap.dofs_per_element):
                     dof = DoFMap.cell2dof_py(cellNo, i)
                     pos = np.dot(DoFMap.nodes[i, :], simplex)
                     if dof >= 0:
-                        positions[dof] = pos[0]
+                        positions[dof, :] = pos
                     else:
                         p = dof2pos[-dof-1]
                         if p == -1:
                             p = dof2pos[-dof-1] = bDoF
                             bDoF += 1
-                        positions[p] = pos[0]
+                        positions[p, :] = pos
             if x.ndim == 1:
                 xx = np.zeros((DoFMap.num_dofs+DoFMap.num_boundary_dofs), dtype=REAL)
                 xx[:DoFMap.num_dofs] = x
@@ -2106,24 +2156,24 @@ class mesh1d(meshNd):
                 xx = np.zeros((x.shape[0], self.num_vertices), dtype=REAL)
                 xx[:, :DoFMap.num_dofs] = x
         else:
-            positions = uninitialized((2*(DoFMap.num_dofs+DoFMap.num_boundary_dofs)), dtype=REAL)
+            positions = uninitialized((2*(DoFMap.num_dofs+DoFMap.num_boundary_dofs), self.dim), dtype=REAL)
             dof2pos = np.full((DoFMap.num_boundary_dofs), dtype=INDEX, fill_value=-1)
             bDoF = DoFMap.num_dofs
-            simplex = uninitialized((self.dim+1, self.dim), dtype=REAL)
+            simplex = uninitialized((self.manifold_dim+1, self.dim), dtype=REAL)
             for cellNo in range(self.num_cells):
                 self.getSimplex_py(cellNo, simplex)
                 for i in range(DoFMap.dofs_per_element):
                     dof = DoFMap.cell2dof_py(cellNo, i)
                     if dof >= 0:
-                        positions[2*dof] = min(simplex[0, 0], simplex[1, 0])+1e-9
-                        positions[2*dof+1] = max(simplex[0, 0], simplex[1, 0])-1e-9
+                        positions[2*dof, :] = min(simplex[0, :], simplex[1, :])+1e-9
+                        positions[2*dof+1, :] = max(simplex[0, :], simplex[1, :])-1e-9
                     else:
                         p = dof2pos[-dof-1]
                         if p == -1:
                             p = dof2pos[-dof-1] = bDoF
                             bDoF += 1
-                        positions[2*p] = min(simplex[0, 0], simplex[1, 0])+1e-9
-                        positions[2*p+1] = max(simplex[0, 0], simplex[1, 0])-1e-9
+                        positions[2*p, :] = min(simplex[0, :], simplex[1, :])+1e-9
+                        positions[2*p+1, :] = max(simplex[0, :], simplex[1, :])-1e-9
             if x.ndim == 1:
                 xx = np.zeros((2*(DoFMap.num_dofs+DoFMap.num_boundary_dofs)), dtype=REAL)
                 xx[:2*DoFMap.num_dofs-1:2] = x
@@ -2132,18 +2182,19 @@ class mesh1d(meshNd):
                 xx = np.zeros((x.shape[0], 2*(DoFMap.num_dofs+DoFMap.num_boundary_dofs)), dtype=REAL)
                 xx[:, :2*DoFMap.num_dofs-1:2] = x
                 xx[:, 1:2*DoFMap.num_dofs:2] = x
-            positions = np.concatenate((positions, self.vertices_as_array[:, 0]))
+            positions = np.concatenate((positions, self.vertices_as_array[:, :]))
             if x.ndim == 1:
                 shape = (self.num_vertices, )
             else:
                 shape = (x.shape[0], self.num_vertices)
             xx = np.hstack((xx, np.full(shape, fill_value=np.nan, dtype=REAL)))
-        idx = np.argsort(positions)
-        positions = positions[idx]
-        if x.ndim == 1:
-            xx = xx[idx]
-        else:
-            xx = xx[:, idx]
+        if positions.shape[1] == 1:
+            idx = np.argsort(positions[:, 0])
+            positions = positions[idx, :]
+            if xx.ndim == 1:
+                xx = xx[idx]
+            else:
+                xx = xx[idx, :]
         return positions, xx
 
     def plotFunction(self, x, DoFMap=None, tag=0, flat=False, yvals=None, fig=None, ax=None, update=None, **kwargs):
@@ -2167,14 +2218,22 @@ class mesh1d(meshNd):
                 positions = self.vertices_as_array[:, 0]
                 sol = x
             idx = np.argsort(positions)
-            positions = positions[idx]
+            positions = positions[idx, :]
             sol = sol[idx]
 
         if sol.ndim == 1:
-            if update is None:
-                return ax.plot(positions, sol, **kwargs)[0]
+            if positions.shape[1] == 1:
+                if update is None:
+                    return ax.plot(positions, sol, **kwargs)[0]
+                else:
+                    update.set_data(positions, sol)
             else:
-                update.set_data(positions, sol)
+                fig.delaxes(fig.gca())
+                ax = fig.add_subplot(projection='3d')
+                if update is None:
+                    return ax.plot(positions[:, 0], positions[:, 1], sol, marker='.', **kwargs)[0]
+                else:
+                    update.set_data(positions[:, 0], positions[:, 1], sol)
         else:
             from matplotlib import cm
             assert yvals is not None
@@ -2309,7 +2368,7 @@ class mesh2d(meshNd):
         from matplotlib import rcParams
         vertices = self.vertices_as_array
         X, Y = vertices[:, 0], vertices[:, 1]
-        triangles = self.cells
+        triangles = self.cells_as_array
         lenX = X.max()-X.min()
         lenY = Y.max()-Y.min()
         plt.axis('equal')
@@ -2384,9 +2443,13 @@ class mesh2d(meshNd):
                 return self.plotPrepocess(DoFMap.linearPart(x)[0])
             elif isinstance(DoFMap, P1_DoFMap):
                 v = self.vertices_as_array
-                X, Y = v[:, 0], v[:, 1]
                 sol = DoFMap.getValuesAtVertices(x)
-                return X, Y, sol
+                if v.shape[1] == 2:
+                    X, Y = v[:, 0], v[:, 1]
+                    return X, Y, sol
+                elif v.shape[1] == 3:
+                    X, Y, Z = v[:, 0], v[:, 1], v[:, 2]
+                    return X, Y, Z, sol
         else:
             v = self.vertices_as_array
             X, Y = v[:, 0], v[:, 1]
@@ -2404,7 +2467,10 @@ class mesh2d(meshNd):
     def plotFunction(self, x, flat=False, DoFMap=None, tag=0, update=None, contour=False, ax=None, **kwargs):
         import matplotlib.pyplot as plt
         from matplotlib import cm
-        X, Y, sol = self.plotPrepocess(x, DoFMap, tag)
+        if self.dim == self.manifold_dim:
+            X, Y, sol = self.plotPrepocess(x, DoFMap, tag)
+        elif self.dim == self.manifold_dim+1:
+            X, Y, Z, sol = self.plotPrepocess(x, DoFMap, tag)
         if flat:
             plt.axis('equal')
             if update is None:
@@ -2458,7 +2524,20 @@ class mesh2d(meshNd):
                 fig = plt.gcf()
                 fig.delaxes(fig.gca())
                 ax = fig.add_subplot(projection='3d')
-            ax.plot_trisurf(X, Y, cells, sol, cmap=cm.jet, linewidth=0, **kwargs)
+            if self.dim == self.manifold_dim:
+                ax.plot_trisurf(X, Y, cells, sol, cmap=cm.jet, linewidth=0, **kwargs)
+            elif self.dim == self.manifold_dim+1:
+                from . import functionFactory
+                from matplotlib.cm import ScalarMappable
+                from matplotlib.colors import Normalize
+                col = ax.plot_trisurf(X, Y, Z, triangles=cells, **kwargs)
+                dm0 = P0_DoFMap(self)
+                u0 = dm0.interpolate(functionFactory('lookup', DoFMap.mesh, DoFMap, x))
+                norm = Normalize()
+                colors = cm.jet(norm(u0.toarray()))
+                col.set_fc(colors)
+                mappable = ScalarMappable(cmap=cm.jet, norm=norm)
+                plt.colorbar(mappable, shrink=0.67, aspect=16.7, ax=ax)
             return ax
 
     def plotDoFMap(self, DoFMap, printDoFIndices=True):
@@ -3074,7 +3153,7 @@ def stitchOverlappingMeshes(meshes, overlapManagers):
 
 def stitchNonoverlappingMeshes(meshes, interfaceManagers):
     global_vertices = uninitialized((0, meshes[0].dim), dtype=REAL)
-    global_cells = uninitialized((0, meshes[0].dim+1), dtype=INDEX)
+    global_cells = uninitialized((0, meshes[0].manifold_dim+1), dtype=INDEX)
     numPartitions = len(meshes)
     localCellLookup = {}
     global_boundary_vertices = {}
@@ -3094,7 +3173,7 @@ def stitchNonoverlappingMeshes(meshes, interfaceManagers):
                 vertexNo = interfaceManagers[otherSubdomainNo].interfaces[mySubdomainNo].vertices[k, 1]
                 q = meshes[otherSubdomainNo].cells[cellNo, vertexNo]
                 translate[p] = q
-            if meshes[0].dim >= 2:
+            if meshes[0].manifold_dim >= 2:
                 for k in range(interfaceManagers[mySubdomainNo].interfaces[otherSubdomainNo].edges.shape[0]):
                     cellNo = interfaceManagers[mySubdomainNo].interfaces[otherSubdomainNo].edges[k, 0]
                     edgeNo = interfaceManagers[mySubdomainNo].interfaces[otherSubdomainNo].edges[k, 1]
@@ -3139,7 +3218,7 @@ def stitchNonoverlappingMeshes(meshes, interfaceManagers):
                     translate[p1] = q1
                     translate[p2] = q2
             # missing faces here
-            if meshes[0].dim >= 3:
+            if meshes[0].manifold_dim >= 3:
                 for k in range(interfaceManagers[mySubdomainNo].interfaces[otherSubdomainNo].faces.shape[0]):
                     cellNo = interfaceManagers[mySubdomainNo].interfaces[otherSubdomainNo].faces[k, 0]
                     faceNo = interfaceManagers[mySubdomainNo].interfaces[otherSubdomainNo].faces[k, 1]
@@ -3225,7 +3304,7 @@ def stitchNonoverlappingMeshes(meshes, interfaceManagers):
                 translate[k] = numVerticesNew
                 numVerticesNew += 1
         for k in range(meshes[mySubdomainNo].num_cells):
-            for m in range(meshes[mySubdomainNo].dim+1):
+            for m in range(meshes[mySubdomainNo].manifold_dim+1):
                 meshes[mySubdomainNo].cells[k, m] = translate[meshes[mySubdomainNo].cells[k, m]]
         global_vertices = np.vstack((global_vertices,
                                      meshes[mySubdomainNo].vertices_as_array[translate >= numVertices, :]))
@@ -3264,11 +3343,11 @@ def stitchNonoverlappingMeshes(meshes, interfaceManagers):
         for k in range(meshes[mySubdomainNo].num_cells):
             localCellLookup[num_cells] = [(mySubdomainNo, k)]
             num_cells += 1
-    if meshes[0].dim == 1:
+    if meshes[0].manifold_dim == 1:
         global_mesh = mesh1d(global_vertices, global_cells)
-    elif meshes[0].dim == 2:
+    elif meshes[0].manifold_dim == 2:
         global_mesh = mesh2d(global_vertices, global_cells)
-    elif meshes[0].dim == 3:
+    elif meshes[0].manifold_dim == 3:
         global_mesh = mesh3d(global_vertices, global_cells)
 
     boundaryVertices = uninitialized((len(global_boundary_vertices)), dtype=INDEX)
@@ -3406,7 +3485,7 @@ def accumulate2global(mesh, meshOverlaps, DoFMap, vec,
         else:
             return None, None, None
     else:
-        if len(vec) == 1:
+        if isinstance(vec, (list, tuple)) and len(vec) == 1:
             vec = vec[0]
             DoFMap = DoFMap[0]
         return mesh, vec, DoFMap

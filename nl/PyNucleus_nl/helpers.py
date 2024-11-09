@@ -250,6 +250,7 @@ def getFracLapl(DoFMap, kernel=None, rangedOpParams={}, **kwargs):
     else:
         params = {'target_order': target_order,
                   'eta': eta,
+                  'opType': kwargs.get('opType', 'Laplacian'),
                   'forceUnsymmetric': kwargs.get('forceUnsymmetric', False),
                   'assembleOnRoot': kwargs.get('assembleOnRoot', False),
                   'localFarFieldIndexing': kwargs.get('localFarFieldIndexing', False),
@@ -399,6 +400,7 @@ def paramsForFractionalHierarchy(noRef, global_params, onRanks=range(1)):
                         'keepAllDoFMaps': global_params.get('keepAllDoFMaps', False),
                         'assemble': global_params.get('assemble', 'ALL'),
                         'solver': 'LU',
+                        'opType': global_params.get('opType', 'Laplacian'),
                         'kernel': global_params.get('kernel', None),
                         'genKernel': global_params.get('genKernel', False),
                         'target_order': global_params.get('target_order', None),
@@ -430,6 +432,7 @@ def paramsForFractionalHierarchy(noRef, global_params, onRanks=range(1)):
                         'keepAllDoFMaps': global_params.get('keepAllDoFMaps', False),
                         'assemble': global_params.get('assemble', 'ALL'),
                         'solver': 'LU',
+                        'opType': global_params.get('opType', 'Laplacian'),
                         'kernel': global_params.get('kernel', None),
                         'genKernel': global_params.get('genKernel', False),
                         'target_order': global_params.get('target_order', None),
@@ -462,6 +465,7 @@ def fractionalHierarchy(mesh, s, NoRef, tag=None, eta=3.,
                         errorBound=None):
 
     global_params = {'domain': mesh,
+                     'opType': 'Laplacian',
                      'kernel': getFractionalKernel(mesh.dim, s=s, horizon=np.inf),
                      'horizon': horizon,
                      'tag': tag,

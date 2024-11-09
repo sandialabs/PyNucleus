@@ -5,10 +5,12 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-from PyNucleus_base.myTypes import REAL
+import numpy as np
+from PyNucleus_base.myTypes import REAL, INDEX
 from PyNucleus_base.blas import uninitialized
 from . DoFMaps cimport shapeFunction
 from . femCy cimport simplexComputations1D, simplexComputations2D, simplexComputations3D
+from libc.math cimport floor
 
 
 cdef class lookupFunction(function):
@@ -81,3 +83,23 @@ cdef class vectorLookupFunction(vectorFunction):
                 shapeFun.eval(self.cellFinder.bary, self.gradients, self.temp)
                 for componentNo in range(self.mesh.dim):
                     vals[componentNo] += self.u[dof]*self.temp[componentNo]
+
+
+cdef class UniformLookup1D(function):
+    def __init__(self, REAL_t a, REAL_t b, REAL_t[::1] vals):
+        self.a = a
+        self.b = b
+        self.vals = vals
+        self.dx = (b-a)/(self.vals.shape[0]-1)
+        self.invDx = 1./self.dx
+
+    cdef REAL_t eval(self, REAL_t[::1] x):
+        cdef:
+            INDEX_t k
+            REAL_t theta
+        k = max(min(INDEX((x[0]-self.a)*self.invDx), self.vals.shape[0]-2), 0)
+        theta = (x[0]-self.a-k*self.dx)*self.invDx
+        return (1-theta)*self.vals[k] + theta * self.vals[k+1]
+
+    def __reduce__(self):
+        return UniformLookup1D, (self.a, self.b, np.array(self.vals))

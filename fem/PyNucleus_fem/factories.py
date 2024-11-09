@@ -15,7 +15,6 @@ from . functions import (_rhsFunSin1D, _solSin1D, _rhsFunSin2D, _cos1D, _cos2D, 
                          affineFunction,
                          sqrtAffineFunction,
                          complexLambda,
-                         real, imag,
                          _rhsFunSin3D_memoized,
                          _rhsFichera, _solFichera,
                          solCos1DHeat, rhsFunCos1DHeat,
@@ -160,6 +159,7 @@ from . mesh import (simpleInterval, simpleSquare, simpleLshape, simpleBox, box,
                     squareWithInteractions,
                     discWithInteraction,
                     gradedDiscWithInteraction,
+                    sphere1, sphere,
                     plotFunctions)
 from . mesh import meshFactory as meshFactoryClass
 
@@ -192,3 +192,5 @@ meshFactory.register('ball', ball, 3)
 meshFactory.register('simpleFicheraCube', simpleFicheraCube, 3, aliases=['fichera', 'ficheraCube'])
 meshFactory.register('standardSimplex2D', standardSimplex2D, 2)
 meshFactory.register('standardSimplex3D', standardSimplex3D, 3)
+meshFactory.register('sphere1d', sphere1, 2, aliases=['sphere1', '1dsphere', '1d-sphere', '1-sphere'], manifold_dim=1)
+meshFactory.register('sphere2d', sphere, 3, aliases=['sphere2', '2dsphere', '2d-sphere', '2-sphere'], params={'dim': 2}, manifold_dim=2)

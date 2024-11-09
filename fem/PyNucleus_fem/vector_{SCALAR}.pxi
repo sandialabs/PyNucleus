@@ -156,7 +156,7 @@ cdef class {SCALAR_label_lc_}fe_vector:
             {SCALAR}_t[::1] v2
         if isinstance(other, {SCALAR_label_lc_}fe_vector):
             v = other
-            assert self.shape[0] == v.shape[0]
+            assert self.shape[0] == v.shape[0], (self.shape[0], v.shape[0])
             assign(self.data, v.data)
         elif isinstance(other, {SCALAR}):
             for i in range(self.data.shape[0]):
@@ -166,7 +166,7 @@ cdef class {SCALAR_label_lc_}fe_vector:
                 self.data[i] = other
         else:
             v2 = other
-            assert self.shape[0] == v2.shape[0]
+            assert self.shape[0] == v2.shape[0], (self.shape[0], v2.shape[0])
             assign(self.data, v2)
 
     def astype(self, dtype):
