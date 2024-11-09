@@ -510,8 +510,12 @@ class nonlocalBaseProblem(problem):
         else:
             raise NotImplementedError(interaction)
 
+        piecewise = True
+        if sFun is not None:
+            piecewise &= sFun.symmetric
+        piecewise &= isinstance(horizonFun, constant)
         self.kernel = getKernel(dim=dim, kernel=kType, s=sFun, horizon=horizonFun, normalized=normalized, phi=phiFun,
-                                interaction=interactionFun, piecewise=sFun.symmetric if sFun is not None else True,
+                                interaction=interactionFun, piecewise=piecewise,
                                 max_horizon=max_horizon,
                                 variance=gaussianVariance,
                                 exponentialRate=exponentialRate)
@@ -912,10 +916,12 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
         self.setDriverFlag('domain', 'interval', acceptedValues=['gradedInterval', 'square', 'disc', 'gradedDisc', 'discWithIslands'], help='spatial domain')
         self.addParametrizedArg('indicator', [float, float])
         self.addParametrizedArg('polynomial', [int])
-        self.addParametrizedArg('linear', [float, float])
-        self.addParametrizedArg('quadratic', [float, float, float])
+        self.addParametrizedArg('linear1d', [float])
+        self.addParametrizedArg('quadratic1d', [float, float])
+        self.addParametrizedArg('linear2d', [float, float])
+        self.addParametrizedArg('quadratic2d', [float, float, float])
         self.setDriverFlag('problem', 'poly-Dirichlet',
-                           argInterpreter=self.argInterpreter(['indicator', 'polynomial', 'linear', 'quadratic'],
+                           argInterpreter=self.argInterpreter(['indicator', 'polynomial', 'linear1d', 'quadratic1d', 'linear2d', 'quadratic2d'],
                                                               acceptedValues=['poly-Dirichlet',
                                                                               'poly-Neumann', 'zeroFlux', 'source', 'constant', 'gaussian', 'exponential',
                                                                               'exact-sin-Dirichlet', 'exact-sin-Neumann', 'sin-Dirichlet', 'discontinuous']),
@@ -1034,6 +1040,65 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                     if knownSolution:
                         self.analyticSolution = self.dirichletData
 
+            elif (self.parametrizedArg('linear1d').match(problem) or
+                  self.parametrizedArg('quadratic1d').match(problem)):
+
+                self.domainIndicator = domainIndicator
+
+                # u(x) = x \dot (Bx) + c \dot x + d
+
+                if self.parametrizedArg('linear1d').match(problem):
+                    self.problemDescription = "rhs giving rise to quadratic solution"
+
+                    B = np.zeros((1, 1), dtype=REAL)
+                    c = np.zeros((1), dtype=REAL)
+                    c[0] = self.parametrizedArg('linear1d').interpret(problem)[0]
+                    d = 0.
+
+                elif self.parametrizedArg('quadratic1d').match(problem):
+                    self.problemDescription = "rhs giving rise to quadratic solution"
+
+                    B = np.zeros((1, 1), dtype=REAL)
+                    B[0, 0] = self.parametrizedArg('quadratic1d').interpret(problem)[0]
+                    c = np.zeros((1), dtype=REAL)
+                    d = 0.
+
+                if isinstance(kernel.horizon, sqrtAffineFunction):
+                    # \delta         = \sqrt{2 a \cdot x + b}
+                    # \tilde{\delta} = \sqrt{2 a \cdot x + b + a \cdot a}
+
+                    a = 0.5*np.array(kernel.horizon.w)
+                    b = kernel.horizon.c
+
+                    self.fluxIndicator = constant(0)
+                    C = 2.*kernel.scalingValue
+
+                    trB = B[0, 0]
+
+                    def delta_x_squared(x):
+                        return 2*np.vdot(a, x) + b
+
+                    def delta_tilde_x_squared(x):
+                        return 2*np.vdot(a, x) + b + np.vdot(a, a)
+
+                    if isinstance(kernel.interaction, ball2_retriangulation):
+                        self.rhsData =  -C*2. * functionFactory('Lambda',
+                                                                lambda x: trB/3. * (delta_x_squared(x)**(3/2) + delta_tilde_x_squared(x)**(3/2))
+                                                                + np.vdot(c+2*B@x+B@a, a) * delta_tilde_x_squared(x)**(1/2))
+                    elif isinstance(kernel.interaction, ball2_dilation_retriangulation):
+                        self.rhsData = -C * functionFactory('Lambda',
+                                                            lambda x: trB/3. * (delta_x_squared(x)**(3/2) + (delta_tilde_x_squared(x)**(1/2)-a[0])**3)
+                                                            + 0.5*c[0] * (delta_x_squared(x) - (delta_tilde_x_squared(x)**(1/2)-a[0])**2)
+                                                            + d * (delta_x_squared(x)**(1/2) + (delta_tilde_x_squared(x)**(1/2)-a[0])))
+                    else:
+                        raise NotImplementedError()
+
+                    self.fluxData = constant(0)
+                    self.dirichletData = functionFactory('Lambda', lambda x: np.vdot(x, B@x) + np.vdot(c, x) + d)
+                    if (kType == INDICATOR) and (phiFun is None) and (not normalized) and isinstance(interactionFun, ball2_retriangulation):
+                        self.analyticSolution = self.dirichletData
+                else:
+                    raise NotImplementedError()
             elif problem == 'exact-sin-Dirichlet':
                 assert ((kType == INDICATOR) or (kType == FRACTIONAL)) and phiFun is None and normalized
 
@@ -1278,45 +1343,101 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                         phiFun is None and
                         normalized):
                     self.analyticSolution = Lambda(lambda x: 1-x[0]**2)
-            elif self.parametrizedArg('linear').match(problem):
-                self.problemDescription = "rhs giving rise to quadratic solution"
-                A = np.zeros((2), dtype=REAL)
-                A[0], A[1] = self.parametrizedArg('linear').interpret(problem)
-                if isinstance(kernel.horizon, sqrtAffineFunction):
-                    w = kernel.horizon.w
-                    c = kernel.horizon.c
+            elif (self.parametrizedArg('linear2d').match(problem) or
+                  self.parametrizedArg('quadratic2d').match(problem)):
+
+                # u(x) = x \dot (Bx) + c \dot x + d
+
+                if self.parametrizedArg('linear2d').match(problem):
+                    self.problemDescription = "rhs giving rise to quadratic solution"
+
+                    B = np.zeros((2, 2), dtype=REAL)
+                    c = np.zeros((2), dtype=REAL)
+                    c[0], c[1] = self.parametrizedArg('linear2d').interpret(problem)
+                    d = 0.
+
+                elif self.parametrizedArg('quadratic2d').match(problem):
+                    self.problemDescription = "rhs giving rise to quadratic solution"
+
+                    B = np.zeros((2, 2), dtype=REAL)
+                    B[0, 0], B[0, 1], B[1, 1] = self.parametrizedArg('quadratic2d').interpret(problem)
+                    B[1, 0] = B[0, 1]
+                    c = np.zeros((2), dtype=REAL)
+                    d = 0.
+
+                if isinstance(interactionFun, (ellipse_barycenter, ellipse_retriangulation)):
+
+                    if isinstance(self.kernel.interaction.a, constant) and isinstance(self.kernel.interaction.b, constant) and isinstance(self.kernel.interaction.theta, constant):
+                        horizon = self.kernel.horizonValue
+                        C = 2.*kernel.scalingValue
+
+                        theta = self.kernel.interaction.theta.value
+                        a = self.kernel.interaction.a.value
+                        b = self.kernel.interaction.b.value
+                        rotation = np.array([[np.cos(theta), np.sin(theta)],
+                                             [-np.sin(theta), np.cos(theta)]], dtype=REAL)
+
+                        A_inv_half = rotation @ np.array([[a*horizon, 0.], [0., b*horizon]], dtype=REAL) @ rotation.T
+
+                        B2 = A_inv_half @ B @ A_inv_half
+                        tr_A_inv_half_B_A_inv_half = B2[0, 0]+B2[1, 1]
+                        det_A_inv = abs(np.linalg.det(A_inv_half))
+
+                        self.rhsData = functionFactory('constant', -C*np.pi*0.25 * tr_A_inv_half_B_A_inv_half * det_A_inv)
+                    else:
+                        def fun(x):
+
+                            horizon = self.kernel.horizonValue
+                            C = 2.*kernel.scalingValue
+
+                            theta = self.kernel.interaction.theta(x)
+                            a = self.kernel.interaction.a(x)
+                            b = self.kernel.interaction.b(x)
+                            rotation = np.array([[np.cos(theta), np.sin(theta)],
+                                                 [-np.sin(theta), np.cos(theta)]], dtype=REAL)
+
+                            A_inv_half = rotation @ np.array([[a*horizon, 0.], [0., b*horizon]], dtype=REAL) @ rotation.T
+
+                            B2 = A_inv_half @ B @ A_inv_half
+                            tr_A_inv_half_B_A_inv_half = B2[0, 0]+B2[1, 1]
+                            det_A_inv = abs(np.linalg.det(A_inv_half))
+
+                            return -C*np.pi*0.25 * tr_A_inv_half_B_A_inv_half * det_A_inv
+
+                        self.rhsData = functionFactory('Lambda', fun)
+
                     self.fluxIndicator = constant(0)
-                    self.rhsData = (-0.5*kernel.scalingValue*np.pi * np.vdot(A, w)) * functionFactory('Lambda', lambda x: np.vdot(w, x) + c+0.25*np.linalg.norm(w)**2)
+
                     self.fluxData = constant(0)
-                    self.dirichletData = functionFactory('Lambda', lambda x: np.vdot(A, x))
+                    self.dirichletData = functionFactory('Lambda', lambda x: np.vdot(x, B@x) + np.vdot(c, x) + d)
+                    if (phiFun is None and normalized):
+                        self.analyticSolution = self.dirichletData
+                elif isinstance(kernel.horizon, sqrtAffineFunction):
+                    # \delta         = \sqrt{2 a \cdot x + b}
+                    # \tilde{\delta} = \sqrt{2 a \cdot x + b + a \cdot a}
+
+                    a = 0.5*np.array(kernel.horizon.w)
+                    b = kernel.horizon.c
+
+                    self.fluxIndicator = constant(0)
+                    C = 2.*kernel.scalingValue
+                    trB = B[0, 0] + B[1, 1]
+
+                    def delta_x_squared(x):
+                        return 2*np.vdot(a, x) + b
+
+                    def delta_tilde_x_squared(x):
+                        return 2*np.vdot(a, x) + b + np.vdot(a, a)
+
+                    self.rhsData = -C*np.pi * functionFactory('Lambda',
+                                                              lambda x: 0.25*trB * (delta_x_squared(x)**2 + delta_tilde_x_squared(x)**2)
+                                                              + np.vdot(c+2*B@x+B@a, a) * delta_tilde_x_squared(x))
+                    self.fluxData = constant(0)
+                    self.dirichletData = functionFactory('Lambda', lambda x: np.vdot(x, B@x) + np.vdot(c, x) + d)
                     if (kType == INDICATOR) and (phiFun is None) and (not normalized) and isinstance(interactionFun, ball2_retriangulation):
                         self.analyticSolution = self.dirichletData
                 else:
                     raise NotImplementedError()
-            elif self.parametrizedArg('quadratic').match(problem):
-                self.problemDescription = "rhs giving rise to quadratic solution"
-                B = np.zeros((2, 2), dtype=REAL)
-                B[0, 0], B[0, 1], B[1, 1] = self.parametrizedArg('quadratic').interpret(problem)
-                B[1, 0] = B[0, 1]
-                if isinstance(interactionFun, (ellipse_barycenter, ellipse_retriangulation)):
-                    theta = self.kernel.interaction.theta.value
-                    a = self.kernel.interaction.a.value
-                    b = self.kernel.interaction.b.value
-                    rotation = np.array([[np.cos(theta), np.sin(theta)],
-                                         [-np.sin(theta), np.cos(theta)]], dtype=REAL)
-                    B2 = rotation.T@B@rotation
-                    self.fluxIndicator = constant(0)
-                    self.rhsData = functionFactory('Lambda', lambda x: 2.*B2[0, 0]*a**3*b + 2.*B2[1, 1]*a*b**3)
-                    self.fluxData = constant(0)
-                    self.dirichletData = functionFactory('Lambda', lambda x: 1-np.vdot(x, B@x))
-                    if (phiFun is None and normalized):
-                        self.analyticSolution = self.dirichletData
-                else:
-                    self.fluxIndicator = constant(0)
-                    self.rhsData = functionFactory('Lambda', lambda x: 2.*B[0, 0] + 2.*B[1, 1])
-                    self.fluxData = constant(0)
-                    self.dirichletData = functionFactory('Lambda', lambda x: 1-np.vdot(x, B@x))
-                    self.analyticSolution = self.dirichletData
             elif self.parametrizedArg('polynomial').match(problem):
                 self.domainIndicator = domainIndicator
                 self.fluxIndicator = constant(0)
@@ -2468,5 +2589,3 @@ class brusselatorProblem(problem):
                                                 kernel=self.kernelU,
                                                 boundaryCondition=self.boundaryCondition)
         self.zeroExterior = nI['zeroExterior']
-
-

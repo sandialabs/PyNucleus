@@ -41,11 +41,15 @@ cdef class {SCALAR_label}LinearOperator:
                  BOOL_t no_overwrite=False,
                  BOOL_t trans=False):
         if not trans:
+            assert self.num_columns == x.shape[0], (self.num_columns, x.shape[0])
+            assert self.num_rows == y.shape[0], (self.num_rows, y.shape[0])
             if no_overwrite:
                 self.matvec_no_overwrite(x, y)
             else:
                 self.matvec(x, y)
         else:
+            assert self.num_rows == x.shape[0], (self.num_rows, x.shape[0])
+            assert self.num_columns == y.shape[0], (self.num_columns, y.shape[0])
             if no_overwrite:
                 self.matvecTrans_no_overwrite(x, y)
             else:
@@ -93,6 +97,9 @@ cdef class {SCALAR_label}LinearOperator:
     def __sub__(self, x):
         return self + (-1.*x)
 
+    def __matmul__(self, {SCALAR_label}LinearOperator x):
+        return {SCALAR_label}Product_Linear_Operator(self, x)
+
     def __mul__(self, x):
         cdef:
             np.ndarray[{SCALAR}_t, ndim=1] y
@@ -110,7 +117,7 @@ cdef class {SCALAR_label}LinearOperator:
                 return self.dotMV(x)
             elif isinstance(self, {SCALAR_label}TimeStepperLinearOperator) and isinstance(x, (float, int, {SCALAR})):
                 tsOp = self
-                return {SCALAR_label}TimeStepperLinearOperator(self, tsOp.M, tsOp.S, tsOp.facS*x, tsOp.facM*x)
+                return {SCALAR_label}TimeStepperLinearOperator(tsOp.M, tsOp.S, tsOp.facS*x, tsOp.facM*x)
             elif isinstance(self, {SCALAR_label}LinearOperator) and isinstance(x, (float, int, {SCALAR})):
                 return {SCALAR_label}Multiply_Linear_Operator(self, x)
             elif isinstance(x, {SCALAR_label}LinearOperator) and isinstance(self, (float, int, {SCALAR})):
@@ -128,8 +135,14 @@ cdef class {SCALAR_label}LinearOperator:
                 raise NotImplementedError('Cannot multiply {} with {}:\n{}'.format(self, x, e))
 
     def __rmul__(self, x):
+        cdef:
+            {SCALAR_label}TimeStepperLinearOperator tsOp
         if isinstance(x, (float, int, {SCALAR})):
-            return {SCALAR_label}Multiply_Linear_Operator(self, x)
+            if isinstance(self, {SCALAR_label}TimeStepperLinearOperator):
+                tsOp = self
+                return {SCALAR_label}TimeStepperLinearOperator(tsOp.M, tsOp.S, tsOp.facS*x, tsOp.facM*x)
+            else:
+                return {SCALAR_label}Multiply_Linear_Operator(self, x)
         else:
             raise NotImplementedError('Cannot multiply with {}'.format(x))
 
@@ -196,14 +209,14 @@ cdef class {SCALAR_label}LinearOperator:
     def toLinearOperator(self):
         def matvec(x):
             if x.ndim == 1:
-                return self*x
+                return self*x.astype({SCALAR})
             elif x.ndim == 2 and x.shape[1] == 1:
                 if x.flags.c_contiguous:
                     return self*x[:, 0]
                 else:
                     y = np.zeros((x.shape[0]), dtype=x.dtype)
                     y[:] = x[:, 0]
-                    return self*y
+                    return self*y.astype({SCALAR})
             else:
                 raise NotImplementedError()
 
@@ -380,9 +393,27 @@ cdef class {SCALAR_label}TimeStepperLinearOperator({SCALAR_label}LinearOperator)
 
     def __repr__(self):
         if np.real(self.facS) >= 0:
-            return '{}*{} + {}*{}'.format(self.facM, self.M, self.facS, self.S)
+            if self.facM != 1.0:
+                if self.facS != 1.0:
+                    return '{}*{} + {}*{}'.format(self.facM, self.M, self.facS, self.S)
+                else:
+                    return '{}*{} + {}'.format(self.facM, self.M, self.S)
+            else:
+                if self.facS != 1.0:
+                    return '{} + {}*{}'.format(self.M, self.facS, self.S)
+                else:
+                    return '{} + {}'.format(self.M, self.S)
         else:
-            return '{}*{} - {}*{}'.format(self.facM, self.M, -self.facS, self.S)
+            if self.facM != 1.0:
+                if self.facS != -1.0:
+                    return '{}*{} - {}*{}'.format(self.facM, self.M, -self.facS, self.S)
+                else:
+                    return '{}*{} - {}'.format(self.facM, self.M, self.S)
+            else:
+                if self.facS != -1.0:
+                    return '{} - {}*{}'.format(self.M, -self.facS, self.S)
+                else:
+                    return '{} - {}'.format(self.M, self.S)
 
     def to_csr_linear_operator(self):
         if isinstance(self.S, {SCALAR_label}Dense_LinearOperator):

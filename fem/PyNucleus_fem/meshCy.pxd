@@ -11,7 +11,7 @@ from PyNucleus_base.tupleDict cimport tupleDictINDEX
 from PyNucleus_base.linear_operators cimport sparseGraph
 from PyNucleus_base.intTuple cimport productIterator
 cimport numpy as np
-from . simplexMapper cimport simplexMapper, simplexMapper1D, simplexMapper2D, simplexMapper3D
+from . simplexMapper cimport simplexMapper, simplexMapper0D, simplexMapper1D, simplexMapper2D, simplexMapper3D
 
 ctypedef REAL_t[:, ::1] vertices_t
 ctypedef INDEX_t[:, ::1] cells_t
@@ -75,8 +75,9 @@ cdef REAL_t volume2D_in_3Dnew(REAL_t[:, ::1] span)
 cdef REAL_t volume0Dsimplex(REAL_t[:, ::1] simplex)
 cdef REAL_t volume1Dsimplex(REAL_t[:, ::1] simplex)
 cdef REAL_t volume2Dsimplex(REAL_t[:, ::1] simplex)
-cdef REAL_t volume1Din2Dsimplex(REAL_t[:, ::1] simplex)
+cdef REAL_t volume1Din2Dsimplex(const REAL_t[:, ::1] simplex)
 cdef REAL_t volume3Dsimplex(REAL_t[:, ::1] simplex)
+cdef REAL_t volume1Din3Dsimplex(const REAL_t[:, ::1] simplex)
 cdef REAL_t volume2Din3Dsimplex(REAL_t[:, ::1] simplex)
 
 cdef ENCODE_t encode_edge(INDEX_t[::1] e)

@@ -44,11 +44,13 @@ solver = d.addGroup('solver')
 solver.add('smoother', 'jacobi', acceptedValues=['gauss_seidel', 'chebyshev'])
 solver.add('doPCoarsen', False)
 solver.add('maxiter', 50)
+solver.add('tolerance', 0.)
 
 d.declareFigure('residuals', default=False)
+d.declareFigure('numericalSolution')
 d.declareFigure('spSolve')
 d.declareFigure('spSolveError')
-d.declareFigure('spSolveExactSolution')
+d.declareFigure('interpolatedAnalyticSolution')
 
 params = d.process()
 
@@ -95,7 +97,7 @@ with d.timer('setup levels'):
     else:
         hierarchies, connectors = paramsForMG(p.noRef,
                                               range(d.comm.size),
-                                              params, p.dim, p.element)
+                                              params, p.manifold_dim, p.element)
         connectors['input'] = {'type': inputConnector,
                                'params': {'domain': d.domain}}
 
@@ -111,10 +113,13 @@ with d.timer('setup levels'):
     overlaps = hM[FINE].multilevelAlgebraicOverlapManager
     h = hM[FINE].meshLevels[-1].mesh.global_h(overlaps.comm)
     hmin = hM[FINE].meshLevels[-1].mesh.global_hmin(overlaps.comm)
-    tol = {'P1': 0.5*h**2,
-           'P2': 0.001*h**3,
-           'P3': 0.001*h**4}[d.element]
-    tol = max(tol, 2e-9)
+    if d.tolerance <= 0.:
+        tol = {'P1': 0.5*h**2,
+               'P2': 0.001*h**3,
+               'P3': 0.001*h**4}[d.element]
+        tol = max(tol, 2e-9)
+    else:
+        tol = d.tolerance
 
 # assemble rhs on finest grid
 with d.timer('Assemble rhs on finest grid'):
@@ -211,6 +216,7 @@ for solver, label in [
         residuals = solver.residuals
         A.residual_py(x, rhs, r)
         resNorm = r.norm(False)
+        numIter = max(1, numIter)
         rate.add('Rate of convergence P'+label, (resNorm/r0)**(1/numIter), tested=False if label == 'BICGSTAB' else None)
         its.add('Number of iterations P'+label, numIter, aTol=2 if label == 'BICGSTAB' else None)
         res.add('Residual norm P'+label, resNorm)
@@ -333,11 +339,16 @@ if d.doPCoarsen:
         # cg(b_global, u_global)
         # print(cg.residuals, len(cg.residuals))
 
+if p.nontrivialNullspace:
+    const = DoFMap_fine.ones()
+    x -= (x.inner(const)/const.inner(const))*const
+
 if p.L2ex:
     if p.boundaryCond:
         d.logger.warning('L2 error is wrong for inhomogeneous BCs')
     with d.timer('Mass matrix'):
         M = DoFMap_fine.assembleMass(sss_format=d.symmetric)
+
     z = DoFMap_fine.assembleRHS(p.exactSolution)
     L2err = np.sqrt(np.absolute(x.inner(M*x, True, False) -
                                 2*z.inner(x, False, True) +
@@ -379,9 +390,17 @@ if d.checkSolution:
      global_dm) = accumulate2global(subdomain, interfaces, DoFMap_fine, x,
                                     comm=d.comm)
     if d.isMaster:
-        from scipy.sparse.linalg import spsolve
+
+        if d.startPlot('numericalSolution'):
+            global_solution.plot()
+        if p.exactSolution and d.startPlot('interpolatedAnalyticSolution'):
+            global_dm.interpolate(p.exactSolution).plot()
+
         from numpy.linalg import norm
         A = global_dm.assembleStiffness()
+        if p.nontrivialNullspace:
+            from PyNucleus_base.linear_operators import Dense_LinearOperator
+            A = A+Dense_LinearOperator(np.ones(A.shape))
         rhs = global_dm.assembleRHS(p.rhsFun)
         if p.boundaryCond:
             global_boundaryDoFMap = global_dm.getComplementDoFMap()
@@ -389,7 +408,12 @@ if d.checkSolution:
             global_A_boundary = global_dm.assembleStiffness(dm2=global_boundaryDoFMap)
             rhs -= global_A_boundary*global_boundary_data
         with d.timer('SpSolver'):
-            y = spsolve(A.to_csr(), rhs)
+            directSolver = solverFactory('lu', A=A, setup=True)
+            global_solution_spsolve = global_dm.zeros()
+            directSolver(rhs, global_solution_spsolve)
+            if p.nontrivialNullspace:
+                const = global_dm.ones()
+                global_solution_spsolve -= (global_solution_spsolve.inner(const)/const.inner(const))*const
         if p.boundaryCond:
             sol_augmented, dm_augmented = global_dm.augmentWithBoundaryData(global_solution, global_boundary_data)
             global_mass = dm_augmented.assembleMass()
@@ -405,14 +429,12 @@ if d.checkSolution:
                                         p.L2ex))
         errsSpSolve = d.addOutputGroup('errSpSolve')
         errsSpSolve.add('L2', L2err)
-        errsSpSolve.add('2-norm', norm(global_solution-y, 2))
-        errsSpSolve.add('max-norm', np.abs(global_solution-y).max())
+        errsSpSolve.add('2-norm', norm(global_solution-global_solution_spsolve, 2))
+        errsSpSolve.add('max-norm', np.abs(global_solution-global_solution_spsolve).max())
         d.logger.info('\n'+str(errsSpSolve))
         if d.startPlot('spSolve'):
             import matplotlib.pyplot as plt
-            global_solution.plot()
-        if p.exactSolution and d.startPlot('spSolveExactSolution'):
-            global_dm.interpolate(p.exactSolution).plot()
+            global_solution_spsolve.plot()
         if d.startPlot('spSolveError'):
-            (global_solution-y).plot()
+            (global_solution-global_solution_spsolve).plot()
 d.finish()

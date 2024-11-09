@@ -27,6 +27,7 @@ cdef class Kernel(twoPointFunction):
         public REAL_t max_horizon
         public function horizon
         public interactionDomain interaction
+        public twoPointFunction scalingPrePhi
         public twoPointFunction scaling
         public twoPointFunction phi
         public BOOL_t variableSingularity
@@ -63,6 +64,7 @@ cdef class ComplexKernel(ComplextwoPointFunction):
         public REAL_t max_horizon
         public function horizon
         public interactionDomain interaction
+        public twoPointFunction scalingPrePhi
         public twoPointFunction scaling
         public twoPointFunction phi
         public BOOL_t variableSingularity
@@ -94,6 +96,7 @@ cdef class FractionalKernel(Kernel):
         public fractionalOrderBase s
         public BOOL_t variableOrder
         public INDEX_t derivative
+        public BOOL_t manifold
         REAL_t[::1] tempVec
     cdef REAL_t getsValue(self)
     cdef void setsValue(self, REAL_t s)

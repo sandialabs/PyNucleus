@@ -8,42 +8,43 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from path import Path
+from pathlib import Path
 from shutil import rmtree
 import h5py
 from subprocess import Popen
 from PyNucleus_base import driver
-from PyNucleus_fem import meshNd
+from PyNucleus_fem.mesh import meshNd
 from PyNucleus_fem.DoFMaps import DoFMap
 from PyNucleus_nl.nonlocalProblems import brusselatorProblem
 
 d = driver()
-brusselatorProblem(d)
+# brusselatorProblem(d)
+d.add('inputFile', '')
 d.add('zoomIn', False)
 d.add('shading', acceptedValues=['gouraud', 'flat'])
 d.process()
 
-filename = d.identifier+'.hdf5'
+filename = d.inputFile
 resultFile = h5py.File(str(filename), 'r')
 
 mesh = meshNd.HDF5read(resultFile['mesh'])
 dm = DoFMap.HDF5read(resultFile['dm'])
 dm.mesh = mesh
 
-folder = Path('brusselatorMovie')/Path(filename).basename()
+folder = Path('brusselatorMovie')/Path(filename).name
 try:
     rmtree(str(folder))
 except:
     pass
-folder.makedirs_p()
+folder.mkdir(parents=True, exist_ok=True)
 
 if d.zoomIn:
-    folderZoom = Path('brusselatorMovie')/(Path(filename).basename()+'-zoomIn')
+    folderZoom = Path('brusselatorMovie')/(Path(filename).name+'-zoomIn')
     try:
         rmtree(str(folderZoom))
     except:
         pass
-    folderZoom.makedirs_p()
+    folderZoom.mkdir(parents=True, exist_ok=True)
 
 l = sorted([int(i) for i in resultFile['U']])
 
@@ -74,12 +75,12 @@ for i in l:
 resultFile.close()
 
 Popen(['mencoder', 'mf://*.png', '-mf', 'fps=10', '-o',
-       '../{}.avi'.format(Path(filename).basename().stripext()), '-ovc', 'lavc',
+       '../{}.avi'.format(Path(filename).stem), '-ovc', 'lavc',
        '-lavcopts', 'vcodec=msmpeg4v2:vbitrate=800'],
       cwd=folder).wait()
 if d.zoomIn:
     Popen(['mencoder', 'mf://*.png', '-mf', 'fps=10', '-o',
-           '../{}-zoom.avi'.format(Path(filename).basename().stripext()), '-ovc', 'lavc',
+           '../{}-zoom.avi'.format(Path(filename).stem), '-ovc', 'lavc',
            '-lavcopts', 'vcodec=msmpeg4v2:vbitrate=800'],
           cwd=folderZoom).wait()
 

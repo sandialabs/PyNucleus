@@ -29,7 +29,6 @@ from . kernelsCy import (Kernel,
                          FractionalKernel,
                          RangedFractionalKernel,
                          FRACTIONAL,
-                         PERIDYNAMIC,
                          LOGINVERSEDISTANCE,
                          GREENS_2D,
                          GREENS_3D,
@@ -118,7 +117,8 @@ def getFractionalKernel(dim,
                         boundary=False,
                         derivative=0,
                         tempered=0.,
-                        max_horizon=np.nan):
+                        max_horizon=np.nan,
+                        manifold=False):
     dim_ = _getDim(dim)
     sFun = _getFractionalOrder(s)
     horizonFun = _getHorizon(horizon)
@@ -131,7 +131,10 @@ def getFractionalKernel(dim,
             if isinstance(sFun, constFractionalOrder) and isinstance(horizonFun, constant):
                 if derivative == 0:
                     if normalized:
-                        scaling = constantFractionalLaplacianScaling(dim, sFun.value, horizonFun.value, tempered)
+                        if not manifold:
+                            scaling = constantFractionalLaplacianScaling(dim, sFun.value, horizonFun.value, tempered)
+                        else:
+                            scaling = constantFractionalLaplacianScalingManifold(dim-1, sFun.value, horizonFun.value, tempered)
                     else:
                         scaling = constantTwoPoint(0.5)
                 else:
@@ -156,7 +159,7 @@ def getFractionalKernel(dim,
                 else:
                     phi = fac
         kernel = FractionalKernel(dim_, sFun, horizonFun, interaction, scaling, phi, piecewise=piecewise, boundary=boundary,
-                                  derivative=derivative, tempered=tempered, max_horizon=max_horizon)
+                                  derivative=derivative, tempered=tempered, max_horizon=max_horizon, manifold=manifold)
 
     from . twoPointFunctions import parametrizedTwoPointFunction
     if isinstance(kernel.scaling, parametrizedTwoPointFunction):

@@ -21,6 +21,7 @@ cdef class simplexMapper:
             self.vertices = mesh.vertices
             self.cells = mesh.cells
             assert self.dim == mesh.dim
+            assert self.manifold_dim == mesh.manifold_dim
         self.temp_edge = uninitialized((2), dtype=INDEX)
         self.temp_edge2 = uninitialized((2), dtype=INDEX)
         self.temp_face = uninitialized((3), dtype=INDEX)
@@ -383,7 +384,7 @@ cdef class simplexMapper:
             INDEX_t vertexNo, j
         self.getFaceInCell(cellNo, faceNo, self.temp_face)
         for vertexNo in range(3):
-            for j in range(3):
+            for j in range(self.dim):
                 faceSimplex[vertexNo, j] = self.vertices[self.temp_face[vertexNo], j]
 
     cdef void getEncodedFaceSimplex(self,
@@ -393,19 +394,31 @@ cdef class simplexMapper:
             INDEX_t vertexNo, j
         decode_face(hv, self.temp_face)
         for vertexNo in range(3):
-            for j in range(3):
+            for j in range(self.dim):
                 faceSimplex[vertexNo, j] = self.vertices[self.temp_face[vertexNo], j]
+
+
+cdef class simplexMapper0D(simplexMapper):
+    def __init__(self, mesh=None):
+        self.manifold_dim = 0
+        if mesh is not None:
+            self.dim = mesh.dim
+        super(simplexMapper0D, self).__init__(mesh)
 
 
 cdef class simplexMapper1D(simplexMapper):
     def __init__(self, mesh=None):
-        self.dim = 1
+        self.manifold_dim = 1
+        if mesh is not None:
+            self.dim = mesh.dim
         super(simplexMapper1D, self).__init__(mesh)
 
 
 cdef class simplexMapper2D(simplexMapper):
     def __init__(self, mesh=None):
-        self.dim = 2
+        self.manifold_dim = 2
+        if mesh is not None:
+            self.dim = mesh.dim
         super(simplexMapper2D, self).__init__(mesh)
         self.temp_edges = uninitialized((3, 2), dtype=INDEX)
 
@@ -446,7 +459,9 @@ cdef class simplexMapper2D(simplexMapper):
 
 cdef class simplexMapper3D(simplexMapper):
     def __init__(self, mesh=None):
-        self.dim = 3
+        self.manifold_dim = 3
+        if mesh is not None:
+            self.dim = mesh.dim
         super(simplexMapper3D, self).__init__(mesh)
         self.temp_edges = uninitialized((6, 2), dtype=INDEX)
         self.temp_faces = uninitialized((4, 3), dtype=INDEX)

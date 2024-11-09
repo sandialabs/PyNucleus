@@ -646,17 +646,18 @@ cdef class algebraicOverlapManager:
                 INDEX_t[::1] cellLayer
                 INDEX_t v, cell, vertexNo, localVertexNo
                 INDEX_t[:, ::1] cells = subdomain.cells
+                INDEX_t manifold_dim
 
             boundaryCellsSet = set()
             boundaryVertices2 = []
-            dim = subdomain.dim
-            if dim == 1:
+            manifold_dim = subdomain.manifold_dim
+            if manifold_dim == 1:
                 alreadyAdded = set(list(subdomain.getBoundaryVerticesByTag([INTERIOR_NONOVERLAPPING]).ravel()))
                 boundaryVertices = set(list(subdomain.getBoundaryVerticesByTag([INTERIOR_NONOVERLAPPING]).ravel()))
-            elif dim == 2:
+            elif manifold_dim == 2:
                 alreadyAdded = set(list(subdomain.getBoundaryEdgesByTag([INTERIOR_NONOVERLAPPING]).ravel()))
                 boundaryVertices = set(list(subdomain.getBoundaryEdgesByTag([INTERIOR_NONOVERLAPPING]).ravel()))
-            elif dim == 3:
+            elif manifold_dim == 3:
                 alreadyAdded = set(list(subdomain.getBoundaryFacesByTag([INTERIOR_NONOVERLAPPING]).ravel()))
                 boundaryVertices = set(list(subdomain.getBoundaryFacesByTag([INTERIOR_NONOVERLAPPING]).ravel()))
             else:
@@ -1405,7 +1406,7 @@ cdef class algebraicOverlapManager:
                 diff = norm(myDofNodes[i]-otherDofNodes, axis=1)
                 if diff.max() > 1e-9:
                     diffCount = (diff > 1e-9).sum()
-                    s = '{}: Subdomains {} and {} shared {} different DoFs\n'.format(label, self.comm.rank, i, diffCount)
+                    s = '{}: Subdomains {} and {} shared {} different DoFs out of {}\n'.format(label, self.comm.rank, i, diffCount, diff.shape[0])
                     k = 0
                     for dof in self.overlaps[i].shared_dofs:
                         if diff[k] > 1e-9:

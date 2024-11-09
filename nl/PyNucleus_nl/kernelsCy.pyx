@@ -7,9 +7,11 @@
 
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
 from libc.math cimport (sin, cos, sqrt,
+                        acos,
                         log,
                         fabs as abs, pow,
-                        exp)
+                        exp,
+                        M_PI as pi)
 from scipy.special.cython_special cimport gammaincc, gamma, hankel1
 import numpy as np
 cimport numpy as np
@@ -64,8 +66,8 @@ def getKernelEnum(str kernelTypeString):
         return MONOMIAL
     elif kernelTypeString.upper() == "GREENS_2D":
         return GREENS_2D
-    elif kernelTypeString.upper() == "PERIODIC_FRACTIONAL":
-        return PERIODIC_FRACTIONAL
+    elif kernelTypeString.upper() == "MANIFOLD_FRACTIONAL":
+        return MANIFOLD_FRACTIONAL
     else:
         raise NotImplementedError(kernelTypeString)
 
@@ -443,12 +445,13 @@ cdef REAL_t gaussianKernel2Dboundary(REAL_t *x, REAL_t *y, void *c_params):
         return 0.
 
 
-cdef REAL_t exponentialKernel1D(REAL_t *x, REAL_t *y, void *c_params):
+cdef REAL_t exponentialKernel(REAL_t *x, REAL_t *y, void *c_params):
     cdef:
         interactionDomain interaction = <interactionDomain>((<void**>(c_params+fINTERACTION))[0])
+        INDEX_t dim = getINDEX(c_params, fKDIM)
         REAL_t C, a
         REAL_t d2, inter
-    interaction.evalPtr(1, x, y, &inter)
+    interaction.evalPtr(dim, x, y, &inter)
     if inter != 0.:
         d2 = interaction.dist2
         C = getREAL(c_params, fSCALING)
@@ -458,12 +461,13 @@ cdef REAL_t exponentialKernel1D(REAL_t *x, REAL_t *y, void *c_params):
         return 0.
 
 
-cdef REAL_t exponentialKernel1Dboundary(REAL_t *x, REAL_t *y, void *c_params):
+cdef REAL_t exponentialKernelBoundary(REAL_t *x, REAL_t *y, void *c_params):
     cdef:
         interactionDomain interaction = <interactionDomain>((<void**>(c_params+fINTERACTION))[0])
+        INDEX_t dim = getINDEX(c_params, fKDIM)
         REAL_t C, a
         REAL_t d2, inter
-    interaction.evalPtr(1, x, y, &inter)
+    interaction.evalPtr(dim, x, y, &inter)
     if inter != 0.:
         d2 = interaction.dist2
         C = getREAL(c_params, fSCALING)
@@ -702,6 +706,7 @@ cdef class Kernel(twoPointFunction):
         self.interaction.setParams(self.c_kernel_params)
 
         self.phi = phi
+        self.scalingPrePhi = scaling
         if phi is not None:
             scaling = phi*scaling
         self.scaling = scaling
@@ -727,7 +732,7 @@ cdef class Kernel(twoPointFunction):
                     elif self.kernelType == GAUSSIAN:
                         self.kernelFun = gaussianKernel1D
                     elif self.kernelType == EXPONENTIAL:
-                        self.kernelFun = exponentialKernel1D
+                        self.kernelFun = exponentialKernel
                     elif self.kernelType == POLYNOMIAL:
                         self.kernelFun = polynomialKernel1D
                 elif dim == 2:
@@ -738,7 +743,7 @@ cdef class Kernel(twoPointFunction):
                     elif self.kernelType == GAUSSIAN:
                         self.kernelFun = gaussianKernel2D
                     elif self.kernelType == EXPONENTIAL:
-                        raise NotImplementedError()
+                        self.kernelFun = exponentialKernel
                     elif self.kernelType == POLYNOMIAL:
                         raise NotImplementedError()
                     elif self.kernelType == LOGINVERSEDISTANCE:
@@ -751,7 +756,7 @@ cdef class Kernel(twoPointFunction):
                     elif self.kernelType == GAUSSIAN:
                         raise NotImplementedError()
                     elif self.kernelType == EXPONENTIAL:
-                        raise NotImplementedError()
+                        self.kernelFun = exponentialKernel
                     elif self.kernelType == POLYNOMIAL:
                         raise NotImplementedError()
                 else:
@@ -765,7 +770,7 @@ cdef class Kernel(twoPointFunction):
                     elif self.kernelType == GAUSSIAN:
                         self.kernelFun = gaussianKernel1Dboundary
                     elif self.kernelType == EXPONENTIAL:
-                        self.kernelFun = exponentialKernel1Dboundary
+                        self.kernelFun = exponentialKernelBoundary
                     elif self.kernelType == POLYNOMIAL:
                         self.kernelFun = polynomialKernel1Dboundary
                 elif dim == 2:
@@ -776,14 +781,14 @@ cdef class Kernel(twoPointFunction):
                     elif self.kernelType == GAUSSIAN:
                         self.kernelFun = gaussianKernel2Dboundary
                     elif self.kernelType == EXPONENTIAL:
-                        raise NotImplementedError()
+                        self.kernelFun = exponentialKernelBoundary
                     elif self.kernelType == POLYNOMIAL:
                         raise NotImplementedError()
                 elif dim == 3:
                     if self.kernelType == GAUSSIAN:
                         raise NotImplementedError()
                     elif self.kernelType == EXPONENTIAL:
-                        raise NotImplementedError()
+                        self.kernelFun = exponentialKernelBoundary
                     elif self.kernelType == POLYNOMIAL:
                         raise NotImplementedError()
                 else:
@@ -800,7 +805,7 @@ cdef class Kernel(twoPointFunction):
                     elif self.kernelType == GAUSSIAN:
                         setFun(self.c_kernel_params, fEVAL, gaussianKernel1D)
                     elif self.kernelType == EXPONENTIAL:
-                        setFun(self.c_kernel_params, fEVAL, exponentialKernel1D)
+                        setFun(self.c_kernel_params, fEVAL, exponentialKernel)
                     elif self.kernelType == POLYNOMIAL:
                         setFun(self.c_kernel_params, fEVAL, polynomialKernel1D)
                 elif dim == 2:
@@ -811,7 +816,7 @@ cdef class Kernel(twoPointFunction):
                     elif self.kernelType == GAUSSIAN:
                         setFun(self.c_kernel_params, fEVAL, gaussianKernel2D)
                     elif self.kernelType == EXPONENTIAL:
-                        raise NotImplementedError()
+                        setFun(self.c_kernel_params, fEVAL, exponentialKernel)
                     elif self.kernelType == POLYNOMIAL:
                         raise NotImplementedError()
                     elif self.kernelType == LOGINVERSEDISTANCE:
@@ -824,7 +829,7 @@ cdef class Kernel(twoPointFunction):
                     elif self.kernelType == GAUSSIAN:
                         raise NotImplementedError()
                     elif self.kernelType == EXPONENTIAL:
-                        raise NotImplementedError()
+                        setFun(self.c_kernel_params, fEVAL, exponentialKernel)
                     elif self.kernelType == POLYNOMIAL:
                         raise NotImplementedError()
                 else:
@@ -838,7 +843,7 @@ cdef class Kernel(twoPointFunction):
                     elif self.kernelType == GAUSSIAN:
                         setFun(self.c_kernel_params, fEVAL, gaussianKernel1Dboundary)
                     elif self.kernelType == EXPONENTIAL:
-                        setFun(self.c_kernel_params, fEVAL, exponentialKernel1Dboundary)
+                        setFun(self.c_kernel_params, fEVAL, exponentialKernelBoundary)
                     elif self.kernelType == POLYNOMIAL:
                         setFun(self.c_kernel_params, fEVAL, polynomialKernel1Dboundary)
                 elif dim == 2:
@@ -849,14 +854,14 @@ cdef class Kernel(twoPointFunction):
                     elif self.kernelType == GAUSSIAN:
                         setFun(self.c_kernel_params, fEVAL, gaussianKernel2Dboundary)
                     elif self.kernelType == EXPONENTIAL:
-                        raise NotImplementedError()
+                        setFun(self.c_kernel_params, fEVAL, exponentialKernelBoundary)
                     elif self.kernelType == POLYNOMIAL:
                         raise NotImplementedError()
                 elif dim == 3:
                     if self.kernelType == GAUSSIAN:
                         raise NotImplementedError()
                     elif self.kernelType == EXPONENTIAL:
-                        raise NotImplementedError()
+                       setFun(self.c_kernel_params, fEVAL, exponentialKernelBoundary)
                     elif self.kernelType == POLYNOMIAL:
                         raise NotImplementedError()
                 else:
@@ -949,6 +954,8 @@ cdef class Kernel(twoPointFunction):
             descr = '\\frac{1}{|x-y|}'
         elif self.kernelType == FRACTIONAL:
             descr = '\\frac{1}{|x-y|^{d+2s}}'
+        elif self.kernelType == MANIFOLD_FRACTIONAL:
+            descr = '(\\zeta(d+2s, d(x, y)) + \\zeta(d+2s, 1-d(x, y)))'
         elif self.kernelType == GAUSSIAN:
             if self.finiteHorizon:
                 exponentInverse = self.getKernelParam('exponentInverse')
@@ -1133,7 +1140,7 @@ cdef class Kernel(twoPointFunction):
             return "{}({}{}, {}, {})".format(self.__class__.__name__, kernelName, '' if not self.boundary else '-boundary', repr(self.interaction), self.scaling)
 
     def __reduce__(self):
-        return Kernel, (self.dim, self.kernelType, self.horizon, self.interaction, self.scaling, self.phi, self.piecewise, self.boundary, self.valueSize)
+        return Kernel, (self.dim, self.kernelType, self.horizon, self.interaction, self.scalingPrePhi, self.phi, self.piecewise, self.boundary, self.valueSize)
 
     def plot(self, x0=None):
         "Plot the kernel function."
@@ -1268,6 +1275,7 @@ cdef class ComplexKernel(ComplextwoPointFunction):
         (<void**>(self.c_kernel_params+fINTERACTION))[0] = <void*>self.interaction
         self.interaction.setParams(self.c_kernel_params)
 
+        self.scalingPrePhi = scaling
         self.phi = phi
         if phi is not None:
             scaling = phi*scaling
@@ -1472,7 +1480,7 @@ cdef class ComplexKernel(ComplextwoPointFunction):
         return "{}({}{}, {}, {})".format(self.__class__.__name__, kernelName, '' if not self.boundary else '-boundary', repr(self.interaction), self.scaling)
 
     def __reduce__(self):
-        return Kernel, (self.dim, self.kernelType, self.horizon, self.interaction, self.scaling, self.phi, self.piecewise, self.boundary, self.singularityValue)
+        return Kernel, (self.dim, self.kernelType, self.horizon, self.interaction, self.scalingPrePhi, self.phi, self.piecewise, self.boundary, self.singularityValue)
 
     def plot(self, x0=None):
         "Plot the kernel function."
@@ -1567,7 +1575,8 @@ cdef class FractionalKernel(Kernel):
                  BOOL_t boundary=False,
                  INDEX_t derivative=0,
                  REAL_t tempered=0.,
-                 REAL_t max_horizon=np.nan):
+                 REAL_t max_horizon=np.nan,
+                 BOOL_t manifold=False):
         if derivative == 0:
             valueSize = 1
         elif derivative == 1:
@@ -1578,7 +1587,12 @@ cdef class FractionalKernel(Kernel):
         else:
             valueSize = 1
 
-        super(FractionalKernel, self).__init__(dim, FRACTIONAL, horizon, interaction, scaling, phi, piecewise, boundary, valueSize, max_horizon)
+        self.manifold = manifold
+        if not manifold:
+            kernelType = FRACTIONAL
+        else:
+            kernelType = MANIFOLD_FRACTIONAL
+        super(FractionalKernel, self).__init__(dim, kernelType, horizon, interaction, scaling, phi, piecewise, boundary, valueSize, max_horizon)
 
         self.symmetric = s.symmetric and isinstance(horizon, constant) and scaling.symmetric and interaction.symmetric and (phi is None or phi.symmetric)
         self.derivative = derivative
@@ -1592,17 +1606,31 @@ cdef class FractionalKernel(Kernel):
             (<void**>(self.c_kernel_params+fORDERFUN))[0] = <void*>s
             self.singularityValue = np.nan
             if not self.boundary:
-                self.min_singularity = -self.dim-2*self.s.min
-                self.max_singularity = -self.dim-2*self.s.max
+                if not manifold:
+                    self.min_singularity = -self.dim-2*self.s.min
+                    self.max_singularity = -self.dim-2*self.s.max
+                else:
+                    self.min_singularity = 1-self.dim-2*self.s.min
+                    self.max_singularity = 1-self.dim-2*self.s.max
             else:
-                self.min_singularity = 1.-self.dim-2*self.s.min
-                self.max_singularity = 1.-self.dim-2*self.s.max
+                if not manifold:
+                    self.min_singularity = 1.-self.dim-2*self.s.min
+                    self.max_singularity = 1.-self.dim-2*self.s.max
+                else:
+                    self.min_singularity = 2.-self.dim-2*self.s.min
+                    self.max_singularity = 2.-self.dim-2*self.s.max
         else:
             self.sValue = self.s.value
             if not self.boundary:
-                self.singularityValue = -self.dim-2*self.sValue
+                if not manifold:
+                    self.singularityValue = -self.dim-2*self.sValue
+                else:
+                    self.singularityValue = 1-self.dim-2*self.sValue
             else:
-                self.singularityValue = 1.-self.dim-2*self.sValue
+                if not manifold:
+                    self.singularityValue = 1.-self.dim-2*self.sValue
+                else:
+                    self.singularityValue = 2.-self.dim-2*self.sValue
             self.min_singularity = self.singularityValue
             self.max_singularity = self.singularityValue
 
@@ -1611,60 +1639,78 @@ cdef class FractionalKernel(Kernel):
         if self.piecewise:
             if isinstance(self.horizon, constant) and self.horizon.value == np.inf:
                 if not self.boundary:
-                    if tempered == 0.:
-                        if dim == 1:
-                            self.kernelFun = fracKernelInfinite1D
-                        elif dim == 2:
-                            self.kernelFun = fracKernelInfinite2D
-                        elif dim == 3:
-                            self.kernelFun = fracKernelInfinite3D
+                    if not manifold:
+                        if tempered == 0.:
+                            if dim == 1:
+                                self.kernelFun = fracKernelInfinite1D
+                            elif dim == 2:
+                                self.kernelFun = fracKernelInfinite2D
+                            elif dim == 3:
+                                self.kernelFun = fracKernelInfinite3D
+                            else:
+                                raise NotImplementedError()
                         else:
-                            raise NotImplementedError()
-                    else:
-                        if dim == 1:
-                            self.kernelFun = temperedFracKernelInfinite1D
-                        elif dim == 2:
-                            self.kernelFun = temperedFracKernelInfinite2D
-                        elif dim == 3:
-                            self.kernelFun = temperedFracKernelInfinite3D
-                        else:
-                            raise NotImplementedError()
-                else:
-                    if tempered == 0.:
-                        if dim == 1:
-                            self.kernelFun = fracKernelInfinite1Dboundary
-                        elif dim == 2:
-                            self.kernelFun = fracKernelInfinite2Dboundary
-                        elif dim == 3:
-                            self.kernelFun = fracKernelInfinite3Dboundary
-                        else:
-                            raise NotImplementedError()
-                    else:
-                        if dim == 1:
-                            self.kernelFun = temperedFracKernelInfinite1Dboundary
-                        elif dim == 2:
-                            self.kernelFun = temperedFracKernelInfinite2Dboundary
-                        elif dim == 3:
-                            self.kernelFun = temperedFracKernelInfinite3Dboundary
-                        else:
-                            raise NotImplementedError()
-            else:
-                if not self.boundary:
-                    if dim == 1:
-                        self.kernelFun = fracKernelFinite1D
-                    elif dim == 2:
-                        self.kernelFun = fracKernelFinite2D
-                    elif dim == 3:
-                        self.kernelFun = fracKernelFinite3D
+                            if dim == 1:
+                                self.kernelFun = temperedFracKernelInfinite1D
+                            elif dim == 2:
+                                self.kernelFun = temperedFracKernelInfinite2D
+                            elif dim == 3:
+                                self.kernelFun = temperedFracKernelInfinite3D
+                            else:
+                                raise NotImplementedError()
                     else:
                         raise NotImplementedError()
                 else:
-                    if dim == 1:
-                        self.kernelFun = fracKernelFinite1Dboundary
-                    elif dim == 2:
-                        self.kernelFun = fracKernelFinite2Dboundary
-                    elif dim == 3:
-                        self.kernelFun = fracKernelFinite3Dboundary
+                    if not manifold:
+                        if tempered == 0.:
+                            if dim == 1:
+                                self.kernelFun = fracKernelInfinite1Dboundary
+                            elif dim == 2:
+                                self.kernelFun = fracKernelInfinite2Dboundary
+                            elif dim == 3:
+                                self.kernelFun = fracKernelInfinite3Dboundary
+                            else:
+                                raise NotImplementedError()
+                        else:
+                            if dim == 1:
+                                self.kernelFun = temperedFracKernelInfinite1Dboundary
+                            elif dim == 2:
+                                self.kernelFun = temperedFracKernelInfinite2Dboundary
+                            elif dim == 3:
+                                self.kernelFun = temperedFracKernelInfinite3Dboundary
+                            else:
+                                raise NotImplementedError()
+                    # else:
+                    #     raise NotImplementedError()
+            else:
+                if not self.boundary:
+                    if not manifold:
+                        if tempered == 0.:
+                            if dim == 1:
+                                self.kernelFun = fracKernelFinite1D
+                            elif dim == 2:
+                                self.kernelFun = fracKernelFinite2D
+                            elif dim == 3:
+                                self.kernelFun = fracKernelFinite3D
+                            else:
+                                raise NotImplementedError()
+                        else:
+                            raise NotImplementedError()
+                    else:
+                        raise NotImplementedError()
+                else:
+                    if not manifold:
+                        if tempered == 0.:
+                            if dim == 1:
+                                self.kernelFun = fracKernelFinite1Dboundary
+                            elif dim == 2:
+                                self.kernelFun = fracKernelFinite2Dboundary
+                            elif dim == 3:
+                                self.kernelFun = fracKernelFinite3Dboundary
+                            else:
+                                raise NotImplementedError()
+                        else:
+                            raise NotImplementedError()
                     else:
                         raise NotImplementedError()
         else:
@@ -1672,60 +1718,78 @@ cdef class FractionalKernel(Kernel):
 
             if isinstance(self.horizon, constant) and self.horizon.value == np.inf:
                 if not self.boundary:
-                    if tempered == 0.:
-                        if dim == 1:
-                            setFun(self.c_kernel_params, fEVAL, fracKernelInfinite1D)
-                        elif dim == 2:
-                            setFun(self.c_kernel_params, fEVAL, fracKernelInfinite2D)
-                        elif dim == 3:
-                            setFun(self.c_kernel_params, fEVAL, fracKernelInfinite3D)
+                    if not manifold:
+                        if tempered == 0.:
+                            if dim == 1:
+                                setFun(self.c_kernel_params, fEVAL, fracKernelInfinite1D)
+                            elif dim == 2:
+                                setFun(self.c_kernel_params, fEVAL, fracKernelInfinite2D)
+                            elif dim == 3:
+                                setFun(self.c_kernel_params, fEVAL, fracKernelInfinite3D)
+                            else:
+                                raise NotImplementedError()
                         else:
-                            raise NotImplementedError()
-                    else:
-                        if dim == 1:
-                            setFun(self.c_kernel_params, fEVAL, temperedFracKernelInfinite1D)
-                        elif dim == 2:
-                            setFun(self.c_kernel_params, fEVAL, temperedFracKernelInfinite2D)
-                        elif dim == 3:
-                            setFun(self.c_kernel_params, fEVAL, temperedFracKernelInfinite3D)
-                        else:
-                            raise NotImplementedError()
-                else:
-                    if tempered == 0.:
-                        if dim == 1:
-                            setFun(self.c_kernel_params, fEVAL, fracKernelInfinite1Dboundary)
-                        elif dim == 2:
-                            setFun(self.c_kernel_params, fEVAL, fracKernelInfinite2Dboundary)
-                        elif dim == 3:
-                            setFun(self.c_kernel_params, fEVAL, fracKernelInfinite3Dboundary)
-                        else:
-                            raise NotImplementedError()
-                    else:
-                        if dim == 1:
-                            setFun(self.c_kernel_params, fEVAL, temperedFracKernelInfinite1Dboundary)
-                        elif dim == 2:
-                            setFun(self.c_kernel_params, fEVAL, temperedFracKernelInfinite2Dboundary)
-                        elif dim == 3:
-                            setFun(self.c_kernel_params, fEVAL, temperedFracKernelInfinite3Dboundary)
-                        else:
-                            raise NotImplementedError()
-            else:
-                if not self.boundary:
-                    if dim == 1:
-                        setFun(self.c_kernel_params, fEVAL, fracKernelFinite1D)
-                    elif dim == 2:
-                        setFun(self.c_kernel_params, fEVAL, fracKernelFinite2D)
-                    elif dim == 3:
-                        setFun(self.c_kernel_params, fEVAL, fracKernelFinite3D)
+                            if dim == 1:
+                                setFun(self.c_kernel_params, fEVAL, temperedFracKernelInfinite1D)
+                            elif dim == 2:
+                                setFun(self.c_kernel_params, fEVAL, temperedFracKernelInfinite2D)
+                            elif dim == 3:
+                                setFun(self.c_kernel_params, fEVAL, temperedFracKernelInfinite3D)
+                            else:
+                                raise NotImplementedError()
                     else:
                         raise NotImplementedError()
                 else:
-                    if dim == 1:
-                        setFun(self.c_kernel_params, fEVAL, fracKernelFinite1Dboundary)
-                    elif dim == 2:
-                        setFun(self.c_kernel_params, fEVAL, fracKernelFinite2Dboundary)
-                    elif dim == 3:
-                        setFun(self.c_kernel_params, fEVAL, fracKernelFinite3Dboundary)
+                    if not manifold:
+                        if tempered == 0.:
+                            if dim == 1:
+                                setFun(self.c_kernel_params, fEVAL, fracKernelInfinite1Dboundary)
+                            elif dim == 2:
+                                setFun(self.c_kernel_params, fEVAL, fracKernelInfinite2Dboundary)
+                            elif dim == 3:
+                                setFun(self.c_kernel_params, fEVAL, fracKernelInfinite3Dboundary)
+                            else:
+                                raise NotImplementedError()
+                        else:
+                            if dim == 1:
+                                setFun(self.c_kernel_params, fEVAL, temperedFracKernelInfinite1Dboundary)
+                            elif dim == 2:
+                                setFun(self.c_kernel_params, fEVAL, temperedFracKernelInfinite2Dboundary)
+                            elif dim == 3:
+                                setFun(self.c_kernel_params, fEVAL, temperedFracKernelInfinite3Dboundary)
+                            else:
+                                raise NotImplementedError()
+                    # else:
+                    #     raise NotImplementedError()
+            else:
+                if not self.boundary:
+                    if not manifold:
+                        if tempered == 0.:
+                            if dim == 1:
+                                setFun(self.c_kernel_params, fEVAL, fracKernelFinite1D)
+                            elif dim == 2:
+                                setFun(self.c_kernel_params, fEVAL, fracKernelFinite2D)
+                            elif dim == 3:
+                                setFun(self.c_kernel_params, fEVAL, fracKernelFinite3D)
+                            else:
+                                raise NotImplementedError()
+                        else:
+                            raise NotImplementedError()
+                    else:
+                        raise NotImplementedError()
+                else:
+                    if not manifold:
+                        if tempered == 0.:
+                            if dim == 1:
+                                setFun(self.c_kernel_params, fEVAL, fracKernelFinite1Dboundary)
+                            elif dim == 2:
+                                setFun(self.c_kernel_params, fEVAL, fracKernelFinite2Dboundary)
+                            elif dim == 3:
+                                setFun(self.c_kernel_params, fEVAL, fracKernelFinite3Dboundary)
+                            else:
+                                raise NotImplementedError()
+                        else:
+                            raise NotImplementedError()
                     else:
                         raise NotImplementedError()
 
@@ -1906,7 +1970,7 @@ cdef class FractionalKernel(Kernel):
         if scaling is None:
             scaling = self.scaling
         from . kernels import getFractionalKernel
-        newKernel = getFractionalKernel(dim=self.dim, s=s, horizon=horizon, interaction=interaction, scaling=scaling, piecewise=self.piecewise, boundary=self.boundary, derivative=self.derivative)
+        newKernel = getFractionalKernel(dim=self.dim, s=s, horizon=horizon, interaction=interaction, scaling=scaling, piecewise=self.piecewise, boundary=self.boundary, derivative=self.derivative, manifold=self.manifold)
         if isinstance(newKernel.scaling, parametrizedTwoPointFunction):
             assert newKernel.getParamPtrAddr() == newKernel.scaling.getParamPtrAddr()
         if isinstance(newKernel.interaction, parametrizedTwoPointFunction):
@@ -1950,7 +2014,8 @@ cdef class FractionalKernel(Kernel):
                                         phi=phi,
                                         piecewise=self.piecewise,
                                         boundary=True,
-                                        derivative=self.derivative)
+                                        derivative=self.derivative,
+                                        manifold=self.manifold)
         if isinstance(newKernel.scaling, parametrizedTwoPointFunction):
             assert newKernel.getParamPtrAddr() == newKernel.scaling.getParamPtrAddr(), (newKernel.getParamPtrAddr(), newKernel.scaling.getParamPtrAddr())
         if isinstance(newKernel.interaction, parametrizedTwoPointFunction):
@@ -2025,7 +2090,7 @@ cdef class FractionalKernel(Kernel):
             return "kernel(fractional{}, {}, {}, {})".format('' if not self.boundary else '-boundary', self.s, repr(self.interaction), self.scaling)
 
     def __reduce__(self):
-        return FractionalKernel, (self.dim, self.s, self.horizon, self.interaction, self.scaling, self.phi, self.piecewise, self.boundary, self.derivative, self.temperedValue)
+        return FractionalKernel, (self.dim, self.s, self.horizon, self.interaction, self.scalingPrePhi, self.phi, self.piecewise, self.boundary, self.derivative, self.temperedValue, self.max_horizon, self.manifold)
 
 
 cdef class RangedFractionalKernel(FractionalKernel):

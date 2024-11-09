@@ -27,7 +27,6 @@ from . nonlocalProblems import (DIRICHLET,
                                 transientFractionalProblem)
 from . clusterMethodCy import H2Matrix, DistributedH2Matrix_globalData, DistributedH2Matrix_localData
 import logging
-import warnings
 
 
 class stationaryModelSolution(classWithComputedDependencies):
@@ -83,8 +82,14 @@ class stationaryModelSolution(classWithComputedDependencies):
             elif u.dm == self.discretizedProblem.dm:
                 M = self.discretizedProblem.mass
             else:
-                M = u.dm.assembleMass()
-            z = u.dm.assembleRHS(analyticSolution)
+                if hasattr(self.discretizedProblem.continuumProblem, 'mass_weight'):
+                    M = u.dm.assembleMass(coefficient=self.discretizedProblem.continuumProblem.mass_weight)
+                else:
+                    M = u.dm.assembleMass()
+            if hasattr(self.discretizedProblem.continuumProblem, 'mass_weight') and self.discretizedProblem.continuumProblem.mass_weight is not None:
+                z = u.dm.assembleRHS(analyticSolution*self.discretizedProblem.continuumProblem.mass_weight)
+            else:
+                z = u.dm.assembleRHS(analyticSolution)
             self.L2_error = np.sqrt(abs(exactL2Squared - 2*z.inner(u) + u.inner(M*u)))
         else:
             self.L2_error = None
@@ -97,9 +102,10 @@ class stationaryModelSolution(classWithComputedDependencies):
             self.rel_L2_error = None
 
     @generates('Hs_error')
-    def computeHserror(self, u, b, exactHsSquared):
+    def computeHserror(self, uRestricted, b, exactHsSquared):
         if exactHsSquared is not None:
-            self.Hs_error = np.sqrt(abs(b.inner(u, False, True) - exactHsSquared))
+            assert b.dm == uRestricted.dm, (b.dm, uRestricted.dm)
+            self.Hs_error = np.sqrt(abs(b.inner(uRestricted, False, True) - exactHsSquared))
         else:
             self.Hs_error = None
 
@@ -184,7 +190,7 @@ class stationaryModelSolution(classWithComputedDependencies):
         self.deformedMesh = deformedMesh
 
     def plotSolution(self):
-        dim = self.u.dm.mesh.dim
+        dim = self.u.dm.mesh.manifold_dim
         self.u.plot(label='numerical solution')
         if dim == 1 and self.u_interp is not None:
             import matplotlib.pyplot as plt
@@ -201,6 +207,10 @@ class stationaryModelSolution(classWithComputedDependencies):
         for c in range(self.u.dm.numComponents):
             pm.add(self.u.getComponent(c), label='u'+str(c))
         pm.plot()
+
+    def plotRHS(self):
+        dim = self.u.dm.mesh.manifold_dim
+        self.uRestricted.dm.interpolate(self.rhs).plot(label='rhs')
 
     def exportVTK(self, filename):
         x = [self.u]
@@ -233,8 +243,8 @@ class stationaryModelSolution(classWithComputedDependencies):
 
     def reportSolve(self, group):
         group.add('solver', self.discretizedProblem.solverType)
+        group.add('iterations', self.iterations)
         if isinstance(self.discretizedProblem.solver, iterative_solver):
-            group.add('iterations', self.iterations)
             group.add('implicit residual norm', self.residuals[-1])
             group.add('explicit residual norm', self.explicitResidualError)
             group.add('tolerance', self.tol)
@@ -601,7 +611,7 @@ class discretizedNonlocalProblem(problem):
         self.adjointSolver = solver
 
     @generates('modelSolution')
-    def solve(self, b, dm, dmInterior, dmBC, P_interior, P_bc, solver, boundaryCondition, analyticSolution, dirichletData, tol, maxiter):
+    def solve(self, b, dm, dmInterior, dmBC, P_interior, P_bc, R_interior, solver, boundaryCondition, analyticSolution, dirichletData, tol, maxiter, rhs):
         uInterior = dmInterior.zeros()
         with self.timer('solve {}'.format(self.__class__.__name__)):
             its = solver(b, uInterior)
@@ -626,8 +636,10 @@ class discretizedNonlocalProblem(problem):
 
         data = {'iterations': its,
                 'uInterior': uInterior,
+                'uRestricted': uInterior.dm.fromArray(R_interior*u),
                 'explicitResidualError': resError,
-                'b': b}
+                'b': b,
+                'rhs': rhs}
         if isinstance(solver, iterative_solver):
             data['tol'] = solver.tolerance
             data['maxIterations'] = solver.maxIter

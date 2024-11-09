@@ -297,6 +297,45 @@ cdef class interactionDomain(parametrizedTwoPointFunction):
     def getLongDescription(self):
         return 'MISSING DESCRIPTION'
 
+    cdef REAL_t minDist2FromBox(self, const REAL_t[:, ::1] box, const REAL_t[::1] vector):
+        cdef:
+            INDEX_t i
+            REAL_t d2min = 0.
+        for i in range(box.shape[0]):
+            if vector[i] <= box[i, 0]:
+                d2min += (vector[i]-box[i, 0])**2
+            elif vector[i] >= box[i, 1]:
+                d2min += (vector[i]-box[i, 1])**2
+        return d2min
+
+    cdef REAL_t distBoxes(self, REAL_t[:, ::1] box1, REAL_t[:, ::1] box2):
+        cdef:
+            REAL_t dist = 0., a2, b1
+            INDEX_t i
+        for i in range(box1.shape[0]):
+            if box1[i, 0] > box2[i, 0]:
+                b1 = box2[i, 1]
+                a2 = box1[i, 0]
+            else:
+                b1 = box1[i, 1]
+                a2 = box2[i, 0]
+            dist += max(a2-b1, 0)**2
+        return sqrt(dist)
+
+    cdef REAL_t maxDistBoxes(self, REAL_t[:, ::1] box1, REAL_t[:, ::1] box2):
+        cdef:
+            REAL_t dist = 0., a2, b1
+            INDEX_t i
+        for i in range(box1.shape[0]):
+            if box1[i, 0] > box2[i, 0]:
+                b1 = box2[i, 0]
+                a2 = box1[i, 1]
+            else:
+                b1 = box1[i, 0]
+                a2 = box2[i, 1]
+            dist += max(a2-b1, 0)**2
+        return sqrt(dist)
+
 
 cdef class barycenterDomain(interactionDomain):
     def __init__(self, function horizonFun, BOOL_t isComplement, BOOL_t symmetric):
@@ -827,7 +866,8 @@ cdef class fullSpace(interactionDomain):
 cdef class ball2_retriangulation(retriangulationDomain):
     """l2 ball interaction domain"""
     def __init__(self, function horizonFun):
-        super(ball2_retriangulation, self).__init__(horizonFun, False, True)
+        symmetric = isinstance(horizonFun, constant)
+        super(ball2_retriangulation, self).__init__(horizonFun, False, symmetric)
 
     def getComplement(self):
         return ball2Complement(self.horizonFun)

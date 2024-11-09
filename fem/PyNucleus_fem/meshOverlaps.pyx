@@ -107,7 +107,7 @@ def boundary2D(meshBase mesh, BOOL_t assumeConnected=True):
                 l += 1
             k += 1
         if not l == eV.nnz:
-            raise PartitionerException('Domain with a hole')
+            raise PartitionerException('Domain with a hole. Boundary vertices: {}, boundary edges: {}'.format(l, eV.nnz))
     else:
         k = 0
         l = 0

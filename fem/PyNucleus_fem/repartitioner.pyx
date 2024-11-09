@@ -36,6 +36,7 @@ cdef class Repartitioner:
         meshBase subdomain
         interfaceManager interfaces
         INDEX_t dim
+        INDEX_t manifold_dim
         MPI.Comm globalComm
         MPI.Comm oldComm
         MPI.Comm newComm
@@ -61,9 +62,12 @@ cdef class Repartitioner:
         self.is_overlapping = self.globalComm.allreduce(oldComm is not None and newComm is not None, MPI.LOR)
         if self.subdomain is not None:
             self.dim = self.subdomain.dim
+            self.manifold_dim = self.subdomain.manifold_dim
         else:
             self.dim = 0
+            self.manifold_dim = 0
         self.dim = self.globalComm.allreduce(self.dim, MPI.MAX)
+        self.manifold_dim = self.globalComm.allreduce(self.manifold_dim, MPI.MAX)
         if not self.is_overlapping:
             req1 = []
             req2 = []
@@ -168,7 +172,7 @@ cdef class Repartitioner:
 
     def getCellPartition(self, partitioner='parmetis', partitionerParams={}):
         cdef:
-            INDEX_t i, c, dim, numVerticesPerCell, numCells
+            INDEX_t i, c, numVerticesPerCell, numCells
             meshBase subdomain
             INDEX_t[::1] globalVertexIndices
             INDEX_t[::1] cells
@@ -176,8 +180,7 @@ cdef class Repartitioner:
             INDEX_t rank
 
         if self.oldComm is not None:
-            dim = self.dim
-            numVerticesPerCell = dim+1
+            numVerticesPerCell = self.manifold_dim+1
             subdomain = self.subdomain
             numCells = subdomain.num_cells
             if 'partition_weights' in partitionerParams:
@@ -216,7 +219,7 @@ cdef class Repartitioner:
                 self.part = PyNucleus_metisCy.parmetisCy.PartMeshKway(cell_dist,
                                                                       cell_ptr,
                                                                       np.array(cells, copy=False).astype(metis_idx),
-                                                                      subdomain.dim,
+                                                                      subdomain.manifold_dim,
                                                                       self.numPartitions,
                                                                       self.oldComm,
                                                                       tpwgts=partition_weights)
@@ -349,7 +352,7 @@ cdef class Repartitioner:
 
     def getRepartitionedSubdomains(self):
         cdef:
-            INDEX_t dim, numVerticesPerCell = -1, i, j, k, m, l, p
+            INDEX_t dim, manifold_dim, numVerticesPerCell = -1, i, j, k, m, l, p
             list req = [], sendRequests = []
             meshBase subdomain
             INDEX_t numCells = -1, subdomainNo
@@ -371,7 +374,8 @@ cdef class Repartitioner:
             localInterfaceManager lIM
             interfaceProcessor iP
         dim = self.dim
-        numVerticesPerCell = dim+1
+        manifold_dim = self.manifold_dim
+        numVerticesPerCell = manifold_dim+1
         req = []
         if self.oldComm is not None:
             subdomain = self.subdomain
@@ -503,7 +507,7 @@ cdef class Repartitioner:
             partitionVertices = [set() for p in range(globalCommSize)]
             for cellNo in range(subdomain.num_cells):
                 p = part[cellNo]
-                for vertexNo in range(subdomain.dim+1):
+                for vertexNo in range(subdomain.manifold_dim+1):
                     vertex = subdomain.cells[cellNo, vertexNo]
                     partitionVertices[p].add(vertex)
             globalVertexIndices = self.globalVertexIndices
@@ -568,11 +572,11 @@ cdef class Repartitioner:
         # build new subdomain
 
         if self.newComm is not None:
-            if dim == 1:
+            if manifold_dim == 1:
                 subdomainNew = mesh1d(newVertices, cellsToRecv2)
-            elif dim == 2:
+            elif manifold_dim == 2:
                 subdomainNew = mesh2d(newVertices, cellsToRecv2)
-            elif dim == 3:
+            elif manifold_dim == 3:
                 subdomainNew = mesh3d(newVertices, cellsToRecv2)
             else:
                 raise NotImplementedError()
@@ -600,7 +604,7 @@ cdef class Repartitioner:
                 rank = self.newSubdomainGlobalRank_c(subdomainNo)
                 OM.overlaps[rank] = meshOverlap(overlapCells[subdomainNo],
                                                 globalComm.rank,
-                                                rank, dim)
+                                                rank, manifold_dim)
         else:
             OM = None
 
@@ -610,7 +614,7 @@ cdef class Repartitioner:
                 rank = self.oldSubdomainGlobalRank_c(subdomainNo)
                 OMnew.overlaps[rank] = meshOverlap(np.arange(recvDispl[rank]//numVerticesPerCell,
                                                              (recvDispl[rank]+recvCount[rank])//numVerticesPerCell, dtype=INDEX),
-                                                   globalComm.rank, rank, dim)
+                                                   globalComm.rank, rank, manifold_dim)
         else:
             OMnew = None
 
@@ -628,7 +632,7 @@ cdef class Repartitioner:
             lIM.removeBoundary()
             packed_send_vertices, packed_send_edges, packed_send_faces = lIM.getPackedDataForSend()
 
-            if subdomain.dim == 3:
+            if subdomain.manifold_dim == 3:
                 for subdomainNo in newSubdomainNos:
                     rank = self.newSubdomainGlobalRank_c(subdomainNo)
                     try:
@@ -650,7 +654,7 @@ cdef class Repartitioner:
                         sendRequests.append(globalComm.Isend(packed_send_vertices[subdomainNo], dest=rank, tag=58))
                     except KeyError:
                         sendRequests.append(globalComm.isend(0, dest=rank, tag=57))
-            elif subdomain.dim == 2:
+            elif subdomain.manifold_dim == 2:
                 for subdomainNo in newSubdomainNos:
                     rank = self.newSubdomainGlobalRank_c(subdomainNo)
                     try:
@@ -664,7 +668,7 @@ cdef class Repartitioner:
                         sendRequests.append(globalComm.Isend(packed_send_vertices[subdomainNo], dest=rank, tag=58))
                     except KeyError:
                         sendRequests.append(globalComm.isend(0, dest=rank, tag=57))
-            elif subdomain.dim == 1:
+            elif subdomain.manifold_dim == 1:
                 for subdomainNo in newSubdomainNos:
                     rank = self.newSubdomainGlobalRank_c(subdomainNo)
                     try:
@@ -681,7 +685,7 @@ cdef class Repartitioner:
         if self.newComm is not None:
             iP = interfaceProcessor(subdomainNew, self.newComm, localToGlobal, globalToLocalCells)
 
-            if dim == 1:
+            if manifold_dim == 1:
                 for subdomainNo in recv_ranks:
                     rank = self.oldSubdomainGlobalRank_c(subdomainNo)
                     n = globalComm.recv(source=rank, tag=57)
@@ -692,7 +696,7 @@ cdef class Repartitioner:
                     packed_recv_edges = uninitialized((0, 3), dtype=INDEX)
 
                     iP.processInterfaceInformation(packed_recv_faces, packed_recv_edges, packed_recv_vertices)
-            elif dim == 2:
+            elif manifold_dim == 2:
                 for subdomainNo in recv_ranks:
                     rank = self.oldSubdomainGlobalRank_c(subdomainNo)
                     n = globalComm.recv(source=rank, tag=53)
@@ -706,7 +710,7 @@ cdef class Repartitioner:
                     packed_recv_faces = uninitialized((0, 3), dtype=INDEX)
 
                     iP.processInterfaceInformation(packed_recv_faces, packed_recv_edges, packed_recv_vertices)
-            elif dim == 3:
+            elif manifold_dim == 3:
                 for subdomainNo in recv_ranks:
                     rank = self.oldSubdomainGlobalRank_c(subdomainNo)
                     n = globalComm.recv(source=rank, tag=53)
@@ -857,20 +861,20 @@ cdef class localInterfaceManager:
         vertexLookup = self.vertexLookup
 
         fakeCells = self.mesh.cells_as_array[np.array(self.part) == subdomainNo, :].copy()
-        if self.mesh.dim == 1:
+        if self.mesh.manifold_dim == 1:
             fakeSubdomain = mesh1d(self.mesh.vertices, fakeCells)
             bvertices = boundary1D(fakeSubdomain)
-        elif self.mesh.dim == 2:
+        elif self.mesh.manifold_dim == 2:
             fakeSubdomain = mesh2d(self.mesh.vertices, fakeCells)
             bvertices, bedges = boundary2D(fakeSubdomain, assumeConnected=False)
-        elif self.mesh.dim == 3:
+        elif self.mesh.manifold_dim == 3:
             fakeSubdomain = mesh3d(self.mesh.vertices, fakeCells)
             bvertices, bedges, bfaces = boundary3D(fakeSubdomain, assumeConnected=False)
         else:
             raise NotImplementedError()
 
         fakeToLocal = np.arange((self.mesh.num_cells), dtype=INDEX)[np.array(self.part) == subdomainNo]
-        if self.mesh.dim == 3:
+        if self.mesh.manifold_dim == 3:
             for i in range(bfaces.shape[0]):
                 cellNo, faceNo = bfaces[i, 0], bfaces[i, 1]
                 cellNo = fakeToLocal[cellNo]
@@ -882,7 +886,7 @@ cdef class localInterfaceManager:
                 except KeyError:
                     faceLookup[hvF] = {subdomainNo: cellNo}
 
-        if self.mesh.dim >= 2:
+        if self.mesh.manifold_dim >= 2:
             for i in range(bedges.shape[0]):
                 cellNo, edgeNo = bedges[i, 0], bedges[i, 1]
                 cellNo = fakeToLocal[cellNo]
@@ -912,12 +916,12 @@ cdef class localInterfaceManager:
             ENCODE_t hv
             tuple hvF
             dict temp
-        if self.mesh.dim == 3:
+        if self.mesh.manifold_dim == 3:
             bfaces = self.mesh.getBoundaryFacesByTag(tag)
             for i in range(bfaces.shape[0]):
                 hvF = self.sM.sortAndEncodeFace(bfaces[i, :])
                 self.faceLookup.pop(hvF)
-        if self.mesh.dim >= 2:
+        if self.mesh.manifold_dim >= 2:
             bedges = self.mesh.getBoundaryEdgesByTag(tag)
             for i in range(bedges.shape[0]):
                 hv = self.sM.sortAndEncodeEdge(bedges[i, :])
@@ -926,7 +930,7 @@ cdef class localInterfaceManager:
         for v in bvertices:
             self.vertexLookup.pop(v)
 
-        if self.mesh.dim == 3:
+        if self.mesh.manifold_dim == 3:
             # kick out all faces that are shared by 1 subdomain
             temp = {}
             for hvF in self.faceLookup:
@@ -945,7 +949,7 @@ cdef class localInterfaceManager:
                 if len(self.vertexLookup[localVertexNo]) > 4:
                     temp[localVertexNo] = self.vertexLookup[localVertexNo]
             self.vertexLookup = temp
-        elif self.mesh.dim == 2:
+        elif self.mesh.manifold_dim == 2:
             # kick out all edges that are shared by 1 subdomains or fewer
             temp = {}
             for hv in self.edgeLookup:
@@ -1173,7 +1177,7 @@ cdef class interfaceProcessor:
         self.interface_faces = {}
 
         self.sMnew = self.mesh.simplexMapper
-        if self.mesh.dim == 3:
+        if self.mesh.manifold_dim == 3:
             bvertices, bedges, bfaces = boundary3D(self.mesh)
 
             # face_candidates contains all boundary faces of the new subdomain
@@ -1198,7 +1202,7 @@ cdef class interfaceProcessor:
                 vertexNo = bvertices[i, 1]
                 vertex_candidates.add((localCellNo, vertexNo))
             self.vertex_candidates = vertex_candidates
-        elif self.mesh.dim == 2:
+        elif self.mesh.manifold_dim == 2:
             bvertices, bedges = boundary2D(self.mesh)
 
             # edge_candidates contains all boundary edges of the new subdomain
@@ -1215,7 +1219,7 @@ cdef class interfaceProcessor:
                 vertexNo = bvertices[i, 1]
                 vertex_candidates.add((localCellNo, vertexNo))
             self.vertex_candidates = vertex_candidates
-        elif self.mesh.dim == 1:
+        elif self.mesh.manifold_dim == 1:
             bvertices = boundary1D(self.mesh)
 
             vertex_candidates = set()
@@ -1276,7 +1280,7 @@ cdef class interfaceProcessor:
             INDEX_t[::1] subdomainBoundaryVertices
             TAG_t[::1] subdomainBoundaryFaceTags, subdomainBoundaryEdgeTags, subdomainBoundaryVertexTags
             dict boundaryEdgeTagsDict, boundaryVertexTagsDict
-        if self.mesh.dim == 3:
+        if self.mesh.manifold_dim == 3:
             bvertices, bedges, bfaces = boundary3D(self.mesh)
 
             # face_candidates contains all boundary faces of the new subdomain
@@ -1300,7 +1304,7 @@ cdef class interfaceProcessor:
                 vertexNo = bvertices[i, 1]
                 vertex = self.sMnew.getVertexInCell(localCellNo, vertexNo)
                 vertex_candidates.add(vertex)
-        elif self.mesh.dim == 2:
+        elif self.mesh.manifold_dim == 2:
             bvertices, bedges = boundary2D(self.mesh)
             bfaces = uninitialized((0, 3), dtype=INDEX)
 
@@ -1320,7 +1324,7 @@ cdef class interfaceProcessor:
                 vertexNo = bvertices[i, 1]
                 vertex = self.sMnew.getVertexInCell(localCellNo, vertexNo)
                 vertex_candidates.add(vertex)
-        elif self.mesh.dim == 1:
+        elif self.mesh.manifold_dim == 1:
             bvertices = boundary1D(self.mesh)
             bedges = uninitialized((0, 2), dtype=INDEX)
             bfaces = uninitialized((0, 3), dtype=INDEX)
@@ -1436,15 +1440,15 @@ cdef class interfaceProcessor:
 
         # propagate from boundary edges to boundary vertices
         boundaryVertexTagsDict = {}
-        if self.mesh.dim == 1:
+        if self.mesh.manifold_dim == 1:
             pass
-        elif self.mesh.dim == 2:
+        elif self.mesh.manifold_dim == 2:
             # we exploit that PHYSICAL edges are ordered last in boundaryEdgeTags
             for edgeNo in range(subdomainBoundaryEdges.shape[0]):
                 tag = subdomainBoundaryEdgeTags[edgeNo]
                 boundaryVertexTagsDict[subdomainBoundaryEdges[edgeNo, 0]] = tag
                 boundaryVertexTagsDict[subdomainBoundaryEdges[edgeNo, 1]] = tag
-        elif self.mesh.dim == 3:
+        elif self.mesh.manifold_dim == 3:
             for edgeNo in range(subdomainBoundaryEdges.shape[0]):
                 tag = subdomainBoundaryEdgeTags[edgeNo]
                 try:
@@ -1504,7 +1508,7 @@ cdef class interfaceProcessor:
             ENCODE_t[::1] sortKeyE
             INDEX_t[::1] sortKeyV
             interfaceManager iM
-        dim = self.mesh.dim
+        dim = self.mesh.manifold_dim
         iM = interfaceManager(self.newComm)
         for subdomainNo in range(self.newComm.size):
             if subdomainNo in self.interface_faces:
