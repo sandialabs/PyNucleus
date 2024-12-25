@@ -3,7 +3,7 @@
 # AUTHOR:         Christian Glusa
 
 # Base docker image
-FROM debian:testing
+FROM debian:stable
 LABEL maintainer Christian Glusa
 
 # install packages needed for build

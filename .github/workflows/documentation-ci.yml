@@ -29,11 +29,11 @@ jobs:
         egress-policy: audit
 
     - name: Check out repo
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
 
     - name: Pull ccache cache
       id: ccache-restore
-      uses: actions/cache/restore@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
+      uses: actions/cache/restore@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
       with:
         path: /home/runner/.cache/ccache
         key: ccache-documentation-ci
@@ -64,7 +64,7 @@ jobs:
       continue-on-error: true
 
     - name: Push ccache cache
-      uses: actions/cache/save@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
+      uses: actions/cache/save@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
       with:
         path: /home/runner/.cache/ccache
         key: ccache-documentation-ci
@@ -74,6 +74,6 @@ jobs:
         make docs
 
     - name: Upload artifact
-      uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+      uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
       with:
         path: 'docs/build'
