@@ -62,7 +62,7 @@ jobs:
     - name: Pull ccache cache
       if: always()
       id: ccache-restore
-      uses: actions/cache/restore@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
+      uses: actions/cache/restore@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
       with:
         path: /home/runner/.cache/ccache
         key: ccache-${{ env.BUILD_IDENTIFIER }}
@@ -102,7 +102,7 @@ jobs:
 
     - name: Push ccache cache
       if: always()
-      uses: actions/cache/save@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
+      uses: actions/cache/save@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
       with:
         path: /home/runner/.cache/ccache
         key: ccache-${{ env.BUILD_IDENTIFIER }}
@@ -128,7 +128,7 @@ jobs:
         mv cython-lint.xml cython-lint-${{ env.BUILD_IDENTIFIER }}.xml
 
     - name: Archive results
-      uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+      uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
       if: always()
       with:
         name: Results (${{ env.BUILD_PRETTY_IDENTIFIER }})
@@ -178,7 +178,7 @@ jobs:
     - name: Pull ccache cache
       if: always()
       id: ccache-restore
-      uses: actions/cache/restore@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
+      uses: actions/cache/restore@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
       with:
         path: /Users/runner/Library/Caches/ccache
         key: ccache-${{ runner.os }}-${{ matrix.py-version }}
@@ -222,7 +222,7 @@ jobs:
 
     - name: Push ccache cache
       if: always()
-      uses: actions/cache/save@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
+      uses: actions/cache/save@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
       with:
         path: /Users/runner/Library/Caches/ccache
         key: ccache-${{ runner.os }}-${{ matrix.py-version }}
@@ -248,7 +248,7 @@ jobs:
         mv cython-lint.xml cython-lint-${{ runner.os }}-${{ matrix.py-version }}.xml
 
     - name: Archive results
-      uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+      uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
       if: always()
       with:
         name: Results ${{ github.job }}
