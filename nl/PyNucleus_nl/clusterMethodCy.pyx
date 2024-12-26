@@ -1193,7 +1193,7 @@ cdef class tree_node:
                 for i in range(self.coefficientsDownVec.shape[0]):
                     for l in range(self.coefficientsDownVec.shape[1]):
                         y[dof, l] += self.value[componentNo, k, i]*self.coefficientsDownVec[i, l]
-            k += 1
+                k += 1
         else:
             for c in self.children:
                 for i in range(c.transferOperator.shape[0]):

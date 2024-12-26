@@ -1,13 +1,13 @@
 Timers: {}
 errors:
-  Hs error: 0.18352538491659642
-  L2 error: 0.05767242742488538
-  L2 error interpolated: 0.01741375173232188
-  Linf error interpolated: 0.08492371703495766
-  relative Hs error: 0.12478282007421258
-  relative L2 error: 0.04630160968707422
-  relative interpolated L2 error: 0.014042472355826032
-  relative interpolated Linf error: 0.09867023438728048
+  Hs error: 0.1839933908571473
+  L2 error: 0.057885119791182965
+  L2 error interpolated: 0.017437708550776834
+  Linf error interpolated: 0.08802653240222696
+  relative Hs error: 0.12510102728625555
+  relative L2 error: 0.046472367176700564
+  relative interpolated L2 error: 0.014062486305142948
+  relative interpolated Linf error: 0.10227529938252666
 meshes: {}
 results: {}
 sysInfo: {}

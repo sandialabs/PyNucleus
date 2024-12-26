@@ -720,10 +720,7 @@ def discWithInteraction(radius, horizon, h=0.25, max_volume=None, projectNodeToO
                                      innerRadius=radius,
                                      max_volume=max_volume)
     else:
-        return circle(n,
-                      radius=radius,
-                      max_volume=max_volume,
-                      projectNodeToOrigin=projectNodeToOrigin)
+        return uniform_disc(radius=radius)
 
 
 def gradedDiscWithInteraction(radius, horizon, mu=2., h=0.25, max_volume=None, projectNodeToOrigin=True):
@@ -944,6 +941,23 @@ def Lshape(d):
     vertices = [x for x in mesh.coordinates()]
     cells = mesh.cells()
     return mesh2d(vertices, cells)
+
+
+def uniform_disc(radius=1., **kwargs):
+    points = [(0., 0.)]
+    cells = []
+    n = 6
+    for i in range(n):
+        points.append((radius*np.cos(i*2*np.pi/n), radius*np.sin(i*2*np.pi/n)))
+    for i in range(1, len(points)-1):
+        cells.append((0, i, i+1))
+    cells.append((0, len(points)-1, 1))
+
+    mesh = mesh2d(np.array(points, dtype=REAL),
+                  np.array(cells, dtype=INDEX))
+    from . meshCy import radialMeshTransformer
+    mesh.setMeshTransformation(radialMeshTransformer())
+    return mesh
 
 
 def circle(n, radius=1., returnFacets=False, projectNodeToOrigin=True, **kwargs):
