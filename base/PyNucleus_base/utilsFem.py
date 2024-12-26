@@ -1073,10 +1073,8 @@ class driver:
         if params['test']:
             import psutil
             p = psutil.Process()
-            try:
+            if hasattr(p, 'cpu_affinity'):
                 p.cpu_affinity(list(range(psutil.cpu_count())))
-            except AttributeError:
-                pass
         self._timer = TimerManager(self.logger, comm=self.comm, memoryProfiling=params['showMemory'])
 
         for fun in self.processHook:
@@ -1450,12 +1448,12 @@ class parametrizedArg:
             elif p == int:
                 fields.append('[+-]?[0-9]+')
             elif p == float:
-                fields.append('[+-]?[0-9]+\.[0-9]*')
+                fields.append(r'[+-]?[0-9]+\.[0-9]*')
             elif p == bool:
                 fields.append('True|False')
             else:
                 raise NotImplementedError()
-        self.regexp = re.compile(name+'\(?'+','.join(['\s*(' + f + ')\s*' for f in fields])+'\)?')
+        self.regexp = re.compile(name+r'\(?'+','.join([r'\s*(' + f + r')\s*' for f in fields])+r'\)?')
 
     def match(self, s):
         return self.regexp.match(s) is not None
@@ -1516,6 +1514,8 @@ class propertyBuilder:
                             needToBuild = True
                         else:
                             dependencyLogger.log(self.logLevel, 'Values for {} are identical: \'{}\' == \'{}\''.format(prop, oldValue, newValue))
+                    elif newValue is None and oldValue is None:
+                        dependencyLogger.log(self.logLevel, 'Values for {} are identical: \'{}\' == \'{}\''.format(prop, oldValue, newValue))
                     elif newValue != oldValue:
                         cached_args[prop] = newValue
                         dependencyLogger.log(self.logLevel, 'Values for {} differ: \'{}\' != \'{}\', calling \'{}\''.format(prop, oldValue,

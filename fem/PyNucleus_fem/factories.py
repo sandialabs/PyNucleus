@@ -145,7 +145,7 @@ dofmapFactory.register('N1e', N1e_DoFMap)
 
 # meshes
 from . mesh import (simpleInterval, simpleSquare, simpleLshape, simpleBox, box,
-                    circle, graded_circle, cutoutCircle, twinDisc, dumbbell, wrench,
+                    uniform_disc, circle, graded_circle, cutoutCircle, twinDisc, dumbbell, wrench,
                     Hshape, ball, rectangle, crossSquare,
                     gradedSquare, gradedBox,
                     squareWithCircularCutout, boxWithBallCutout,
@@ -178,6 +178,7 @@ meshFactory.register('gradedBox', gradedBox, 3, aliases=['gradedCube'])
 meshFactory.register('squareWithInteraction', squareWithInteractions, 2)
 meshFactory.register('simpleLshape', simpleLshape, 2, aliases=['Lshape', 'L-shape'])
 meshFactory.register('circle', circle, 2, aliases=['disc', 'unitDisc', 'ball2d', '2dball'])
+meshFactory.register('uniform_disc', uniform_disc, 2, aliases=['uniform_ball2d', '2dball_uniform'])
 meshFactory.register('graded_circle', graded_circle, 2, aliases=['gradedCircle'])
 meshFactory.register('discWithInteraction', discWithInteraction, 2)
 meshFactory.register('twinDisc', twinDisc, 2)

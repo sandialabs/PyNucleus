@@ -196,6 +196,30 @@ cdef class {SCALAR_label}Dense_VectorLinearOperator({SCALAR_label}VectorLinearOp
                     y[i, k] += self.data[i, j, k]*x[j]
         return 0
 
+    cdef INDEX_t matvecTrans(self,
+                             {SCALAR}_t[::1] x,
+                             {SCALAR}_t[:, ::1] y) except -1:
+        cdef:
+            INDEX_t i, j, k
+        for i in range(self.num_rows):
+            for k in range(self.vectorSize):
+                y[i, k] = 0.
+            for j in range(self.num_columns):
+                for k in range(self.vectorSize):
+                    y[i, k] += self.data[j, i, k]*x[j]
+        return 0
+
+    cdef INDEX_t matvecTrans_no_overwrite(self,
+                                          {SCALAR}_t[::1] x,
+                                          {SCALAR}_t[:, ::1] y) except -1:
+        cdef:
+            INDEX_t i, j, k
+        for i in range(self.num_rows):
+            for j in range(self.num_columns):
+                for k in range(self.vectorSize):
+                    y[i, k] += self.data[j, i, k]*x[j]
+        return 0
+
     def isSparse(self):
         return False
 

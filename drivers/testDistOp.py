@@ -69,13 +69,13 @@ with d.timer('set up mesh and dofmap'):
                                       h=h)
     elif nPP.domain == 'disc':
         if d.horizonToMeshSize <= 0. or nPP.kernel.horizon.value == np.inf:
-            h = 0.04/2**(nPP.noRef-3)
+            h = 0.04/2**(nPP.noRef-4)
         else:
             h = nPP.kernel.horizon.value/d.horizonToMeshSize/np.sqrt(2)
         mesh, _ = nonlocalMeshFactory(nPP.domain,
                                       kernel=nPP.kernel,
                                       boundaryCondition=HOMOGENEOUS_DIRICHLET,
-                                      h=h,
+                                      hTarget=h,
                                       max_volume=h**2/2,
                                       projectNodeToOrigin=False)
     elif d.domain == 'gradedDisc':
