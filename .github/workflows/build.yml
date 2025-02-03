@@ -184,7 +184,7 @@ jobs:
         key: ccache-${{ runner.os }}-${{ matrix.py-version }}
 
     - name: Setup GNU Fortran
-      uses: fortran-lang/setup-fortran@830c95528fbdb3132afbca6d22bcda17f9f394f6 # v1.6.2
+      uses: fortran-lang/setup-fortran@2bbdcb313d2b7e72d1d07caf87f3ef9f376d9224 # v1.6.3
 
     - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
       with:
