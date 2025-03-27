@@ -22,16 +22,16 @@ jobs:
     strategy:
       matrix:
         include:
-          - py-version: '3.10'
-            c-compiler: 'gcc'
-            cxx-compiler: 'g++'
           - py-version: '3.11'
             c-compiler: 'gcc'
             cxx-compiler: 'g++'
           - py-version: '3.12'
             c-compiler: 'gcc'
             cxx-compiler: 'g++'
-          - py-version: '3.10'
+          - py-version: '3.13'
+            c-compiler: 'gcc'
+            cxx-compiler: 'g++'
+          - py-version: '3.13'
             c-compiler: 'clang'
             cxx-compiler: 'clang++'
       fail-fast: false
@@ -71,6 +71,7 @@ jobs:
       if: always()
       with:
         python-version: ${{ matrix.py-version }}
+        cache: 'pip'
 
     - name: Install Ubuntu packages
       if: always()
@@ -151,7 +152,7 @@ jobs:
 
     strategy:
       matrix:
-        py-version: ['3.10']
+        py-version: ['3.13']
       fail-fast: false
     name: Mac clang Python ${{ matrix.py-version }}
 
@@ -189,6 +190,7 @@ jobs:
     - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
       with:
         python-version: ${{ matrix.py-version }}
+        cache: 'pip'
 
     - name: Install packages
       run: |
@@ -203,6 +205,7 @@ jobs:
     - name: Augment path
       run: |
         echo "$HOME/.local/bin" >> $GITHUB_PATH
+        echo "/Users/runner/Library/Python/3.13/bin" >> $GITHUB_PATH
 
     - name: Install Python dependencies
       run: make prereq && make prereq-extra
