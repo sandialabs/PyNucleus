@@ -1,0 +1,18 @@
+# release
+-r requirements.txt
+
+pytest
+pytest-html
+pytest-xdist
+
+flake8
+flake8-junit-report
+cython-lint
+
+Sphinx
+sphinxcontrib-programoutput
+sphinx-gallery
+sphinx-rtd-theme
+# private
+
+python-lsp-server

@@ -1,0 +1,22 @@
+# release
+wheel
+setuptools
+
+mpi4py>=4.0.0
+
+Cython>=0.29.32
+numpy
+scipy>=1.13
+matplotlib
+
+MeshPy
+gmsh_interop
+h5py
+meshio
+modepy
+pyamg
+pybind11
+pyyaml
+scikit-sparse
+tabulate
+PyYAML
