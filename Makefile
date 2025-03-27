@@ -133,11 +133,10 @@ tests:
 	$(PYTHON) -m pytest -rA --html=$(TEST_RESULTS) --self-contained-html tests/
 
 prereq:
-	$(PYTHON) -m pip install $(PIP_FLAGS) $(PIP_INSTALL_FLAGS) setuptools wheel Cython cython numpy scipy matplotlib pyyaml h5py pybind11 MeshPy tabulate modepy mpi4py pyamg meshio
-	$(PYTHON) -m pip install $(PIP_FLAGS) $(PIP_INSTALL_FLAGS) scikit-sparse
+	$(PYTHON) -m pip install $(PIP_FLAGS) $(PIP_INSTALL_FLAGS) -r requirements.txt
 
 prereq-extra:
-	$(PYTHON) -m pip install $(PIP_FLAGS) pytest pytest-html pytest-xdist Sphinx sphinxcontrib-programoutput sphinx-gallery sphinx-rtd-theme flake8 flake8-junit-report cython-lint
+	$(PYTHON) -m pip install $(PIP_FLAGS) -r requirements_dev.txt
 
 flake8:
 	$(PYTHON) -m flake8 --output-file=flake8.txt --exit-zero drivers examples packageTools base metisCy fem multilevelSolver nl tests
