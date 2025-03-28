@@ -5,15 +5,13 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-from mpi4py import MPI
 from PyNucleus_base.utilsFem import runDriver
-import os
-import inspect
 import pytest
 
 
-def getPath():
-    return os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+@pytest.fixture()
+def path(request):
+    return request.path.parent
 
 
 ################################################################################
@@ -42,52 +40,38 @@ def symmetric(request):
 
 
 @pytest.mark.slow
-def testGMG(extras):
-    base = getPath()+'/../'
+def testGMG(path, extras):
     py = 'runSerialGMG.py'
-    path = base+'drivers'
-    cacheDir = getPath()+'/'
-    runDriver(path, py, cacheDir=cacheDir, extra=extras)
+    runDriver(path/'../drivers', py, cacheDir=path, extra=extras)
 
 
-def testParallelGMG(ranks, domain, element, symmetric, extras):
-    base = getPath()+'/../'
+def testParallelGMG(ranks, domain, element, symmetric, path, extras):
     py = ['runParallelGMG.py',
           '--domain', domain,
           '--element', element]
     if symmetric:
         py.append('--symmetric')
-    path = base+'drivers'
-    cacheDir = getPath()+'/'
-    runDriver(path, py, ranks=ranks, cacheDir=cacheDir, relTol=3e-2, extra=extras)
+    runDriver(path/'../drivers', py, ranks=ranks, cacheDir=path, relTol=3e-2, extra=extras)
 
 
 ################################################################################
 # multigrid for Helmholtz
 
-def testHelmholtz(ranks, domain, extras):
-    base = getPath()+'/../'
+def testHelmholtz(ranks, domain, path, extras):
     py = ['runHelmholtz.py', '--domain', domain]
-    path = base+'drivers'
-    cacheDir = getPath()+'/'
-    runDriver(path, py, ranks=ranks, cacheDir=cacheDir, extra=extras)
+    runDriver(path/'../drivers', py, ranks=ranks, cacheDir=path, extra=extras)
 
 
 ################################################################################
 # interface problem
 
-@pytest.fixture(scope='module', params=[('doubleInterval', 10),
-                                        ('doubleSquare', 5)])
-def domainNoRef(request):
-    return request.param
-
-
-def testInterface(domainNoRef, extras):
-    domain, noRef = domainNoRef
-    base = getPath()+'/../'
+@pytest.mark.parametrize("domain, noRef",
+                         [
+                             ('doubleInterval', 10),
+                             ('doubleSquare', 5)
+                         ])
+def testInterface(domain, noRef, path, extras):
     py = ['interfaceProblem.py',
           '--domain', domain,
           '--noRef', str(noRef)]
-    path = base+'drivers'
-    cacheDir = getPath()+'/'
-    runDriver(path, py, ranks=1, cacheDir=cacheDir, relTol=5e-2, extra=extras)
+    runDriver(path/'../drivers', py, ranks=1, cacheDir=path, relTol=5e-2, extra=extras)

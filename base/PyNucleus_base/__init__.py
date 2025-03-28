@@ -11,6 +11,7 @@ filterwarnings("error", category=RuntimeWarning, module="importlib._bootstrap")
 from . utilsFem import driver, problem
 from . myTypes import REAL, INDEX, COMPLEX
 from . blas import uninitialized, uninitialized_like
+from . timestepping import timestepperFactory
 
 
 def get_include():
@@ -52,5 +53,5 @@ solverFactory.register('complex_gmres', complex_gmres_solver)
 
 
 __all__ = ['REAL', 'INDEX', 'COMPLEX',
-           'solverFactory',
+           'solverFactory', 'timestepperFactory',
            'driver', 'problem']

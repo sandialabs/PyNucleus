@@ -118,6 +118,6 @@ p.addExtension("clusterMethodCy",
 
 p.setup(description="Nonlocal operator assembly",
         python_requires='>=3.10',
-        install_requires=['Cython>=0.29.32', 'numpy', 'scipy',
-                          'mpi4py>=2.0.0',
+        install_requires=['Cython>=0.29.32', 'numpy', 'scipy>=1.13',
+                          'mpi4py>=4.0.0',
                           'PyNucleus_base', 'PyNucleus_fem', 'PyNucleus_multilevelSolver'])

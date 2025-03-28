@@ -16,4 +16,4 @@ p = package('PyNucleus_packageTools')
 p.loadConfig()
 
 p.setup(description='tools for setting up Python packages',
-        install_requires=['numpy', 'scipy', 'matplotlib', 'Cython>=0.29.32', 'mpi4py>=2.0.0', 'tabulate', 'PyYAML', 'H5py', 'modepy', 'meshpy'])
+        install_requires=['numpy', 'scipy>=1.13', 'matplotlib', 'Cython>=0.29.32', 'mpi4py>=4.0.0', 'tabulate', 'PyYAML', 'H5py', 'modepy', 'meshpy'])

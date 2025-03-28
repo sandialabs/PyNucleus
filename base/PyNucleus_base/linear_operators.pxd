@@ -96,15 +96,6 @@ cdef class blockOperator(LinearOperator):
                         REAL_t[::1] y) except -1
 
 
-cdef class nullOperator(LinearOperator):
-    cdef INDEX_t matvec(self,
-                        REAL_t[::1] x,
-                        REAL_t[::1] y) except -1
-    cdef INDEX_t matvec_no_overwrite(self,
-                                     REAL_t[::1] x,
-                                     REAL_t[::1] y) except -1
-
-
 cdef class identityOperator(LinearOperator):
     cdef:
         REAL_t alpha

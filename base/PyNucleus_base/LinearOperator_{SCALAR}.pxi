@@ -77,7 +77,11 @@ cdef class {SCALAR_label}LinearOperator:
 
     def __add__(self, x):
         if isinstance(x, {SCALAR_label}LinearOperator):
-            if isinstance(self, {SCALAR_label}Multiply_Linear_Operator):
+            if isinstance(x, {SCALAR_label}nullOperator):
+                return self
+            elif isinstance(self, {SCALAR_label}nullOperator):
+                return x
+            elif isinstance(self, {SCALAR_label}Multiply_Linear_Operator):
                 if isinstance(x, {SCALAR_label}Multiply_Linear_Operator):
                     return {SCALAR_label}TimeStepperLinearOperator(self.A, x.A, x.factor, self.factor)
                 else:
@@ -119,9 +123,15 @@ cdef class {SCALAR_label}LinearOperator:
                 tsOp = self
                 return {SCALAR_label}TimeStepperLinearOperator(tsOp.M, tsOp.S, tsOp.facS*x, tsOp.facM*x)
             elif isinstance(self, {SCALAR_label}LinearOperator) and isinstance(x, (float, int, {SCALAR})):
-                return {SCALAR_label}Multiply_Linear_Operator(self, x)
+                if x == 0:
+                    return {SCALAR_label}nullOperator(self.num_rows, self.num_columns)
+                else:
+                    return {SCALAR_label}Multiply_Linear_Operator(self, x)
             elif isinstance(x, {SCALAR_label}LinearOperator) and isinstance(self, (float, int, {SCALAR})):
-                return {SCALAR_label}Multiply_Linear_Operator(x, self)
+                if self == 0:
+                    return {SCALAR_label}nullOperator(x.num_rows, x.num_columns)
+                else:
+                    return {SCALAR_label}Multiply_Linear_Operator(x, self)
             elif isinstance(x, complex):
                 if isinstance(self, ComplexLinearOperator):
                     return {SCALAR_label}Multiply_Linear_Operator(self, COMPLEX(x))
@@ -142,7 +152,10 @@ cdef class {SCALAR_label}LinearOperator:
                 tsOp = self
                 return {SCALAR_label}TimeStepperLinearOperator(tsOp.M, tsOp.S, tsOp.facS*x, tsOp.facM*x)
             else:
-                return {SCALAR_label}Multiply_Linear_Operator(self, x)
+                if x == 0:
+                    return {SCALAR_label}nullOperator(self.num_rows, self.num_columns)
+                else:
+                    return {SCALAR_label}Multiply_Linear_Operator(self, x)
         else:
             raise NotImplementedError('Cannot multiply with {}'.format(x))
 
@@ -334,11 +347,17 @@ cdef class {SCALAR_label}TimeStepperLinearOperator({SCALAR_label}LinearOperator)
             self.S.matvec(x, y)
             if self.facS != 1.0:
                 scaleScalar(y, self.facS)
-        if self.facM == 1.0:
-            self.M.matvec_no_overwrite(x, y)
+            if self.facM == 1.0:
+                self.M.matvec_no_overwrite(x, y)
+            else:
+                self.M.matvec(x, self.z)
+                assign3(y, y, 1.0, self.z, self.facM)
         else:
-            self.M.matvec(x, self.z)
-            assign3(y, y, 1.0, self.z, self.facM)
+            if self.facM == 1.0:
+                self.M.matvec(x, y)
+            else:
+                self.M.matvec(x, y)
+                scaleScalar(y, self.facM)
         return 0
 
     cdef INDEX_t matvec_no_overwrite(self,
@@ -804,3 +823,30 @@ cdef class {SCALAR_label}Transpose_Linear_Operator({SCALAR_label}LinearOperator)
 
     def getMemorySize(self):
         return self.A.getMemorySize()
+
+
+cdef class {SCALAR_label}nullOperator({SCALAR_label}LinearOperator):
+    def __init__(self, INDEX_t num_rows, INDEX_t num_columns):
+        super({SCALAR_label}nullOperator, self).__init__(num_rows, num_columns)
+
+    cdef INDEX_t matvec(self,
+                        {SCALAR}_t[::1] x,
+                        {SCALAR}_t[::1] y) except -1:
+        cdef:
+            INDEX_t i
+        for i in range(self.num_rows):
+            y[i] = 0.
+        return 0
+
+    cdef INDEX_t matvec_no_overwrite(self,
+                                     {SCALAR}_t[::1] x,
+                                     {SCALAR}_t[::1] y) except -1:
+        return 0
+
+    def toarray(self):
+        return np.zeros((self.num_rows, self.num_columns), dtype={SCALAR})
+
+    def get_diagonal(self):
+        return np.zeros((min(self.num_rows, self.num_columns)), dtype={SCALAR})
+
+    diagonal = property(fget=get_diagonal)

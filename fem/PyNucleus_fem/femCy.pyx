@@ -5,7 +5,7 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-from libc.math cimport (sin, cos, sinh, cosh, tanh, sqrt, atan2, pow)
+from libc.math cimport (sin, cos, pow)
 import numpy as np
 cimport numpy as np
 
@@ -1151,7 +1151,6 @@ cdef class stiffness_2d_in_3d_sym_P2(stiffness_3d_sym):
         contrib[20] = 8*vol*(l00 + l02 + l22)
 
 
-
 # cdef class stiffness_1d_in_2d_sym_P1(stiffness_2d_sym):
 #     cdef inline void eval(self,
 #                           const REAL_t[:, ::1] simplex,
@@ -1556,7 +1555,6 @@ cdef class mass_2d_in_3d_sym_P2(mass_3d):
         contrib[18] = 32*vol
         contrib[19] = 16*vol
         contrib[20] = 32*vol
-
 
 
 include "mass_1D_P0.pxi"
@@ -2874,10 +2872,8 @@ def assembleRHSgrad(FUNCTION_t fun, DoFMap dm,
         INDEX_t dimManifold = mesh.manifold_dim
         INDEX_t num_vertices = dimManifold+1
         INDEX_t num_quad_nodes
-        REAL_t[:, ::1] PHI
-        REAL_t[:, :, ::1] PHIVector
         REAL_t[::1] weights
-        INDEX_t i, k, j, l, I
+        INDEX_t i, k, j, I
         fe_vector dataVec
         vector_t data
         REAL_t vol
@@ -3065,6 +3061,27 @@ cdef class CahnHilliard_F(multi_function):
             REAL_t u
         u = x[0]
         y[0] = 0.25*(1.-u**2)**2
+
+
+cdef class FitzHughNagumo(multi_function):
+    cdef:
+        public REAL_t invTau
+        public REAL_t delta
+        public REAL_t beta
+
+    def __init__(self, tau=10., delta=0.2, beta=1.0):
+        self.invTau = 1.0/tau
+        self.delta = delta
+        self.beta = beta
+        multi_function.__init__(self, 2, 2)
+
+    cdef inline void eval(self, REAL_t[::1] x, REAL_t[::1] y):
+        cdef:
+            REAL_t u, v
+        u = x[0]
+        v = x[1]
+        y[0] = self.invTau * (u-pow(u, 3)-v)
+        y[1] = self.beta*u + self.delta
 
 
 def assembleNonlinearity(meshBase mesh, multi_function fun, DoFMap dm, multi_fe_vector U):

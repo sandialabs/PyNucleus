@@ -14,7 +14,7 @@ from PyNucleus_base.ip_norm import (ip_distributed_nonoverlapping,
                                     norm_distributed_nonoverlapping)
 from PyNucleus_base.solvers import iterative_solver
 from PyNucleus_base.linear_operators import Dense_LinearOperator
-from PyNucleus_base.timestepping import CrankNicolson, ImplicitEuler
+from PyNucleus_base.timestepping import timestepperFactory
 from PyNucleus_fem.factories import functionFactory
 from PyNucleus_fem.functions import constant
 from PyNucleus_fem.quadrature import simplexXiaoGimbutas
@@ -209,7 +209,6 @@ class stationaryModelSolution(classWithComputedDependencies):
         pm.plot()
 
     def plotRHS(self):
-        dim = self.u.dm.mesh.manifold_dim
         self.uRestricted.dm.interpolate(self.rhs).plot(label='rhs')
 
     def exportVTK(self, filename):
@@ -768,37 +767,6 @@ class discretizedTransientProblem(discretizedNonlocalProblem):
         solver.setup()
         return solver
 
-    def massApply(self, t, u, rhs):
-        self.massInterior(u, rhs)
-
-    def solverBuilder(self, t, alpha, beta):
-        with self.timer('build solver {}'.format(self.__class__.__name__)):
-            return self.buildTransientSolver(self.solverType, self.tol, self.maxiter, self.hierarchy, alpha, beta)
-
-    def explicit(self, t, u, rhs):
-        self.A(u, rhs)
-
-    def massApply_adjoint(self, t, u, rhs):
-        self.massInterior(u, rhs)
-        rhs *= -1
-
-    def solverBuilder_adjoint(self, t, alpha, beta):
-        with self.timer('build adjoint solver {}'.format(self.__class__.__name__)):
-            return self.buildTransientSolver(self.solverType, self.tol, self.maxiter, self.hierarchy, -alpha, beta)
-
-    def explicit_adjoint(self, t, u, rhs):
-        self.A(u, rhs)
-
-    def forcingBuilder(self, t, rhs):
-        force = self.rhs(t)
-        if isinstance(force, constant) and force.value == 0:
-            rhs.assign(0.)
-        else:
-            rhs.assign(self.dmInterior.assembleRHS(force, qr=self.qr))
-        if self.dirichletData is not None:
-            uBC = self.dmBC.interpolate(self.dirichletData(t))
-            rhs -= self.A_BC*uBC
-
     @generates('qr')
     def buildQuadratureRule(self):
         self.qr = simplexXiaoGimbutas(order=3, dim=self.continuumProblem.dim)
@@ -817,25 +785,64 @@ class discretizedTransientProblem(discretizedNonlocalProblem):
     def buildTimesVector(self, finalTime, numTimeSteps):
         self.timesVector = np.linspace(0, finalTime, numTimeSteps+1)
 
+    def residual(self, t, u, ut, residual, coeff_A=1., coeff_B=1., coeff_g=1., coeff_residual=0., forcingVector=None, adjoint=False):
+        if coeff_residual != 1.:
+            residual *= coeff_residual
+
+        if adjoint:
+            coeff_A = -coeff_A
+
+        if coeff_A != 0:
+            temp = residual.copy()
+            self.massInterior(ut, temp)
+            temp *= coeff_A
+            residual += temp
+
+        if coeff_B != 0.:
+            temp = residual.copy()
+            self.A(u, temp, trans=adjoint)
+            temp *= coeff_B
+            residual += temp
+
+        if coeff_g != 0.:
+            temp = residual.copy()
+            if forcingVector is None:
+                force = self.rhs(t)
+                if isinstance(force, constant) and force.value == 0:
+                    temp.assign(0.)
+                else:
+                    temp.assign(self.dmInterior.assembleRHS(force, qr=self.qr))
+                if self.dirichletData is not None:
+                    uBC = self.dmBC.interpolate(self.dirichletData(t))
+                    temp -= self.A_BC*uBC
+            else:
+                temp.assign(forcingVector)
+            temp *= -coeff_g
+            residual += temp
+
+    def residual_adjoint(self, t, u, ut, residual, coeff_A=1., coeff_B=1., coeff_g=1., coeff_residual=0., forcingVector=None):
+        self.residual(t, u, ut, residual, coeff_A, coeff_B, coeff_g, coeff_residual, forcingVector, adjoint=True)
+
+    def solverBuilder(self, t, alpha, beta):
+        with self.timer('build solver {}'.format(self.__class__.__name__)):
+            return self.buildTransientSolver(self.solverType, self.tol, self.maxiter, self.hierarchy, alpha, beta)
+
+    def solverBuilder_adjoint(self, t, alpha, beta):
+        with self.timer('build adjoint solver {}'.format(self.__class__.__name__)):
+            return self.buildTransientSolver(self.solverType, self.tol, self.maxiter, self.hierarchy, -alpha, beta)
+
     @generates('stepper')
     def buildTimeStepper(self, timeStepperType, dt, dmInterior, theta, hierarchy):
+        kwargs = {}
         if timeStepperType == 'Crank-Nicolson':
-            self.stepper = CrankNicolson(dmInterior,
-                                         self.massApply,
-                                         self.solverBuilder,
-                                         self.forcingBuilder,
-                                         self.explicit,
-                                         theta=theta,
-                                         dt=dt,
-                                         explicitIslinearAndTimeIndependent=True)
-        elif timeStepperType == 'Implicit Euler':
-            self.stepper = ImplicitEuler(dmInterior,
-                                         self.massApply,
-                                         self.solverBuilder,
-                                         self.forcingBuilder,
-                                         self.explicit,
-                                         dt=dt,
-                                         explicitIslinearAndTimeIndependent=True)
+            kwargs['theta'] = theta
+        self.stepper = timestepperFactory(timeStepperType,
+                                          dm=dmInterior,
+                                          residual=self.residual,
+                                          solverBuilder=self.solverBuilder,
+                                          dt=dt,
+                                          explicitIslinearAndTimeIndependent=True,
+                                          **kwargs)
 
     @generates('b')
     def buildRHS(self, dmInterior, numTimeSteps, timesVector, stepper):
@@ -846,23 +853,16 @@ class discretizedTransientProblem(discretizedNonlocalProblem):
 
     @generates('adjointStepper')
     def buildAdjointTimeStepper(self, timeStepperType, dt, dmInterior, theta, hierarchy):
+        kwargs = {}
         if timeStepperType == 'Crank-Nicolson':
-            self.adjointStepper = CrankNicolson(dmInterior,
-                                                self.massApply_adjoint,
-                                                self.solverBuilder_adjoint,
-                                                None,
-                                                self.explicit_adjoint,
-                                                theta=theta,
-                                                dt=-dt,
-                                                explicitIslinearAndTimeIndependent=True)
-        elif timeStepperType == 'Implicit Euler':
-            self.adjointStepper = ImplicitEuler(dmInterior,
-                                                self.massApply_adjoint,
-                                                self.solverBuilder_adjoint,
-                                                None,
-                                                self.explicit_adjoint,
-                                                dt=-dt,
-                                                explicitIslinearAndTimeIndependent=True)
+            kwargs['theta'] = theta
+        self.stepper = timestepperFactory(timeStepperType,
+                                          dm=dmInterior,
+                                          residual=self.residual_adjoint,
+                                          solverBuilder=self.solverBuilder_adjoint,
+                                          dt=dt,
+                                          explicitIslinearAndTimeIndependent=True,
+                                          **kwargs)
 
     @generates(['initialSolution'])
     def setInitialCondition(self, dm, initial):
@@ -883,35 +883,6 @@ class discretizedTransientProblem(discretizedNonlocalProblem):
                     movie_kwargs['vmax'] = self.initialSolution.max()
                     movie_kwargs['shading'] = self.shading
                 self.mC = movieCreator(self.initialSolution, outputFolder)
-
-    # def doSteps(self, stepCount=1):
-    #     if stepCount <= 0:
-    #         stepCount = self.numTimeSteps
-    #     end = min(self.numTimeSteps, self.timeStep+stepCount)
-    #     for i in range(self.timeStep, end):
-    #         with self.timer('time step', level=logging.DEBUG):
-    #             if self.keepAllTimeSteps:
-    #                 self.u[i+1].assign(self.u[i])
-    #                 u = self.u[i+1]
-    #             else:
-    #                 u = self.u
-    #             uInterior = self.R_interior*u
-    #             self.t = self.stepper(self.t, self.dt, uInterior)
-    #             uBC = self.dmBC.interpolate(self.dirichletData(self.t))
-    #             u.assign(self.P_interior*uInterior + self.P_bc*uBC)
-
-    #         if self.doMovie and (i % self.movieFrameStep == self.movieFrameStep-1):
-    #             mS = self.getModelSolution()
-    #             u = mS.u_global
-    #             if self._driver.isMaster:
-    #                 self.mC.addFrame(u)
-    #     self.timeStep = end
-    #     if end == self.numTimeSteps:
-    #         assert abs(self.t - self.continuumProblem.finalTime) < 1e-10, (self.t, self.continuumProblem.finalTime)
-    #     if self.doMovie and (end == self.numTimeSteps) and self._driver.isMaster:
-    #         self.mC.generateMovie()
-    #     mS = self.getModelSolution()
-    #     return mS
 
     @generates('modelSolution')
     def solve(self, numTimeSteps, dt, finalTime, timesVector, initialSolution, R_interior, stepper, dm, dmBC, dirichletData,

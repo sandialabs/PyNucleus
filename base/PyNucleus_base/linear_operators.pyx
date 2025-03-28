@@ -908,33 +908,6 @@ cdef class blockDiagonalOperator(blockOperator):
         super(blockDiagonalOperator, self).__init__(subblocks)
 
 
-cdef class nullOperator(LinearOperator):
-    def __init__(self, INDEX_t num_rows, INDEX_t num_columns):
-        super(nullOperator, self).__init__(num_rows, num_columns)
-
-    cdef INDEX_t matvec(self,
-                        REAL_t[::1] x,
-                        REAL_t[::1] y) except -1:
-        cdef:
-            INDEX_t i
-        for i in range(self.num_rows):
-            y[i] = 0.
-        return 0
-
-    cdef INDEX_t matvec_no_overwrite(self,
-                                     REAL_t[::1] x,
-                                     REAL_t[::1] y) except -1:
-        return 0
-
-    def toarray(self):
-        return np.zeros((self.num_rows, self.num_columns), dtype=REAL)
-
-    def get_diagonal(self):
-        return np.zeros((min(self.num_rows, self.num_columns)), dtype=REAL)
-
-    diagonal = property(fget=get_diagonal)
-
-
 cdef class identityOperator(LinearOperator):
     def __init__(self, INDEX_t num_rows, REAL_t alpha=1.0):
         super(identityOperator, self).__init__(num_rows, num_rows)
