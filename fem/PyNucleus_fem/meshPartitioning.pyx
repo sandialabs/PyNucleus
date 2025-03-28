@@ -342,7 +342,7 @@ IF USE_METIS:
             elif numPartitions > self.A.shape[0]:
                 raise PartitionerException("Cannot partition {} DoFs in {} partitions.".format(self.A.shape[0], numPartitions))
             elif numPartitions == 1:
-                return np.zeros((numPartitions), dtype=INDEX), numPartitions
+                return np.zeros((self.A.shape[0]), dtype=INDEX), numPartitions
             if isinstance(self.A, CSR_LinearOperator):
                 A = self.A
             else:

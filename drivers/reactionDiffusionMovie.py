@@ -13,12 +13,9 @@ from shutil import rmtree
 import h5py
 from subprocess import Popen
 from PyNucleus_base import driver
-from PyNucleus_fem.mesh import meshNd
 from PyNucleus_fem.DoFMaps import DoFMap
-from PyNucleus_nl.nonlocalProblems import brusselatorProblem
 
 d = driver()
-# brusselatorProblem(d)
 d.add('inputFile', '')
 d.add('zoomIn', False)
 d.add('shading', acceptedValues=['gouraud', 'flat'])
@@ -27,11 +24,9 @@ d.process()
 filename = d.inputFile
 resultFile = h5py.File(str(filename), 'r')
 
-mesh = meshNd.HDF5read(resultFile['mesh'])
-dm = DoFMap.HDF5read(resultFile['dm'])
-dm.mesh = mesh
+dm = DoFMap.HDF5read(resultFile['data']['dm'])
 
-folder = Path('brusselatorMovie')/Path(filename).name
+folder = Path('reactionDiffusionMovie')/Path(filename).name
 try:
     rmtree(str(folder))
 except:
@@ -39,7 +34,7 @@ except:
 folder.mkdir(parents=True, exist_ok=True)
 
 if d.zoomIn:
-    folderZoom = Path('brusselatorMovie')/(Path(filename).name+'-zoomIn')
+    folderZoom = Path('reactionDiffusionMovie')/(Path(filename).name+'-zoomIn')
     try:
         rmtree(str(folderZoom))
     except:

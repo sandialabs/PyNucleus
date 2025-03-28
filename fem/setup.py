@@ -77,6 +77,7 @@ p.addExtension("splitting",
                sources=[p.folder+"splitting.pyx"])
 
 p.setup(description="A finite element code.",
-        install_requires=['Cython>=0.29.32', 'numpy', 'scipy', 'matplotlib', 'meshpy', 'modepy',
-                          'mpi4py>=2.0.0',
+        install_requires=['Cython>=0.29.32', 'numpy', 'scipy>=1.13', 'matplotlib', 'meshpy', 'modepy',
+                          'gmsh_interop',
+                          'mpi4py>=4.0.0',
                           'PyNucleus_base'])

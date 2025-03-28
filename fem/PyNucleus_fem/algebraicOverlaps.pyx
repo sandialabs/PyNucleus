@@ -10,7 +10,7 @@ from PyNucleus_base.myTypes cimport INDEX_t, REAL_t, COMPLEX_t
 from PyNucleus_base.ip_norm cimport mydot
 from PyNucleus_base import uninitialized
 from . DoFMaps cimport DoFMap
-from . mesh import INTERIOR_NONOVERLAPPING, INTERIOR
+from . mesh import INTERIOR_NONOVERLAPPING
 from . boundaryLayerCy import boundaryLayer
 from PyNucleus_base.linear_operators import (LinearOperator_wrapper,
                                              diagonalOperator)

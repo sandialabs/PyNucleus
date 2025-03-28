@@ -378,7 +378,9 @@ def processDictForYaml(params):
             paramsNew[key] = float(params[key])
         elif isinstance(params[key], np.ndarray):
             if params[key].dtype == REAL:
-                if params[key].ndim == 1:
+                if params[key].ndim == 0:
+                    paramsNew[key] = float(params[key])
+                elif params[key].ndim == 1:
                     paramsNew[key] = params[key].tolist()
                     for i in range(len(paramsNew[key])):
                         paramsNew[key][i] = float(paramsNew[key][i])
@@ -388,7 +390,7 @@ def processDictForYaml(params):
                         for j in range(len(paramsNew[key][i])):
                             paramsNew[key][i][j] = float(paramsNew[key][i][j])
                 else:
-                    raise NotImplementedError()
+                    raise NotImplementedError("{} {}".format(key, params[key].ndim))
             else:
                 paramsNew[key] = params[key].tolist()
         elif isinstance(params[key], list):
@@ -640,7 +642,11 @@ class outputGroup:
                 if p.label in d:
                     aTol = p.aTol if p.aTol is not None else 1e-12
                     rTol = p.rTol if p.rTol is not None else 1e-12
-                    if isinstance(p.value, (np.ndarray, list)):
+                    if isinstance(p.value, np.ndarray) and p.value.ndim == 0:
+                        if not np.isclose(p.value, d[p.label],
+                                          rtol=rTol, atol=aTol):
+                            result[p.label] = (p.value, d[p.label])
+                    elif isinstance(p.value, (np.ndarray, list)):
                         if len(p.value) == len(d[p.label]):
                             if not np.allclose(p.value, d[p.label],
                                                rtol=rTol, atol=aTol):
@@ -984,10 +990,10 @@ class driver:
                                    dest=name)
             else:
                 if acceptedValues is not None:
-                    types = [a for a in acceptedValues if type(a) == type]
+                    types = [a for a in acceptedValues if type(a) is type]
 
                     if len(types) > 0 and argInterpreter is None:
-                        acceptedValues2 = [a for a in acceptedValues if type(a) != type]
+                        acceptedValues2 = [a for a in acceptedValues if type(a) is not type]
 
                         def argInterpreter(s):
                             from ast import literal_eval
@@ -1378,8 +1384,8 @@ def runDriver(path, py, python=None, timeout=900, ranks=None, cacheDir='',
     else:
         extra = None
     if cacheDir != '':
-        cache = cacheDir+'/cache_' + ''.join(py)
-        runOutput = cacheDir+'/run_' + ''.join(py)
+        cache = str(Path(cacheDir)/('cache_' + ''.join(py)))
+        runOutput = str(Path(cacheDir)/('run_' + ''.join(py)))
         if ranks is not None:
             cache += str(ranks)
             runOutput += str(ranks)

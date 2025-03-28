@@ -1695,6 +1695,17 @@ def hdeltaCy(meshBase mesh):
             volVec[i] = hl
             hVec[i] = hl
         return h, 1, totalVolume, hmin, volVec, hVec
+    elif dim == 1 and space_dim == 3:
+        for i in range(nc):
+            # Get local vertices
+            mesh.getSimplex(i, local_vertices)
+            hl = sqrt((local_vertices[1, 0]-local_vertices[0, 0])**2+(local_vertices[1, 1]-local_vertices[0, 1])**2+(local_vertices[1, 2]-local_vertices[0, 2])**2)
+            h = max(h, hl)
+            hmin = min(hmin, hl)
+            totalVolume += hl
+            volVec[i] = hl
+            hVec[i] = hl
+        return h, 1, totalVolume, hmin, volVec, hVec
     elif dim == 2 and space_dim == 2:
         for i in range(nc):
             # Get local vertices
@@ -2559,11 +2570,11 @@ def getSubmesh(meshBase mesh, INDEX_t[::1] selectedCells):
         I = selectedCells[i]
         for j in range(manifold_dim+1):
             new_cells[i, j] = old_cells[I, j]
-    if mesh.dim == 1:
+    if manifold_dim == 1:
         new_mesh = mesh1d(mesh.vertices.copy(), new_cells)
-    elif mesh.dim == 2:
+    elif manifold_dim == 2:
         new_mesh = mesh2d(mesh.vertices.copy(), new_cells)
-    elif mesh.dim == 3:
+    elif manifold_dim == 3:
         new_mesh = mesh3d(mesh.vertices.copy(), new_cells)
     else:
         raise NotImplementedError()

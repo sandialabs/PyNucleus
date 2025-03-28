@@ -18,7 +18,6 @@ from PyNucleus_base.sparsityPattern cimport sparsityPattern
 from PyNucleus_base.linear_operators cimport LinearOperator
 from PyNucleus_base.tupleDict cimport tupleDictINDEX
 from . meshCy cimport (sortEdge, sortFace,
-                       encode_edge,
                        faceVals,
                        getBarycentricCoords1D,
                        getBarycentricCoords2D,
@@ -994,9 +993,9 @@ cdef class DoFMap:
         self.getNodalCoordinates(cell, coords)
         return coords
 
-    def zeros(self, INDEX_t numVecs=1, BOOL_t collection=False, dtype=REAL):
+    def zeros(self, INDEX_t numVecs=-1, BOOL_t collection=False, dtype=REAL):
         "Return a zero finite element coefficient vector."
-        if numVecs == 1:
+        if numVecs == -1:
             if dtype == REAL:
                 return fe_vector(np.zeros((self.num_dofs), dtype=REAL), self)
             elif dtype == COMPLEX:
@@ -1014,15 +1013,15 @@ cdef class DoFMap:
                 else:
                     return np.zeros((numVecs, self.num_dofs), dtype=dtype)
 
-    def ones(self, INDEX_t numVecs=1, BOOL_t collection=False, dtype=REAL):
+    def ones(self, INDEX_t numVecs=-1, BOOL_t collection=False, dtype=REAL):
         "Return the finite element coefficient vector corresponding to the constant function."
-        if numVecs == 1:
+        if numVecs == -1:
             if dtype == REAL:
                 return fe_vector(np.ones((self.num_dofs), dtype=REAL), self)
             elif dtype == COMPLEX:
                 return complex_fe_vector(np.ones((self.num_dofs), dtype=COMPLEX), self)
             else:
-                np.ones((self.num_dofs), dtype=dtype)
+                return np.ones((self.num_dofs), dtype=dtype)
         else:
             if collection:
                 return np.ones((numVecs, self.num_dofs), dtype=dtype)
@@ -1034,9 +1033,9 @@ cdef class DoFMap:
                 else:
                     return np.ones((numVecs, self.num_dofs), dtype=dtype)
 
-    def full(self, REAL_t fill_value, INDEX_t numVecs=1, BOOL_t collection=False, dtype=REAL):
+    def full(self, REAL_t fill_value, INDEX_t numVecs=-1, BOOL_t collection=False, dtype=REAL):
         "Return a finite element coefficient vector filled with fill_value."
-        if numVecs == 1:
+        if numVecs == -1:
             if dtype == REAL:
                 return fe_vector(np.full((self.num_dofs), fill_value=fill_value, dtype=REAL), self)
             elif dtype == COMPLEX:
@@ -1054,9 +1053,9 @@ cdef class DoFMap:
                 else:
                     return np.full((numVecs, self.num_dofs), fill_value=fill_value, dtype=dtype)
 
-    def empty(self, INDEX_t numVecs=1, BOOL_t collection=False, dtype=REAL):
+    def empty(self, INDEX_t numVecs=-1, BOOL_t collection=False, dtype=REAL):
         "Return an uninitialized finite element coefficient vector."
-        if numVecs == 1:
+        if numVecs == -1:
             if dtype == REAL:
                 return fe_vector(uninitialized((self.num_dofs), dtype=REAL), self)
             elif dtype == COMPLEX:
@@ -1568,7 +1567,7 @@ cdef class DoFMap:
             INDEX_t cellNo, dofNo, dof1, dof2
             DoFMap dmCombined
 
-        assert type(self) == type(other), "Cannot combine DoFMaps of different type"
+        assert type(self) is type(other), "Cannot combine DoFMaps of different type"
         assert self.mesh == other.mesh, "Both DoFMaps need to have the same mesh"
         assert self.num_dofs == other.num_boundary_dofs, "DoFMaps need to be complementary"
         assert self.num_boundary_dofs == other.num_dofs, "DoFMaps need to be complementary"

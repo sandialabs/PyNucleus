@@ -132,3 +132,12 @@ cdef class {SCALAR_label}Transpose_Linear_Operator({SCALAR_label}LinearOperator)
                         {SCALAR}_t[::1] rhs,
                         {SCALAR}_t[::1] result,
                         BOOL_t simpleResidual=*)
+
+
+cdef class {SCALAR_label}nullOperator({SCALAR_label}LinearOperator):
+    cdef INDEX_t matvec(self,
+                        {SCALAR}_t[::1] x,
+                        {SCALAR}_t[::1] y) except -1
+    cdef INDEX_t matvec_no_overwrite(self,
+                                     {SCALAR}_t[::1] x,
+                                     {SCALAR}_t[::1] y) except -1
