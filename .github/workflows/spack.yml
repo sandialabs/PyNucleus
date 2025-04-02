@@ -1,0 +1,93 @@
+name: Spack
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  checks: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  linux-ci:
+    name: Spack
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 600
+    env:
+      MPIEXEC_FLAGS: "--allow-run-as-root --oversubscribe"
+      OMPI_CC: ${{ matrix.c-compiler }}
+      OMPI_CXX: ${{ matrix.cxx-compiler }}
+      OMP_NUM_THREADS: 1
+
+    steps:
+    - name: Harden Runner
+      uses: step-security/harden-runner@4d991eb9b905ef189e4c376166672c3f2f230481 # v2.11.0
+      with:
+        egress-policy: audit
+
+    - name: Pull ccache cache
+      if: always()
+      id: ccache-restore
+      uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      with:
+        path: /home/runner/.cache/ccache
+        key: ccache-spack
+
+    - name: Install Ubuntu packages
+      if: always()
+      run: |
+        sudo apt-get update
+        sudo apt-get install -yq ccache bzip2 ca-certificates g++ gcc gfortran git gzip lsb-release patch python3 tar unzip xz-utils zstd
+
+    - name: Get ccache config dir
+      if: always()
+      run: ccache --show-config
+
+    - name: Clone spack
+      if: always()
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      with:
+        repository: spack/spack
+        path: spack
+
+    - name: Install
+      if: always()
+      run: |
+        source spack/share/spack/setup-env.sh
+        spack config add config:ccache:true
+        spack env create pynucleus
+        spack env activate pynucleus
+        spack add py-pynucleus
+        spack concretize
+        spack install
+
+    - name: Remove ccache cache
+      if: ${{ steps.ccache-restore.outputs.cache-hit }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh extension install actions/gh-actions-cache
+        gh actions-cache delete ccache-spack --confirm
+      continue-on-error: true
+
+    - name: Push ccache cache
+      if: always()
+      uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      with:
+        path: /home/runner/.cache/ccache
+        key: ccache-spack
+
+    - name: Ccache report
+      if: always()
+      run: ccache -s
