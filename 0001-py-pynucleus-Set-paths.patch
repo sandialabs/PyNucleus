@@ -1,0 +1,49 @@
+From 2dda84b99b5b409cad68191668e6f0b2b0c66aa6 Mon Sep 17 00:00:00 2001
+From: Christian Glusa <caglusa@sandia.gov>
+Date: Wed, 2 Apr 2025 19:12:23 -0600
+Subject: [PATCH] py-pynucleus: Set paths
+
+Signed-off-by: Christian Glusa <caglusa@sandia.gov>
+---
+ .../repos/builtin/packages/py-pynucleus/package.py    | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/var/spack/repos/builtin/packages/py-pynucleus/package.py b/var/spack/repos/builtin/packages/py-pynucleus/package.py
+index 97387177e6..c1fe39690a 100644
+--- a/var/spack/repos/builtin/packages/py-pynucleus/package.py
++++ b/var/spack/repos/builtin/packages/py-pynucleus/package.py
+@@ -4,7 +4,8 @@
+ 
+ from spack.build_systems.python import PythonPipBuilder
+ from spack.package import *
+-
++from pathlib import Path
++import os
+ 
+ class PyPynucleus(PythonPackage):
+     """PyNucleus is a finite element code that specifically targets nonlocal operators."""
+@@ -56,6 +57,7 @@ class PyPynucleus(PythonPackage):
+ 
+     def setup_build_environment(self, env):
+         env.set("PYNUCLEUS_BUILD_PARALLELISM", make_jobs)
++        env.prepend_path("PYTHONPATH", self.prefix)
+ 
+     @run_before("install")
+     def install_python(self):
+@@ -63,6 +65,13 @@ def install_python(self):
+             with working_dir(subpackage):
+                 pip(*PythonPipBuilder.std_args(self), f"--prefix={self.prefix}", ".")
+ 
++                # os.environ['PYTHONPATH'] = os.getcwd()+':'+os.environ["PYTHONPATH"]
++
++                d = list((Path(os.getcwd())/'build').glob("lib.*"))
++                if len(d) > 0:
++                    p = d[0]
++                    os.environ['PYTHONPATH'] = str(p)+':'+os.environ["PYTHONPATH"]
++
+     @run_after("install")
+     def install_additional_files(self):
+         spec = self.spec
+-- 
+2.49.0
+
