@@ -49,6 +49,10 @@ jobs:
         sudo apt-get update
         sudo apt-get install -yq ccache
 
+    - name: Check out repo
+      if: always()
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
     - name: Get ccache config dir
       if: always()
       run: ccache --show-config
@@ -64,6 +68,7 @@ jobs:
     - name: Install PyNucleus
       shell: spack-bash {0}
       run: |
+        pushd spack && git apply ../0001-py-pynucleus-Set-paths.patch && popd
         spack config add config:ccache:true
         spack env create pynucleus
         spack env activate pynucleus
