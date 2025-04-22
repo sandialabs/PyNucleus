@@ -37,3 +37,4 @@ RUN adduser --disabled-password \
 USER ${NB_USER}
 WORKDIR ${HOME}
 ENTRYPOINT []
+ENV SHELL /bin/bash
