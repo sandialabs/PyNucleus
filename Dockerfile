@@ -3,7 +3,7 @@
 # AUTHOR:         Christian Glusa
 
 # Base docker image
-FROM ghcr.io/sandialabs/pynucleus:169c39fca6c72b77030352dcae325b4119a18918
+FROM ghcr.io/sandialabs/pynucleus:880679799281ed3b4b60f7f75954f8218305742a
 LABEL maintainer Christian Glusa
 
 # Uninstall jupyter notebook server
@@ -16,7 +16,8 @@ RUN apt-get update \
 # Install Jupyterlab
 # RUN --mount=type=cache,target=/root/.cache/pip \
 RUN \
-    pip install --break-system-packages notebook jupyterlab
+    pip install --break-system-packages notebook jupyterlab \
+    jupyter labextension disable "@jupyterlab/apputils-extension:announcements"
 
 # Set up user for binder
 ARG NB_USER=jovyan
