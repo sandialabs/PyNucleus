@@ -16,7 +16,7 @@ RUN apt-get update \
 # Install Jupyterlab
 # RUN --mount=type=cache,target=/root/.cache/pip \
 RUN \
-    pip install --break-system-packages notebook jupyterlab \
+    pip install --break-system-packages notebook jupyterlab && \
     jupyter labextension disable "@jupyterlab/apputils-extension:announcements"
 
 # Set up user for binder
