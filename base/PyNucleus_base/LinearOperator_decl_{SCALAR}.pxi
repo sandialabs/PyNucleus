@@ -121,6 +121,13 @@ cdef class {SCALAR_label}VectorLinearOperator:
     cdef void setEntry(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val)
 
 
+cdef class {SCALAR_label}SumVectorLinearOperator({SCALAR_label}VectorLinearOperator):
+    cdef:
+        public {SCALAR_label}VectorLinearOperator M1, M2
+        public {SCALAR}_t facM1, facM2
+        {SCALAR}_t[:, ::1] z
+
+
 cdef class {SCALAR_label}Transpose_Linear_Operator({SCALAR_label}LinearOperator):
     cdef:
         public {SCALAR_label}LinearOperator A

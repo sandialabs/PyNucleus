@@ -246,15 +246,15 @@ cdef class {SCALAR_label}Dense_VectorLinearOperator({SCALAR_label}VectorLinearOp
 
     @staticmethod
     def zeros(INDEX_t num_rows, INDEX_t num_columns, INDEX_t vectorSize):
-        return Dense_LinearOperator(np.zeros((num_rows, num_columns, vectorSize), dtype={SCALAR}))
+        return {SCALAR_label}Dense_VectorLinearOperator(np.zeros((num_rows, num_columns, vectorSize), dtype={SCALAR}))
 
     @staticmethod
     def ones(INDEX_t num_rows, INDEX_t num_columns, INDEX_t vectorSize):
-        return Dense_LinearOperator(np.ones((num_rows, num_columns, vectorSize), dtype={SCALAR}))
+        return {SCALAR_label}Dense_VectorLinearOperator(np.ones((num_rows, num_columns, vectorSize), dtype={SCALAR}))
 
     @staticmethod
     def empty(INDEX_t num_rows, INDEX_t num_columns, INDEX_t vectorSize):
-        return Dense_LinearOperator(uninitialized((num_rows, num_columns, vectorSize), dtype={SCALAR}))
+        return {SCALAR_label}Dense_VectorLinearOperator(uninitialized((num_rows, num_columns, vectorSize), dtype={SCALAR}))
 
     def getMemorySize(self):
         return self.data.shape[0]*self.data.shape[1]*self.data.shape[2]*sizeof({SCALAR}_t)
@@ -272,3 +272,7 @@ cdef class {SCALAR_label}Dense_VectorLinearOperator({SCALAR_label}VectorLinearOp
                                       self.num_columns,
                                       self.vectorSize,
                                       self.__class__.__name__)
+
+    def getOp(self, INDEX_t opNo):
+        assert 0 <= opNo < self.vectorSize
+        return {SCALAR_label}Dense_LinearOperator(np.ascontiguousarray(self.data[:, :, opNo]))
