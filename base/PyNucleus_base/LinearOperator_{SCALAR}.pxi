@@ -687,6 +687,15 @@ cdef class {SCALAR_label}VectorLinearOperator:
             else:
                 self.matvecTrans(x, y)
 
+    def __add__(self, x):
+        if isinstance(x, {SCALAR_label}VectorLinearOperator):
+            return {SCALAR_label}SumVectorLinearOperator(M1=self, M2=x, facM1=1.0, facM2=1.0)
+        else:
+            raise NotImplementedError('Cannot add with {}'.format(x))
+
+    def __sub__(self, x):
+        return self + (-1.*x)
+
     def __mul__(self, x):
         cdef:
             np.ndarray[{SCALAR}_t, ndim=2] y
@@ -773,6 +782,176 @@ cdef class {SCALAR_label}VectorLinearOperator:
 
     def getEntry_py(self, INDEX_t I, INDEX_t J, {SCALAR}_t[::1] val):
         return self.getEntry(I, J, val)
+
+    def getOp(self, INDEX_t opNo):
+        raise NotImplementedError()
+
+
+cdef void scaleScalar2D{SCALAR_label}({SCALAR}_t[:, ::1] x, {SCALAR}_t fac):
+    cdef:
+        INDEX_t i, j
+    for i in range(x.shape[0]):
+        for j in range(x.shape[1]):
+            x[i, j] *= fac
+
+
+cdef void assign3_2D{SCALAR_label}({SCALAR}_t[:, ::1] z, {SCALAR}_t[:, ::1] x, {SCALAR}_t alpha, {SCALAR}_t[:, ::1] y, {SCALAR}_t beta):
+    cdef:
+        INDEX_t i, j
+    for i in range(x.shape[0]):
+        for j in range(x.shape[1]):
+            z[i, j] = alpha*x[i, j]+beta*y[i, j]
+
+
+cdef class {SCALAR_label}SumVectorLinearOperator({SCALAR_label}VectorLinearOperator):
+    def __init__(self,
+                 {SCALAR_label}VectorLinearOperator M1,
+                 {SCALAR_label}VectorLinearOperator M2,
+                 {SCALAR}_t facM1=1.0,
+                 {SCALAR}_t facM2=1.0):
+        assert M1.num_columns == M2.num_columns
+        assert M1.num_rows == M2.num_rows
+        assert M1.vectorSize == M2.vectorSize
+        super({SCALAR_label}SumVectorLinearOperator, self).__init__(M1.num_rows, M1.num_columns, M1.vectorSize)
+        self.M1 = M1
+        self.M2 = M2
+        self.facM1 = facM1
+        self.facM2 = facM2
+        self.z = uninitialized((self.M1.shape[0], self.M1.vectorSize), dtype={SCALAR})
+
+    cdef INDEX_t matvec(self,
+                        {SCALAR}_t[::1] x,
+                        {SCALAR}_t[:, ::1] y) except -1:
+        if self.facM2 != 0.:
+            self.M2.matvec(x, y)
+            if self.facM2 != 1.0:
+                scaleScalar2D{SCALAR_label}(y, self.facM2)
+            if self.facM1 == 1.0:
+                self.M1.matvec_no_overwrite(x, y)
+            else:
+                self.M1.matvec(x, self.z)
+                assign3_2D{SCALAR_label}(y, y, 1.0, self.z, self.facM1)
+        else:
+            if self.facM1 == 1.0:
+                self.M1.matvec(x, y)
+            else:
+                self.M1.matvec(x, y)
+                scaleScalar2D{SCALAR_label}(y, self.facM1)
+        return 0
+
+    cdef INDEX_t matvec_no_overwrite(self,
+                                     {SCALAR}_t[::1] x,
+                                     {SCALAR}_t[:, ::1] y) except -1:
+        if self.facM2 == 1.0:
+            self.M2.matvec_no_overwrite(x, y)
+        elif self.facM2 != 0.:
+            self.M2.matvec(x, self.z)
+            assign3_2D{SCALAR_label}(y, y, 1.0, self.z, self.facM2)
+        if self.facM1 == 1.0:
+            self.M1.matvec_no_overwrite(x, y)
+        elif self.facM1 != 0.:
+            self.M1.matvec(x, self.z)
+            assign3_2D{SCALAR_label}(y, y, 1.0, self.z, self.facM1)
+        return 0
+
+    cdef INDEX_t matvecTrans(self,
+                             {SCALAR}_t[::1] x,
+                             {SCALAR}_t[:, ::1] y) except -1:
+        if self.facM2 != 0.:
+            self.M2.matvecTrans(x, y)
+            if self.facM2 != 1.0:
+                scaleScalar2D{SCALAR_label}(y, self.facM2)
+        if self.facM1 == 1.0:
+            self.M1.matvecTrans_no_overwrite(x, y)
+        else:
+            self.M1.matvecTrans(x, self.z)
+            assign3_2D{SCALAR_label}(y, y, 1.0, self.z, self.facM1)
+        return 0
+
+    cdef INDEX_t matvecTrans_no_overwrite(self,
+                                          {SCALAR}_t[::1] x,
+                                          {SCALAR}_t[:, ::1] y) except -1:
+        if self.facM2 == 1.0:
+            self.M2.matvecTrans_no_overwrite(x, y)
+        elif self.facM2 != 0.:
+            self.M2.matvecTrans(x, self.z)
+            assign3_2D{SCALAR_label}(y, y, 1.0, self.z, self.facM2)
+        if self.facM1 == 1.0:
+            self.M1.matvecTrans_no_overwrite(x, y)
+        elif self.facM1 != 0.:
+            self.M1.matvecTrans(x, self.z)
+            assign3_2D{SCALAR_label}(y, y, 1.0, self.z, self.facM1)
+        return 0
+
+    def get_diagonal(self):
+        return (self.facM1*np.array(self.M1.diagonal, copy=False) +
+                self.facM2*np.array(self.M2.diagonal, copy=False))
+
+    diagonal = property(fget=get_diagonal)
+
+    def __repr__(self):
+        if np.real(self.facM2) >= 0:
+            if self.facM1 != 1.0:
+                if self.facM2 != 1.0:
+                    return '{}*{} + {}*{}'.format(self.facM1, self.M1, self.facM2, self.M2)
+                else:
+                    return '{}*{} + {}'.format(self.facM1, self.M1, self.M2)
+            else:
+                if self.facM2 != 1.0:
+                    return '{} + {}*{}'.format(self.M1, self.facM2, self.M2)
+                else:
+                    return '{} + {}'.format(self.M1, self.M2)
+        else:
+            if self.facM1 != 1.0:
+                if self.facM2 != -1.0:
+                    return '{}*{} - {}*{}'.format(self.facM1, self.M1, -self.facM2, self.M2)
+                else:
+                    return '{}*{} - {}'.format(self.facM1, self.M1, self.M2)
+            else:
+                if self.facM2 != -1.0:
+                    return '{} - {}*{}'.format(self.M1, -self.facM2, self.M2)
+                else:
+                    return '{} - {}'.format(self.M1, self.M2)
+
+    def to_csr_linear_operator(self):
+        if isinstance(self.M2, {SCALAR_label}Dense_LinearOperator):
+            return {SCALAR_label}Dense_LinearOperator(self.facM1*self.M1.toarray() + self.facM2*self.M2.toarray())
+        else:
+            B = self.facM1*self.M1.to_csr() + self.facM2*self.M2.to_csr()
+            B.eliminate_zeros()
+            C = {SCALAR_label}CSR_LinearOperator(B.indices, B.indptr, B.data)
+            C.num_columns = self.M2.num_columns
+            return C
+
+    def isSparse(self):
+        return self.M1.isSparse() and self.M2.isSparse()
+
+    def to_csr(self):
+        cdef {SCALAR_label}CSR_LinearOperator csr
+        csr = self.to_csr_linear_operator()
+        return csr.to_csr()
+
+    def toarray(self):
+        return self.facM1*self.M1.toarray() + self.facM2*self.M2.toarray()
+
+    def getnnz(self):
+        return self.M1.nnz+self.M2.nnz
+
+    nnz = property(fget=getnnz)
+
+    def __mul__(self, x):
+        if isinstance(self, {SCALAR_label}SumVectorLinearOperator) and isinstance(x, ({SCALAR}, float, int)):
+            return {SCALAR_label}SumVectorLinearOperator(M1=self.M1, M2=self.M2, facM1=self.facM1*x, facM2=self.facM2*x)
+        elif isinstance(x, {SCALAR_label}SumVectorLinearOperator) and isinstance(self, ({SCALAR}, float, int)):
+            return {SCALAR_label}SumVectorLinearOperator(M1=x.M1, M2=x.M2, facM1=x.facM1*self, facM2=x.facM2*self)
+        else:
+            return super({SCALAR_label}SumVectorLinearOperator, self).__mul__(x)
+
+    def getMemorySize(self):
+        return self.M1.getMemorySize()+self.M2.getMemorySize()
+
+    def getOp(self, INDEX_t opNo):
+        return self.facM1*self.M1.getOp(opNo)+self.facM2*self.M2.getOp(opNo)
 
 
 cdef class {SCALAR_label}Transpose_Linear_Operator({SCALAR_label}LinearOperator):

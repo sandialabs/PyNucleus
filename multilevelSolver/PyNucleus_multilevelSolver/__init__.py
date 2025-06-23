@@ -9,7 +9,8 @@ from . hierarchies import EmptyHierarchy, hierarchy, hierarchyManager
 from . connectors import (inputConnector,
                           repartitionConnector,
                           pCoarsenConnector)
-from . multigrid import V, W, FMG_V, FMG_W
+from . multigrid import CycleType
+globals().update(getattr(CycleType, '__members__'))
 from . geometricMG import paramsForMG, paramsForSerialMG
 
 from PyNucleus_base import solverFactory

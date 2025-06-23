@@ -3,7 +3,7 @@
 # AUTHOR:         Christian Glusa
 
 # Base docker image
-FROM docker.io/library/debian:stable
+FROM docker.io/library/debian:unstable
 LABEL maintainer Christian Glusa
 
 # install packages needed for build
@@ -23,6 +23,7 @@ RUN sed -i 's/Components: main/Components: main contrib non-free/' /etc/apt/sour
         mpi-default-bin mpi-default-dev \
         python3 python3-dev python-is-python3 python3-pip \
         python3-numpy python3-scipy python3-matplotlib python3-mpi4py cython3 python3-yaml python3-h5py python3-tk jupyter-notebook python3-meshio python3-gmsh \
+        mencoder \
   --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
@@ -32,7 +33,8 @@ ENV OMPI_MCA_hwloc_base_binding_policy=hwthread \
     MPIEXEC_FLAGS=--allow-run-as-root \
     OMPI_ALLOW_RUN_AS_ROOT=1 \
     OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 \
-    PIP_BREAK_SYSTEM_PACKAGES=1
+    PIP_BREAK_SYSTEM_PACKAGES=1 \
+    PIP_ROOT_USER_ACTION=ignore
 
 COPY . /pynucleus
 

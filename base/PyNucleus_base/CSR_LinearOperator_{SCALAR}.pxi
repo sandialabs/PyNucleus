@@ -704,3 +704,7 @@ cdef class {SCALAR_label}CSR_VectorLinearOperator({SCALAR_label}VectorLinearOper
         for i in range(self.data.shape[0]):
             for j in range(self.data.shape[1]):
                 self.data[i, j] = 0.
+
+    def getOp(self, INDEX_t opNo):
+        assert 0 <= opNo < self.vectorSize
+        return {SCALAR_label}CSR_LinearOperator(self.indices, self.indptr, np.ascontiguousarray(self.data[:, opNo]))
