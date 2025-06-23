@@ -30,6 +30,7 @@ RUN sed -i 's/Components: main/Components: main contrib non-free/' /etc/apt/sour
 # allow running MPI as root in the container
 # bind MPI ranks to hwthreads
 ENV OMPI_MCA_hwloc_base_binding_policy=hwthread \
+    PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe \
     MPIEXEC_FLAGS=--allow-run-as-root \
     OMPI_ALLOW_RUN_AS_ROOT=1 \
     OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 \
