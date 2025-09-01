@@ -62,7 +62,7 @@ jobs:
     - name: Pull ccache cache
       if: always()
       id: ccache-restore
-      uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
       with:
         path: /home/runner/.cache/ccache
         key: ccache-${{ env.BUILD_IDENTIFIER }}
@@ -103,7 +103,7 @@ jobs:
 
     - name: Push ccache cache
       if: always()
-      uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
       with:
         path: /home/runner/.cache/ccache
         key: ccache-${{ env.BUILD_IDENTIFIER }}
@@ -179,7 +179,7 @@ jobs:
     - name: Pull ccache cache
       if: always()
       id: ccache-restore
-      uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
       with:
         path: /Users/runner/Library/Caches/ccache
         key: ccache-${{ runner.os }}-${{ matrix.py-version }}
@@ -225,7 +225,7 @@ jobs:
 
     - name: Push ccache cache
       if: always()
-      uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
       with:
         path: /Users/runner/Library/Caches/ccache
         key: ccache-${{ runner.os }}-${{ matrix.py-version }}
