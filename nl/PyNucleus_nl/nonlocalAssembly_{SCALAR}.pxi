@@ -2771,6 +2771,8 @@ cdef class {SCALAR_label}nonlocalBuilder:
 
                 # get admissible cluster pairs
                 for n in global_root.children:
+                    if ignoreDiagonalBlocks and (n.id == rank_root.id):
+                        continue
                     getAdmissibleClusters(self.kernel, rank_root, n,
                                           Pfar=Pfar, Pnear=Pnear)
 
