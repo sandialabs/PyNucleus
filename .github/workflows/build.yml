@@ -195,8 +195,9 @@ jobs:
     - name: Install packages
       run: |
         brew install open-mpi ccache
-        brew tap brewsci/num
-        brew install brewsci-metis brewsci-parmetis brewsci-suite-sparse
+        # brew tap brewsci/num
+        # brew install brewsci-metis brewsci-parmetis brewsci-suite-sparse
+        brew install scotch suite-sparse
 
     - name: Get ccache config dir
       if: always()
@@ -211,7 +212,7 @@ jobs:
       run: make prereq && make prereq-extra
 
     - name: Install
-      run: PIP_INSTALL_FLAGS=-vvv make install
+      run: PIP_INSTALL_FLAGS="-vvv --no-build-isolation" make install
 
     - name: Remove ccache cache
       if: ${{ steps.ccache-restore.outputs.cache-hit }}
