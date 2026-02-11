@@ -50,9 +50,6 @@ cdef class fractionalOrderBase(twoPointFunction):
         self.numParameters = numParameters
         assert self.numParameters >= 1
 
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
-        raise NotImplementedError()
-
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         raise NotImplementedError()
 
@@ -74,9 +71,6 @@ cdef class constFractionalOrder(fractionalOrderBase):
         super(constFractionalOrder, self).__init__(s, s, True)
         self.value = s
 
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
-        value[0] = self.value
-
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         value[0] = self.value
 
@@ -92,16 +86,14 @@ cdef class constFractionalOrder(fractionalOrderBase):
     def __reduce__(self):
         return constFractionalOrder, (self.value, )
 
+    def __eq__(self, other):
+        return (type(self) == type(other)) and (self.value == other.value)
+
 
 cdef class variableFractionalOrder(fractionalOrderBase):
     def __init__(self, REAL_t smin, REAL_t smax, BOOL_t symmetric, INDEX_t numParameters=1):
         super(variableFractionalOrder, self).__init__(smin, smax, symmetric, numParameters)
         self.c_params = PyMem_Malloc(NUM_FRAC_ORDER_PARAMS*OFFSET)
-
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
-        cdef:
-            fun_t sFun = getFun(self.c_params, fSFUN)
-        value[0] = sFun(&x[0], &y[0], self.c_params)
 
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         cdef:
@@ -137,9 +129,6 @@ cdef class singleVariableTwoPointFunction(twoPointFunction):
         super(singleVariableTwoPointFunction, self).__init__(False, 1)
         self.fun = fun
 
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
-        value[0] = self.fun.eval(x)
-
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         value[0] = self.fun.evalPtr(dim, x)
 
@@ -154,9 +143,6 @@ cdef class singleVariableUnsymmetricFractionalOrder(variableFractionalOrder):
     def __init__(self, extendedFunction sFun, REAL_t smin, REAL_t smax, INDEX_t numParameters=0):
         super(singleVariableUnsymmetricFractionalOrder, self).__init__(smin, smax, False, numParameters)
         self.sFun = sFun
-
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
-        value[0] = self.sFun.eval(x)
 
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         value[0] = self.sFun.evalPtr(dim, x)
@@ -201,14 +187,17 @@ cdef REAL_t constFractionalOrderFun(REAL_t *x, REAL_t *y, void *c_params):
 
 
 cdef class variableConstFractionalOrder(variableFractionalOrder):
-    cdef:
-        public REAL_t value
-
     def __init__(self, REAL_t s):
         super(variableConstFractionalOrder, self).__init__(s, s, True)
         self.value = s
         setREAL(self.c_params, fSL, self.value)
         setFun(self.c_params, fSFUN, &constFractionalOrderFun)
+
+    cdef void evalGrad(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] grad):
+        grad[0] = 1.
+
+    cdef REAL_t evalGradPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, INDEX_t vectorSize, REAL_t* grad):
+        grad[0] = 1.
 
     def __repr__(self):
         return '{}(s={},sym={})'.format(self.__class__.__name__, self.value, self.symmetric)
@@ -382,6 +371,28 @@ cdef class smoothLeftRight(extendedFunction):
         elif x[0] > self.r:
             return self.sr
         return 0.5*(self.sl+self.sr)+0.5*(self.sr-self.sl)*atan(x[0]*self.slope) * self.fac
+
+    cdef void evalGrad(self, REAL_t[::1] x, REAL_t[::1] grad):
+        if x[0] < -self.r:
+            grad[0] = 1.
+            grad[1] = 0.
+        elif x[0] > self.r:
+            grad[0] = 0.
+            grad[1] = 1.
+        else:
+            grad[0] = 0.5+0.5*(-1.)*atan(x[0]*self.slope) * self.fac
+            grad[1] = 0.5+0.5*atan(x[0]*self.slope) * self.fac
+
+    cdef void evalGradPtr(self, INDEX_t dim, REAL_t* x, INDEX_t vectorSize, REAL_t* grad):
+        if x[0] < -self.r:
+            grad[0] = 1.
+            grad[1] = 0.
+        elif x[0] > self.r:
+            grad[0] = 0.
+            grad[1] = 1.
+        else:
+            grad[0] = 0.5+0.5*(-1.)*atan(x[0]*self.slope) * self.fac
+            grad[1] = 0.5+0.5*atan(x[0]*self.slope) * self.fac
 
     def __repr__(self):
         return '{}(sl={},sr={},r={},slope={})'.format(self.__class__.__name__, self.sl, self.sr, self.r, self.slope)
@@ -560,7 +571,7 @@ cdef class lookupExtended(extendedFunction):
             REAL_t val, val2
             INDEX_t cellNo, dof, k
         cellNo = self.cellFinder.findCell(x)
-        assert cellNo != -1, "Cannot find a cell for x={}".format(np.array(x))
+        assert cellNo != -1, "Cannot find a cell for x={}".format([x[i] for i in range(self.mesh.dim)])
         val = 0.
         for k in range(self.dm.dofs_per_element):
             dof = self.dm.cell2dof(cellNo, k)
@@ -669,6 +680,11 @@ cdef class feFractionalOrder(singleVariableUnsymmetricFractionalOrder):
     def __reduce__(self):
         return feFractionalOrder, (self.vec, self.min, self.max)
 
+    def __eq__(self, other):
+        if other is None:
+            return False
+        return (type(self) == type(other)) and (np.absolute(self.vec-other.vec).max() < 1e-12)
+
 
 cdef REAL_t innerOuterFractionalOrderFun(REAL_t *x, REAL_t *y, void *c_params):
     cdef:
@@ -744,11 +760,11 @@ cdef class sumFractionalOrder(variableFractionalOrder):
         self.s2 = s2
         self.fac2 = fac2
 
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         cdef:
             REAL_t val1, val2
-        self.s1.evalPtr(x.shape[0], &x[0], &y[0], &val1)
-        self.s2.evalPtr(x.shape[0], &x[0], &y[0], &val2)
+        self.s1.evalPtr(dim, x, y, &val1)
+        self.s2.evalPtr(dim, x, y, &val2)
         value[0] = val1*val2
 
 

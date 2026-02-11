@@ -6,10 +6,10 @@ Submodules
 ----------
 
 
-PyNucleus_nl.clusterMethodCy module
+PyNucleus_nl.clusterMethod module
 ------------------------------------
 
-.. automodule:: PyNucleus_nl.clusterMethodCy
+.. automodule:: PyNucleus_nl.clusterMethod
 
 
 PyNucleus_nl.config module
@@ -57,12 +57,6 @@ PyNucleus_nl.kernels module
 ----------------------------
 
 .. automodule:: PyNucleus_nl.kernels
-
-
-PyNucleus_nl.kernelsCy module
------------------------------
-
-.. automodule:: PyNucleus_nl.kernelsCy
 
 
 PyNucleus_nl.nonlocalOperator module

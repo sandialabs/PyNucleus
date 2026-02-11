@@ -34,8 +34,18 @@ cdef class vectorLookupFunction(vectorFunction):
 
 cdef class UniformLookup1D(function):
     cdef:
-        REAL_t a
-        REAL_t b
-        REAL_t[::1] vals
+        public REAL_t a
+        public REAL_t b
+        public REAL_t[::1] vals
         REAL_t dx
         REAL_t invDx
+        REAL_t outOfBoundsValue
+
+
+cdef class Lookup1D(function):
+    cdef:
+        public REAL_t[::1] x
+        public REAL_t[::1] vals
+        public str kind
+        REAL_t outOfBoundsValue
+        object interp

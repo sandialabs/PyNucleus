@@ -16,14 +16,11 @@ cdef class {SCALAR_label}twoPointFunction:
     def __call__(self, REAL_t[::1] x, REAL_t[::1] y):
         cdef:
             {SCALAR}_t[::1] value = uninitialized((self.valueSize), dtype={SCALAR})
-        self.eval(x, y, value)
+        self.evalPtr(x.shape[0], &x[0], &y[0], &value[0])
         if self.valueSize == 1:
             return value[0]
         else:
             return np.array(value, copy=False)
-
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, {SCALAR}_t[::1] value):
-        raise NotImplementedError()
 
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, {SCALAR}_t* value):
         raise NotImplementedError()
@@ -115,12 +112,9 @@ cdef class {SCALAR_label}productTwoPoint({SCALAR_label}twoPointFunction):
         self.f1 = f1
         self.f2 = f2
 
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, {SCALAR}_t[::1] value):
-        cdef:
-            {SCALAR}_t val1, val2
-        self.f1.evalPtr(x.shape[0], &x[0], &y[0], &val1)
-        self.f2.evalPtr(x.shape[0], &x[0], &y[0], &val2)
-        value[0] = val1*val2
+    def getLongDescription(self):
+        return "{} * {}".format(self.f1.getLongDescription(),
+                                self.f2.getLongDescription())
 
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, {SCALAR}_t* value):
         cdef:
@@ -144,9 +138,6 @@ cdef class {SCALAR_label}constantTwoPoint({SCALAR_label}twoPointFunction):
     def getLongDescription(self):
         return "{}".format(self.value)
 
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, {SCALAR}_t[::1] value):
-        value[0] = self.value
-
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, {SCALAR}_t* value):
         value[0] = self.value
 
@@ -168,44 +159,6 @@ cdef class {SCALAR_label}lookupTwoPoint({SCALAR_label}twoPointFunction):
             self.cellFinder = cF
         self.vals1 = uninitialized((self.dm.dofs_per_element), dtype={SCALAR})
         self.vals2 = uninitialized((self.dm.dofs_per_element), dtype={SCALAR})
-
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, {SCALAR}_t[::1] value):
-        cdef:
-            shapeFunction shapeFun
-            REAL_t val
-            INDEX_t cellNo1, cellNo2, dof1, dof2, k1, k2
-        cellNo1 = self.cellFinder.findCell(x)
-        if cellNo1 == -1:
-            value[0] = 0.
-            return
-        for k1 in range(self.dm.dofs_per_element):
-            dof2 = self.dm.cell2dof(cellNo1, k1)
-            if dof2 >= 0:
-                shapeFun = self.dm.getLocalShapeFunction(k1)
-                shapeFun.evalPtr(&self.cellFinder.bary[0], NULL, &val)
-                self.vals1[k1] = val
-            else:
-                self.vals1[k1] = 0.
-
-        cellNo2 = self.cellFinder.findCell(y)
-        if cellNo2 == -1:
-            value[0] = 0.
-            return
-        for k2 in range(self.dm.dofs_per_element):
-            dof1 = self.dm.cell2dof(cellNo2, k2)
-            if dof1 >= 0:
-                shapeFun = self.dm.getLocalShapeFunction(k2)
-                shapeFun.evalPtr(&self.cellFinder.bary[0], NULL, &val)
-                self.vals2[k2] = val
-            else:
-                self.vals2[k2] = 0.
-
-        value[0] = 0.
-        for k1 in range(self.dm.dofs_per_element):
-            dof1 = self.dm.cell2dof(cellNo1, k1)
-            for k2 in range(self.dm.dofs_per_element):
-                dof2 = self.dm.cell2dof(cellNo2, k2)
-                value[0] += self.vals1[k1]*self.A[dof1, dof2]*self.vals2[k2]
 
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, {SCALAR}_t* value):
         cdef:
@@ -252,6 +205,23 @@ cdef class {SCALAR_label}lookupTwoPoint({SCALAR_label}twoPointFunction):
         return {SCALAR_label}lookupTwoPoint, (self.dm, np.array(self.A), self.symmetric)
 
 
+from libc.math cimport sin
+
+
+cdef class {SCALAR_label}volumeElementSpherical({SCALAR_label}twoPointFunction):
+    def __init__(self):
+        super({SCALAR_label}volumeElementSpherical, self).__init__(True, 1)
+
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, {SCALAR}_t* value):
+        value[0] = sin(x[0]) * sin(y[0])
+
+    def __repr__(self):
+        return 'volumeElementSpherical'
+
+    def __reduce__(self):
+        return {SCALAR_label}volumeElementSpherical, ()
+
+
 cdef class {SCALAR_label}parametrizedTwoPointFunction({SCALAR_label}twoPointFunction):
     def __init__(self, BOOL_t symmetric, INDEX_t valueSize):
         super({SCALAR_label}parametrizedTwoPointFunction, self).__init__(symmetric, valueSize)
@@ -274,6 +244,10 @@ cdef class {SCALAR_label}productParametrizedTwoPoint({SCALAR_label}parametrizedT
         self.f1 = f1
         self.f2 = f2
 
+    def getLongDescription(self):
+        return "{} * {}".format(self.f1.getLongDescription(),
+                                self.f2.getLongDescription())
+
     cdef void setParams(self, void *params):
         cdef:
             parametrizedTwoPointFunction f
@@ -284,13 +258,6 @@ cdef class {SCALAR_label}productParametrizedTwoPoint({SCALAR_label}parametrizedT
             f = self.f2
             f.setParams(params)
         {SCALAR_label}parametrizedTwoPointFunction.setParams(self, params)
-
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, {SCALAR}_t[::1] value):
-        cdef:
-            {SCALAR}_t val1, val2
-        self.f1.evalPtr(x.shape[0], &x[0], &y[0], &val1)
-        self.f2.evalPtr(x.shape[0], &x[0], &y[0], &val2)
-        value[0] = val1*val2
 
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, {SCALAR}_t* value):
         cdef:

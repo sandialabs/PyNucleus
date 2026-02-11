@@ -306,6 +306,7 @@ cdef class {SCALAR_label}CSR_LinearOperator({SCALAR_label}LinearOperator):
     def copy(self):
         data = np.array(self.data, copy=True)
         other = {SCALAR_label}CSR_LinearOperator(self.indices, self.indptr, data)
+        other.num_columns = self.num_columns
         return other
 
     def sort_indices(self):

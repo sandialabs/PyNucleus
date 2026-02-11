@@ -61,6 +61,8 @@ p.addExtension("DoFMaps",
                sources=[p.folder+"DoFMaps.pyx"])
 p.addExtension("lookupFunction",
                sources=[p.folder+"lookupFunction.pyx"])
+p.addExtension("orthogonalPolynomials",
+               sources=[p.folder+"orthogonalPolynomials.pyx"])
 p.addExtension("quadrature",
                sources=[p.folder+"quadrature.pyx"])
 p.addExtension("meshOverlaps",
@@ -78,6 +80,6 @@ p.addExtension("splitting",
 
 p.setup(description="A finite element code.",
         install_requires=['Cython>=0.29.32', 'numpy', 'scipy>=1.13', 'matplotlib', 'meshpy', 'modepy',
-                          'gmsh_interop',
+                          'gmsh_interop', 'gmsh',
                           'mpi4py>=4.0.0',
                           'PyNucleus_base'])

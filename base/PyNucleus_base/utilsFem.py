@@ -468,11 +468,11 @@ def getSystemInfo(grp, argv=None, envVars=[('OMP_NUM_THREADS', True)]):
     if MPI.Is_initialized():
         getMPIinfo(grp)
     getEnvVariables(grp, envVars)
-    import pkg_resources
+    import importlib
     from PyNucleus import subpackages
     versions = {}
     for pkg in ['numpy', 'scipy', 'mpi4py', 'cython']:
-        version = pkg_resources.get_distribution(pkg).version
+        version = importlib.metadata.version(pkg)
         try:
             versions[version].append(pkg)
         except KeyError:
@@ -480,11 +480,9 @@ def getSystemInfo(grp, argv=None, envVars=[('OMP_NUM_THREADS', True)]):
     for version in versions:
         grp.add(','.join(versions[version]), version)
 
-    import importlib
-
     versions = {}
     for pkg in sorted(subpackages.keys()):
-        version = pkg_resources.get_distribution('PyNucleus_'+pkg).version
+        version = importlib.metadata.version('PyNucleus_'+pkg)
         module = importlib.import_module('PyNucleus_'+pkg+'.config')
         sha = module.gitSHA
         try:
@@ -1368,7 +1366,7 @@ def diffDict(d1, d2, aTol, relTol):
     return diff
 
 
-def runDriver(path, py, python=None, timeout=900, ranks=None, cacheDir='',
+def runDriver(path, py, python=None, timeout=600, ranks=None, cacheDir='',
               overwriteCache=False,
               aTol=1e-12, relTol=1e-2, extra=None):
     from subprocess import Popen, PIPE, TimeoutExpired

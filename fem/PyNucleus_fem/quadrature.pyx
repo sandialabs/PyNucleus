@@ -5,13 +5,16 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-from PyNucleus_base.myTypes import REAL
+from PyNucleus_base.myTypes import REAL, BOOL
 from PyNucleus_base import uninitialized
 from PyNucleus_base.blas cimport uninitializedREAL
 from libc.math cimport sin, cos, M_PI as pi
 import numpy as np
 from modepy import XiaoGimbutasSimplexQuadrature
 from modepy.tools import unit_to_barycentric
+from . orthogonalPolynomials cimport LegendreShiftedIP, JacobiShiftedIP, LogJacobiShiftedIP
+from . orthogonalPolynomials import QuadRuleBuilder
+from libc.math cimport log
 
 
 cdef class quadratureRule:
@@ -61,8 +64,10 @@ cdef class simplexQuadratureRule(quadratureRule):
             self.volume = volume3D
         elif self.dim == 3 and self.manifold_dim == 2:
             self.volume = volume2D_in_3D
+        elif self.dim == 3 and self.manifold_dim == 1:
+            self.volume = volume1D_in_3D
         else:
-            raise NotImplementedError('dim={}'.format(self.dim))
+            raise NotImplementedError('dim={}, manifold_dim={}'.format(self.dim, self.manifold_dim))
         self.span = uninitialized((self.manifold_dim, self.dim), dtype=REAL)
         self.tempVec = uninitializedREAL((self.dim, ))
 
@@ -598,3 +603,97 @@ cdef class simplexJaskowiecSukumar(simplexQuadratureRule):
                                                           dim, manifold_dim)
         else:
             raise NotImplementedError()
+
+
+def tensorProduct(REAL_t[:, ::1] nodes0,
+                  REAL_t[::1] weights0,
+                  REAL_t[:, ::1] nodes1,
+                  REAL_t[::1] weights1):
+    cdef:
+        INDEX_t dim0 = nodes0.shape[0]
+        INDEX_t dim1 = nodes1.shape[0]
+        INDEX_t numNodes0 = nodes0.shape[1]
+        INDEX_t numNodes1 = nodes1.shape[1]
+        INDEX_t i, j, k, l
+        REAL_t[:, ::1] productNodes
+        REAL_t[::1] productWeights
+
+    productNodes = uninitializedREAL((dim0+dim1, numNodes0*numNodes1))
+    productWeights = uninitializedREAL((numNodes0*numNodes1, ))
+
+    k = 0
+    for i in range(numNodes0):
+        for j in range(numNodes1):
+            for l in range(dim0):
+                productNodes[l, k] = nodes0[l, i]
+            for l in range(dim1):
+                productNodes[dim0+l, k] = nodes1[l, j]
+            productWeights[k] = weights0[i]*weights1[j]
+            k += 1
+    return productNodes, productWeights
+
+
+cdef class GaussJacobi_2(quadQuadratureRule):
+    def __init__(self, order_weight_exponents):
+        nodes1D = []
+        weights1D = []
+        dim = len(order_weight_exponents)
+        self.orders = []
+        for i, (order, alpha, beta) in enumerate(order_weight_exponents):
+            k = (order+1)//2
+            if 2*k-1 != order:
+                # print('Incrementing order in Gauss-Jacobi quadrature rule, only odd orders are available.')
+                k += 1
+            self.orders.append(2*k-1)
+
+            if abs(alpha) == 0. and abs(beta) == 0.:
+                ip = LegendreShiftedIP()
+            else:
+                ip = JacobiShiftedIP(alpha, beta)
+            qrb = QuadRuleBuilder(ip)
+            n1D, w1D = qrb.build(k)
+            n1D = n1D[np.newaxis, :]
+
+            if i == 0:
+                nodes = n1D
+                weights = w1D
+            else:
+                nodes, weights = tensorProduct(nodes, weights, n1D, w1D)
+
+        super(GaussJacobi_2, self).__init__(nodes, weights)
+        self.order = order
+
+
+cdef class LogGaussJacobi(quadQuadratureRule):
+    def __init__(self, order_weight_exponents):
+        nodes1D = []
+        weights1D = []
+        dim = len(order_weight_exponents)
+        self.orders = []
+
+        for i, (order, alpha, beta, gamma) in enumerate(order_weight_exponents):
+            k = (order+1)//2
+            if 2*k-1 != order:
+                # print('Incrementing order in Gauss-Jacobi quadrature rule, only odd orders are available.')
+                k += 1
+            self.orders.append(2*k-1)
+
+            if abs(gamma) == 0:
+                if abs(alpha) == 0. and abs(beta) == 0.:
+                    ip = LegendreShiftedIP()
+                else:
+                    ip = JacobiShiftedIP(alpha, beta)
+            else:
+                ip = LogJacobiShiftedIP(alpha, beta, gamma)
+            qrb = QuadRuleBuilder(ip)
+            n1D, w1D = qrb.build(k)
+            n1D = n1D[np.newaxis, :]
+
+            if i == 0:
+                nodes = n1D
+                weights = w1D
+            else:
+                nodes, weights = tensorProduct(nodes, weights, n1D, w1D)
+
+        super(LogGaussJacobi, self).__init__(nodes, weights)
+        self.order = order

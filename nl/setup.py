@@ -8,6 +8,7 @@
 from shutil import move, copy
 from os import remove
 from importlib.metadata import version
+from packaging.version import parse
 from distutils.errors import CompileError
 
 try:
@@ -66,6 +67,7 @@ templates = [
     'twoPointFunctions_{SCALAR}.pxi', 'twoPointFunctions_decl_{SCALAR}.pxi',
     'nonlocalOperator_{SCALAR}.pxi', 'nonlocalOperator_decl_{SCALAR}.pxi',
     'nonlocalAssembly_{SCALAR}.pxi', 'nonlocalAssembly_decl_{SCALAR}.pxi',
+    'kernels_{SCALAR}.pxi', 'kernels_decl_{SCALAR}.pxi',
 ]
 replacementGroups = [[('{SCALAR}', 'REAL'),
                       ('{SCALAR_label}', ''),
@@ -108,13 +110,43 @@ p.addExtension("interactionDomains",
                sources=[p.folder+"interactionDomains.pyx"])
 p.addExtension("kernelNormalization",
                sources=[p.folder+"kernelNormalization.pyx"])
-p.addExtension("kernelsCy",
-               sources=[p.folder+"kernelsCy.pyx"])
+p.addExtension("kernels",
+               sources=[p.folder+"kernels.pyx"])
 p.addExtension("fractionalOrders",
                sources=[p.folder+"fractionalOrders.pyx"])
-p.addExtension("clusterMethodCy",
-               sources=[p.folder+"clusterMethodCy.pyx"],
+p.addExtension("clusterMethod",
+               sources=[p.folder+"clusterMethod.pyx"],
                language='c++')
+p.addExtension("nonlocal_functions",
+               sources=[p.folder+"nonlocal_functions.pyx"],
+               language='c++')
+if parse(version('scipy')) >= parse('1.16'):
+    import scipy
+    import inspect
+    from pathlib import Path
+    p.addExtension("zeta",
+                   sources=[p.folder+"zeta_slow.pyx"],
+                   language='c++')
+elif parse(version('scipy')) >= parse('1.15'):
+    import scipy
+    import inspect
+    from pathlib import Path
+    p.addExtension("zeta",
+                   sources=[p.folder+"zetaXsf.pyx"],
+                   language='c++',
+                   includeDirs=[str(Path(inspect.getfile(scipy.special)).parent/'xsf'/'cephes')]
+                   )
+elif parse(version('scipy')) >= parse('1.13'):
+    import scipy
+    import inspect
+    from pathlib import Path
+    p.addExtension("zeta",
+                   sources=[p.folder+"zeta.pyx"],
+                   language='c++',
+                   includeDirs=[str(Path(inspect.getfile(scipy.special)).parent/'special'/'cephes')]
+                   )
+else:
+    raise NotImplementedError()
 
 p.setup(description="Nonlocal operator assembly",
         python_requires='>=3.10',

@@ -9,7 +9,6 @@ cdef class {SCALAR_label}twoPointFunction:
     cdef:
         public BOOL_t symmetric
         public INDEX_t valueSize
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, {SCALAR}_t[::1] value)
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, {SCALAR}_t* value)
 
 

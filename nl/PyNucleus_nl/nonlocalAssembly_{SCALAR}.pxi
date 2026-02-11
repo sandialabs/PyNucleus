@@ -912,7 +912,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
         cdef:
             MASK_t mask
 
-        assert kernel.dim == self.dm.mesh.dim, "Kernel dimension must match dm.mesh dimension"
+        assert kernel.dim == self.dm.mesh.dim, "Kernel dimension must match dm.mesh dimension. kernel.dim = {} !+ {} = self.dm.mesh.dim".format(kernel.dim, self.dm.mesh.dim)
 
         self.kernel = kernel
 
@@ -950,17 +950,20 @@ cdef class {SCALAR_label}nonlocalBuilder:
 
 
         # surface integrals
+        kernelInfHorizon = kernel.getModifiedKernel(horizon=constant(np.inf))
+        kernelInfHorizonBoundary = kernelInfHorizon.getBoundaryKernel()
+        kernelBoundary = kernel.getBoundaryKernel()
         if self.local_matrix_zeroExterior is None:
-            self.local_matrix_zeroExterior = self.getLocalMatrixBoundaryZeroExterior(kernel.getModifiedKernel(horizon=constant(np.inf)).getBoundaryKernel(), self.params)
-            self.local_matrix_surface = self.getLocalMatrixBoundaryZeroExterior(kernel.getBoundaryKernel(), self.params)
+            self.local_matrix_zeroExterior = self.getLocalMatrixBoundaryZeroExterior(kernelInfHorizonBoundary, self.params)
+            self.local_matrix_surface = self.getLocalMatrixBoundaryZeroExterior(kernelBoundary, self.params)
         else:
-            local_matrix_zeroExterior = self.getLocalMatrixBoundaryZeroExterior(kernel.getModifiedKernel(horizon=constant(np.inf)).getBoundaryKernel(), self.params)
+            local_matrix_zeroExterior = self.getLocalMatrixBoundaryZeroExterior(kernelInfHorizonBoundary, self.params)
             if type(local_matrix_zeroExterior) != type(self.local_matrix_zeroExterior):
                 self.local_matrix_zeroExterior = local_matrix_zeroExterior
-                self.local_matrix_surface = self.getLocalMatrixBoundaryZeroExterior(kernel.getBoundaryKernel(), self.params)
+                self.local_matrix_surface = self.getLocalMatrixBoundaryZeroExterior(kernelBoundary, self.params)
             else:
-                self.local_matrix_zeroExterior.setKernel(kernel.getModifiedKernel(horizon=constant(np.inf)).getBoundaryKernel(), target_order=self.params.get('target_order', None))
-                self.local_matrix_surface.setKernel(kernel.getBoundaryKernel(), target_order=self.params.get('target_order', None))
+                self.local_matrix_zeroExterior.setKernel(kernelInfHorizonBoundary, target_order=self.params.get('target_order', None))
+                self.local_matrix_surface.setKernel(kernelBoundary, target_order=self.params.get('target_order', None))
 
         if self.local_matrix_zeroExterior is not None:
             self.local_matrix_zeroExterior.setMesh1(self.dm.mesh)
@@ -1025,6 +1028,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
     cdef inline {SCALAR_label}double_local_matrix_t getLocalMatrixBoundaryZeroExterior(self, {SCALAR_label}Kernel kernelBoundary, dict params):
         cdef:
             fractionalOrderBase s
+            REAL_t max_singularity
         opType = params.get('opType', 'Laplacian')
         target_order = params.get('target_order', None)
         if 'quadTypeBoundary' in params:
@@ -1837,7 +1841,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
             self.PLogger.addValue('specialQuadRules', len(self.local_matrix.specialQuadRules))
             self.PLogger.addValue('distantQuadRules', len(self.local_matrix.distantQuadRules))
 
-        if not self.kernel.variable:
+        if not self.kernel.variableSingularity:
             if not self.kernel.complement:
                 with self.PLogger.Timer(prefix+'cluster zeroExterior'):
                     # This corresponds to
@@ -1926,7 +1930,12 @@ cdef class {SCALAR_label}nonlocalBuilder:
                         x = np.zeros((self.mesh.dim), dtype=REAL)
                         y = np.zeros((self.mesh.dim), dtype=REAL)
                         y[0] = self.kernel.horizonValue
-                        coeff = constant(-vol*self.local_matrix_zeroExterior.kernel(x, y))
+                        assert self.local_matrix_zeroExterior.kernel.valueSize == self.mesh.dim
+                        n = np.zeros((self.mesh.dim), dtype=REAL)
+                        n[0] = -1.
+                        self.local_matrix_zeroExterior.kernel.setNormal(n)
+                        val = self.local_matrix_zeroExterior.kernel(x, y)
+                        coeff = constant(vol*val)
                         qr = simplexXiaoGimbutas(2, self.mesh.dim)
                         if self.mesh.dim == 1:
                             mass = mass_1d_sym_scalar_anisotropic(coeff, self.dm, qr)
@@ -2620,7 +2629,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
                 else:
                     rank_root = global_root
 
-                if self.kernel.variable and not (self.kernel.variableOrder and isinstance(self.kernel.s, singleVariableUnsymmetricFractionalOrder)):
+                if self.kernel.variableSingularity and not isinstance(self.kernel.s, singleVariableUnsymmetricFractionalOrder):
                     blocks, jumps = self.getKernelBlocksAndJumps()
                     if len(jumps) > 0:
                         my_id = global_root.get_max_id()+1
@@ -2771,8 +2780,6 @@ cdef class {SCALAR_label}nonlocalBuilder:
 
                 # get admissible cluster pairs
                 for n in global_root.children:
-                    if ignoreDiagonalBlocks and (n.id == rank_root.id):
-                        continue
                     getAdmissibleClusters(self.kernel, rank_root, n,
                                           Pfar=Pfar, Pnear=Pnear)
 
@@ -3000,7 +3007,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
             refParams.interpolation_order = iO
         mL = self.params.get('maxLevels', None)
         if mL is None:
-            # maxLevels = max(int(np.around(np.log2(DoFMap.num_dofs)/mesh.dim-np.log2(refParams.interpolation_order))), 0)
+            # maxLevels = max(int(np.around(np.log2(DoFMap.num_dofs)/mesh.manifold_dim-np.log2(refParams.interpolation_order))), 0)
             refParams.maxLevels = 200
         else:
             refParams.maxLevels = mL
@@ -3010,7 +3017,7 @@ cdef class {SCALAR_label}nonlocalBuilder:
             # For this value, size(kernelInterpolant) == size(dense block)
             # If we choose a smaller value for minFarFieldBlockSize, then we use more memory,
             # but we might save time, since the assembly of a far field block is cheaper than a near field block.
-            # refParams.farFieldInteractionSize = refParams.interpolation_order**(2*mesh.dim)
+            # refParams.farFieldInteractionSize = refParams.interpolation_order**(2*mesh.manifold_dim)
             refParams.farFieldInteractionSize = -1
         else:
             refParams.farFieldInteractionSize = mFFBS
@@ -3020,9 +3027,9 @@ cdef class {SCALAR_label}nonlocalBuilder:
             if refParams.farFieldInteractionSize < 0:
                 loggamma = abs(np.log(0.25))
                 interpolation_order = max(np.ceil((2*target_order+max(-singularity, 2))*abs(np.log(mesh.h/mesh.diam))/loggamma/3.), 2)
-                refParams.minSize = interpolation_order**mesh.dim//2
+                refParams.minSize = interpolation_order**mesh.manifold_dim//2
             else:
-                refParams.minSize = refParams.interpolation_order**mesh.dim//2
+                refParams.minSize = refParams.interpolation_order**mesh.manifold_dim//2
         else:
             refParams.minSize = mCS
         if self.kernel.finiteHorizon:

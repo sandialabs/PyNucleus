@@ -22,7 +22,7 @@ from PyNucleus_base.performanceLogger cimport PLogger, FakePLogger
 from PyNucleus_fem.DoFMaps cimport DoFMap
 from PyNucleus_fem.meshCy cimport meshBase
 from . fractionalOrders cimport fractionalOrderBase
-from . kernelsCy cimport Kernel, FractionalKernel
+from . kernels cimport Kernel, FractionalKernel
 
 
 cdef class transferMatrixBuilder:

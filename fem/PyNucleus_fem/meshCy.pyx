@@ -1557,6 +1557,10 @@ cdef REAL_t volume2D(REAL_t[::1] v0, REAL_t[::1] v1):
     return abs(v0[0]*v1[1]-v1[0]*v0[1])*0.5
 
 
+cdef REAL_t volume1D_in_3D(REAL_t[:, ::1] span):
+    return sqrt(span[0, 0]**2+span[0, 1]**2+span[0, 2]**2)
+
+
 cdef REAL_t volume2D_in_3D(REAL_t[::1] v0, REAL_t[::1] v1):
     cdef:
         REAL_t temp_mem[3]

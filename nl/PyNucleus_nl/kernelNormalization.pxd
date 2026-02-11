@@ -26,69 +26,30 @@ cdef class memoizedFun:
 
 cdef class constantFractionalLaplacianScaling(constantTwoPoint):
     cdef:
-        INDEX_t dim
-        REAL_t s, horizon
-        REAL_t tempered
-
-
-cdef class constantFractionalLaplacianScalingBoundary(constantTwoPoint):
-    cdef:
-        INDEX_t dim
-        REAL_t s, horizon, tempered
-
-
-cdef class constantFractionalLaplacianScalingDerivative(twoPointFunction):
-    cdef:
-        INDEX_t dim
-        REAL_t s
-        REAL_t horizon
-        REAL_t horizon2
-        BOOL_t normalized
-        BOOL_t boundary
-        INDEX_t derivative
-        REAL_t tempered
-        REAL_t C
-        REAL_t fac
-        REAL_t fac2
+        public INDEX_t dim
+        public REAL_t s
+        public REAL_t horizon
+        public BOOL_t normalized
+        public BOOL_t boundary
+        public INDEX_t derivative
+        public REAL_t tempered
+        public INDEX_t termNo
+        public REAL_t[::1] values
 
 
 cdef class variableFractionalLaplacianScaling(parametrizedTwoPointFunction):
     cdef:
-        INDEX_t dim
-        fractionalOrderBase sFun
-        function horizonFun
-        REAL_t facInfinite, facFinite
-        twoPointFunction phi
-        BOOL_t normalized
-        BOOL_t boundary
-        INDEX_t derivative
-        memoizedFun digamma
-
-
-cdef class variableIntegrableScaling(parametrizedTwoPointFunction):
-    cdef:
-        kernelType kType
-        interactionDomain interaction
-        INDEX_t dim
-        function horizonFun
-        twoPointFunction phi
-
-
-cdef class variableFractionalLaplacianScalingBoundary(parametrizedTwoPointFunction):
-    cdef:
-        INDEX_t dim
-        fractionalOrderBase sFun
-        function horizonFun
-        REAL_t facInfinite, facFinite
-        twoPointFunction phi
-        BOOL_t normalized
+        public INDEX_t dim
+        public fractionalOrderBase sFun
+        public function horizonFun
+        public BOOL_t normalized
+        public BOOL_t boundary
+        public INDEX_t derivative
+        public INDEX_t termNo
+        public REAL_t[::1] values
 
 
 cdef class variableFractionalLaplacianScalingWithDifferentHorizon(variableFractionalLaplacianScaling):
-    pass
-
-
-cdef class variableIntegrableScalingWithDifferentHorizon(variableIntegrableScaling):
     pass
 
 
@@ -102,3 +63,14 @@ cdef class constantIntegrableScaling(constantTwoPoint):
         REAL_t exponentialRate
 
 
+cdef class variableIntegrableScaling(parametrizedTwoPointFunction):
+    cdef:
+        kernelType kType
+        interactionDomain interaction
+        INDEX_t dim
+        function horizonFun
+        twoPointFunction phi
+
+
+cdef class variableIntegrableScalingWithDifferentHorizon(variableIntegrableScaling):
+    pass

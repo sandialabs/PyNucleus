@@ -15,6 +15,7 @@ from . meshCy cimport (vectorProduct,
                        volume2Dnew,
                        volume3D, volume3Dnew,
                        volume2D_in_3Dnew as volume2D_in_3D,
+                       volume1D_in_3D,
                        meshBase)
 cimport numpy as np
 from libc.math cimport sqrt
@@ -164,3 +165,13 @@ cdef class sphericalQuadRule2D(sphericalQuadRule):
 
 cdef class simplexJaskowiecSukumar(simplexQuadratureRule):
     cdef public INDEX_t order
+
+
+cdef class GaussJacobi_2(quadQuadratureRule):
+    cdef:
+        public INDEX_t order
+
+
+cdef class LogGaussJacobi(quadQuadratureRule):
+    cdef:
+        public INDEX_t order

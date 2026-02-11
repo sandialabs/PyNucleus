@@ -1,7 +1,7 @@
 PYTHON ?= python3
 VIRTUAL_ENV ?=
 ifeq ($(VIRTUAL_ENV),)
-  FLAGS ?= --no-use-pep517 -e
+  FLAGS ?= --no-build-isolation
   PIP_FLAGS ?= --user
 else
   PYTHON ?= python

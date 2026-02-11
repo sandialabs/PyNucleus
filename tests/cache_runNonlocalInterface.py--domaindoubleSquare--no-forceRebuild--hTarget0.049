@@ -1,0 +1,14 @@
+Timers: {}
+data: {}
+errors:
+  L2 error domain 1: 2.7592060939648685e-05
+  L2 error domain 2: 2.706758060007906e-05
+results:
+  DoFs domain1DoFMap: 1554
+  DoFs domain2DoFMap: 1579
+  DoFs fullDomain1DoFMap: 2391
+  DoFs fullDomain2DoFMap: 3211
+  h fullDomain1Mesh: 0.04516307680897048
+  h fullDomain2Mesh: 0.044785790441323345
+  hmin fullDomain1Mesh: 0.016411330864556567
+  hmin fullDomain2Mesh: 0.015625

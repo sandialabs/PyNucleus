@@ -23,6 +23,7 @@ from . nonlocalAssembly cimport nearFieldClusterPair
 from PyNucleus_fem.DoFMaps cimport DoFMap, P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap, shapeFunction
 from PyNucleus_fem.meshCy cimport meshBase
 from PyNucleus_fem.functions cimport constant
+from . kernelNormalization cimport constantFractionalLaplacianScaling, variableFractionalLaplacianScaling
 import mpi4py.rc
 mpi4py.rc.initialize = False
 from mpi4py import MPI
@@ -2166,6 +2167,23 @@ def assembleFarFieldInteractions(Kernel kernel, dict Pfar, BOOL_t bemMode=False)
         INDEX_t kiSize1, kiSize2
         productIterator pit
         BOOL_t kernel_variable = kernel.variable
+        BOOL_t multiLogKernel = False
+        REAL_t fac
+        INDEX_t termNo
+        REAL_t[::1] scaling_values
+
+    if isinstance(kernel.scalingPrePhi, constantFractionalLaplacianScaling):
+        scal = kernel.scalingPrePhi
+        if scal.values.shape[0] > 1:
+            multiLogKernel = True
+            termNo = kernel.termNo
+            scaling_values = scal.values
+    elif isinstance(kernel.scalingPrePhi, variableFractionalLaplacianScaling):
+        scalVar = kernel.scalingPrePhi
+        if scalVar.values.shape[0] > 1:
+            multiLogKernel = True
+            termNo = kernel.termNo
+            scaling_values = scalVar.values
 
     for lvl in Pfar:
         for cP in Pfar[lvl]:
@@ -2213,13 +2231,17 @@ def assembleFarFieldInteractions(Kernel kernel, dict Pfar, BOOL_t bemMode=False)
                             if kernel_variable:
                                 kernel.evalParamsPtr(dim, &x[i, 0], &y[j, 0])
                             kernel.evalPtr(dim, &x[i, 0], &y[j, 0], &cP.kernelInterpolant[i, j])
-                            cP.kernelInterpolant[i, j] *= -2.0
+                            cP.kernelInterpolant[i, j] *= -2.0*0.5
+                            if multiLogKernel:
+                                cP.kernelInterpolant[i, j] *= scaling_values[termNo]
                 else:
                     for i in range(kiSize1):
                         for j in range(kiSize2):
                             if kernel_variable:
                                 kernel.evalParamsPtr(dim, &x[i, 0], &y[j, 0])
                             kernel.evalPtr(dim, &x[i, 0], &y[j, 0], &cP.kernelInterpolant[i, j])
+                            if multiLogKernel:
+                                cP.kernelInterpolant[i, j] *= scaling_values[termNo]
             else:
                 cP.kernelInterpolantVec = uninitialized((kiSize1, kiSize2, kernel.valueSize), dtype=REAL)
                 if not bemMode:
@@ -2229,13 +2251,21 @@ def assembleFarFieldInteractions(Kernel kernel, dict Pfar, BOOL_t bemMode=False)
                                 kernel.evalParamsPtr(dim, &x[i, 0], &y[j, 0])
                             kernel.evalPtr(dim, &x[i, 0], &y[j, 0], &cP.kernelInterpolantVec[i, j, 0])
                             for l in range(kernel.valueSize):
-                                cP.kernelInterpolantVec[i, j, l] *= -2.0
+                                cP.kernelInterpolantVec[i, j, l] *= -2.0*0.5
+                            if multiLogKernel:
+                                fac = scaling_values[termNo]
+                                for l in range(kernel.valueSize):
+                                    cP.kernelInterpolantVec[i, j, l] *= fac
                 else:
                     for i in range(kiSize1):
                         for j in range(kiSize2):
                             if kernel_variable:
                                 kernel.evalParamsPtr(dim, &x[i, 0], &y[j, 0])
                             kernel.evalPtr(dim, &x[i, 0], &y[j, 0], &cP.kernelInterpolantVec[i, j, 0])
+                            if multiLogKernel:
+                                fac = scaling_values[termNo]
+                                for l in range(kernel.valueSize):
+                                    cP.kernelInterpolantVec[i, j, l] *= fac
 
 
 cdef class H2Matrix(LinearOperator):
@@ -3122,6 +3152,21 @@ cdef class VectorH2Matrix(VectorLinearOperator):
                         for dof2 in c.n2.dofs:
                             Z[dof1, dof2] = 1
             plt.pcolormesh(Z)
+
+    def getOp(self, INDEX_t opNo):
+        cdef:
+            farFieldClusterPair cP
+        assert 0 <= opNo < self.vectorSize
+
+        newPfar = {}
+        for lvl in self.Pfar:
+            newPfar[lvl] = []
+            for cP in self.Pfar[lvl]:
+                newcP = farFieldClusterPair(cP.n1, cP.n2)
+                newcP.kernelInterpolant = np.ascontiguousarray(cP.kernelInterpolantVec[:, :, opNo])
+                newPfar[lvl].append(newcP)
+        self.tree.prepareTransferOperators(1)
+        return H2Matrix(self.tree, newPfar, self.Anear.getOp(opNo), self.PLogger)
 
 
 cdef class DistributedH2Matrix_globalData(LinearOperator):

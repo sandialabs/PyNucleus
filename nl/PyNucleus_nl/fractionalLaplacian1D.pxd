@@ -16,36 +16,33 @@ from . nonlocalOperator cimport (double_local_matrix_t,
                                  nonlocalLaplacian1D,
                                  panelType,
                                  MASK_t,
+                                 singularityCancelationQuadRule,
                                  specialQuadRule)
 from . fractionalOrders cimport fractionalOrderBase
-from . kernelsCy cimport (Kernel,
-                          FractionalKernel)
+from . kernels cimport (Kernel,
+                        FractionalKernel)
 
 
 cdef class fractionalLaplacian1DZeroExterior(nonlocalLaplacian1D):
     cdef:
-        public quadratureRule qrVertex
-        public REAL_t[:, ::1] PHI_dist, PHI_sep, PHI_vertex
         dict distantPHI
 
-cdef class singularityCancelationQuadRule1D(quadratureRule):
+
+cdef class singularityCancelationQuadRule1D(singularityCancelationQuadRule):
     pass
 
 
 cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
     cdef:
-        public quadratureRule qrId, qrVertex
-        REAL_t[:, ::1] PSI_id, PSI_vertex
         REAL_t singularityCancelationIntegrandWithinElement
         REAL_t singularityCancelationIntegrandAcrossElements
 
 
 cdef class fractionalLaplacian1D_nonsym(fractionalLaplacian1D):
-    cdef:
-        REAL_t[:, :, ::1] PHI_id, PHI_vertex
+    pass
 
+cdef class fractionalLaplacian1D_nonsym2(fractionalLaplacian1D_nonsym):
+    pass
 
 cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
     pass
-
-

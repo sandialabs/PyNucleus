@@ -16,11 +16,14 @@ from PyNucleus_base.ip_norm cimport mydot, vector_t, complex_vector_t
 from . meshCy cimport (meshBase,
                        cells_t,
                        vectorProduct,
+                       volume0D,
                        volume1Dnew,
                        volume1D_in_2D,
                        volume2Dnew,
                        volume3D, volume3Dnew,
                        volume2D_in_3D,
+                       volume2D_in_3Dnew,
+                       volume1D_in_3D,
                        volume1Din2Dsimplex,
                        volume1Din3Dsimplex)
 from . mesh import NO_BOUNDARY, meshNd
@@ -37,7 +40,9 @@ from . DoFMaps cimport (P0_DoFMap, P1_DoFMap, P2_DoFMap, P3_DoFMap,
 from . quadrature cimport simplexQuadratureRule, Gauss1D, Gauss2D, Gauss3D, simplexXiaoGimbutas
 from . functions cimport function, complexFunction, vectorFunction, matrixFunction
 from . simplexMapper cimport simplexMapper
+from . lookupFunction cimport lookupFunction
 from scipy.spatial import cKDTree
+from scipy.integrate import nquad
 
 
 cdef class local_matrix_t:
@@ -2956,6 +2961,126 @@ def assembleRHSgrad(FUNCTION_t fun, DoFMap dm,
     else:
         raise NotImplementedError()
     return dataVec
+
+
+cdef class Integrand:
+    cdef:
+        function fun
+        DoFMap dm
+        INDEX_t dim
+        INDEX_t manifold_dim
+        REAL_t[:, ::1] simplex
+        REAL_t[:, ::1] span
+        REAL_t[::1] x
+        REAL_t[::1] bary
+        volume_t volume
+        REAL_t vol
+        shapeFunction phi
+
+    def __init__(self, function fun, DoFMap dm):
+        self.fun = fun
+        self.dm = dm
+
+        self.dim = dm.mesh.dim
+        self.manifold_dim = dm.mesh.manifold_dim
+
+        self.simplex = uninitialized((self.manifold_dim+1, self.dim),
+                                     dtype=REAL)
+        self.span = uninitialized((self.manifold_dim, self.dim), dtype=REAL)
+        self.x = uninitialized((self.dim), dtype=REAL)
+        self.bary = uninitialized((self.manifold_dim+1), dtype=REAL)
+
+        if self.manifold_dim == 0:
+            self.volume = volume0D
+        elif self.dim == 1 and self.manifold_dim == 1:
+            self.volume = volume1Dnew
+        elif self.dim == 2 and self.manifold_dim == 1:
+            self.volume = volume1D_in_2D
+        elif self.dim == 2 and self.manifold_dim == 2:
+            self.volume = volume2Dnew
+        elif self.dim == 3 and self.manifold_dim == 3:
+            self.volume = volume3D
+        elif self.dim == 3 and self.manifold_dim == 2:
+            self.volume = volume2D_in_3Dnew
+        elif self.dim == 3 and self.manifold_dim == 1:
+            self.volume = volume1D_in_3D
+        else:
+            raise NotImplementedError('dim={}, manifold_dim={}'.format(self.dim, self.manifold_dim))
+
+    cdef void setCell(self, cellNo):
+        cdef:
+            INDEX_t k, j
+        self.dm.mesh.getSimplex(cellNo, self.simplex)
+        # Calculate volume
+        for k in range(self.manifold_dim):
+            for j in range(self.dim):
+                self.span[k, j] = self.simplex[k+1, j]-self.simplex[0, j]
+        self.vol = self.volume(self.span)
+
+    cdef void setDoF(self, dofNo):
+        self.phi = self.dm.getLocalShapeFunction(dofNo)
+
+    def __call__(self, lam):
+        cdef:
+            INDEX_t i, j
+            REAL_t phiVal
+        if isinstance(lam, float):
+            lam = [lam]
+        self.x[:] = 0.
+        self.bary[self.manifold_dim] = 1.
+        for i in range(self.manifold_dim):
+            self.bary[i] = lam[i]
+            self.bary[self.manifold_dim] -= lam[i]
+            for j in range(self.dim):
+                self.x[j] += lam[i]*self.simplex[i, j]
+        for j in range(self.dim):
+            self.x[j] += self.bary[self.manifold_dim]*self.simplex[self.manifold_dim, j]
+        self.phi.evalPtr(&self.bary[0], NULL, &phiVal)
+        return self.vol*self.fun.eval(self.x)*phiVal
+
+
+def assembleRHSWithSingularity(function fun, DoFMap dm, simplexQuadratureRule qr=None, fe_vector indicator=None, REAL_t desired_order=2., **kwargs):
+    cdef:
+        DoFMap dmP0
+        INDEX_t cellNo, dofP0, k, dof
+        fe_vector data
+
+    if indicator is not None:
+        dmP0 = indicator.dm
+        assert isinstance(dmP0, P0_DoFMap), dmP0
+        assert dm.mesh == dmP0.mesh
+    else:
+        dmP0 = P0_DoFMap(dm.mesh, -1)
+        errorEstimate = (dmP0.assembleRHS(fun, qr=simplexXiaoGimbutas(dim=1, order=2))
+                         - dmP0.assembleRHS(fun, qr=simplexXiaoGimbutas(dim=1, order=4)))
+        errorEstimate.assign(np.absolute(errorEstimate.toarray()))
+
+        indicator = dmP0.ones()
+        indicator.assign((errorEstimate.toarray() < dm.mesh.h**desired_order).astype(REAL))
+
+    ind = lookupFunction(dmP0.mesh, dmP0, indicator)
+    data = dm.assembleRHS(fun*ind, qr=qr)
+
+    integrand = Integrand(fun, dm)
+    for cellNo in range(dm.mesh.num_cells):
+        dofP0 = dmP0.cell2dof(cellNo, 0)
+        assert indicator[dofP0] == 0. or indicator[dofP0] == 1.
+        if indicator[dofP0] == 0.:
+            integrand.setCell(cellNo)
+            for k in range(dm.dofs_per_element):
+                dof = dm.cell2dof(cellNo, k)
+                if dof < 0:
+                    continue
+
+                integrand.setDoF(k)
+
+                # integrate in barycentric coords
+                if dm.mesh.manifold_dim == 1:
+                    val, _ = nquad(integrand, ((0., 1.), ), **kwargs)
+                else:
+                    raise NotImplementedError()
+                data[dof] += val
+    return data
 
 
 cdef class multi_function:

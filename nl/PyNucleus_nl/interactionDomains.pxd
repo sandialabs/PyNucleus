@@ -122,3 +122,9 @@ cdef class ball2_dilation_retriangulation(retriangulationDomain):
         REAL_t[:, ::1] mat
         REAL_t c, d
         REAL_t[:, ::1] tempSimplex1, tempSimplex2
+
+
+cdef class functionOfDistance(twoPointFunction):
+    cdef:
+        interactionDomain interaction
+        public function fun
