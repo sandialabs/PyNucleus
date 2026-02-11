@@ -833,7 +833,7 @@ cdef class DoFMap:
 
         """
         try:
-            from PyNucleus_nl.kernelsCy import RangedFractionalKernel, ComplexKernel
+            from PyNucleus_nl.kernels import RangedFractionalKernel, ComplexKernel, MultiSingularityFractionalKernel
 
             if isinstance(kernel, RangedFractionalKernel):
                 from PyNucleus_base.linear_operators import multiIntervalInterpolationOperator
@@ -861,6 +861,11 @@ cdef class DoFMap:
                         intervalOps.append(delayedNonlocalOp(self, gamma, matrixFormat=matrixFormat, dm2=dm2, **kwargs))
                     ops.append(intervalOps)
                 return multiIntervalInterpolationOperator(intervals, nodes, ops)
+            elif isinstance(kernel, MultiSingularityFractionalKernel):
+                op = self.assembleNonlocal(kernel.kernels[0], matrixFormat=matrixFormat, dm2=dm2, **kwargs)
+                for i in range(1, len(kernel.kernels)):
+                    op = op+self.assembleNonlocal(kernel.kernels[i], matrixFormat=matrixFormat, dm2=dm2, **kwargs)
+                return op
             elif isinstance(self, Product_DoFMap) and self.numComponents == 1:
                 if dm2 is not None:
                     return self.scalarDM.assembleNonlocal(kernel, matrixFormat, dm2.scalarDM, returnNearField, **kwargs)

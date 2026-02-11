@@ -20,20 +20,24 @@ from PyNucleus_fem.meshCy cimport (volume0Dsimplex,
                                    volume2Dsimplex,
                                    volume1Din2Dsimplex,
                                    volume3Dsimplex,
-                                   volume2Din3Dsimplex)
+                                   volume2Din3Dsimplex,
+                                   volume1Din3Dsimplex)
 from . twoPointFunctions cimport (twoPointFunction,
                                   constantTwoPoint)
 from . interactionDomains cimport REMOTE
 from . fractionalOrders cimport (fractionalOrderBase,
                                  constFractionalOrder,
                                  variableFractionalOrder)
-from . kernelsCy cimport (Kernel,
-                          ComplexKernel,
-                          FractionalKernel)
-from . clusterMethodCy cimport tree_node
+from . kernels cimport (Kernel,
+                        ComplexKernel,
+                        FractionalKernel)
+from . clusterMethod cimport tree_node
 ctypedef INDEX_t panelType
 
 from . bitset cimport MASK_t
+
+
+cdef INDEX_t my_binom(INDEX_t a, INDEX_t b)
 
 
 cdef class PermutationIndexer:
@@ -59,6 +63,12 @@ cdef class specialQuadRule:
         public transformQuadratureRule qrTransformed1
 
 
+cdef class singularityCancelationQuadRule(quadratureRule):
+    cdef:
+        public REAL_t[::1] singularPart
+    cdef void scaleWeights(self, scaling)
+
+
 cdef class nonlocalLaplacian1D(nonlocalOperator):
     cdef:
         public REAL_t target_order, quad_order_diagonal
@@ -70,5 +80,3 @@ cdef class nonlocalLaplacian2D(nonlocalOperator):
     cdef:
         public REAL_t target_order, quad_order_diagonal, quad_order_diagonalV
         INDEX_t[::1] idx1, idx2, idx3, idx4
-
-

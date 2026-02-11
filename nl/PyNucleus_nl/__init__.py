@@ -14,21 +14,21 @@ It defines kernel functions, fractional orders, interaction domains and normaliz
 It allows to assemble nonlocal operators as dense, sparse of H^2 matrices.
 """
 
-from . kernelsCy import (Kernel,
-                         FractionalKernel,
-                         RangedFractionalKernel,
-                         getKernelEnum,
-                         FRACTIONAL, INDICATOR, PERIDYNAMIC, GAUSSIAN)
+from . kernels import (Kernel,
+                       FractionalKernel,
+                       RangedFractionalKernel,
+                       getKernelEnum,
+                       FRACTIONAL, INDICATOR, PERIDYNAMIC, GAUSSIAN)
 from . nonlocalAssembly import nonlocalBuilder
-from . clusterMethodCy import H2Matrix
+from . clusterMethod import H2Matrix
+from . factories import (nonlocalMeshFactory,
+                         interactionFactory,
+                         fractionalOrderFactory,
+                         kernelFactory,
+                         twoPointFunctionFactory)
 from . nonlocalProblems import (fractionalLaplacianProblem,
                                 nonlocalPoissonProblem,
-                                transientFractionalProblem,
-                                twoPointFunctionFactory,
-                                fractionalOrderFactory,
-                                interactionFactory,
-                                kernelFactory,
-                                nonlocalMeshFactory)
+                                transientFractionalProblem)
 from . discretizedProblems import (discretizedNonlocalProblem,
                                    discretizedTransientProblem)
 __all__ = ['twoPointFunctionFactory', 'fractionalOrderFactory', 'interactionFactory', 'kernelFactory', 'nonlocalMeshFactory',

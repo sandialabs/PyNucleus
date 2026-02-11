@@ -5,14 +5,15 @@
 # If you want to use this code, please refer to the README.rst and LICENSE files. #
 ###################################################################################
 
-from libc.math cimport log, ceil, fabs as abs
+from libc.math cimport sqrt, log, ceil, fabs as abs
 import numpy as np
 cimport numpy as np
 
 from PyNucleus_base.myTypes import REAL
 from PyNucleus_base import uninitialized
+from PyNucleus_base.blas cimport mydot
 from PyNucleus_fem.meshCy cimport meshBase
-from PyNucleus_fem.quadrature cimport GaussJacobi
+from PyNucleus_fem.quadrature cimport GaussJacobi, LogGaussJacobi
 from PyNucleus_fem.DoFMaps cimport DoFMap, P1_DoFMap, P0_DoFMap, shapeFunction
 
 include "kernel_params.pxi"
@@ -26,14 +27,14 @@ ALL.set()
 
 cdef class fractionalLaplacian1DZeroExterior(nonlocalLaplacian1D):
     def __init__(self, Kernel kernel, meshBase mesh, DoFMap dm, num_dofs=None, **kwargs):
-        manifold_dim2 = mesh.dim-1
+        manifold_dim2 = mesh.manifold_dim-1
         super(fractionalLaplacian1DZeroExterior, self).__init__(kernel, mesh, dm, num_dofs, manifold_dim2=manifold_dim2, **kwargs)
         self.symmetricCells = False
         self.symmetricLocalMatrix = True
 
 
-cdef class singularityCancelationQuadRule1D(quadratureRule):
-    def __init__(self, panelType panel, REAL_t singularity, INDEX_t quad_order_diagonal, INDEX_t quad_order_regular):
+cdef class singularityCancelationQuadRule1D(singularityCancelationQuadRule):
+    def __init__(self, panelType panel, REAL_t singularity, REAL_t log_singularity, INDEX_t quad_order_diagonal, INDEX_t quad_order_regular):
         cdef:
             INDEX_t i
             REAL_t eta0, eta1, x, y
@@ -44,18 +45,36 @@ cdef class singularityCancelationQuadRule1D(quadratureRule):
             REAL_t[:, ::1] bary, bary_x, bary_y
             REAL_t[::1] weights
             INDEX_t offset
+            REAL_t[::1] singularPart
 
         if panel == COMMON_EDGE:
-            # Differences of basis functions one the same element
-            # cancel one singularity order i.e.
-            # singularityCancelationFromContinuity = 1.
-            qrId = GaussJacobi(((quad_order_regular, 1+singularity, 0),
-                                (quad_order_regular, 0+singularity, 0)))
+            if log_singularity == 0:
+                qrId = GaussJacobi(((quad_order_regular, 1+singularity, 0),
+                                    (quad_order_regular, 0+singularity, 0)))
+            elif log_singularity == 1:
+                qr10 = LogGaussJacobi(((quad_order_regular, 1+singularity, 0, 1),
+                                       (quad_order_regular, 0+singularity, 0, 0)))
+                qr01 = LogGaussJacobi(((quad_order_regular, 1+singularity, 0, 0),
+                                       (quad_order_regular, 0+singularity, 0, 1)))
+                qrId = qr10+qr01
+            elif log_singularity == 2:
+                qr20 = LogGaussJacobi(((quad_order_regular, 1+singularity, 0, 2),
+                                       (quad_order_regular, 0+singularity, 0, 0)))
+                qr11 = LogGaussJacobi(((quad_order_regular, 1+singularity, 0, 1),
+                                       (quad_order_regular, 0+singularity, 0, 1)))
+                qr02 = LogGaussJacobi(((quad_order_regular, 1+singularity, 0, 0),
+                                       (quad_order_regular, 0+singularity, 0, 2)))
+                for i in range(qr11.num_nodes):
+                    qr11.weights[i] *= 2.
+                qrId = qr20+qr11+qr02
+            else:
+                raise NotImplementedError(log_singularity)
 
             bary = uninitialized((2*dim+2,
                                   qrId.num_nodes), dtype=REAL)
             bary_x = bary[:dim+1, :]
             bary_y = bary[dim+1:, :]
+            singularPart = uninitialized((qrId.num_nodes), dtype=REAL)
             weights = uninitialized((qrId.num_nodes), dtype=REAL)
             # COMMON_FACE panels
             for i in range(qrId.num_nodes):
@@ -77,18 +96,24 @@ cdef class singularityCancelationQuadRule1D(quadratureRule):
                 bary_y[0, i] = lcl_bary_y[0]
                 bary_y[1, i] = lcl_bary_y[1]
 
-                weights[i] = 2.0*qrId.weights[i]*(eta0*eta1)**(-singularity)
+                singularPart[i] = eta0*eta1
+                weights[i] = 2.0*qrId.weights[i]*singularPart[i]**(-singularity)
 
             super(singularityCancelationQuadRule1D, self).__init__(bary, weights, 2*dim+2)
         elif panel == COMMON_VERTEX:
-            qrVertex = GaussJacobi(((quad_order_regular, 1+singularity, 0),
-                                    (quad_order_diagonal, 0, 0)))
+            if log_singularity == 0:
+                qrVertex = GaussJacobi(((quad_order_regular, 1+singularity, 0),
+                                        (quad_order_diagonal, 0, 0)))
+            else:
+                qrVertex = LogGaussJacobi(((quad_order_regular, 1+singularity, 0, log_singularity),
+                                           (quad_order_diagonal, 0, 0, 0)))
 
             bary = uninitialized((2*dim+2,
                                   2*qrVertex.num_nodes), dtype=REAL)
             bary_x = bary[:dim+1, :]
             bary_y = bary[dim+1:, :]
 
+            singularPart = uninitialized((2*qrVertex.num_nodes), dtype=REAL)
             weights = uninitialized((2*qrVertex.num_nodes), dtype=REAL)
 
             # panels with common vertex
@@ -113,7 +138,8 @@ cdef class singularityCancelationQuadRule1D(quadratureRule):
                 bary_y[0, offset+i] = lcl_bary_y[0]
                 bary_y[1, offset+i] = lcl_bary_y[1]
 
-                weights[offset+i] = qrVertex.weights[i] * eta0**(-singularity)
+                singularPart[offset+i] = eta0
+                weights[offset+i] = qrVertex.weights[i] * singularPart[offset+i]**(-singularity)
 
             # second integral
             offset = qrVertex.num_nodes
@@ -136,13 +162,17 @@ cdef class singularityCancelationQuadRule1D(quadratureRule):
                 bary_y[0, offset+i] = lcl_bary_y[0]
                 bary_y[1, offset+i] = lcl_bary_y[1]
 
-                weights[offset+i] = qrVertex.weights[i] * eta0**(-singularity)
-
+                singularPart[offset+i] = eta0
+                weights[offset+i] = qrVertex.weights[i] * singularPart[offset+i]**(-singularity)
             super(singularityCancelationQuadRule1D, self).__init__(bary, weights, 2*dim)
+        else:
+            raise NotImplementedError(panel)
+
+        self.singularPart = singularPart
 
 
-cdef class singularityCancelationQuadRule1D_boundary(quadratureRule):
-    def __init__(self, panelType panel, REAL_t singularity, INDEX_t quad_order_diagonal, INDEX_t quad_order_regular):
+cdef class singularityCancelationQuadRule1D_boundary(singularityCancelationQuadRule):
+    def __init__(self, panelType panel, REAL_t singularity, REAL_t log_singularity, INDEX_t quad_order_diagonal, INDEX_t quad_order_regular):
         cdef:
             INDEX_t i
             REAL_t eta
@@ -152,14 +182,19 @@ cdef class singularityCancelationQuadRule1D_boundary(quadratureRule):
             REAL_t lcl_bary_y[1]
             REAL_t[:, ::1] bary, bary_x, bary_y
             REAL_t[::1] weights
+            REAL_t[::1] singularPart
 
         if panel == COMMON_VERTEX:
-            qrVertex = GaussJacobi(((quad_order_diagonal, singularity, 0), ))
+            if log_singularity == 0:
+                qrVertex = GaussJacobi(((quad_order_diagonal, singularity, 0), ))
+            else:
+                qrVertex = LogGaussJacobi(((quad_order_diagonal, singularity, 0, log_singularity), ))
 
             bary = uninitialized((2*dim+1,
                                   qrVertex.num_nodes), dtype=REAL)
             bary_x = bary[:dim+1, :]
             bary_y = bary[dim+1:, :]
+            singularPart = uninitialized((qrVertex.num_nodes), dtype=REAL)
             weights = uninitialized((qrVertex.num_nodes), dtype=REAL)
 
             for i in range(qrVertex.num_nodes):
@@ -175,8 +210,10 @@ cdef class singularityCancelationQuadRule1D_boundary(quadratureRule):
 
                 bary_y[0, i] = lcl_bary_y[0]
 
-                weights[i] = qrVertex.weights[i] * eta**(-singularity)
+                singularPart[i] = eta
+                weights[i] = qrVertex.weights[i] * singularPart[i]**(-singularity)
             super(singularityCancelationQuadRule1D_boundary, self).__init__(bary, weights, 2*dim+1)
+        self.singularPart = singularPart
 
 
 cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
@@ -184,7 +221,7 @@ cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
 
     .. math::
 
-       \\int_{K_1}\\int_{K_2} (u(x)-u(y)) (v(x)-v(y)) \\gamma(x,y) dy dx
+       0.5 \\int_{K_1}\\int_{K_2} (u(x)-u(y)) (v(x)-v(y)) \\gamma(x,y) dy dx
 
     for the symmetric 1D nonlocal Laplacian.
     """
@@ -227,7 +264,7 @@ cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
             quad_order_diagonal = max(np.ceil(((target_order+2.)*log(self.num_dofs*self.H0) + (2.*smax-1.)*abs(log(self.hmin/self.H0)))/0.8), 2)
         self.quad_order_diagonal = quad_order_diagonal
 
-        if (self.kernel.kernelType != FRACTIONAL) or (not self.kernel.variableOrder):
+        if (self.kernel.kernelType != FRACTIONAL) or (not self.kernel.variableSingularity):
             self.getNearQuadRule(COMMON_EDGE)
             self.getNearQuadRule(COMMON_VERTEX)
 
@@ -256,6 +293,7 @@ cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
         cdef:
             INDEX_t i
             REAL_t singularityValue = self.kernel.getSingularityValue()
+            REAL_t log_singularityValue = self.kernel.getLogSingularityValue()
             specialQuadRule sQR
             quadratureRule qr
             INDEX_t dofs_per_element = self.DoFMap.dofs_per_element
@@ -274,6 +312,7 @@ cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
             except KeyError:
                 qr = singularityCancelationQuadRule1D(panel,
                                                       self.singularityCancelationIntegrandWithinElement+singularityValue,
+                                                      log_singularityValue,
                                                       self.quad_order_diagonal,
                                                       2*dm_order)
                 PSI = uninitialized((dofs_per_element, qr.num_nodes), dtype=REAL)
@@ -293,14 +332,15 @@ cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
                 self.specialQuadRules[(singularityValue, panel)] = sQR
                 if qr.num_nodes > self.temp.shape[0]:
                     self.temp = uninitialized((qr.num_nodes, self.kernel.valueSize), dtype=REAL)
-            self.qrId = sQR.qr
-            self.PSI_id = sQR.PSI
+            self.qrEdge = sQR.qr
+            self.PSI_edge = sQR.PSI
         elif panel == COMMON_VERTEX:
             try:
                 sQR = self.specialQuadRules[(singularityValue, panel)]
             except KeyError:
                 qr = singularityCancelationQuadRule1D(panel,
                                                       self.singularityCancelationIntegrandAcrossElements+singularityValue,
+                                                      log_singularityValue,
                                                       self.quad_order_diagonal,
                                                       2*dm_order)
                 PSI = uninitialized((2*dofs_per_element - dofs_per_vertex,
@@ -350,61 +390,10 @@ cdef class fractionalLaplacian1D(nonlocalLaplacian1D):
                    REAL_t[:, ::1] contrib,
                    panelType panel,
                    MASK_t mask=ALL):
-        cdef:
-            INDEX_t k, m, i, j, I, J, l
-            REAL_t vol, vol1 = self.vol1, vol2 = self.vol2, val
-            REAL_t[:, ::1] simplex1 = self.simplex1
-            REAL_t[:, ::1] simplex2 = self.simplex2
-            quadratureRule qr
-            REAL_t[:, ::1] PSI
-            INDEX_t dofs_per_element = self.DoFMap.dofs_per_element
-            INDEX_t dim = self.kernel.dim
-            INDEX_t valueSize = self.kernel.valueSize
-            REAL_t x[2]
-            REAL_t y[2]
-
         if panel >= 1:
-            self.eval_distant(contrib, panel, mask)
-            return
-        elif panel == COMMON_EDGE:
-            qr = self.qrId
-            PSI = self.PSI_id
-        elif panel == COMMON_VERTEX:
-            qr = self.qrVertex
-            PSI = self.PSI_vertex
+            self.eval_distant_sym(contrib, panel, mask)
         else:
-            raise NotImplementedError('Unknown panel type: {}'.format(panel))
-
-        vol = vol1*vol2
-
-        for m in range(qr.num_nodes):
-            for j in range(dim):
-                x[j] = (simplex1[self.perm1[0], j]*qr.nodes[0, m] +
-                        simplex1[self.perm1[1], j]*qr.nodes[1, m])
-                y[j] = (simplex2[self.perm2[0], j]*qr.nodes[2, m] +
-                        simplex2[self.perm2[1], j]*qr.nodes[3, m])
-            self.kernel.evalPtr(dim,
-                                &x[0],
-                                &y[0],
-                                &self.vec[0])
-            for l in range(valueSize):
-                self.temp[m, l] = qr.weights[m] * self.vec[l]
-
-        contrib[:, :] = 0.
-        for I in range(PSI.shape[0]):
-            i = self.perm[I]
-            for J in range(I, PSI.shape[0]):
-                j = self.perm[J]
-                if j < i:
-                    k = 2*dofs_per_element*j-(j*(j+1) >> 1) + i
-                else:
-                    k = 2*dofs_per_element*i-(i*(i+1) >> 1) + j
-                if mask[k]:
-                    for l in range(valueSize):
-                        val = 0.
-                        for m in range(qr.num_nodes):
-                            val += self.temp[m, l] * PSI[I, m] * PSI[J, m]
-                        contrib[k, l] = val*vol
+            self.eval_near_sym(contrib, panel, mask)
 
 
 cdef class fractionalLaplacian1D_nonsym(fractionalLaplacian1D):
@@ -412,7 +401,7 @@ cdef class fractionalLaplacian1D_nonsym(fractionalLaplacian1D):
 
     .. math::
 
-       \\int_{K_1}\\int_{K_2} [ u(x) \\gamma(x,y) - u(y) \\gamma(y,x) ] [ v(x)-v(y) ] dy dx
+       0.5 \\int_{K_1}\\int_{K_2} [ u(x) \\gamma(x,y) - u(y) \\gamma(y,x) ] [ v(x)-v(y) ] dy dx
 
     for the non-symmetric 1D nonlocal Laplacian.
     """
@@ -420,11 +409,8 @@ cdef class fractionalLaplacian1D_nonsym(fractionalLaplacian1D):
                  Kernel kernel,
                  meshBase mesh,
                  DoFMap dm,
-                 target_order=None,
-                 quad_order_diagonal=None,
-                 num_dofs=None,
                  **kwargs):
-        super(fractionalLaplacian1D_nonsym, self).__init__(kernel, mesh, dm, num_dofs, **kwargs)
+        super(fractionalLaplacian1D_nonsym, self).__init__(kernel, mesh, dm, **kwargs)
         self.symmetricLocalMatrix = False
         self.symmetricCells = False
 
@@ -453,6 +439,7 @@ cdef class fractionalLaplacian1D_nonsym(fractionalLaplacian1D):
         cdef:
             INDEX_t i
             REAL_t singularityValue = self.kernel.getSingularityValue()
+            REAL_t log_singularityValue = self.kernel.getLogSingularityValue()
             specialQuadRule sQR
             quadratureRule qr
             INDEX_t dofs_per_element = self.DoFMap.dofs_per_element
@@ -469,9 +456,9 @@ cdef class fractionalLaplacian1D_nonsym(fractionalLaplacian1D):
             try:
                 sQR = self.specialQuadRules[(singularityValue, panel)]
             except KeyError:
-
                 qr = singularityCancelationQuadRule1D(panel,
                                                       self.singularityCancelationIntegrandWithinElement+singularityValue,
+                                                      log_singularityValue,
                                                       self.quad_order_diagonal,
                                                       2*dm_order)
                 PHI = uninitialized((dofs_per_element,
@@ -495,15 +482,15 @@ cdef class fractionalLaplacian1D_nonsym(fractionalLaplacian1D):
                 if qr.num_nodes > self.temp.shape[0]:
                     self.temp = uninitialized((qr.num_nodes, self.kernel.valueSize), dtype=REAL)
                     self.temp2 = uninitialized((qr.num_nodes, self.kernel.valueSize), dtype=REAL)
-            self.qrId = sQR.qr
-            self.PHI_id = sQR.PHI3
+            self.qrEdge = sQR.qr
+            self.PHI_edge = sQR.PHI3
         elif panel == COMMON_VERTEX:
             try:
                 sQR = self.specialQuadRules[(singularityValue, panel)]
             except KeyError:
-
                 qr = singularityCancelationQuadRule1D(panel,
                                                       self.singularityCancelationIntegrandAcrossElements+singularityValue,
+                                                      log_singularityValue,
                                                       self.quad_order_diagonal,
                                                       2*dm_order)
                 PHI = uninitialized((2*dofs_per_element - dofs_per_vertex,
@@ -550,57 +537,39 @@ cdef class fractionalLaplacian1D_nonsym(fractionalLaplacian1D):
                    REAL_t[:, ::1] contrib,
                    panelType panel,
                    MASK_t mask=ALL):
-        cdef:
-            INDEX_t k, m, i, j, I, J, l
-            REAL_t vol, vol1 = self.vol1, vol2 = self.vol2, val
-            REAL_t[:, ::1] simplex1 = self.simplex1
-            REAL_t[:, ::1] simplex2 = self.simplex2
-            quadratureRule qr
-            REAL_t[:, :, ::1] PHI
-            INDEX_t dofs_per_element = self.DoFMap.dofs_per_element
-            INDEX_t dim = self.DoFMap.mesh.dim
-            REAL_t x[2]
-            REAL_t y[2]
-            INDEX_t valueSize = self.kernel.valueSize
-
         if panel >= 1:
             self.eval_distant_nonsym(contrib, panel, mask)
-            return
-        elif panel == COMMON_EDGE:
-            qr = self.qrId
-            PHI = self.PHI_id
-        elif panel == COMMON_VERTEX:
-            qr = self.qrVertex
-            PHI = self.PHI_vertex
         else:
-            raise NotImplementedError('Unknown panel type: {}'.format(panel))
+            self.eval_near_nonsym(contrib, panel, mask)
 
-        vol = vol1*vol2
 
-        for m in range(qr.num_nodes):
-            for j in range(dim):
-                x[j] = (simplex1[self.perm1[0], j]*qr.nodes[0, m] +
-                        simplex1[self.perm1[1], j]*qr.nodes[1, m])
-                y[j] = (simplex2[self.perm2[0], j]*qr.nodes[2, m] +
-                        simplex2[self.perm2[1], j]*qr.nodes[3, m])
-            self.kernel.evalPtr(dim, &x[0], &y[0], &self.vec[0])
-            self.kernel.evalPtr(dim, &y[0], &x[0], &self.vec2[0])
-            for l in range(valueSize):
-                self.temp[m, l] = qr.weights[m] * self.vec[l]
-                self.temp2[m, l] = qr.weights[m] * self.vec2[l]
+cdef class fractionalLaplacian1D_nonsym2(fractionalLaplacian1D_nonsym):
+    """The local stiffness matrix
 
-        contrib[:, :] = 0.
-        for I in range(PHI.shape[0]):
-            i = self.perm[I]
-            for J in range(PHI.shape[0]):
-                j = self.perm[J]
-                k = i*(2*dofs_per_element)+j
-                if mask[k]:
-                    for l in range(valueSize):
-                        val = 0.
-                        for m in range(qr.num_nodes):
-                            val += (self.temp[m, l] * PHI[I, m, 0] - self.temp2[m, l] * PHI[I, m, 1]) * (PHI[J, m, 0] - PHI[J, m, 1])
-                        contrib[k, l] = val*vol
+    .. math::
+
+       0.5 \\int_{K_1}\\int_{K_2} [ u(x) - u(y) ] [ v(x)-v(y) ] \\gamma(x,y) dy dx
+
+    for the non-symmetric 1D nonlocal Laplacian.
+    """
+    def __init__(self,
+                 Kernel kernel,
+                 meshBase mesh,
+                 DoFMap dm,
+                 target_order=None,
+                 quad_order_diagonal=None,
+                 num_dofs=None,
+                 **kwargs):
+        super(fractionalLaplacian1D_nonsym2, self).__init__(kernel, mesh, dm, target_order, quad_order_diagonal, num_dofs, **kwargs)
+
+    cdef void eval(self,
+                   REAL_t[:, ::1] contrib,
+                   panelType panel,
+                   MASK_t mask=ALL):
+        if panel >= 1:
+            self.eval_distant_nonsym2(contrib, panel, mask)
+        else:
+            self.eval_near_nonsym2(contrib, panel, mask)
 
 
 cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
@@ -608,7 +577,7 @@ cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
 
     .. math::
 
-       \\int_{K}\\int_{e} [ u(x) v(x) n_{y} \\cdot \\frac{x-y}{|x-y|} \\Gamma(x,y) dy dx
+       \\int_{K}\\int_{e} u(x) v(x) n_{y} \\cdot \\Gamma(x,y) dy dx
 
     for the 1D nonlocal Laplacian.
     """
@@ -638,7 +607,7 @@ cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
             quad_order_diagonal = max(np.ceil(((target_order+1.)*log(self.num_dofs*self.H0)+(2.*smax-1.)*abs(log(self.hmin/self.H0)))/0.8), 2)
         self.quad_order_diagonal = quad_order_diagonal
 
-        if (self.kernel.kernelType != FRACTIONAL) or (not self.kernel.variableOrder):
+        if (self.kernel.kernelType != FRACTIONAL) or (not self.kernel.variableSingularity):
             self.getNearQuadRule(COMMON_VERTEX)
 
     cdef panelType getQuadOrder(self,
@@ -672,6 +641,7 @@ cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
         cdef:
             INDEX_t i
             REAL_t singularityValue = self.kernel.getSingularityValue()
+            REAL_t log_singularityValue = self.kernel.getLogSingularityValue()
             specialQuadRule sQR
             quadratureRule qr
             INDEX_t dof
@@ -684,11 +654,10 @@ cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
             try:
                 sQR = self.specialQuadRules[(singularityValue, panel)]
             except KeyError:
-
                 if singularityValue > -1.+1e-3:
-                    qr = singularityCancelationQuadRule1D_boundary(panel, singularityValue, self.quad_order_diagonal, 1)
+                    qr = singularityCancelationQuadRule1D_boundary(panel, singularityValue, log_singularityValue, self.quad_order_diagonal, 1)
                 else:
-                    qr = singularityCancelationQuadRule1D_boundary(panel, 2.+singularityValue, self.quad_order_diagonal, 1)
+                    qr = singularityCancelationQuadRule1D_boundary(panel, 2.+singularityValue, log_singularityValue, self.quad_order_diagonal, 1)
                 PHI = uninitialized((dofs_per_element, qr.num_nodes), dtype=REAL)
 
                 for dof in range(dofs_per_element):
@@ -704,7 +673,7 @@ cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
                 if qr.num_nodes > self.temp.shape[0]:
                     self.temp = uninitialized((qr.num_nodes, self.kernel.valueSize), dtype=REAL)
             self.qrVertex = sQR.qr
-            self.PHI_vertex = sQR.PHI
+            self.PHI_vertex2 = sQR.PHI
         else:
             raise NotImplementedError('Unknown panel type: {}'.format(panel))
 
@@ -720,66 +689,7 @@ cdef class fractionalLaplacian1D_boundary(fractionalLaplacian1DZeroExterior):
                    REAL_t[:, ::1] contrib,
                    panelType panel,
                    MASK_t mask=ALL):
-        cdef:
-            REAL_t vol = self.vol1, val
-            INDEX_t i, j, k, m, l
-            quadratureRule qr
-            REAL_t[:, ::1] PHI
-            REAL_t[:, ::1] simplex1 = self.simplex1
-            REAL_t[:, ::1] simplex2 = self.simplex2
-            INDEX_t dim = self.DoFMap.mesh.dim
-            REAL_t x[2]
-            REAL_t y[2]
-            INDEX_t dofs_per_element = self.DoFMap.dofs_per_element
-            INDEX_t valueSize = self.kernel.valueSize
-
-        # Kernel:
-        #  \Gamma(x,y) = n \dot (x-y) * C(d,s) / (2s) / |x-y|^{d+2s}
-        # with inward normal n.
-        #
-        # Rewrite as
-        #  \Gamma(x,y) = [ n \dot (x-y)/|x-y| ] * [ C(d,s) / (2s) / |x-y|^{d-1+2s} ]
-        #                                         \--------------------------------/
-        #                                                 |
-        #                                           boundaryKernel
-        #
-        # In 1D:
-        #  n = (x-y)/|x-y|
-        # so
-        #  n \dot (x-y) / |x-y| = 1
-
         if panel >= 1:
             self.eval_distant_boundary(contrib, panel, mask)
-        elif panel == COMMON_VERTEX:
-            qr = self.qrVertex
-            PHI = self.PHI_vertex
-
-            for m in range(qr.num_nodes):
-                for j in range(dim):
-                    x[j] = (simplex1[self.perm1[0], j]*qr.nodes[0, m] +
-                            simplex1[self.perm1[1], j]*qr.nodes[1, m])
-                    y[j] = simplex2[self.perm2[0], j]*qr.nodes[2, m]
-                self.kernel.evalPtr(dim, &x[0], &y[0], &self.vec[0])
-                for l in range(valueSize):
-                    self.temp[m, l] = qr.weights[m] * self.vec[l]
-
-            contrib[:, :] = 0.
-
-            for I in range(dofs_per_element):
-                i = self.perm[I]
-                for J in range(I, dofs_per_element):
-                    j = self.perm[J]
-                    if j < i:
-                        k = dofs_per_element*j-(j*(j+1) >> 1) + i
-                    else:
-                        k = dofs_per_element*i-(i*(i+1) >> 1) + j
-                    if mask[k]:
-                        for l in range(valueSize):
-                            val = 0.
-                            for m in range(qr.num_nodes):
-                                val += self.temp[m, l] * PHI[I, m] * PHI[J, m]
-                            contrib[k, l] = val*vol
         else:
-            raise NotImplementedError('Unknown panel type: {}'.format(panel))
-
-
+            self.eval_near_boundary(contrib, panel, mask)

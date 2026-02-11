@@ -6,11 +6,10 @@
 ###################################################################################
 
 import numpy as np
-from PyNucleus_base.myTypes import REAL, INDEX
+from PyNucleus_base.myTypes import REAL
 from PyNucleus_base.blas import uninitialized
 from . DoFMaps cimport shapeFunction
 from . femCy cimport simplexComputations1D, simplexComputations2D, simplexComputations3D
-from libc.math cimport floor
 
 
 cdef class lookupFunction(function):
@@ -86,20 +85,51 @@ cdef class vectorLookupFunction(vectorFunction):
 
 
 cdef class UniformLookup1D(function):
-    def __init__(self, REAL_t a, REAL_t b, REAL_t[::1] vals):
+    def __init__(self, REAL_t a, REAL_t b, REAL_t[::1] vals, REAL_t outOfBoundsValue=np.nan):
         self.a = a
         self.b = b
         self.vals = vals
         self.dx = (b-a)/(self.vals.shape[0]-1)
         self.invDx = 1./self.dx
+        self.outOfBoundsValue = outOfBoundsValue
 
     cdef REAL_t eval(self, REAL_t[::1] x):
         cdef:
             INDEX_t k
             REAL_t theta
-        k = max(min(INDEX((x[0]-self.a)*self.invDx), self.vals.shape[0]-2), 0)
+        k = <INDEX_t>((x[0]-self.a)*self.invDx)
         theta = (x[0]-self.a-k*self.dx)*self.invDx
-        return (1-theta)*self.vals[k] + theta * self.vals[k+1]
+        if 0 <= k and k < self.vals.shape[0]:
+            return (1-theta)*self.vals[k] + theta * self.vals[k+1]
+        elif k == self.vals.shape[0]-1 and theta < 1e-12:
+            return self.vals[self.vals.shape[0]-1]
+        else:
+            return self.outOfBoundsValue
 
     def __reduce__(self):
         return UniformLookup1D, (self.a, self.b, np.array(self.vals))
+
+    def __repr__(self):
+        return '{}([{}, {}], {})'.format(self.__class__.__name__, self.a, self.b, self.dx)
+
+
+from scipy.interpolate import interp1d
+
+
+cdef class Lookup1D(function):
+    def __init__(self, REAL_t[::1] x, REAL_t[::1] vals, str kind, REAL_t outOfBoundsValue=np.nan):
+        assert x.shape[0] == vals.shape[0]
+        self.x = x
+        self.vals = vals
+        self.kind = kind
+        self.outOfBoundsValue = outOfBoundsValue
+        self.interp = interp1d(self.x, self.vals, kind=kind, fill_value=outOfBoundsValue)
+
+    cdef REAL_t eval(self, REAL_t[::1] x):
+        return self.interp(x[0])
+
+    def __reduce__(self):
+        return Lookup1D, (np.array(self.x), np.array(self.vals), self.kind, self.outOfBoundsValue)
+
+    def __repr__(self):
+        return '{}({})'.format(self.__class__.__name__, self.kind)

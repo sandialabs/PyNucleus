@@ -23,13 +23,12 @@ from PyNucleus_multilevelSolver.levels import (algebraicLevelBase,
 from PyNucleus_multilevelSolver.connectors import (inputConnector,
                                                    repartitionConnector)
 from . twoPointFunctions import constantTwoPoint
-from . kernelsCy import FractionalKernel, RangedFractionalKernel
+from . kernels import FractionalKernel, RangedFractionalKernel
 from . nonlocalAssembly import nonlocalBuilder
 from . operatorInterpolation import (admissibleSet,
                                      getChebyIntervalsAndNodes)
-from . kernels import getFractionalKernel
 from . fractionalOrders import constFractionalOrder
-from . clusterMethodCy import H2Matrix
+from . clusterMethod import H2Matrix
 import numpy as np
 from pathlib import Path
 import h5py
@@ -187,7 +186,7 @@ def getFracLapl(DoFMap, kernel=None, rangedOpParams={}, **kwargs):
             for n in nodes:
                 intervalOps = []
                 for s in n:
-                    kernel = getFractionalKernel(mesh.dim, constFractionalOrder(s), horizon, scaling=scaling, normalized=normalized)
+                    kernel = FractionalKernel.build(dim=mesh.dim, s=constFractionalOrder(s), horizon=horizon, scaling=scaling, normalized=normalized)
                     intervalOps.append(delayedFractionalLaplacianOp(DoFMap, kernel, **kwargs))
                 ops.append(intervalOps)
             A = multiIntervalInterpolationOperator(intervals, nodes, ops)
@@ -201,8 +200,8 @@ def getFracLapl(DoFMap, kernel=None, rangedOpParams={}, **kwargs):
         return A
     else:
         horizon = kernel.horizon
-        scaling = kernel.scaling
-        normalized = not isinstance(scaling, constantTwoPoint)
+        # scaling = kernel.scaling
+        # normalized = not isinstance(scaling, constantTwoPoint)
 
     if tag is None or zeroExterior is None:
         tag, zeroExterior = processBC(tag, boundaryCondition, kernel)
@@ -259,7 +258,7 @@ def getFracLapl(DoFMap, kernel=None, rangedOpParams={}, **kwargs):
         if 'genKernel' in kwargs:
             params['genKernel'] = kwargs['genKernel']
         if kernel is None:
-            kernel = getFractionalKernel(mesh.dim, s, constant(horizon.ranges[0, 0]), scaling=scaling, normalized=normalized)
+            kernel = FractionalKernel.build(dim=mesh.dim, s=s, horizon=constant(horizon.ranges[0, 0]), scaling=scaling, normalized=normalized)
         dm2 = kwargs.pop('dm2', None)
         if dm2 is not None and matrixFormat.upper() in ('H2', 'SPARSE', 'SPARSIFIED') and DoFMap.num_boundary_dofs > 0:
             # currently not implemented
@@ -267,28 +266,19 @@ def getFracLapl(DoFMap, kernel=None, rangedOpParams={}, **kwargs):
             A = getFracLapl(dm, kernel, rangedOpParams={}, **kwargs)
             A = R_interior*A*R_bc.transpose()
             return A
-        builder = nonlocalBuilder(DoFMap, kernel, params, zeroExterior=zeroExterior, comm=comm, logging=logging, PLogger=PLogger, dm2=dm2)
         if diagonal:
-            with timer('Assemble diagonal matrix {}, zeroExterior={}'.format(kernel, zeroExterior)):
-                A = builder.getDiagonal()
+            timerLabel = 'Assemble diagonal matrix {}, zeroExterior={}'.format(kernel, zeroExterior)
         elif matrixFormat.upper() == 'SPARSE':
-            with timer('Assemble sparse matrix {}, zeroExterior={}'.format(kernel, zeroExterior)):
-                A = builder.getSparse()
+            timerLabel = 'Assemble diagonal matrix {}, zeroExterior={}'.format(kernel, zeroExterior)
         elif matrixFormat.upper() == 'SPARSIFIED':
-            with timer('Assemble sparsified matrix {}, zeroExterior={}'.format(kernel, zeroExterior)):
-                A = builder.getDense(trySparsification=True)
+            timerLabel = 'Assemble sparsified matrix {}, zeroExterior={}'.format(kernel, zeroExterior)
         elif matrixFormat.upper() == 'DENSE':
-            with timer('Assemble dense matrix {}, zeroExterior={}'.format(kernel, zeroExterior)):
-                if cached:
-                    A = builder.getDenseCached()
-                else:
-                    A = builder.getDense(trySparsification=trySparsification)
+            timerLabel = 'Assemble dense matrix {}, zeroExterior={}'.format(kernel, zeroExterior)
         else:
-            with timer('Assemble H2 matrix {}, zeroExterior={}'.format(kernel, zeroExterior)):
-                if isinstance(horizon, constant):
-                    A, Pnear = builder.getH2(returnNearField=True)
-                else:
-                    A = builder.getH2FiniteHorizon()
+            timerLabel = 'Assemble H2 matrix {}, zeroExterior={}'.format(kernel, zeroExterior)
+        with timer(timerLabel):
+            A = DoFMap.assembleNonlocal(kernel, params=params, zeroExterior=zeroExterior, comm=comm, logging=logging, PLogger=PLogger, dm2=dm2,
+                                        trySparsification=trySparsification, matrixFormat=matrixFormat)
         if doSave and (comm is None or (comm and comm.rank == 0)):
             if hasattr(A, 'HDF5write'):
                 with timer('Saving'):
@@ -466,7 +456,7 @@ def fractionalHierarchy(mesh, s, NoRef, tag=None, eta=3.,
 
     global_params = {'domain': mesh,
                      'opType': 'Laplacian',
-                     'kernel': getFractionalKernel(mesh.dim, s=s, horizon=np.inf),
+                     'kernel': FractionalKernel.build(dim=mesh.dim, s=s, horizon=np.inf),
                      'horizon': horizon,
                      'tag': tag,
                      'boundaryCondition': boundaryCondition,

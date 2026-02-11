@@ -7,302 +7,46 @@
 
 import numpy as np
 from PyNucleus_base import REAL
-from PyNucleus_base.factory import factory
+
 from PyNucleus_base.utilsFem import problem, generates
-from PyNucleus_fem.mesh import (simpleInterval, intervalWithInteraction,
-                                uniformSquare, squareWithInteractions,
-                                discWithInteraction,
-                                gradedDiscWithInteraction,
-                                graded_interval,
-                                double_graded_interval,
-                                double_graded_interval_with_interaction,
-                                discWithIslands,
-                                twinDisc,
-                                # box,
-                                # boxWithInteractions,
-                                ball)
 from PyNucleus_fem.functions import (Lambda, constant,
                                      indicatorFunctor, squareIndicator, radialIndicator,
-                                     solFractional1D, rhsFractional1D,
-                                     solFractional, rhsFractional2D,
                                      sqrtAffineFunction)
-from PyNucleus_fem.DoFMaps import P1_DoFMap, str2DoFMapOrder
-from PyNucleus_fem.mesh import meshFactory as meshFactoryClass
-from PyNucleus_fem import (PHYSICAL, NO_BOUNDARY,
+from . nonlocal_functions import (solFractional1D, rhsFractional1D,
+                                  solFractional, rhsFractional2D)
+from . factories import rhsFractional2D_nonPeriodic
+from PyNucleus_fem.DoFMaps import str2DoFMapOrder
+from PyNucleus_fem import (NO_BOUNDARY,
                            DIRICHLET, HOMOGENEOUS_DIRICHLET,
                            NEUMANN, HOMOGENEOUS_NEUMANN,
-                           NORM, dofmapFactory)
-from PyNucleus_fem.factories import functionFactory, rhsFractional2D_nonPeriodic
+                           dofmapFactory)
+from PyNucleus_fem.factories import functionFactory
 from scipy.special import gamma as Gamma, binom
 from . twoPointFunctions import (constantTwoPoint,
                                  temperedTwoPoint,
                                  leftRightTwoPoint,
                                  interfaceTwoPoint,
-                                 smoothedLeftRightTwoPoint,
-                                 lambdaTwoPoint,
-                                 lookupTwoPoint)
+                                 smoothedLeftRightTwoPoint)
 from . interactionDomains import (fullSpace,
-                                  ball1_retriangulation,
-                                  ball1_barycenter,
                                   ball2_retriangulation,
                                   ball2_barycenter,
-                                  ballInf_retriangulation,
-                                  ballInf_barycenter,
                                   ellipse_retriangulation,
                                   ellipse_barycenter)
 from . fractionalOrders import (constFractionalOrder,
                                 variableConstFractionalOrder,
                                 constantNonSymFractionalOrder,
                                 leftRightFractionalOrder,
-                                linearLeftRightFractionalOrder,
                                 smoothedLeftRightFractionalOrder,
-                                innerOuterFractionalOrder,
-                                smoothedInnerOuterFractionalOrder,
-                                islandsFractionalOrder,
                                 layersFractionalOrder,
                                 singleVariableUnsymmetricFractionalOrder,
                                 feFractionalOrder)
-from . kernelsCy import (getKernelEnum,
-                         FRACTIONAL, INDICATOR, PERIDYNAMIC, GAUSSIAN, EXPONENTIAL, POLYNOMIAL,
-                         LOGINVERSEDISTANCE, MONOMIAL,
-                         )
-from . kernels import (getFractionalKernel,
-                       getIntegrableKernel,
-                       getKernel)
+from . kernels import (getKernelEnum,
+                       FRACTIONAL, INDICATOR, PERIDYNAMIC, GAUSSIAN, EXPONENTIAL)
+from . factories import (nonlocalMeshFactory,
+                         fractionalOrderFactory,
+                         kernelFactory,
+                         getKernel)
 from copy import deepcopy
-
-
-class fractionalOrderFactoryClass(factory):
-    def build(self, name, *args, **kwargs):
-        dm = None
-        if 'dm' in kwargs:
-            dm = kwargs.pop('dm')
-        if dm is not None:
-            s = self.build(name, *args, **kwargs)
-            assert isinstance(s, (constFractionalOrder, variableConstFractionalOrder,
-                                  constantNonSymFractionalOrder, singleVariableUnsymmetricFractionalOrder))
-            sVec = dm.interpolate(s.fixedY(np.zeros((dm.mesh.dim), dtype=REAL)))
-            return super().build('fe', sVec, s.min, s.max)
-        else:
-            return super().build(name, *args, **kwargs)
-
-
-fractionalOrderFactory = fractionalOrderFactoryClass()
-fractionalOrderFactory.register('constant', constFractionalOrder, aliases=['const'])
-fractionalOrderFactory.register('varConst', variableConstFractionalOrder, aliases=['constVar', 'constantSym'])
-fractionalOrderFactory.register('leftRight', leftRightFractionalOrder, aliases=['twoDomain'])
-fractionalOrderFactory.register('linearLeftRightNonSym', linearLeftRightFractionalOrder)
-fractionalOrderFactory.register('smoothedLeftRight', smoothedLeftRightFractionalOrder, params={'r': 0.1, 'slope': 200.}, aliases=['twoDomainNonSym'])
-fractionalOrderFactory.register('constantNonSym', constantNonSymFractionalOrder)
-fractionalOrderFactory.register('innerOuter', innerOuterFractionalOrder)
-fractionalOrderFactory.register('innerOuterNonSym', smoothedInnerOuterFractionalOrder)
-fractionalOrderFactory.register('islands', islandsFractionalOrder, params={'r': 0.1, 'r2': 0.6})
-fractionalOrderFactory.register('layers', layersFractionalOrder)
-fractionalOrderFactory.register('fe', feFractionalOrder)
-
-twoPointFunctionFactory = factory()
-twoPointFunctionFactory.register('constant', constantTwoPoint, aliases=['const', 'constantTwoPoint'])
-twoPointFunctionFactory.register('tempered', temperedTwoPoint, aliases=['temperedTwoPoint'])
-twoPointFunctionFactory.register('leftRight', leftRightTwoPoint, aliases=['leftRightTwoPoint'])
-twoPointFunctionFactory.register('interface', interfaceTwoPoint, aliases=['interfaceTwoPoint'])
-twoPointFunctionFactory.register('lambda', lambdaTwoPoint)
-twoPointFunctionFactory.register('lookup', lookupTwoPoint)
-
-interactionFactory = factory()
-interactionFactory.register('fullSpace', fullSpace, aliases=['full'])
-interactionFactory.register('ball2_retriangulation', ball2_retriangulation, aliases=['ball2', '2', 2])
-interactionFactory.register('ball2_barycenter', ball2_barycenter)
-interactionFactory.register('ball1_retriangulation', ball1_retriangulation, aliases=['ball1', '1', 1])
-interactionFactory.register('ball1_barycenter', ball1_barycenter)
-interactionFactory.register('ballInf_retriangulation', ballInf_retriangulation, aliases=['ballInf', 'inf', np.inf])
-interactionFactory.register('ballInf_barycenter', ballInf_barycenter)
-interactionFactory.register('ellipse_retriangulation', ellipse_retriangulation, aliases=['ellipse'])
-interactionFactory.register('ellipse_barycenter', ellipse_barycenter)
-
-kernelFactory = factory()
-kernelFactory.register('fractional', getFractionalKernel)
-kernelFactory.register('indicator', getIntegrableKernel, params={'kernel': INDICATOR}, aliases=['constant'])
-kernelFactory.register('inverseDistance', getIntegrableKernel, params={'kernel': PERIDYNAMIC}, aliases=['peridynamic', 'inverseOfDistance'])
-kernelFactory.register('gaussian', getIntegrableKernel, params={'kernel': GAUSSIAN})
-kernelFactory.register('exponential', getIntegrableKernel, params={'kernel': EXPONENTIAL})
-kernelFactory.register('polynomial', getIntegrableKernel, params={'kernel': POLYNOMIAL})
-kernelFactory.register('logInverseDistance', getIntegrableKernel, params={'kernel': LOGINVERSEDISTANCE})
-kernelFactory.register('monomial', getIntegrableKernel, params={'kernel': MONOMIAL})
-
-
-class nonlocalMeshFactoryClass(factory):
-    def __init__(self):
-        super(nonlocalMeshFactoryClass, self).__init__()
-        self.nonOverlappingMeshFactory = meshFactoryClass()
-        self.overlappingMeshFactory = meshFactoryClass()
-
-    def register(self, name, classTypeNoOverlap, classTypeOverlap, dim, indicators, paramsNoOverlap={}, paramsOverlap={}, aliases=[]):
-        if classTypeNoOverlap is not None:
-            self.nonOverlappingMeshFactory.register(name, classTypeNoOverlap, dim, paramsNoOverlap, aliases)
-        if classTypeOverlap is not None:
-            self.overlappingMeshFactory.register(name, classTypeOverlap, dim, paramsOverlap, aliases)
-        super(nonlocalMeshFactoryClass, self).register(name, indicators)
-
-    def build(self, name, kernel, boundaryCondition, noRef=0, useMulti=False, **kwargs):
-        skipMesh = False
-        if 'skipMesh' in kwargs:
-            skipMesh = kwargs.pop('skipMesh')
-
-        if kernel is None:
-            horizonValue = 0.
-        elif isinstance(kernel.horizon, constant):
-            horizonValue = kernel.horizon.value
-        else:
-            horizonValue = kernel.max_horizon
-
-        domainIndicator, boundaryIndicator, interactionIndicator = super(nonlocalMeshFactoryClass, self).build(name, **kwargs)
-
-        if boundaryCondition == HOMOGENEOUS_DIRICHLET:
-            if horizonValue == np.inf:
-                # if kernel.s.max < 0.5:
-                #     tag = NO_BOUNDARY
-                # else:
-                #     tag = PHYSICAL
-                tag = PHYSICAL
-                zeroExterior = True
-            else:
-                tag = domainIndicator
-                zeroExterior = False
-            hasInteractionDomain = 0 < horizonValue < np.inf
-        elif boundaryCondition == HOMOGENEOUS_NEUMANN:
-            tag = NO_BOUNDARY
-            zeroExterior = False
-            hasInteractionDomain = False
-        elif boundaryCondition == DIRICHLET:
-            if horizonValue == np.inf:
-                if kernel.s.max < 0.5:
-                    tag = NO_BOUNDARY
-                else:
-                    tag = PHYSICAL
-                raise NotImplementedError("Non-homogeneous Dirichlet conditions for infinite horizon kernels are not implemented.")
-            else:
-                tag = NO_BOUNDARY
-            zeroExterior = False
-            hasInteractionDomain = 0 < horizonValue < np.inf
-        elif boundaryCondition == NEUMANN:
-            if horizonValue == np.inf:
-                assert False
-            else:
-                tag = NO_BOUNDARY
-            zeroExterior = False
-            hasInteractionDomain = True
-        elif boundaryCondition == NORM:
-            tag = PHYSICAL
-            zeroExterior = kernel.s.max >= 0.5
-            hasInteractionDomain = False
-        else:
-            raise NotImplementedError('Unknown boundary condition {}'.format(boundaryCondition))
-
-        if not skipMesh:
-            if hasInteractionDomain:
-                assert 0 < horizonValue < np.inf, horizonValue
-                kwargs['horizon'] = horizonValue
-                mesh = self.overlappingMeshFactory.build(name, noRef, **kwargs)
-            else:
-                mesh = self.nonOverlappingMeshFactory.build(name, noRef, **kwargs)
-
-            dmTest = P1_DoFMap(mesh, tag)
-            while dmTest.num_dofs == 0:
-                mesh = mesh.refine()
-                dmTest = P1_DoFMap(mesh, tag)
-
-        nonlocalInfo = {'domain': domainIndicator,
-                        'boundary': boundaryIndicator,
-                        'interaction': interactionIndicator,
-                        'tag': tag,
-                        'zeroExterior': zeroExterior}
-        if not skipMesh:
-            return mesh, nonlocalInfo
-        else:
-            return nonlocalInfo
-
-    def getDim(self, name):
-        return self.nonOverlappingMeshFactory.getDim(name)
-
-
-def intervalIndicators(a=-1, b=1, **kwargs):
-    eps = 1e-12
-    domainIndicator = squareIndicator(np.array([a+eps], dtype=REAL),
-                                      np.array([b-eps], dtype=REAL))
-    interactionIndicator = Lambda(lambda x: 1. if ((x[0] < a-eps) or (b+eps < x[0])) else 0.)
-    boundaryIndicator = Lambda(lambda x: 1. if ((a-eps < x[0] < a+eps) or (b-eps < x[0] < b+eps)) else 0.)
-    return domainIndicator, boundaryIndicator, interactionIndicator
-
-
-def squareIndicators(ax=-1., ay=-1., bx=1., by=1., **kwargs):
-    eps = 1e-12
-    domainIndicator = squareIndicator(np.array([ax+eps, ay+eps], dtype=REAL),
-                                      np.array([bx-eps, by-eps], dtype=REAL))
-    interactionIndicator = constant(1.)-squareIndicator(np.array([ax-eps, ay-eps], dtype=REAL),
-                                                        np.array([bx+eps, by+eps], dtype=REAL))
-    boundaryIndicator = constant(1.)-domainIndicator-interactionIndicator
-    return domainIndicator, boundaryIndicator, interactionIndicator
-
-
-def radialIndicators(*args, **kwargs):
-    eps = 1e-12
-    domainIndicator = radialIndicator(1.-eps)
-    interactionIndicator = constant(1.)-radialIndicator(1.+eps)
-    boundaryIndicator = radialIndicator(1.+eps)-radialIndicator(1.-eps)
-    return domainIndicator, boundaryIndicator, interactionIndicator
-
-
-def twinDiscIndicators(radius=1., sep=0.1, **kwargs):
-    eps = 1e-9
-    domainIndicator = (radialIndicator(radius-eps, np.array([sep/2+radius, 0.], dtype=REAL)) +
-                       radialIndicator(radius-eps, np.array([-sep/2-radius, 0.], dtype=REAL)))
-    interactionIndicator = constant(1.)-(radialIndicator(radius+eps, np.array([sep/2+radius, 0.], dtype=REAL)) +
-                                         radialIndicator(radius+eps, np.array([-sep/2-radius, 0.], dtype=REAL)))
-    boundaryIndicator = ((radialIndicator(radius+eps, np.array([sep/2+radius, 0.], dtype=REAL)) +
-                          radialIndicator(radius+eps, np.array([-sep/2-radius, 0.], dtype=REAL))) -
-                         (radialIndicator(radius-eps, np.array([sep/2+radius, 0.], dtype=REAL)) +
-                          radialIndicator(radius-eps, np.array([-sep/2-radius, 0.], dtype=REAL))))
-    return domainIndicator, boundaryIndicator, interactionIndicator
-
-
-def boxIndicators(ax=-1., ay=-1., az=-1., bx=1., by=1., bz=1., **kwargs):
-    eps = 1e-9
-    domainIndicator = squareIndicator(np.array([ax+eps, ay+eps, az+eps], dtype=REAL),
-                                      np.array([bx-eps, by-eps, bz-eps], dtype=REAL))
-    interactionIndicator = constant(1.)-squareIndicator(np.array([ax-eps, ay-eps, az-eps], dtype=REAL),
-                                                        np.array([bx+eps, by+eps, bz+eps], dtype=REAL))
-    boundaryIndicator = constant(1.)-domainIndicator-interactionIndicator
-    return domainIndicator, boundaryIndicator, interactionIndicator
-
-
-def ballWithInteractions(*args, **kwargs):
-    radius = kwargs.get('radius')
-    horizon = kwargs.get('horizon')
-    kwargs['radius'] = radius+horizon
-    return ball(**kwargs)
-
-
-nonlocalMeshFactory = nonlocalMeshFactoryClass()
-nonlocalMeshFactory.register('interval', simpleInterval, intervalWithInteraction, 1, intervalIndicators,
-                             {'a': -1, 'b': 1}, {'a': -1, 'b': 1})
-nonlocalMeshFactory.register('gradedInterval', graded_interval, double_graded_interval_with_interaction, 1, intervalIndicators,
-                             {'a': -1, 'b': 1, 'mu': 2., 'mu2': 2.}, {'a': -1, 'b': 1, 'mu_ll': 2., 'mu_rr': 2.})
-nonlocalMeshFactory.register('square', uniformSquare, squareWithInteractions, 2, squareIndicators,
-                             {'N': 2, 'M': 2, 'ax': -1, 'ay': -1, 'bx': 1, 'by': 1}, {'ax': -1, 'ay': -1, 'bx': 1, 'by': 1}, aliases=['rectangle'])
-nonlocalMeshFactory.register('disc', discWithInteraction, discWithInteraction, 2, radialIndicators,
-                             {'horizon': 0., 'radius': 1.}, {'radius': 1.})
-nonlocalMeshFactory.register('gradedDisc', gradedDiscWithInteraction, gradedDiscWithInteraction, 2, radialIndicators,
-                             {'horizon': 0., 'radius': 1.}, {'radius': 1.})
-nonlocalMeshFactory.register('discWithIslands', discWithIslands, discWithIslands, 2, radialIndicators,
-                             {'horizon': 0., 'radius': 1., 'islandOffCenter': 0.35, 'islandDiam': 0.5},
-                             {'radius': 1., 'islandOffCenter': 0.35, 'islandDiam': 0.5})
-nonlocalMeshFactory.register('twinDisc', twinDisc, twinDisc, 2, radialIndicators,
-                             {'radius': 1., 'sep': 0.1}, {'radius': 1., 'sep': 0.1})
-# nonlocalMeshFactory.register('box', box, boxWithInteractions, 3, boxIndicators,
-#                              {'Nx': 2, 'Ny': 2, 'Nz': 2, 'ax': -1, 'ay': -1, 'az': -1, 'bx': 1, 'by': 1, 'bz': 1},
-#                              {'Nx': 2, 'Ny': 2, 'Nz': 2, 'ax': -1, 'ay': -1, 'az': -1, 'bx': 1, 'by': 1, 'bz': 1})
-nonlocalMeshFactory.register('ball', ball, ballWithInteractions, 3, radialIndicators,
-                             {'radius': 1.}, {'radius': 1.})
 
 
 class nonlocalBaseProblem(problem):
@@ -348,6 +92,8 @@ class nonlocalBaseProblem(problem):
         self.setDriverFlag('discretizedOrder', False, help='Use a FE function for the fractional order s.', group=p)
         self.setDriverFlag('gaussianVariance', 1.0, help='Variance of Gaussian kernel with infinite horizon.', group=p)
         self.setDriverFlag('exponentialRate', 1.0, help='Parameter of exponential kernel.', group=p)
+        self.setDriverFlag('interpolationMaxDist', 0., group=p)
+        self.setDriverFlag('interpolationNumNodes', 0, group=p)
 
     def processCmdline(self, params):
         dim = nonlocalMeshFactory.getDim(params['domain'])
@@ -416,7 +162,8 @@ class nonlocalBaseProblem(problem):
 
     @generates(['kernel', 'rangedKernel'])
     def processKernel(self, dim, kernelType, sType, sArgs, phiType, phiArgs, horizon, interaction, normalized, admissibleParams,
-                      discretizedOrder, dmAux, feOrder, gaussianVariance, exponentialRate):
+                      discretizedOrder, dmAux, feOrder, gaussianVariance, exponentialRate,
+                      interpolationNumNodes, interpolationMaxDist):
 
         if kernelType == 'local':
             self.kernel = None
@@ -427,7 +174,7 @@ class nonlocalBaseProblem(problem):
         if admissibleParams is not None:
             assert kType == FRACTIONAL
             assert sType == 'const'
-            from PyNucleus_nl.kernelsCy import RangedFractionalKernel
+            from PyNucleus_nl.kernels import RangedFractionalKernel
             rangedKernel = self.directlyGetWithoutChecks('rangedKernel')
             if rangedKernel is None or not isinstance(rangedKernel, RangedFractionalKernel):
                 self.rangedKernel = RangedFractionalKernel(dim,
@@ -514,18 +261,39 @@ class nonlocalBaseProblem(problem):
         if sFun is not None:
             piecewise &= sFun.symmetric
         piecewise &= isinstance(horizonFun, constant)
-        self.kernel = getKernel(dim=dim, kernel=kType, s=sFun, horizon=horizonFun, normalized=normalized, phi=phiFun,
-                                interaction=interactionFun, piecewise=piecewise,
-                                max_horizon=max_horizon,
-                                variance=gaussianVariance,
-                                exponentialRate=exponentialRate)
+        kernel = getKernel(dim=dim, kernel=kType, s=sFun, horizon=horizonFun, normalized=normalized, phi=phiFun,
+                           interaction=interactionFun, piecewise=piecewise,
+                           max_horizon=max_horizon,
+                           variance=gaussianVariance,
+                           exponentialRate=exponentialRate)
+
+        if interpolationNumNodes > 0 and interpolationMaxDist > 0.:
+            if kernel.singularityValue < 0.:
+                interpolation_nodes = np.linspace(0., interpolationMaxDist, interpolationNumNodes+1)[1:]
+            else:
+                interpolation_nodes = np.linspace(0., interpolationMaxDist, interpolationNumNodes)
+            kernel = kernel.interpolate(interpolation_nodes)
+        self.kernel = kernel
 
     def report(self, group):
+        from . kernels import Kernel, FractionalKernel, MultiSingularityKernel, MultiSingularityFractionalKernel
         group.add('kernel', self.kernel)
         if self.kernel is not None:
-            if self.kernel.kernelType == FRACTIONAL:
+            group.add('kernel expression', self.kernel.getLongDescription())
+            group.add('boundary kernel expression', self.kernel.getBoundaryKernel().getLongDescription())
+            if isinstance(self.kernel, FractionalKernel):
                 group.add('s', self.kernel.s)
+            if isinstance(self.kernel, MultiSingularityFractionalKernel):
+                group.add('s', self.kernel.kernels[0].s)
+            if isinstance(self.kernel, Kernel):
+                group.add('interaction', self.kernel.interaction)
+            if isinstance(self.kernel, MultiSingularityKernel):
+                group.add('interaction', self.kernel.kernels[0].interaction)
             group.add('horizon', self.horizon)
+            if hasattr(self.kernel, 'phi') and self.kernel.phi is not None:
+                group.add('phi', self.kernel.phi)
+        group.add('problem', self.problemDescription)
+        group.add('has analytic solution', self.analyticSolution is not None)
 
 
 class fractionalLaplacianProblem(nonlocalBaseProblem):
@@ -692,13 +460,13 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                     def fun(x):
                         kernel.evalParams_py(x, x)
                         sVal = kernel.sValue
-                        fac = 2*kernel.scalingValue
+                        fac = kernel.scalingValue
                         return fac/(2*sVal-1) * ((1-x[0])**(1-2*sVal) - (1+x[0])**(1-2*sVal))
 
                 else:
 
                     sVal = s.value
-                    fac = 2*kernel.scalingValue
+                    fac = kernel.scalingValue
                     assert sVal != 0.5
 
                     def fun(x):
@@ -709,21 +477,10 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                 L2_ex = np.sqrt(2/3)
             elif problem == 'knownSolution':
                 self.problemDescription = "Known analytic solution for variable fractional order, homogeneous Dirichlet volume condition"
-                from scipy.special import hyp2f1
-                assert isinstance(s, (constFractionalOrder, variableConstFractionalOrder,
-                                      constantNonSymFractionalOrder, singleVariableUnsymmetricFractionalOrder)), s
-
                 beta = 0.7
-
-                def fun(x):
-                    kernel.evalParams_py(x, x)
-                    sVal = kernel.sValue
-
-                    return 2**(2*sVal) * Gamma(sVal+0.5)*Gamma(beta+1.)/np.sqrt(np.pi)/Gamma(beta+1.-sVal) * hyp2f1(sVal+0.5, -beta+sVal, 0.5, x[0]**2)
-
-                self.rhs = functionFactory('Lambda', fun)
-                self.analyticSolution = functionFactory('Lambda', lambda x: (1.-x[0]**2)**beta)
-                L2_ex = np.sqrt(np.sqrt(np.pi) * Gamma(1+2*beta)/Gamma(3/2+2*beta) * radius**2)
+                self.rhs = functionFactory('rhsArbitraryOrder', dim, beta, s)
+                self.analyticSolution = functionFactory('solutionArbitraryOrder', dim, beta)
+                L2_ex = self.analyticSolution.L2norm
             elif problem == 'Greens':
                 self.problemDescription = "Narrow indicator function forcing, homogeneous Neumann volume condition"
                 boundaryCondition = HOMOGENEOUS_NEUMANN
@@ -782,21 +539,10 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
                 self.rhs = Lambda(lambda x: np.sin(np.pi*(x[0]**2+x[1]**2)))
             elif problem == 'knownSolution':
                 self.problemDescription = "Known analytic solution for variable fractional order, homogeneous Dirichlet volume condition"
-                from scipy.special import hyp2f1
-                assert isinstance(s, (constFractionalOrder, variableConstFractionalOrder,
-                                      constantNonSymFractionalOrder, singleVariableUnsymmetricFractionalOrder)), s
-
                 beta = 0.7
-
-                def fun(x):
-                    kernel.evalParams_py(x, x)
-                    sVal = kernel.sValue
-
-                    return 2**(2*sVal) * Gamma(sVal+1.0)*Gamma(beta+1.)/Gamma(beta+1.-sVal) * hyp2f1(sVal+1.0, -beta+sVal, 1.0, np.linalg.norm(x)**2)
-
-                self.rhs = functionFactory('Lambda', fun)
-                self.analyticSolution = functionFactory('Lambda', lambda x: max(1.-np.linalg.norm(x)**2, 0.)**beta)
-                L2_ex = np.sqrt(np.pi/(1+2*beta)*radius**2)
+                self.rhs = functionFactory('rhsArbitraryOrder', dim, beta, s)
+                self.analyticSolution = functionFactory('solutionArbitraryOrder', dim, beta)
+                L2_ex = self.analyticSolution.L2norm
             else:
                 raise NotImplementedError(problem)
         elif domain == 'square':
@@ -913,19 +659,21 @@ class fractionalLaplacianProblem(nonlocalBaseProblem):
 class nonlocalPoissonProblem(nonlocalBaseProblem):
     def setDriverArgs(self):
         super().setDriverArgs()
-        self.setDriverFlag('domain', 'interval', acceptedValues=['gradedInterval', 'square', 'disc', 'gradedDisc', 'discWithIslands'], help='spatial domain')
+        self.setDriverFlag('domain', 'interval', acceptedValues=['gradedInterval', 'square', 'disc', 'gradedDisc', 'discWithIslands', 'ball'], help='spatial domain')
         self.addParametrizedArg('indicator', [float, float])
         self.addParametrizedArg('polynomial', [int])
         self.addParametrizedArg('linear1d', [float])
         self.addParametrizedArg('quadratic1d', [float, float])
+        self.addParametrizedArg('constant2d', [float])
         self.addParametrizedArg('linear2d', [float, float])
         self.addParametrizedArg('quadratic2d', [float, float, float])
         self.setDriverFlag('problem', 'poly-Dirichlet',
-                           argInterpreter=self.argInterpreter(['indicator', 'polynomial', 'linear1d', 'quadratic1d', 'linear2d', 'quadratic2d'],
+                           argInterpreter=self.argInterpreter(['indicator', 'polynomial', 'linear1d', 'quadratic1d', 'constant2d', 'linear2d', 'quadratic2d'],
                                                               acceptedValues=['poly-Dirichlet',
                                                                               'poly-Neumann', 'zeroFlux', 'source', 'constant', 'gaussian', 'exponential',
                                                                               'exact-sin-Dirichlet', 'exact-sin-Neumann', 'sin-Dirichlet', 'discontinuous']),
                            help="select a problem to solve")
+        self.setDriverFlag('boundaryConditionType', acceptedValues=['default', 'dirichlet', 'neumann'])
         self.setDriverFlag('hTarget', argInterpreter=float, help="mesh size of initial mesh")
         self.setDriverFlag('noRef', argInterpreter=int, help="number of uniform mesh refinements applied to initial mesh")
         self.setDriverFlag('element', acceptedValues=['P1', 'P0', 'P2'], help="finite element space")
@@ -943,6 +691,8 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                 noRef = 4
             elif domain == 'discWithIslands':
                 noRef = 4
+            elif domain == 'ball':
+                noRef = 1
             else:
                 raise NotImplementedError(domain)
             params['noRef'] = noRef
@@ -954,7 +704,7 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                 'rhs', 'rhsData', 'dirichletData', 'fluxData',
                 'analyticSolution', 'exactL2Squared', 'exactHsSquared',
                 'problemDescription'])
-    def processProblem(self, kernel, domain, problem, normalized):
+    def processProblem(self, kernel, domain, problem, normalized, boundaryConditionType):
         if kernel is not None:
             kType = kernel.kernelType
             phiFun = kernel.phi
@@ -974,14 +724,21 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
 
         self.problemDescription = ""
 
-        if problem in ('poly-Neumann', 'exact-sin-Neumann', 'zeroFlux'):
-            self.boundaryCondition = NEUMANN
-        elif self.parametrizedArg('indicator').match(problem):
-            self.boundaryCondition = HOMOGENEOUS_DIRICHLET
-        elif problem in ('source', 'constant', 'gaussian', 'exponential'):
-            self.boundaryCondition = HOMOGENEOUS_DIRICHLET
-        else:
+        if boundaryConditionType.upper() == 'DEFAULT':
+            if problem in ('poly-Neumann', 'exact-sin-Neumann', 'zeroFlux'):
+                self.boundaryCondition = NEUMANN
+            elif self.parametrizedArg('indicator').match(problem):
+                self.boundaryCondition = HOMOGENEOUS_DIRICHLET
+            elif problem in ('source', 'constant', 'gaussian', 'exponential'):
+                self.boundaryCondition = HOMOGENEOUS_DIRICHLET
+            else:
+                self.boundaryCondition = DIRICHLET
+        elif boundaryConditionType.upper() == 'DIRICHLET':
             self.boundaryCondition = DIRICHLET
+        elif boundaryConditionType.upper() == 'NEUMANN':
+            self.boundaryCondition = NEUMANN
+        else:
+            raise NotImplementedError(boundaryConditionType)
 
         mesh_params = {'kernel': kernel, 'boundaryCondition': self.boundaryCondition}
         if domain in ('interval', 'gradedInterval'):
@@ -1043,7 +800,12 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
             elif (self.parametrizedArg('linear1d').match(problem) or
                   self.parametrizedArg('quadratic1d').match(problem)):
 
-                self.domainIndicator = domainIndicator
+                if self.boundaryCondition == DIRICHLET:
+                    self.domainIndicator = domainIndicator
+                    self.fluxIndicator = constant(0)
+                else:
+                    self.domainIndicator = domainIndicator
+                    self.fluxIndicator = interactionIndicator+boundaryIndicator
 
                 # u(x) = x \dot (Bx) + c \dot x + d
 
@@ -1071,7 +833,7 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                     b = kernel.horizon.c
 
                     self.fluxIndicator = constant(0)
-                    C = 2.*kernel.scalingValue
+                    C = kernel.scalingValue
 
                     trB = B[0, 0]
 
@@ -1082,9 +844,9 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                         return 2*np.vdot(a, x) + b + np.vdot(a, a)
 
                     if isinstance(kernel.interaction, ball2_retriangulation):
-                        self.rhsData =  -C*2. * functionFactory('Lambda',
-                                                                lambda x: trB/3. * (delta_x_squared(x)**(3/2) + delta_tilde_x_squared(x)**(3/2))
-                                                                + np.vdot(c+2*B@x+B@a, a) * delta_tilde_x_squared(x)**(1/2))
+                        self.rhsData = -C*2. * functionFactory('Lambda',
+                                                               lambda x: trB/3. * (delta_x_squared(x)**(3/2) + delta_tilde_x_squared(x)**(3/2))
+                                                               + np.vdot(c+2*B@x+B@a, a) * delta_tilde_x_squared(x)**(1/2))
                     elif isinstance(kernel.interaction, ball2_dilation_retriangulation):
                         self.rhsData = -C * functionFactory('Lambda',
                                                             lambda x: trB/3. * (delta_x_squared(x)**(3/2) + (delta_tilde_x_squared(x)**(1/2)-a[0])**3)
@@ -1095,7 +857,7 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
 
                     self.fluxData = constant(0)
                     self.dirichletData = functionFactory('Lambda', lambda x: np.vdot(x, B@x) + np.vdot(c, x) + d)
-                    if (kType == INDICATOR) and (phiFun is None) and (not normalized) and isinstance(interactionFun, ball2_retriangulation):
+                    if (kType == INDICATOR) and (phiFun is None) and (not normalized) and isinstance(interactionFun, ball2_retriangulation) and self.boundaryCondition == DIRICHLET:
                         self.analyticSolution = self.dirichletData
                 else:
                     raise NotImplementedError()
@@ -1110,7 +872,7 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
 
                 sin = functionFactory('sin1d')
                 if kType == INDICATOR:
-                    self.rhsData = -2.*scalingValue * 2*(np.sin(np.pi*horizonValue)/np.pi-horizonValue) * sin
+                    self.rhsData = -scalingValue * 2*(np.sin(np.pi*horizonValue)/np.pi-horizonValue) * sin
                 elif kType == FRACTIONAL:
                     from scipy.integrate import quad
                     assert isinstance(sFun, constFractionalOrder)
@@ -1128,7 +890,7 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                             return 0.
 
                     Phi_delta = Phi(horizonValue)
-                    self.rhsData = 4 * scalingValue * Phi_delta * sin
+                    self.rhsData = 2 * scalingValue * Phi_delta * sin
                 self.fluxData = constant(0)
                 self.dirichletData = sin
                 self.analyticSolution = sin
@@ -1161,15 +923,15 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
 
                     Psi = lambda delta_min, delta_max: quad(lambda y: np.sin(np.pi*y)/y**(1+2*sBase), delta_min, delta_max)[0]
                     Phi_delta = Phi(horizonValue)
-                    self.rhsData = 4 * scalingValue * Phi_delta * sin
+                    self.rhsData = 2 * scalingValue * Phi_delta * sin
 
                     def fluxFun(x):
                         dist = 1+horizonValue-abs(x[0])
                         assert dist >= 0
                         if x[0] > 0:
-                            return 2 * scalingValue * ((Phi_delta + Phi(dist)) * sin(x) + (Psi(dist, horizonValue)) * cos(x))
+                            return scalingValue * ((Phi_delta + Phi(dist)) * sin(x) + (Psi(dist, horizonValue)) * cos(x))
                         else:
-                            return 2 * scalingValue * ((Phi_delta + Phi(dist)) * sin(x) - (Psi(dist, horizonValue)) * cos(x))
+                            return scalingValue * ((Phi_delta + Phi(dist)) * sin(x) - (Psi(dist, horizonValue)) * cos(x))
 
                     self.fluxData = Lambda(fluxFun)
                 self.dirichletData = sin
@@ -1205,18 +967,18 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                         # return (1+(dist/horizonBase)**(2-2*sBase) - 2*abs(x[0]) * (2-2*sBase)/(1-2*sBase)/horizonBase * (1-(dist/horizonBase)**(1-2*sBase)))
                         dist = 1+horizonBase-abs(x[0])
                         assert dist >= 0
-                        return 2*self.kernel.scalingValue * ((2*abs(x[0])/(1-2*sBase)) * (dist**(1-2*sBase)-horizonBase**(1-2*sBase)) +
-                                                             1/(2-2*sBase) * (dist**(2-2*sBase)+horizonBase**(2-2*sBase)))
+                        return self.kernel.scalingValue * ((2*abs(x[0])/(1-2*sBase)) * (dist**(1-2*sBase)-horizonBase**(1-2*sBase)) +
+                                                           1/(2-2*sBase) * (dist**(2-2*sBase)+horizonBase**(2-2*sBase)))
                 elif kType == PERIDYNAMIC:
                     def fluxFun(x):
                         dist = 1+horizonBase-abs(x[0])
                         assert dist >= 0
-                        return 2*self.kernel.scalingValue * (2*abs(x[0]) * (1-abs(x[0])) + 0.5 * (dist**2+horizonBase**2))
+                        return self.kernel.scalingValue * (2*abs(x[0]) * (1-abs(x[0])) + 0.5 * (dist**2+horizonBase**2))
                 elif kType == INDICATOR:
                     def fluxFun(x):
                         dist = 1+horizonBase-abs(x[0])
                         assert dist >= 0
-                        return 2*self.kernel.scalingValue * (abs(x[0]) * (dist**2-horizonBase**2) + 1./3. * (dist**3+horizonBase**3))
+                        return self.kernel.scalingValue * (abs(x[0]) * (dist**2-horizonBase**2) + 1./3. * (dist**3+horizonBase**3))
 
                 self.rhsData = constant(2)
                 self.fluxData = Lambda(fluxFun)
@@ -1261,7 +1023,7 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                 self.interactionIndicator = interactionIndicator+boundaryIndicator
                 self.rhsData = functionFactory('Lambda', lambda x:
                                                np.exp(-0.5*x[0]**2/gaussian_variance)
-                                               -np.exp(-0.25*x[0]**2/gaussian_variance)/np.sqrt(2))
+                                               - np.exp(-0.25*x[0]**2/gaussian_variance)/np.sqrt(2))
                 self.fluxData = constant(0)
                 self.dirichletData = constant(0.)
                 if (kType == GAUSSIAN) and not self.kernel.finiteHorizon:
@@ -1277,7 +1039,7 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                 self.domainIndicator = domainIndicator
                 self.fluxIndicator = constant(0)
                 self.interactionIndicator = interactionIndicator+boundaryIndicator
-                self.rhsData = functionFactory('Lambda', lambda x: np.exp(-exponentialRate*abs(x[0])) * (1/exponentialRate-abs(x[0])) * kernel.scalingValue * 2.0)
+                self.rhsData = functionFactory('Lambda', lambda x: np.exp(-exponentialRate*abs(x[0])) * (1/exponentialRate-abs(x[0])) * kernel.scalingValue)
                 self.fluxData = constant(0)
                 self.dirichletData = constant(0.)
                 if (kType == EXPONENTIAL) and not self.kernel.finiteHorizon:
@@ -1343,13 +1105,30 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                         phiFun is None and
                         normalized):
                     self.analyticSolution = Lambda(lambda x: 1-x[0]**2)
-            elif (self.parametrizedArg('linear2d').match(problem) or
+            elif (self.parametrizedArg('constant2d').match(problem) or
+                  self.parametrizedArg('linear2d').match(problem) or
                   self.parametrizedArg('quadratic2d').match(problem)):
+
+                if self.boundaryCondition == DIRICHLET:
+                    self.domainIndicator = domainIndicator
+                    self.fluxIndicator = constant(0)
+                elif self.boundaryCondition == NEUMANN:
+                    self.domainIndicator = domainIndicator
+                    self.fluxIndicator = interactionIndicator+boundaryIndicator
+                else:
+                    raise NotImplementedError()
 
                 # u(x) = x \dot (Bx) + c \dot x + d
 
-                if self.parametrizedArg('linear2d').match(problem):
-                    self.problemDescription = "rhs giving rise to quadratic solution"
+                if self.parametrizedArg('constant2d').match(problem):
+                    self.problemDescription = "rhs giving rise to constant solution"
+
+                    B = np.zeros((2, 2), dtype=REAL)
+                    c = np.zeros((2), dtype=REAL)
+                    d, = self.parametrizedArg('constant2d').interpret(problem)
+
+                elif self.parametrizedArg('linear2d').match(problem):
+                    self.problemDescription = "rhs giving rise to linear solution"
 
                     B = np.zeros((2, 2), dtype=REAL)
                     c = np.zeros((2), dtype=REAL)
@@ -1369,7 +1148,7 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
 
                     if isinstance(self.kernel.interaction.a, constant) and isinstance(self.kernel.interaction.b, constant) and isinstance(self.kernel.interaction.theta, constant):
                         horizon = self.kernel.horizonValue
-                        C = 2.*kernel.scalingValue
+                        C = kernel.scalingValue
 
                         theta = self.kernel.interaction.theta.value
                         a = self.kernel.interaction.a.value
@@ -1388,7 +1167,7 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                         def fun(x):
 
                             horizon = self.kernel.horizonValue
-                            C = 2.*kernel.scalingValue
+                            C = kernel.scalingValue
 
                             theta = self.kernel.interaction.theta(x)
                             a = self.kernel.interaction.a(x)
@@ -1406,13 +1185,11 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
 
                         self.rhsData = functionFactory('Lambda', fun)
 
-                    self.fluxIndicator = constant(0)
-
                     self.fluxData = constant(0)
                     self.dirichletData = functionFactory('Lambda', lambda x: np.vdot(x, B@x) + np.vdot(c, x) + d)
-                    if (phiFun is None and normalized):
+                    if (kType == INDICATOR) and (phiFun is None) and (self.boundaryCondition == DIRICHLET):
                         self.analyticSolution = self.dirichletData
-                elif isinstance(kernel.horizon, sqrtAffineFunction):
+                elif isinstance(interactionFun, (ball2_barycenter, ball2_retriangulation)) and isinstance(kernel.horizon, sqrtAffineFunction):
                     # \delta         = \sqrt{2 a \cdot x + b}
                     # \tilde{\delta} = \sqrt{2 a \cdot x + b + a \cdot a}
 
@@ -1420,6 +1197,29 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                     b = kernel.horizon.c
 
                     self.fluxIndicator = constant(0)
+                    C = kernel.scalingValue
+                    trB = B[0, 0] + B[1, 1]
+
+                    def delta_x_squared(x):
+                        return 2*np.vdot(a, x) + b
+
+                    def delta_tilde_x_squared(x):
+                        return 2*np.vdot(a, x) + b + np.vdot(a, a)
+
+                    self.rhsData = -C*np.pi * functionFactory('Lambda',
+                                                              lambda x: 0.25*trB * (delta_x_squared(x)**2 + delta_tilde_x_squared(x)**2)
+                                                              + np.vdot(c+2*B@x+B@a, a) * delta_tilde_x_squared(x))
+                    self.fluxData = constant(0)
+                    self.dirichletData = functionFactory('Lambda', lambda x: np.vdot(x, B@x) + np.vdot(c, x) + d)
+                    if (kType == INDICATOR) and (phiFun is None) and (not normalized) and (self.boundaryCondition == DIRICHLET):
+                        self.analyticSolution = self.dirichletData
+                elif isinstance(interactionFun, ball2_dilation_retriangulation):
+                    # \delta         = \sqrt{2 a \cdot x + b}
+                    # \tilde{\delta} = \sqrt{2 a \cdot x + b + a \cdot a}
+
+                    a = 0.5*np.array(kernel.horizon.w)
+                    b = kernel.horizon.c
+
                     C = 2.*kernel.scalingValue
                     trB = B[0, 0] + B[1, 1]
 
@@ -1434,7 +1234,7 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                                                               + np.vdot(c+2*B@x+B@a, a) * delta_tilde_x_squared(x))
                     self.fluxData = constant(0)
                     self.dirichletData = functionFactory('Lambda', lambda x: np.vdot(x, B@x) + np.vdot(c, x) + d)
-                    if (kType == INDICATOR) and (phiFun is None) and (not normalized) and isinstance(interactionFun, ball2_retriangulation):
+                    if (kType == INDICATOR) and (phiFun is None) and (not normalized) and (self.boundaryCondition == DIRICHLET):
                         self.analyticSolution = self.dirichletData
                 else:
                     raise NotImplementedError()
@@ -1572,6 +1372,27 @@ class nonlocalPoissonProblem(nonlocalBaseProblem):
                 self.rhsData = constant(1.)
                 self.fluxData = constant(0)
                 self.dirichletData = constant(0)
+            else:
+                raise NotImplementedError(problem)
+        elif domain == 'ball':
+            mesh_domain = domain
+            nI = nonlocalMeshFactory.build(mesh_domain, skipMesh=True, **mesh_params)
+            self.tag = nI['tag']
+            self.zeroExterior = nI['zeroExterior']
+            self.domainInteriorIndicator = domainIndicator = nI['domain']
+            self.boundaryIndicator = boundaryIndicator = nI['boundary']
+            self.interactionInteriorIndicator = interactionIndicator = nI['interaction']
+            self.domainIndicator = domainIndicator+boundaryIndicator
+            self.interactionIndicator = interactionIndicator
+            if problem == 'constant':
+                self.fluxIndicator = constant(0)
+                self.rhsData = constant(1.)
+                self.fluxData = constant(0)
+                self.dirichletData = constant(0)
+                if (kType == FRACTIONAL) and (isinstance(self.kernel.s, constFractionalOrder) or
+                                              isinstance(self.kernel.s, variableConstFractionalOrder) or
+                                              isinstance(self.kernel.s, constantNonSymFractionalOrder)):
+                    self.analyticSolution = functionFactory('solFractional', dim=3, s=self.kernel.s.value)
             else:
                 raise NotImplementedError(problem)
         else:
@@ -1841,11 +1662,11 @@ class nonlocalInterfaceProblem(problem):
 
                 def flux_left_lam(x):
                     dist = 1+horizon1-x[0]
-                    return 2*scaling1 * ((x[0]-1) * (dist**2-horizon1**2) + 1/3 * (horizon1**3 + dist**3))
+                    return scaling1 * ((x[0]-1) * (dist**2-horizon1**2) + 1/3 * (horizon1**3 + dist**3))
 
                 def flux_right_lam(x):
                     dist = x[0]-(1-horizon2)
-                    return 2*scaling2 * ((x[0]-1) * (horizon2**2-dist**2) + 1/3 * (horizon2**3 + dist**3))
+                    return scaling2 * ((x[0]-1) * (horizon2**2-dist**2) + 1/3 * (horizon2**3 + dist**3))
 
                 flux_left = Lambda(flux_left_lam)
                 flux_right = Lambda(flux_right_lam)
@@ -1875,11 +1696,11 @@ class nonlocalInterfaceProblem(problem):
 
                 def flux_left_lam(x):
                     dist = 1+horizon1-x[0]
-                    return -2*kernel1.scalingValue * (x[0] * (dist**2-horizon1**2) + 1/3 * (horizon1**3 + dist**3))
+                    return -kernel1.scalingValue * (x[0] * (dist**2-horizon1**2) + 1/3 * (horizon1**3 + dist**3))
 
                 def flux_right_lam(x):
                     dist = x[0]-1+horizon2
-                    return -2*kernel2.scalingValue * ((x[0]-1) * (horizon2**2-dist**2) + 1/3 * (horizon2**3 + dist**3))
+                    return -kernel2.scalingValue * ((x[0]-1) * (horizon2**2-dist**2) + 1/3 * (horizon2**3 + dist**3))
 
                 flux_left = Lambda(flux_left_lam)
                 flux_right = Lambda(flux_right_lam)
@@ -1920,11 +1741,10 @@ class nonlocalInterfaceProblem(problem):
                 from scipy.integrate import quad
 
                 if kType1 == INDICATOR:
-                    forcing_left = -coeff11*(2.*scaling1) * 2*(np.sin(np.pi*horizon1)/np.pi-horizon1) * sin
+                    forcing_left = -coeff11*scaling1 * 2*(np.sin(np.pi*horizon1)/np.pi-horizon1) * sin
                 elif kType1 == FRACTIONAL:
                     assert isinstance(kernel1.s, constFractionalOrder)
                     sBase1 = kernel1.s.value
-                    from scipy.special import gamma
 
                     def Phi1(delta):
                         if delta > 0:
@@ -1936,7 +1756,7 @@ class nonlocalInterfaceProblem(problem):
                         else:
                             return 0.
 
-                    forcing_left = 4 * scaling1 * Phi1(horizon1) * sin
+                    forcing_left = 2 * scaling1 * Phi1(horizon1) * sin
 
                 def flux_left_lam(x):
                     # assert c < x[0] < c+horizon1
@@ -1944,15 +1764,15 @@ class nonlocalInterfaceProblem(problem):
                     u2x = sol_2(x)
                     Int = 0.
                     if x[0]-horizon1 < c-horizon2:
-                        Int += 2. * quad(lambda y: (u1x-sol_1(np.array([y]))) * kernel1(x, np.array([y])), x[0]-horizon1, c-horizon2)[0]
+                        Int += quad(lambda y: (u1x-sol_1(np.array([y]))) * kernel1(x, np.array([y])), x[0]-horizon1, c-horizon2)[0]
                     if max(c-horizon2, x[0]-horizon1) < c:
-                        Int += 2. * quad(lambda y: (u1x-sol_1(np.array([y]))) * kernel1(x, np.array([y])), max(c-horizon2, x[0]-horizon1), c)[0]
+                        Int += quad(lambda y: (u1x-sol_1(np.array([y]))) * kernel1(x, np.array([y])), max(c-horizon2, x[0]-horizon1), c)[0]
                     if max(c-horizon2, x[0]-horizon2) < c:
-                        Int -= 2. * quad(lambda y: (u2x-sol_2(np.array([y]))) * kernel2(x, np.array([y])), max(c-horizon2, x[0]-horizon2), c)[0]
+                        Int -= quad(lambda y: (u2x-sol_2(np.array([y]))) * kernel2(x, np.array([y])), max(c-horizon2, x[0]-horizon2), c)[0]
                     return Int
 
                 if kType2 == INDICATOR:
-                    forcing_right = -coeff22*(2.*scaling2) * 2*(np.sin(np.pi*horizon2)/np.pi-horizon2) * (-sin)
+                    forcing_right = -coeff22*scaling2 * 2*(np.sin(np.pi*horizon2)/np.pi-horizon2) * (-sin)
                 elif kType2 == FRACTIONAL:
                     assert isinstance(kernel2.s, constFractionalOrder)
                     sBase2 = kernel2.s.value
@@ -1967,7 +1787,7 @@ class nonlocalInterfaceProblem(problem):
                         else:
                             return 0.
 
-                    forcing_right = 4 * scaling2 * Phi2(horizon2) * (-sin)
+                    forcing_right = 2 * scaling2 * Phi2(horizon2) * (-sin)
 
                 def flux_right_lam(x):
                     # assert c-horizon2 < x[0] < c
@@ -1975,11 +1795,11 @@ class nonlocalInterfaceProblem(problem):
                     u2x = sol_2(x)
                     Int = 0.
                     if c+horizon1 < x[0]+horizon2:
-                        Int += 2. * quad(lambda y: (u2x-sol_2(np.array([y]))) * kernel2(x, np.array([y])), c+horizon1, x[0]+horizon2)[0]
+                        Int += quad(lambda y: (u2x-sol_2(np.array([y]))) * kernel2(x, np.array([y])), c+horizon1, x[0]+horizon2)[0]
                     if c < min(c+horizon1, x[0]+horizon2):
-                        Int += 2. * quad(lambda y: (u2x-sol_2(np.array([y]))) * kernel2(x, np.array([y])), c, min(c+horizon1, x[0]+horizon2))[0]
+                        Int += quad(lambda y: (u2x-sol_2(np.array([y]))) * kernel2(x, np.array([y])), c, min(c+horizon1, x[0]+horizon2))[0]
                     if c < min(c+horizon1, x[0]+horizon1):
-                        Int -= 2. * quad(lambda y: (u1x-sol_1(np.array([y]))) * kernel1(x, np.array([y])), c, min(c+horizon1, x[0]+horizon1))[0]
+                        Int -= quad(lambda y: (u1x-sol_1(np.array([y]))) * kernel1(x, np.array([y])), c, min(c+horizon1, x[0]+horizon1))[0]
                     return Int
 
                 flux_left = Lambda(flux_left_lam)
@@ -2102,13 +1922,13 @@ class nonlocalInterfaceProblem(problem):
 
                 def flux_left_lam(x):
                     dist = 1+horizon1-x[0]
-                    return 4*scaling1 * (-2/3*(x[0]-1) * (horizon1**2-dist**2)**(3/2) +
+                    return 2*scaling1 * (-2/3*(x[0]-1) * (horizon1**2-dist**2)**(3/2) +
                                          1/8 * (np.sqrt(horizon1**2 - dist**2) * dist * (2*dist**2 - horizon1**2)) +
                                          horizon1**4/8 * (np.arcsin(dist/horizon1)-np.arcsin(-1)))
 
                 def flux_right_lam(x):
                     dist = x[0]-(1-horizon2)
-                    return 4*scaling2 * (-2/3*(x[0]-1) * (-1)*(horizon2**2-dist**2)**(3/2) +
+                    return 2*scaling2 * (-2/3*(x[0]-1) * (-1)*(horizon2**2-dist**2)**(3/2) +
                                          1/8 * (np.sqrt(horizon2**2 - dist**2) * dist * (2*dist**2 - horizon2**2)) +
                                          horizon2**4/8 * (np.arcsin(1)-np.arcsin(-dist/horizon2)))
 
@@ -2238,7 +2058,7 @@ class nonlocalInterfaceProblem(problem):
                     return J
 
                 if kType1 == INDICATOR:
-                    forcing_left = coeff11*(2.*scaling1) * (np.pi*horizon1**2 - 2*horizon1*jv(1., horizon1*np.pi)) * sin
+                    forcing_left = coeff11*scaling1 * (np.pi*horizon1**2 - 2*horizon1*jv(1., horizon1*np.pi)) * sin
 
                     def flux_left_lam(x):
                         # x \in I^J_1
@@ -2249,16 +2069,16 @@ class nonlocalInterfaceProblem(problem):
                         Int = 0.
                         if x[0]-horizon1 < cx-horizon2:
                             # Omega^J_1
-                            Int += 2. * quad(lambda y: (u1x-sol_1(np.array([y, x[1]]))) * int2_1(x, y) *
-                                             kernel1(x, np.array([y, x[1]])), x[0]-horizon1, cx-horizon2)[0]
+                            Int += quad(lambda y: (u1x-sol_1(np.array([y, x[1]]))) * int2_1(x, y) *
+                                        kernel1(x, np.array([y, x[1]])), x[0]-horizon1, cx-horizon2)[0]
                         if max(cx-horizon2, x[0]-horizon1) < cx:
                             # I^J_2
-                            Int += 2. * quad(lambda y: (u1x-sol_1(np.array([y, x[1]]))) * int2_1(x, y) *
-                                             kernel1(x, np.array([y, x[1]])), max(cx-horizon2, x[0]-horizon1), cx)[0]
+                            Int += quad(lambda y: (u1x-sol_1(np.array([y, x[1]]))) * int2_1(x, y) *
+                                        kernel1(x, np.array([y, x[1]])), max(cx-horizon2, x[0]-horizon1), cx)[0]
                         if max(cx-horizon2, x[0]-horizon2) < cx:
                             # I^J_2
-                            Int -= 2. * quad(lambda y: (u2x-sol_2(np.array([y, x[1]]))) * int2_2(x, y) *
-                                             kernel2(x, np.array([y, x[1]])), max(cx-horizon2, x[0]-horizon2), cx)[0]
+                            Int -= quad(lambda y: (u2x-sol_2(np.array([y, x[1]]))) * int2_2(x, y) *
+                                        kernel2(x, np.array([y, x[1]])), max(cx-horizon2, x[0]-horizon2), cx)[0]
                         return Int
 
                 elif kType1 == FRACTIONAL:
@@ -2267,7 +2087,7 @@ class nonlocalInterfaceProblem(problem):
 
                     fac1 = nquad(lambda rho, theta: (1-np.cos(np.pi*rho*np.cos(theta))) * rho**(-1-2*sBase1),
                                  [(0, horizon1), (0, 2*np.pi)])[0]
-                    forcing_left = 2*scaling1 * fac1 * sin
+                    forcing_left = scaling1 * fac1 * sin
 
                     def flux_left_lam(x):
                         # x in IJ1
@@ -2288,26 +2108,25 @@ class nonlocalInterfaceProblem(problem):
                         Int = 0.
                         if cx+horizon1 < x[0]+horizon2:
                             # Omega^J_2
-                            Int += 2. * quad(lambda y: (u2x-sol_2(np.array([y, x[1]]))) * int2_2(x, y) *
-                                             kernel2(x, np.array([y, x[1]])), cx+horizon1, x[0]+horizon2)[0]
+                            Int += quad(lambda y: (u2x-sol_2(np.array([y, x[1]]))) * int2_2(x, y) *
+                                        kernel2(x, np.array([y, x[1]])), cx+horizon1, x[0]+horizon2)[0]
                         if cx < min(cx+horizon1, x[0]+horizon2):
                             # I^J_1
-                            Int += 2. * quad(lambda y: (u2x-sol_2(np.array([y, x[1]]))) * int2_2(x, y) *
-                                             kernel2(x, np.array([y, x[1]])), cx, min(cx+horizon1, x[0]+horizon2))[0]
+                            Int += quad(lambda y: (u2x-sol_2(np.array([y, x[1]]))) * int2_2(x, y) *
+                                        kernel2(x, np.array([y, x[1]])), cx, min(cx+horizon1, x[0]+horizon2))[0]
                         if cx < min(cx+horizon1, x[0]+horizon1):
                             # I^J_1
-                            Int -= 2. * quad(lambda y: (u1x-sol_1(np.array([y, x[1]]))) * int2_1(x, y) *
-                                             kernel1(x, np.array([y, x[1]])), cx, min(cx+horizon1, x[0]+horizon1))[0]
+                            Int -= quad(lambda y: (u1x-sol_1(np.array([y, x[1]]))) * int2_1(x, y) *
+                                        kernel1(x, np.array([y, x[1]])), cx, min(cx+horizon1, x[0]+horizon1))[0]
                         return Int
 
                 elif kType2 == FRACTIONAL:
                     assert isinstance(kernel2.s, constFractionalOrder)
                     sBase2 = kernel2.s.value
-                    from scipy.special import gamma
 
                     fac2 = nquad(lambda rho, theta: (1-np.cos(np.pi*rho*np.cos(theta))) * rho**(-1-2*sBase2),
                                  [(0, horizon2), (0, 2*np.pi)])[0]
-                    forcing_right = 2*scaling2 * fac2 * (-sin)
+                    forcing_right = scaling2 * fac2 * (-sin)
 
                     def flux_right_lam(x):
                         # x in IJ2
@@ -2367,14 +2186,14 @@ class nonlocalInterfaceProblem(problem):
                 elif kType1 == FRACTIONAL:
                     assert isinstance(kernel1.s, constFractionalOrder)
                     sBase1 = kernel1.s.value
-                forcing_left = 2*(2*scaling1*evalRHSFac(np.pi, 2.*np.pi, horizon1, sBase1))*sin2d
+                forcing_left = 2*(scaling1*evalRHSFac(np.pi, 2.*np.pi, horizon1, sBase1))*sin2d
 
                 if kType2 == INDICATOR:
                     sBase2 = -1.
                 elif kType2 == FRACTIONAL:
                     assert isinstance(kernel2.s, constFractionalOrder)
                     sBase2 = kernel2.s.value
-                forcing_right = -(2*scaling2*evalRHSFac(np.pi, np.pi, horizon2, sBase2))*sin
+                forcing_right = -(scaling2*evalRHSFac(np.pi, np.pi, horizon2, sBase2))*sin
 
                 from scipy.integrate import quad, nquad
                 from . strongForm import getStrongIntegrand

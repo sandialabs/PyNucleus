@@ -6,13 +6,12 @@
 ###################################################################################
 
 from PyNucleus_base.utilsFem import runDriver
-import os
-import inspect
 import pytest
 
 
-def getPath():
-    return os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+@pytest.fixture()
+def path(request):
+    return request.path.parent
 
 
 def idfunc(param):
@@ -54,13 +53,12 @@ def runNonlocal_params(request):
 
 
 @pytest.mark.slow
-def testNonlocal(runNonlocal_params, extras):
+def testNonlocal(runNonlocal_params, path, extras):
     if len(runNonlocal_params) == 5:
         domain, kernel, problem, solver, matrixFormat = runNonlocal_params
         interaction = None
     else:
         domain, kernel, problem, solver, matrixFormat, interaction = runNonlocal_params
-    base = getPath()+'/../'
     py = ['runNonlocal.py',
           '--domain', domain,
           '--kernelType', kernel,
@@ -76,11 +74,9 @@ def testNonlocal(runNonlocal_params, extras):
         if interaction == 'fullSpace':
             py += ['--horizon', 'inf']
     # if kernel != 'fractional':
-    path = base+'drivers'
-    cacheDir = getPath()+'/'
     if problem == 'poly-Neumann' and domain == 'square':
         return pytest.skip('not implemented')
-    runDriver(path, py, cacheDir=cacheDir, extra=extras)
+    runDriver(path/'../drivers', py, cacheDir=path, extra=extras)
 
 
 @pytest.fixture(scope='module', params=[
@@ -120,9 +116,8 @@ def runFractional_params(request):
 
 
 @pytest.mark.slow
-def testFractional(runFractional_params, extras):
+def testFractional(runFractional_params, path, extras):
     domain, s, problem, element, solver, matrixFormat, ranks = runFractional_params
-    base = getPath()+'/../'
     py = ['runFractional.py',
           '--domain', domain,
           '--s', s,
@@ -130,17 +125,14 @@ def testFractional(runFractional_params, extras):
           '--element', element,
           '--solver', solver,
           '--matrixFormat', matrixFormat]
-    path = base+'drivers'
-    cacheDir = getPath()+'/'
     if ranks == 1:
         ranks = None
-    runDriver(path, py, cacheDir=cacheDir, extra=extras, ranks=ranks)
+    runDriver(path/'../drivers', py, cacheDir=path, extra=extras, ranks=ranks)
 
 
 @pytest.mark.slow
-def testFractionalHeat(runFractional_params, extras):
+def testFractionalHeat(runFractional_params, path, extras):
     domain, s, problem, element, solver, matrixFormat, ranks = runFractional_params
-    base = getPath()+'/../'
     py = ['runFractionalHeat.py',
           '--domain', domain,
           '--s', s,
@@ -148,47 +140,37 @@ def testFractionalHeat(runFractional_params, extras):
           '--element', element,
           '--solver', solver,
           '--matrixFormat', matrixFormat]
-    path = base+'drivers'
-    cacheDir = getPath()+'/'
     if ranks == 1:
         ranks = None
-    runDriver(path, py, cacheDir=cacheDir, extra=extras, ranks=ranks)
+    runDriver(path/'../drivers', py, cacheDir=path, extra=extras, ranks=ranks)
 
 
 @pytest.mark.slow
-def testVariableOrder(extras):
-    base = getPath()+'/../'
+def testVariableOrder(path, extras):
     py = 'variableOrder.py'
-    path = base+'drivers'
-    cacheDir = getPath()+'/'
-    runDriver(path, py, cacheDir=cacheDir, extra=extras)
-
-
-@pytest.fixture(scope='module', params=[
-    ('interval', 'const(0.25)'),
-    ('interval', 'const(0.75)'),
-    ('interval', 'varconst(0.25)'),
-    ('interval', 'varconst(0.75)'),
-    ('interval', 'twoDomainNonSym(0.25,0.75)'),
-    ('disc', 'const(0.25)'),
-    ('disc', 'const(0.75)'),
-    ('disc', 'varconst(0.25)'),
-    ('disc', 'varconst(0.75)'),
-    ('square', 'const(0.25)'),
-    ('square', 'const(0.75)'),
-    ('square', 'varconst(0.25)'),
-    ('square', 'varconst(0.75)'),
-    ('square', 'twoDomainNonSym(0.25,0.75)'),
-],
-                ids=idfunc)
-def runDistOp_params(request):
-    return request.param
+    runDriver(path/'../drivers', py, cacheDir=path, extra=extras)
 
 
 @pytest.mark.slow
-def testMatvecs(runDistOp_params, extras):
-    base = getPath()+'/../'
-    domain, fractionalOrder = runDistOp_params
+@pytest.mark.parametrize(
+    "domain, fractionalOrder",
+    [
+        ('interval', 'const(0.25)'),
+        ('interval', 'const(0.75)'),
+        ('interval', 'varconst(0.25)'),
+        ('interval', 'varconst(0.75)'),
+        ('interval', 'twoDomainNonSym(0.25,0.75)'),
+        ('disc', 'const(0.25)'),
+        ('disc', 'const(0.75)'),
+        ('disc', 'varconst(0.25)'),
+        ('disc', 'varconst(0.75)'),
+        ('square', 'const(0.25)'),
+        ('square', 'const(0.75)'),
+        ('square', 'varconst(0.25)'),
+        ('square', 'varconst(0.75)'),
+        ('square', 'twoDomainNonSym(0.25,0.75)'),
+    ])
+def testMatvecs(domain, fractionalOrder, path, extras):
     if domain == 'interval':
         noRef = 6
     elif domain == 'disc':
@@ -208,36 +190,29 @@ def testMatvecs(runDistOp_params, extras):
           '--buildDistributedH2',
           '--doSolve']
     py += ['--no-write']
-    path = base+'drivers'
-    cacheDir = getPath()+'/'
-    runDriver(path, py, ranks=4, cacheDir=cacheDir, extra=extras)
-
-
-@pytest.fixture(scope='module', params=[
-    ('doubleInterval', 'fractional', 'fractional', '0.2', '0.4', '0.2', '0.2', 'exact-sin-variableSolJump-fluxJump'),
-    ('doubleInterval', 'fractional', 'fractional', '0.2', '0.4', '0.2', '0.4', 'exact-sin-variableSolJump-fluxJump'),
-    ('doubleInterval', 'indicator', 'indicator', '0.2', '0.4', '0.2', '0.2', 'exact-sin-variableSolJump-fluxJump'),
-    ('doubleInterval', 'indicator', 'indicator', '0.2', '0.4', '0.2', '0.4', 'exact-sin-variableSolJump-fluxJump'),
-    ('doubleInterval', 'indicator', 'fractional', '0.2', '0.4', '0.2', '0.2', 'exact-sin-variableSolJump-fluxJump'),
-    ('doubleInterval', 'indicator', 'fractional', '0.2', '0.4', '0.2', '0.4', 'exact-sin-variableSolJump-fluxJump'),
-    ('doubleSquare', 'fractional', 'fractional', '0.2', '0.4', '0.2', '0.2', 'sin-variableSolJump-fluxJump'),
-    ('doubleSquare', 'fractional', 'fractional', '0.2', '0.4', '0.2', '0.4', 'sin-variableSolJump-fluxJump'),
-    ('doubleSquare', 'indicator', 'indicator', '0.2', '0.4', '0.2', '0.2', 'sin-variableSolJump-fluxJump'),
-    ('doubleSquare', 'indicator', 'indicator', '0.2', '0.4', '0.2', '0.4', 'sin-variableSolJump-fluxJump'),
-    ('doubleSquare', 'indicator', 'fractional', '0.2', '0.4', '0.2', '0.2', 'sin-variableSolJump-fluxJump'),
-    ('doubleSquare', 'indicator', 'fractional', '0.2', '0.4', '0.2', '0.4', 'sin-variableSolJump-fluxJump'),
-],
-                ids=idfunc)
-def runNonlocalInterface_params(request):
-    return request.param
+    runDriver(path/'../drivers', py, ranks=4, cacheDir=path, extra=extras)
 
 
 @pytest.mark.slow
-def testNonlocalInterface(runNonlocalInterface_params, extras):
-    domain, kernel1, kernel2, s11, s22, horizon1, horizon2, problem = runNonlocalInterface_params
+@pytest.mark.parametrize(
+    "domain, kernel1, kernel2, s11, s22, horizon1, horizon2, problem",
+    [
+        ('doubleInterval', 'fractional', 'fractional', '0.2', '0.4', '0.2', '0.2', 'exact-sin-variableSolJump-fluxJump'),
+        ('doubleInterval', 'fractional', 'fractional', '0.2', '0.4', '0.2', '0.4', 'exact-sin-variableSolJump-fluxJump'),
+        ('doubleInterval', 'indicator', 'indicator', '0.2', '0.4', '0.2', '0.2', 'exact-sin-variableSolJump-fluxJump'),
+        ('doubleInterval', 'indicator', 'indicator', '0.2', '0.4', '0.2', '0.4', 'exact-sin-variableSolJump-fluxJump'),
+        ('doubleInterval', 'indicator', 'fractional', '0.2', '0.4', '0.2', '0.2', 'exact-sin-variableSolJump-fluxJump'),
+        ('doubleInterval', 'indicator', 'fractional', '0.2', '0.4', '0.2', '0.4', 'exact-sin-variableSolJump-fluxJump'),
+        ('doubleSquare', 'fractional', 'fractional', '0.2', '0.4', '0.2', '0.2', 'sin-variableSolJump-fluxJump'),
+        ('doubleSquare', 'fractional', 'fractional', '0.2', '0.4', '0.2', '0.4', 'sin-variableSolJump-fluxJump'),
+        ('doubleSquare', 'indicator', 'indicator', '0.2', '0.4', '0.2', '0.2', 'sin-variableSolJump-fluxJump'),
+        ('doubleSquare', 'indicator', 'indicator', '0.2', '0.4', '0.2', '0.4', 'sin-variableSolJump-fluxJump'),
+        ('doubleSquare', 'indicator', 'fractional', '0.2', '0.4', '0.2', '0.2', 'sin-variableSolJump-fluxJump'),
+        ('doubleSquare', 'indicator', 'fractional', '0.2', '0.4', '0.2', '0.4', 'sin-variableSolJump-fluxJump'),
+    ])
+def testNonlocalInterface(domain, kernel1, kernel2, s11, s22, horizon1, horizon2, problem, path, extras):
     s12 = s11
     s21 = s22
-    base = getPath()+'/../'
     py = ['runNonlocalInterface.py',
           '--domain', domain,
           '--kernel1', kernel1,
@@ -249,6 +224,4 @@ def testNonlocalInterface(runNonlocalInterface_params, extras):
           '--horizon1', horizon1,
           '--horizon2', horizon2,
           '--problem', problem]
-    path = base+'drivers'
-    cacheDir = getPath()+'/'
-    runDriver(path, py, cacheDir=cacheDir, extra=extras)
+    runDriver(path/'../drivers', py, cacheDir=path, extra=extras)

@@ -287,7 +287,7 @@ cdef class interactionDomain(parametrizedTwoPointFunction):
             if self.getRelativePosition(simplex1, simplex2) in (0, 2):
                 self.plot_Simplex(simplex1, simplex2, False)
         for vertexNo1 in range(simplex1.shape[0]):
-            self.plot_Surface(simplex2[vertexNo1,:])
+            self.plot_Surface(simplex2[vertexNo1, :])
         plt.fill(np.concatenate((simplex2[:, 0], [simplex2[0, 0]])),
                  np.concatenate((simplex2[:, 1], [simplex2[0, 1]])), 'b', zorder=1)
 
@@ -834,15 +834,6 @@ cdef class fullSpace(interactionDomain):
     cdef RELATIVE_POSITION_t getRelativePosition(self, REAL_t[:, ::1] simplex1, REAL_t[:, ::1] simplex2):
         return INTERACT
 
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
-        cdef:
-            INDEX_t i
-            REAL_t d2 = 0.
-        for i in range(x.shape[0]):
-            d2 += (x[i]-y[i])**2
-        self.dist2 = d2
-        value[0] = 1.
-
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         cdef:
             INDEX_t i
@@ -858,6 +849,9 @@ cdef class fullSpace(interactionDomain):
 
     def __reduce__(self):
         return fullSpace, ()
+
+    def __eq__(self, other):
+        return isinstance(other, fullSpace)
 
     def getLongDescription(self):
         return ''
@@ -936,19 +930,6 @@ cdef class ball2_retriangulation(retriangulationDomain):
             numIntersections += 1
         return numIntersections
 
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
-        cdef:
-            REAL_t d2 = 0.
-            INDEX_t i
-            REAL_t horizon2 = getREAL(self.params, fHORIZON2)
-        for i in range(x.shape[0]):
-            d2 += (x[i]-y[i])**2
-        self.dist2 = d2
-        if d2 <= horizon2:
-            value[0] = 1.
-        else:
-            value[0] = 0.
-
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         cdef:
             REAL_t d2 = 0.
@@ -1022,19 +1003,6 @@ cdef class ball2_barycenter(barycenterDomain):
             d2 += (x[j] - y[j])**2
         isInside = (d2 <= horizon2)
         return isInside
-
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
-        cdef:
-            REAL_t d2 = 0.
-            INDEX_t i
-            REAL_t horizon2 = getREAL(self.params, fHORIZON2)
-        for i in range(x.shape[0]):
-            d2 += (x[i]-y[i])**2
-        self.dist2 = d2
-        if d2 <= horizon2:
-            value[0] = 1.
-        else:
-            value[0] = 0.
 
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         cdef:
@@ -1164,19 +1132,6 @@ cdef class ballInf_retriangulation(retriangulationDomain):
                 intersections[0], intersections[1] = intersections[1], intersections[0]
         return numIntersections
 
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
-        cdef:
-            REAL_t d2 = 0.
-            INDEX_t i
-            REAL_t horizon2 = getREAL(self.params, fHORIZON2)
-        for i in range(x.shape[0]):
-            d2 = max(d2, (x[i]-y[i])**2)
-        self.dist2 = d2
-        if d2 <= horizon2:
-            value[0] = 1.
-        else:
-            value[0] = 0.
-
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         cdef:
             REAL_t d2 = 0.
@@ -1266,19 +1221,6 @@ cdef class ballInf_barycenter(barycenterDomain):
             s = max(s, (x[i]-y[i])**2)
         return s <= horizon2
 
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
-        cdef:
-            REAL_t d2 = 0.
-            INDEX_t i
-            REAL_t horizon2 = getREAL(self.params, fHORIZON2)
-        for i in range(x.shape[0]):
-            d2 = max(d2, (x[i]-y[i])**2)
-        self.dist2 = d2
-        if d2 <= horizon2:
-            value[0] = 1.
-        else:
-            value[0] = 0.
-
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         cdef:
             REAL_t d2 = 0.
@@ -1357,19 +1299,6 @@ cdef class ball2Complement(retriangulationDomain):
             self.relPos = CUT
         return self.relPos
 
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
-        cdef:
-            REAL_t s = 0.
-            INDEX_t i
-            REAL_t horizon2 = getREAL(self.params, fHORIZON2)
-        for i in range(x.shape[0]):
-            s += (x[i]-y[i])**2
-        self.dist2 = s
-        if s > horizon2:
-            value[0] = 1.
-        else:
-            value[0] = 0.
-
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         cdef:
             REAL_t s = 0.
@@ -1415,13 +1344,6 @@ cdef class linearTransformInteraction(interactionDomain):
 
         self.simplex1 = uninitialized((dim+1, dim), dtype=REAL)
         self.simplex2 = uninitialized((dim+1, dim), dtype=REAL)
-
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
-        if self.callTransform:
-            self.transform.eval(x, self.A)
-        self.transformVectorForward(&x[0], &y[0], &self.vec2[0])
-        self.baseInteraction.eval(x, self.vec2, value)
-        self.dist2 = self.baseInteraction.dist2
 
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         if self.callTransform:
@@ -1549,19 +1471,6 @@ cdef class ellipseTransform(matrixFunction):
         self.rows = 2
         self.columns = 2
 
-    cdef void eval(self, REAL_t[::1] x, REAL_t[:, ::1] vals):
-        cdef:
-            REAL_t inv_a = 1./self.a.eval(x)
-            REAL_t inv_b = 1./self.b.eval(x)
-            REAL_t theta = self.theta.eval(x)
-            REAL_t c = cos(theta)
-            REAL_t s = sin(theta)
-
-        vals[0, 0] = c*inv_a
-        vals[0, 1] = -s*inv_a
-        vals[1, 0] = s*inv_b
-        vals[1, 1] = c*inv_b
-
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* vals):
         cdef:
             REAL_t inv_a = 1./self.a.evalPtr(dim, x)
@@ -1636,20 +1545,6 @@ cdef class ball1_retriangulation(linearTransformInteraction):
         A = np.array([[1., -1.], [1., 1.]], dtype=REAL)
         super(ball1_retriangulation, self).__init__(horizonFun, base, constantMatrixFunction(A))
 
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
-        cdef:
-            REAL_t d2 = 0.
-            INDEX_t i
-            REAL_t horizon2 = getREAL(self.params, fHORIZON2)
-        for i in range(x.shape[0]):
-            d2 += abs(x[i]-y[i])
-        d2 *= d2
-        self.dist2 = d2
-        if d2 <= horizon2:
-            value[0] = 1.
-        else:
-            value[0] = 0.
-
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         cdef:
             REAL_t d2 = 0.
@@ -1684,20 +1579,6 @@ cdef class ball1_barycenter(linearTransformInteraction):
         base = ballInf_barycenter(horizonFun)
         A = np.array([[1., -1.], [1., 1.]], dtype=REAL)
         super(ball1_barycenter, self).__init__(horizonFun, base, constantMatrixFunction(A))
-
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
-        cdef:
-            REAL_t d2 = 0.
-            INDEX_t i
-            REAL_t horizon2 = getREAL(self.params, fHORIZON2)
-        for i in range(x.shape[0]):
-            d2 += abs(x[i]-y[i])
-        d2 *= d2
-        self.dist2 = d2
-        if d2 <= horizon2:
-            value[0] = 1.
-        else:
-            value[0] = 0.
 
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         cdef:
@@ -1804,22 +1685,6 @@ cdef class ball2_dilation_barycenter(barycenterDomain):
             for j in range(x.shape[0]):
                 coeff[i] += self.mat[i, j]*(y[j]-x[j])
         return coeff[0]**2+coeff[1]**2 <= horizon2 + min(2*coeff[0]*self.d, 0.)
-
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
-        cdef:
-            INDEX_t i, j
-            REAL_t horizon2 = getREAL(self.params, fHORIZON2)
-            REAL_t[2] coeff
-
-        for i in range(x.shape[0]):
-            coeff[i] = 0.
-            for j in range(x.shape[0]):
-                coeff[i] += self.mat[i, j]*(y[j]-x[j])
-
-        if coeff[0]**2+coeff[1]**2 <= horizon2 + min(2*coeff[0]*self.d, 0.):
-            value[0] = 1.
-        else:
-            value[0] = 0.
 
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         cdef:
@@ -2025,22 +1890,6 @@ cdef class ball2_dilation_retriangulation(retriangulationDomain):
             numIntersections += 1
         return numIntersections
 
-    cdef void eval(self, REAL_t[::1] x, REAL_t[::1] y, REAL_t[::1] value):
-        cdef:
-            INDEX_t i, j
-            REAL_t horizon2 = getREAL(self.params, fHORIZON2)
-            REAL_t[2] coeff
-
-        for i in range(x.shape[0]):
-            coeff[i] = 0.
-            for j in range(x.shape[0]):
-                coeff[i] += self.mat[i, j]*(y[j]-x[j])
-
-        if coeff[0]**2+coeff[1]**2 <= horizon2 + min(2*coeff[0]*self.d, 0.):
-            value[0] = 1.
-        else:
-            value[0] = 0.
-
     cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
         cdef:
             INDEX_t i, j
@@ -2058,7 +1907,7 @@ cdef class ball2_dilation_retriangulation(retriangulationDomain):
             value[0] = 0.
 
     def __repr__(self):
-        return '|x-y|_2 <= {}'.format(self.horizonFun)
+        return 'y \\in B(x, {}), x \\in B(y, {})'.format(self.horizonFun, self.horizonFun)
 
     def get_Surface(self, REAL_t[::1] node1):
         cdef:
@@ -2103,3 +1952,23 @@ cdef class ball2_dilation_retriangulation(retriangulationDomain):
 
     def getLongDescription(self):
         return '\\chi_{|x-y|_2<\\delta(x)} \\chi_{|x-y|_2<\\delta(y)}'
+
+
+cdef class functionOfDistance(twoPointFunction):
+    def __init__(self, interaction, function fun):
+        super(functionOfDistance, self).__init__(True, 1)
+        self.interaction = interaction
+        self.fun = fun
+
+    cdef void evalPtr(self, INDEX_t dim, REAL_t* x, REAL_t* y, REAL_t* value):
+        cdef:
+            REAL_t d[1]
+        self.interaction.evalPtr(dim, x, y, value)
+        d[0] = sqrt(self.interaction.dist2)
+        value[0] = self.fun.eval(d)
+
+    def __reduce__(self):
+        return functionOfDistance, (self.interaction, self.fun)
+
+    def __repr__(self):
+        return repr(self.fun)+'(d(x, y))'

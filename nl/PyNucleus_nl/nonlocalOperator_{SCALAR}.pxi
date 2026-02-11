@@ -34,7 +34,7 @@ cdef class {SCALAR_label}double_local_matrix_t:
         elif dim == 3 and manifold_dim1 == 2:
             self.volume1 = volume2Din3Dsimplex
         else:
-            raise NotImplementedError()
+            raise NotImplementedError((dim, manifold_dim1))
 
         if dim == 1 and manifold_dim2 == 1:
             self.volume2 = volume1Dsimplex
@@ -44,12 +44,16 @@ cdef class {SCALAR_label}double_local_matrix_t:
             self.volume2 = volume2Dsimplex
         elif dim == 2 and manifold_dim2 == 1:
             self.volume2 = volume1Din2Dsimplex
+        elif dim == 2 and manifold_dim2 == 0:
+            self.volume2 = volume0Dsimplex
         elif dim == 3 and manifold_dim2 == 3:
             self.volume2 = volume3Dsimplex
         elif dim == 3 and manifold_dim2 == 2:
             self.volume2 = volume2Din3Dsimplex
+        elif dim == 3 and manifold_dim2 == 1:
+            self.volume2 = volume1Din3Dsimplex
         else:
-            raise NotImplementedError()
+            raise NotImplementedError((dim, manifold_dim2))
 
         if manifold_dim1 == 1:
             self.IDENTICAL = COMMON_EDGE
@@ -58,7 +62,7 @@ cdef class {SCALAR_label}double_local_matrix_t:
         elif manifold_dim1 == 3:
             self.IDENTICAL = COMMON_VOLUME
         else:
-            raise NotImplementedError()
+            raise NotImplementedError(manifold_dim1)
 
         self.center1 = uninitialized((self.dim), dtype=REAL)
         self.center2 = uninitialized((self.dim), dtype=REAL)
@@ -163,11 +167,12 @@ cdef class {SCALAR_label}double_local_matrix_t:
 
     cdef void setMesh2(self, meshBase mesh2):
         self.setVerticesCells2(mesh2.vertices, mesh2.cells)
-        if mesh2.manifold_dim > 0:
-            h2 = 2.*mesh2.h
-            self.h2MaxInv = 1./h2
-        else:
-            self.h2MaxInv = 1.
+        if mesh2.num_cells > 0:
+            if mesh2.manifold_dim > 0:
+                h2 = 2.*mesh2.h
+                self.h2MaxInv = 1./h2
+            else:
+                self.h2MaxInv = 1.
 
     cdef void setVerticesCells2(self, REAL_t[:, ::1] vertices2, INDEX_t[:, ::1] cells2):
         self.vertices2 = vertices2
@@ -464,6 +469,22 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
         if self.kernel.variableHorizon:
             self.symmetricCells = False
 
+        self.multiLogKernel = False
+        self.scaling_values = None
+        self.termNo = -1
+        if isinstance(self.kernel.scalingPrePhi, constantFractionalLaplacianScaling):
+            scal = self.kernel.scalingPrePhi
+            if scal.values.shape[0] > 1:
+                self.multiLogKernel = True
+                self.scaling_values = scal.values
+                self.termNo = scal.termNo
+        elif isinstance(self.kernel.scalingPrePhi, variableFractionalLaplacianScaling):
+            scalVar = self.kernel.scalingPrePhi
+            if scalVar.values.shape[0] > 1:
+                self.multiLogKernel = True
+                self.scaling_values = scalVar.values
+                self.termNo = scalVar.termNo
+
     cpdef void setKernel(self, {SCALAR_label}Kernel kernel, quad_order_diagonal=None, target_order=None):
         raise NotImplementedError()
 
@@ -508,9 +529,9 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
 
         if self.kernel.variable:
             if self.kernel.piecewise:
-                self.kernel.evalParams(self.center1, self.center2)
+                self.kernel.evalParamsPtr(self.dim, &self.center1[0], &self.center2[0])
             else:
-                self.kernel.evalParamsOnSimplices(self.center1, self.center2, self.simplex1, self.simplex2)
+                self.kernel.evalParamsOnSimplicesPtr(self.dim, &self.center1[0], &self.center2[0], &self.simplex1[0, 0], &self.simplex2[0, 0])
 
         if panel == DISTANT:
             if self.kernel.interaction.getRelativePosition(self.simplex1, self.simplex2) == REMOTE:
@@ -719,10 +740,12 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             if qr2.num_nodes > self.temp.shape[0]:
                 self.temp = uninitialized((qr2.num_nodes, self.kernel.valueSize), dtype={SCALAR})
 
-    cdef void eval_distant(self,
-                           {SCALAR}_t[:, ::1] contrib,
-                           panelType panel,
-                           MASK_t mask=ALL):
+    cdef void eval_distant_sym(self,
+                               {SCALAR}_t[:, ::1] contrib,
+                               panelType panel,
+                               MASK_t mask=ALL):
+        # Evaluates 0.5 \\int_{K_1} \\int_{K_1} [ u(x) - u(y) ] [ v(x) - v(y) ] \\gamma(x, y) dy dx
+        # for symmetric kernel \\gamma.
         cdef:
             INDEX_t k, i, j, I, J, l
             REAL_t vol, vol1 = self.vol1, vol2 = self.vol2
@@ -742,6 +765,7 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             REAL_t[:, ::1] A1, A2
             BOOL_t cutElements = False
             INDEX_t valueSize = self.kernel.valueSize
+            {SCALAR}_t fac
 
         if self.kernel.finiteHorizon:
             # check if the horizon might cut the elements
@@ -757,6 +781,7 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
 
         if not cutElements:
             vol = vol1*vol2
+            vol *= 0.5
             if panel < 0:
                 sQR = <specialQuadRule>(self.distantQuadRulesPtr[MAX_PANEL+panel])
             else:
@@ -773,6 +798,10 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
                                         &self.x[i, 0],
                                         &self.y[j, 0],
                                         &self.vec[0])
+                    if self.multiLogKernel:
+                        fac = self.scaling_values[self.termNo]
+                        for l in range(valueSize):
+                            self.vec[l] *= fac
                     for l in range(valueSize):
                         self.temp[k, l] = qr2.weights[k]*self.vec[l]
                     k += 1
@@ -810,6 +839,7 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             numQuadNodes1 = qr1trans.num_nodes
 
             vol = vol1*vol2
+            vol *= 0.5
             dofs_per_element = self.DoFMap.dofs_per_element
 
             A1 = a_A1
@@ -846,10 +876,104 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
                                         contrib[k, 0] += val * PSI_I*PSI_J
                                     k += 1
 
+    cdef void eval_near_sym(self,
+                            {SCALAR}_t[:, ::1] contrib,
+                            panelType panel,
+                            MASK_t mask=ALL):
+        # Evaluates 0.5 \\int_{K_1} \\int_{K_1} [ u(x) - u(y) ] [ v(x) - v(y) ] \\gamma(x, y) dy dx
+        # for symmetric kernel \\gamma.
+        cdef:
+            INDEX_t k, m, i, j, I, J, dofs_per_element = self.DoFMap.dofs_per_element, dim = self.DoFMap.mesh.dim, l
+            INDEX_t valueSize = self.kernel.valueSize
+            REAL_t[:, ::1] simplex1 = self.simplex1
+            REAL_t[:, ::1] simplex2 = self.simplex2
+            REAL_t vol
+            {SCALAR}_t val
+            singularityCancelationQuadRule qr
+            REAL_t[:, ::1] PSI
+            REAL_t x[3]
+            REAL_t y[3]
+            REAL_t z, neg_log_z, neg_log_N, fac
+            INDEX_t beta
+
+        if panel == COMMON_VOLUME:
+            qr = self.qrVolume
+            PSI = self.PSI_volume
+        elif panel == COMMON_FACE:
+            qr = self.qrFace
+            PSI = self.PSI_face
+        elif panel == COMMON_EDGE:
+            qr = self.qrEdge
+            PSI = self.PSI_edge
+        elif panel == COMMON_VERTEX:
+            qr = self.qrVertex
+            PSI = self.PSI_vertex
+        else:
+            raise NotImplementedError('Unknown panel type: {}'.format(panel))
+
+        vol = 0.5*self.vol1*self.vol2
+
+        # Evaluate the kernel on the quadrature nodes
+        for m in range(qr.num_nodes):
+            for j in range(dim):
+                x[j] = 0.
+                for k in range(self.manifold_dim1+1):
+                    x[j] += simplex1[self.perm1[k], j]*qr.nodes[k, m]
+                y[j] = 0.
+                for k in range(self.manifold_dim2+1):
+                    y[j] += simplex2[self.perm2[k], j]*qr.nodes[self.manifold_dim1+1+k, m]
+
+            self.kernel.evalPtr(dim,
+                                &x[0],
+                                &y[0],
+                                &self.vec[0])
+
+            if self.multiLogKernel:
+                # get non-vanishing part N of |x-y|
+                z = 0.
+                for j in range(dim):
+                    z += (x[j]-y[j])**2
+                neg_log_z = -0.5*log(z)
+                neg_log_N = neg_log_z+log(qr.singularPart[m])
+
+                fac = 0.
+                for beta in range(self.termNo, self.scaling_values.shape[0]):
+                    fac += my_binom(beta, self.termNo) * self.scaling_values[beta] * neg_log_N**(beta-self.termNo)
+                fac *= neg_log_z**(-self.termNo)
+                for l in range(valueSize):
+                    self.vec[l] *= fac
+
+            for l in range(valueSize):
+                self.temp[m, l] = qr.weights[m] * self.vec[l]
+
+        # "perm" maps from dofs on the reordered simplices (matching
+        # vertices first) to the dofs in the usual ordering.
+        contrib[:] = 0.
+        for I in range(PSI.shape[0]):
+            i = self.perm[I]
+            for J in range(I, PSI.shape[0]):
+                j = self.perm[J]
+                # We are assembling the upper trinagular part of the
+                # symmetric (2*dofs_per_element)**2 local stiffness
+                # matrix. This computes the flattened index.
+                if j < i:
+                    k = 2*dofs_per_element*j-(j*(j+1) >> 1) + i
+                else:
+                    k = 2*dofs_per_element*i-(i*(i+1) >> 1) + j
+                # Check if that entry has been requested.
+                if mask[k]:
+                    for l in range(valueSize):
+                        val = 0.
+                        for m in range(qr.num_nodes):
+                            val += self.temp[m, l] * PSI[I, m] * PSI[J, m]
+                        contrib[k, l] = val*vol
+
     cdef void eval_distant_nonsym(self,
                                   {SCALAR}_t[:, ::1] contrib,
                                   panelType panel,
                                   MASK_t mask=ALL):
+        # Evaluates 0.5 \\int_{K_1} \\int_{K_1} [ u(x) \\gamma(x, y) - u(y) \\gamma(y, x) ] [ v(x) - v(y) ] dy dx
+        # for non-symmetric kernel \\gamma.
         cdef:
             INDEX_t k, i, j, I, J, l
             REAL_t vol, vol1 = self.vol1, vol2 = self.vol2
@@ -871,6 +995,7 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             REAL_t[::1] b1
             REAL_t[:, ::1] A1, A2
             INDEX_t valueSize = self.kernel.valueSize
+            {SCALAR}_t fac
 
         if self.kernel.finiteHorizon:
             # check if the horizon might cut the elements
@@ -886,6 +1011,7 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
 
         if not cutElements:
             vol = vol1*vol2
+            vol *= 0.5
             if panel < 0:
                 sQR = <specialQuadRule>(self.distantQuadRulesPtr[MAX_PANEL+panel])
             else:
@@ -904,10 +1030,18 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
                                         &self.x[i, 0],
                                         &self.y[j, 0],
                                         &self.vec[0])
+                    if self.multiLogKernel:
+                        fac = self.scaling_values[self.termNo]
+                        for l in range(valueSize):
+                            self.vec[l] *= fac
                     self.kernel.evalPtr(dim,
                                         &self.y[j, 0],
                                         &self.x[i, 0],
                                         &self.vec2[0])
+                    if self.multiLogKernel:
+                        fac = self.scaling_values[self.termNo]
+                        for l in range(valueSize):
+                            self.vec2[l] *= fac
                     for l in range(valueSize):
                         self.temp[k, l] = w * self.vec[l]
                         self.temp2[k, l] = w * self.vec2[l]
@@ -946,6 +1080,7 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             numQuadNodes1 = qr1trans.num_nodes
 
             vol = vol1*vol2
+            vol *= 0.5
             dofs_per_element = self.DoFMap.dofs_per_element
 
             A1 = a_A1
@@ -985,6 +1120,304 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
                                         contrib[k, 0] += (val * PHI_I_0 - val2 * PHI_I_1) * PSI_J
                                     k += 1
 
+    cdef void eval_near_nonsym(self,
+                               {SCALAR}_t[:, ::1] contrib,
+                               panelType panel,
+                               MASK_t mask=ALL):
+        # Evaluates 0.5 \\int_{K_1} \\int_{K_1} [ u(x) \\gamma(x, y) - u(y) \\gamma(y, x) ] [ v(x) - v(y) ] dy dx
+        # for non-symmetric kernel \\gamma.
+        cdef:
+            INDEX_t k, m, i, j, I, J, dofs_per_element, dim = self.DoFMap.mesh.dim, l
+            REAL_t[:, ::1] simplex1 = self.simplex1
+            REAL_t[:, ::1] simplex2 = self.simplex2
+            REAL_t vol
+            {SCALAR}_t val
+            singularityCancelationQuadRule qr
+            REAL_t[:, :, ::1] PHI
+            REAL_t x[3]
+            REAL_t y[3]
+            INDEX_t valueSize = self.kernel.valueSize
+            REAL_t z, neg_log_z, neg_log_N, fac
+            INDEX_t beta
+
+        if panel == COMMON_VOLUME:
+            qr = self.qrVolume
+            PHI = self.PHI_volume
+        elif panel == COMMON_FACE:
+            qr = self.qrFace
+            PHI = self.PHI_face
+        elif panel == COMMON_EDGE:
+            qr = self.qrEdge
+            PHI = self.PHI_edge
+        elif panel == COMMON_VERTEX:
+            qr = self.qrVertex
+            PHI = self.PHI_vertex
+        else:
+            raise NotImplementedError('Unknown panel type: {}'.format(panel))
+
+        vol = 0.5*self.vol1*self.vol2
+
+        dofs_per_element = self.DoFMap.dofs_per_element
+
+        # Evaluate the kernel on the quadrature nodes
+        for m in range(qr.num_nodes):
+            for j in range(dim):
+                x[j] = 0.
+                for k in range(self.manifold_dim1+1):
+                    x[j] += simplex1[self.perm1[k], j]*qr.nodes[k, m]
+                y[j] = 0.
+                for k in range(self.manifold_dim2+1):
+                    y[j] += simplex2[self.perm2[k], j]*qr.nodes[self.manifold_dim1+1+k, m]
+
+            self.kernel.evalPtr(dim, &x[0], &y[0], &self.vec[0])
+            if self.multiLogKernel:
+                # get non-vanishing part N of |x-y|
+                z = 0.
+                for j in range(dim):
+                    z += (x[j]-y[j])**2
+                neg_log_z = -0.5*log(z)
+                neg_log_N = neg_log_z+log(qr.singularPart[m])
+
+                fac = 0.
+                for beta in range(self.termNo, self.scaling_values.shape[0]):
+                    fac += my_binom(beta, self.termNo) * self.scaling_values[beta] * neg_log_N**(beta-self.termNo)
+                fac *= neg_log_z**(-self.termNo)
+                for l in range(valueSize):
+                    self.vec[l] *= fac
+
+            self.kernel.evalPtr(dim, &y[0], &x[0], &self.vec2[0])
+            if self.multiLogKernel:
+                fac = 0.
+                for beta in range(self.termNo, self.scaling_values.shape[0]):
+                    fac += my_binom(beta, self.termNo) * self.scaling_values[beta] * neg_log_N**(beta-self.termNo)
+                fac *= neg_log_z**(-self.termNo)
+                for l in range(valueSize):
+                    self.vec2[l] *= fac
+
+            for l in range(valueSize):
+                self.temp[m, l] = qr.weights[m] * self.vec[l]
+                self.temp2[m, l] = qr.weights[m] * self.vec2[l]
+
+        # "perm" maps from dofs on the reordered simplices (matching
+        # vertices first) to the dofs in the usual ordering.
+        contrib[:] = 0.
+        for I in range(PHI.shape[0]):
+            i = self.perm[I]
+            for J in range(PHI.shape[0]):
+                j = self.perm[J]
+                k = i*(2*dofs_per_element)+j
+                # Check if that entry has been requested.
+                if mask[k]:
+                    for l in range(valueSize):
+                        val = 0.
+                        for m in range(qr.num_nodes):
+                            val += (self.temp[m, l] * PHI[I, m, 0] - self.temp2[m, l] * PHI[I, m, 1]) * (PHI[J, m, 0] - PHI[J, m, 1])
+                        contrib[k, l] = val*vol
+
+    cdef void eval_distant_nonsym2(self,
+                                   {SCALAR}_t[:, ::1] contrib,
+                                   panelType panel,
+                                   MASK_t mask=ALL):
+        # Evaluates 0.5 \\int_{K_1} \\int_{K_1} [ u(x) - u(y) ] [ v(x) - v(y) ] \\gamma(x, y) dy dx
+        # for non-symmetric kernel \\gamma.
+        cdef:
+            INDEX_t k, i, j, I, J, l
+            REAL_t vol, vol1 = self.vol1, vol2 = self.vol2
+            {SCALAR}_t val
+            doubleSimplexQuadratureRule qr2
+            REAL_t[:, ::1] PSI
+            REAL_t[:, :, ::1] PHI
+            REAL_t[:, ::1] simplex1 = self.simplex1
+            REAL_t[:, ::1] simplex2 = self.simplex2
+            INDEX_t dim = simplex1.shape[1]
+            BOOL_t cutElements = False
+            REAL_t w
+            REAL_t c1, c2, PHI_I_0, PHI_I_1, PSI_J
+            transformQuadratureRule qr0trans, qr1trans
+            INDEX_t dofs_per_element, numQuadNodes0, numQuadNodes1
+            REAL_t a_b1[3]
+            REAL_t a_A1[3][3]
+            REAL_t a_A2[3][3]
+            REAL_t[::1] b1
+            REAL_t[:, ::1] A1, A2
+            INDEX_t valueSize = self.kernel.valueSize
+
+        if self.kernel.finiteHorizon:
+            # check if the horizon might cut the elements
+            if self.kernel.interaction.relPos == CUT:
+                cutElements = True
+            if self.kernel.complement:
+                cutElements = False
+                # TODO: cutElements should be set to True, but
+                #       need to figure out the element
+                #       transformation.
+
+        contrib[:, :] = 0.
+
+        if not cutElements:
+            vol = vol1*vol2
+            vol *= 0.5
+            if panel < 0:
+                sQR = <specialQuadRule>(self.distantQuadRulesPtr[MAX_PANEL+panel])
+            else:
+                sQR = <specialQuadRule>(self.distantQuadRulesPtr[panel])
+            qr2 = <doubleSimplexQuadratureRule>(sQR.qr)
+            PSI = sQR.PSI
+            PHI = sQR.PHI3
+            qr2.rule1.nodesInGlobalCoords(simplex1, self.x)
+            qr2.rule2.nodesInGlobalCoords(simplex2, self.y)
+
+            k = 0
+            for i in range(qr2.rule1.num_nodes):
+                for j in range(qr2.rule2.num_nodes):
+                    w = qr2.weights[k]
+                    self.kernel.evalPtr(dim,
+                                        &self.x[i, 0],
+                                        &self.y[j, 0],
+                                        &self.vec[0])
+                    self.kernel.evalPtr(dim,
+                                        &self.y[j, 0],
+                                        &self.x[i, 0],
+                                        &self.vec2[0])
+                    for l in range(valueSize):
+                        self.temp[k, l] = w * self.vec[l]
+                    k += 1
+
+            k = 0
+            for I in range(2*self.DoFMap.dofs_per_element):
+                for J in range(2*self.DoFMap.dofs_per_element):
+                    if mask[k]:
+                        for l in range(valueSize):
+                            val = 0.
+                            for i in range(qr2.num_nodes):
+                                val += self.temp[i, l] * (PHI[0, I, i] - PHI[1, I, i]) * PSI[J, i]
+                            contrib[k, l] = val*vol
+                    k += 1
+        else:
+            if panel < 0:
+                sQR = <specialQuadRule>(self.distantQuadRulesPtr[MAX_PANEL+panel])
+            else:
+                sQR = <specialQuadRule>(self.distantQuadRulesPtr[panel])
+            qr2 = <doubleSimplexQuadratureRule>(sQR.qr)
+            if sQR.qrTransformed0 is not None:
+                qr0trans = sQR.qrTransformed0
+            else:
+                qr0 = qr2.rule1
+                qr0trans = transformQuadratureRule(qr0)
+                sQR.qrTransformed0 = qr0trans
+            if sQR.qrTransformed1 is not None:
+                qr1trans = sQR.qrTransformed1
+            else:
+                qr1 = qr2.rule2
+                qr1trans = transformQuadratureRule(qr1)
+                sQR.qrTransformed1 = qr1trans
+
+            numQuadNodes0 = qr0trans.num_nodes
+            numQuadNodes1 = qr1trans.num_nodes
+
+            vol = vol1*vol2
+            vol *= 0.5
+            dofs_per_element = self.DoFMap.dofs_per_element
+
+            A1 = a_A1
+            b1 = a_b1
+            A2 = a_A2
+
+            self.kernel.interaction.startLoopSubSimplices_Simplex(simplex1, simplex2)
+            while self.kernel.interaction.nextSubSimplex_Simplex(A1, b1, &c1):
+                qr0trans.setAffineBaryTransform(A1, b1)
+                qr0trans.nodesInGlobalCoords(simplex1, self.x)
+                for i in range(qr0trans.num_nodes):
+                    self.kernel.interaction.startLoopSubSimplices_Node(self.x[i, :], simplex2)
+                    while self.kernel.interaction.nextSubSimplex_Node(A2, &c2):
+                        qr1trans.setLinearBaryTransform(A2)
+                        qr1trans.nodesInGlobalCoords(simplex2, self.y)
+                        for j in range(qr1trans.num_nodes):
+                            w = qr0trans.weights[i]*qr1trans.weights[j]*c1 * c2 * vol
+                            self.kernel.evalPtr(dim, &self.x[i, 0], &self.y[j, 0], &self.vec[0])
+                            val = w*self.vec[0]
+                            k = 0
+                            for I in range(2*dofs_per_element):
+                                if I < dofs_per_element:
+                                    self.getLocalShapeFunction(I).evalStrided(&qr0trans.nodes[0, i], NULL, numQuadNodes0, &PHI_I_0)
+                                    PHI_I_1 = 0.
+                                else:
+                                    PHI_I_0 = 0.
+                                    self.getLocalShapeFunction(I-dofs_per_element).evalStrided(&qr1trans.nodes[0, j], NULL, numQuadNodes1, &PHI_I_1)
+                                for J in range(2*dofs_per_element):
+                                    if mask[k]:
+                                        if J < dofs_per_element:
+                                            self.getLocalShapeFunction(J).evalStrided(&qr0trans.nodes[0, i], NULL, numQuadNodes0, &PSI_J)
+                                        else:
+                                            self.getLocalShapeFunction(J-dofs_per_element).evalStrided(&qr1trans.nodes[0, j], NULL, numQuadNodes1, &PSI_J)
+                                            PSI_J *= -1
+                                        contrib[k, 0] += val * (PHI_I_0 - PHI_I_1) * PSI_J
+                                    k += 1
+
+    cdef void eval_near_nonsym2(self,
+                                {SCALAR}_t[:, ::1] contrib,
+                                panelType panel,
+                                MASK_t mask=ALL):
+        # Evaluates 0.5 \\int_{K_1} \\int_{K_1} [ u(x) - u(y) ] [ v(x) - v(y) ] \\gamma(x, y) dy dx
+        # for non-symmetric kernel \\gamma.
+        cdef:
+            INDEX_t k, m, i, j, I, J, dofs_per_element = self.DoFMap.dofs_per_element, dim = self.DoFMap.mesh.dim, l
+            REAL_t[:, ::1] simplex1 = self.simplex1
+            REAL_t[:, ::1] simplex2 = self.simplex2
+            REAL_t vol
+            {SCALAR}_t val
+            quadratureRule qr
+            REAL_t[:, :, ::1] PHI
+            REAL_t x[3]
+            REAL_t y[3]
+            INDEX_t valueSize = self.kernel.valueSize
+
+        if panel == COMMON_VOLUME:
+            qr = self.qrVolume
+            PHI = self.PHI_volume
+        elif panel == COMMON_FACE:
+            qr = self.qrFace
+            PHI = self.PHI_face
+        elif panel == COMMON_EDGE:
+            qr = self.qrEdge
+            PHI = self.PHI_edge
+        elif panel == COMMON_VERTEX:
+            qr = self.qrVertex
+            PHI = self.PHI_vertex
+        else:
+            raise NotImplementedError('Unknown panel type: {}'.format(panel))
+
+        vol = 0.5*self.vol1*self.vol2
+
+        # Evaluate the kernel on the quadrature nodes
+        for m in range(qr.num_nodes):
+            for j in range(dim):
+                x[j] = 0.
+                for k in range(self.manifold_dim1+1):
+                    x[j] += simplex1[self.perm1[k], j]*qr.nodes[k, m]
+                y[j] = 0.
+                for k in range(self.manifold_dim2+1):
+                    y[j] += simplex2[self.perm2[k], j]*qr.nodes[self.manifold_dim1+1+k, m]
+            self.kernel.evalPtr(dim, &x[0], &y[0], &self.vec[0])
+            for l in range(valueSize):
+                self.temp[m, l] = qr.weights[m] * self.vec[l]
+
+        # "perm" maps from dofs on the reordered simplices (matching
+        # vertices first) to the dofs in the usual ordering.
+        contrib[:] = 0.
+        for I in range(PHI.shape[0]):
+            i = self.perm[I]
+            for J in range(PHI.shape[0]):
+                j = self.perm[J]
+                k = i*(2*dofs_per_element)+j
+                # Check if that entry has been requested.
+                if mask[k]:
+                    for l in range(valueSize):
+                        val = 0.
+                        for m in range(qr.num_nodes):
+                            val += self.temp[m, l] * (PHI[I, m, 0] - PHI[I, m, 1]) * (PHI[J, m, 0] - PHI[J, m, 1])
+                        contrib[k, l] = val*vol
+
     cdef void addQuadRule_boundary(self, panelType panel):
         cdef:
             simplexQuadratureRule qr0, qr1
@@ -995,8 +1428,8 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             REAL_t lcl_bary_x[4]
             shapeFunction sf
             REAL_t phi_x
-        qr0 = simplexXiaoGimbutas(panel, self.dim)
-        qr1 = simplexDuffyTransformation(panel, self.dim, self.dim-1)
+        qr0 = simplexXiaoGimbutas(panel, self.dim, self.manifold_dim1)
+        qr1 = simplexDuffyTransformation(panel, self.dim, self.manifold_dim2)
         qr2 = doubleSimplexQuadratureRule(qr0, qr1)
         PHI = uninitialized((self.DoFMap.dofs_per_element, qr2.num_nodes), dtype=REAL)
         for i in range(self.DoFMap.dofs_per_element):
@@ -1023,6 +1456,7 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
                                     {SCALAR}_t[:, ::1] contrib,
                                     panelType panel,
                                     MASK_t mask=ALL):
+        # Evaluates \\int_{K} u(x) v(x) \\int_{e} \\gamma(x, y) dy dx
         cdef:
             INDEX_t k, m, i, j, I, J, l
             REAL_t vol, valReal, vol1 = self.vol1, vol2 = self.vol2
@@ -1032,39 +1466,10 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
             REAL_t[:, ::1] simplex1 = self.simplex1
             REAL_t[:, ::1] simplex2 = self.simplex2
             INDEX_t dim = simplex1.shape[1]
-            REAL_t normW, nw
             INDEX_t valueSize = self.kernel.valueSize
+            {SCALAR}_t fac
 
-        # Kernel:
-        #  \Gamma(x,y) = n \dot (x-y) * C(d,s) / (2s) / |x-y|^{d+2s}
-        # with inward normal n.
-        #
-        # Rewrite as
-        #  \Gamma(x,y) = [ n \dot (x-y)/|x-y| ] * [ C(d,s) / (2s) / |x-y|^{d-1+2s} ]
-        #                                         \--------------------------------/
-        #                                                 |
-        #                                           boundaryKernel
-        #
-        # n is independent of x and y
-        if dim == 2:
-            self.n[0] = simplex2[1, 1] - simplex2[0, 1]
-            self.n[1] = simplex2[0, 0] - simplex2[1, 0]
-            # F is same as vol2
-            valReal = 1./sqrt(mydot(self.n, self.n))
-            self.n[0] *= valReal
-            self.n[1] *= valReal
-        elif dim == 3:
-            for j in range(dim):
-                self.x[0, j] = simplex2[1, j]-simplex2[0, j]
-            for j in range(dim):
-                self.x[1, j] = simplex2[2, j]-simplex2[0, j]
-            self.n[0] = self.x[0, 1]*self.x[1, 2]-self.x[0, 2]*self.x[1, 1]
-            self.n[1] = self.x[0, 2]*self.x[1, 0]-self.x[0, 0]*self.x[1, 2]
-            self.n[2] = self.x[0, 0]*self.x[1, 1]-self.x[0, 1]*self.x[1, 0]
-            valReal = 1./sqrt(mydot(self.n, self.n))
-            self.n[0] *= valReal
-            self.n[1] *= valReal
-            self.n[2] *= valReal
+        self.kernel.setSimplices(simplex1, simplex2)
 
         contrib[:] = 0.
 
@@ -1080,21 +1485,14 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
 
         for k in range(qr2.rule1.num_nodes):
             for m in range(qr2.rule2.num_nodes):
-                if dim == 1:
-                    nw = 1.
-                else:
-                    normW = 0.
-                    for j in range(dim):
-                        self.w[j] = self.y[m, j]-self.x[k, j]
-                        normW += self.w[j]**2
-                    normW = 1./sqrt(normW)
-                    for j in range(dim):
-                        self.w[j] *= normW
-                    nw = mydot(self.n, self.w)
                 i = k*qr2.rule2.num_nodes+m
                 self.kernel.evalPtr(dim, &self.x[k, 0], &self.y[m, 0], &self.vec[0])
+                if self.multiLogKernel:
+                    fac = self.scaling_values[self.termNo]
+                    for l in range(valueSize):
+                        self.vec[l] *= fac
                 for l in range(valueSize):
-                    self.temp[i, l] = qr2.weights[i] * nw * self.vec[l]
+                    self.temp[i, l] = qr2.weights[i] * self.vec[l]
 
         k = 0
         for I in range(self.DoFMap.dofs_per_element):
@@ -1106,3 +1504,84 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
                             val += self.temp[i, m] * PHI[I, i] * PHI[J, i]
                         contrib[k, m] = val*vol
                 k += 1
+
+    cdef void eval_near_boundary(self,
+                                 {SCALAR}_t[:, ::1] contrib,
+                                 panelType panel,
+                                 MASK_t mask=ALL):
+        # Evaluates \\int_{K} u(x) v(x) \\int_{e} \\gamma(x, y) dy dx
+        cdef:
+            REAL_t vol1 = self.vol1, vol2 = self.vol2, vol
+            INDEX_t i, j, k, I, J, m, l
+            REAL_t[:, ::1] simplex1 = self.simplex1
+            REAL_t[:, ::1] simplex2 = self.simplex2
+            {SCALAR}_t val
+            singularityCancelationQuadRule qr
+            REAL_t[:, ::1] PHI
+            INDEX_t dofs_per_element = self.DoFMap.dofs_per_element
+            INDEX_t dim = self.DoFMap.mesh.dim
+            REAL_t x[3]
+            REAL_t y[3]
+            INDEX_t valueSize = self.kernel.valueSize
+            INDEX_t beta
+            REAL_t z, neg_log_z, neg_log_N, fac
+
+        self.kernel.setSimplices(simplex1, simplex2)
+
+        contrib[:] = 0.
+
+        if panel == COMMON_FACE:
+            qr = self.qrFace
+            PHI = self.PHI_face2
+        elif panel == COMMON_EDGE:
+            qr = self.qrEdge
+            PHI = self.PHI_edge2
+        elif panel == COMMON_VERTEX:
+            qr = self.qrVertex
+            PHI = self.PHI_vertex2
+        else:
+            raise NotImplementedError('Panel type unknown: {}.'.format(panel))
+
+        vol = vol1*vol2
+
+        for m in range(qr.num_nodes):
+            for j in range(dim):
+                x[j] = 0.
+                for k in range(self.manifold_dim1+1):
+                    x[j] += simplex1[self.perm1[k], j]*qr.nodes[k, m]
+                y[j] = 0.
+                for k in range(self.manifold_dim2+1):
+                    y[j] += simplex2[self.perm2[k], j]*qr.nodes[self.manifold_dim1+1+k, m]
+            self.kernel.evalPtr(dim, &x[0], &y[0], &self.vec[0])
+
+            if self.multiLogKernel:
+                # get non-vanishing part N of |x-y|
+                z = 0.
+                for j in range(dim):
+                    z += (x[j]-y[j])**2
+                neg_log_z = -0.5*log(z)
+                neg_log_N = neg_log_z+log(qr.singularPart[m])
+
+                fac = 0.
+                for beta in range(self.termNo, self.scaling_values.shape[0]):
+                    fac += my_binom(beta, self.termNo) * self.scaling_values[beta] * neg_log_N**(beta-self.termNo)
+                fac *= neg_log_z**(-self.termNo)
+                for l in range(valueSize):
+                    self.vec[l] *= fac
+
+            for l in range(valueSize):
+                self.temp[m, l] = qr.weights[m] * self.vec[l]
+        for I in range(dofs_per_element):
+            i = self.perm[I]
+            for J in range(I, dofs_per_element):
+                j = self.perm[J]
+                if j < i:
+                    k = dofs_per_element*j-(j*(j+1) >> 1) + i
+                else:
+                    k = dofs_per_element*i-(i*(i+1) >> 1) + j
+                if mask[k]:
+                    for l in range(valueSize):
+                        val = 0.
+                        for m in range(qr.num_nodes):
+                            val += self.temp[m, l] * PHI[I, m] * PHI[J, m]
+                        contrib[k, l] = val*vol

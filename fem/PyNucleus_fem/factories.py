@@ -20,11 +20,6 @@ from . functions import (_rhsFunSin1D, _solSin1D, _rhsFunSin2D, _cos1D, _cos2D, 
                          solCos1DHeat, rhsFunCos1DHeat,
                          rhsFunSource1D, rhsFunSource2D,
                          solCos2DHeat, rhsFunCos2DHeat,
-                         solFractional, solFractionalDerivative,
-                         rhsFractional1D, solFractional1D,
-                         rhsFractional2D, solFractional2D,
-                         solFractional2Dcombination,
-                         rhsFractional2Dcombination,
                          rhsHr,
                          rhsHr2Ddisk,
                          indicatorFunctor,
@@ -49,18 +44,6 @@ rhsFichera = _rhsFichera()
 solFichera = _solFichera()
 
 
-def solFractional2D_nonPeriodic(s):
-    import numpy as np
-    return solFractional2Dcombination(s, [{'n': 2, 'l': 2, 'angular_shift': 0.},
-                                          {'n': 1, 'l': 5, 'angular_shift': np.pi/3.}])
-
-
-def rhsFractional2D_nonPeriodic(s):
-    import numpy as np
-    return rhsFractional2Dcombination(s, [{'n': 2, 'l': 2, 'angular_shift': 0.},
-                                          {'n': 1, 'l': 5, 'angular_shift': np.pi/3.}])
-
-
 from . functions import (_rhsBoundaryLayer2D, _solBoundaryLayer2D,
                          _solCornerSingularity2D, rhsMotor,
                          rhsBoundarySingularity2D, solBoundarySingularity2D)
@@ -75,12 +58,6 @@ functionFactory.register('solCos1D', _cos1D, aliases=['cos1d'])
 functionFactory.register('solSin2D', _solSin2D, aliases=['sin2d'])
 functionFactory.register('solCos2D', _cos2D, aliases=['cos2d'])
 functionFactory.register('solSin3D', _solSin3D, aliases=['sin3d'])
-functionFactory.register('solFractional', solFractional)
-functionFactory.register('solFractionalDerivative', solFractionalDerivative)
-functionFactory.register('solFractional1D', solFractional1D)
-functionFactory.register('solFractional2D', solFractional2D)
-functionFactory.register('rhsFractional1D', rhsFractional1D)
-functionFactory.register('rhsFractional2D', rhsFractional2D)
 functionFactory.register('constant', constant)
 functionFactory.register('monomial', monomial)
 functionFactory.register('affine', affineFunction)

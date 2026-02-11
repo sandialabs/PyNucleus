@@ -52,3 +52,4 @@ cdef class unsymTwoPoint(twoPointFunction):
 cdef class inverseTwoPoint(twoPointFunction):
     cdef:
         twoPointFunction f
+        REAL_t scale

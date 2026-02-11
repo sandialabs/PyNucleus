@@ -271,7 +271,7 @@ cdef class {SCALAR_label}LinearOperator:
         elif node.attrs['type'] == 'multiIntervalInterpolationOperator':
             return multiIntervalInterpolationOperator.HDF5read(node)
         elif node.attrs['type'] == 'h2':
-            from PyNucleus_nl.clusterMethodCy import H2Matrix
+            from PyNucleus_nl.clusterMethod import H2Matrix
             return H2Matrix.HDF5read(node)
         else:
             raise NotImplementedError(node.attrs['type'])

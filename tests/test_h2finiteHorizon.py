@@ -13,7 +13,7 @@ from PyNucleus_nl.fractionalOrders import (constFractionalOrder,
                                            variableConstFractionalOrder)
 from PyNucleus_nl.nonlocalAssembly import nonlocalBuilder
 from PyNucleus_nl.kernelNormalization import variableFractionalLaplacianScaling
-from PyNucleus_nl.kernels import getFractionalKernel
+from PyNucleus_nl.kernels import FractionalKernel
 from scipy.linalg import solve
 import pytest
 
@@ -34,8 +34,8 @@ def idfunc(param):
                 ids=idfunc)
 def kernels(request):
     dim, s, horizon1, horizon2, normalized = request.param
-    kernel1 = getFractionalKernel(dim, s, constant(horizon1), normalized=normalized)
-    kernel2 = getFractionalKernel(dim, s, constant(horizon2), normalized=normalized)
+    kernel1 = FractionalKernel.build(dim=dim, s=s, horizon=constant(horizon1), normalized=normalized)
+    kernel2 = FractionalKernel.build(dim=dim, s=s, horizon=constant(horizon2), normalized=normalized)
     return dim, kernel1, kernel2
 
 

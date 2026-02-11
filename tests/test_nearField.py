@@ -15,11 +15,11 @@ from PyNucleus_base.tupleDict import arrayIndexSet
 from PyNucleus_fem.DoFMaps import P0_DoFMap, P1_DoFMap
 from PyNucleus_fem.functions import constant
 from PyNucleus_nl import nonlocalBuilder
-from PyNucleus_nl.kernels import getFractionalKernel
+from PyNucleus_nl.kernels import FractionalKernel
 from PyNucleus_nl.nonlocalAssembly import nearFieldClusterPair
-from PyNucleus_nl.clusterMethodCy import (H2Matrix,
-                                          getDoFBoxesAndCells,
-                                          tree_node)
+from PyNucleus_nl.clusterMethod import (H2Matrix,
+                                        getDoFBoxesAndCells,
+                                        tree_node)
 from PyNucleus_nl.fractionalOrders import (constFractionalOrder,
                                            variableConstFractionalOrder,
                                            leftRightFractionalOrder,
@@ -48,7 +48,7 @@ class test:
 
     @classmethod
     def setup_class(self):
-        kernel = getFractionalKernel(self.dim, self.s, self.horizon, normalized=self.normalized, phi=self.phi, piecewise=self.piecewise)
+        kernel = FractionalKernel.build(dim=self.dim, s=self.s, horizon=self.horizon, normalized=self.normalized, phi=self.phi, piecewise=self.piecewise)
         print('\n##################################################')
         print('Testing: {}'.format(kernel))
 
@@ -84,7 +84,7 @@ class test:
         if not hasattr(self, '_baseA'):
             if isinstance(self.s, variableConstFractionalOrder) and self.phi is None:
                 s = constFractionalOrder(self.s.value)
-                kernel = getFractionalKernel(self.dim, s, self.horizon, normalized=True)
+                kernel = FractionalKernel.build(dim=self.dim, s=s, horizon=self.horizon, normalized=True)
                 self._constBuilder = nonlocalBuilder(self.dm, kernel, params=self.params, zeroExterior=self.zeroExterior)
                 self._baseA = self._constBuilder.getDense()
                 self._baseLabel = 'dense_const'
@@ -262,67 +262,67 @@ class test:
             print(A2.diagonal())
             print(A1.diagonal()-A2.diagonal())
             print()
-            try:
-                import matplotlib
-                import matplotlib.pyplot as plt
-            except ImportError:
-                return
-            if self.mesh.dim == 1:
-                x = self.dm.getDoFCoordinates()
-                indMax = np.absolute(A1.diagonal()-A2.diagonal()).argmax()
-                print(indMax, x[indMax])
-                X, Y = np.meshgrid(x, x)
-                plt.figure()
-                plt.pcolormesh(X, Y, A1)
-                plt.colorbar()
-                plt.title('A1')
+            # try:
+            #     import matplotlib
+            #     import matplotlib.pyplot as plt
+            # except ImportError:
+            #     return
+            # if self.mesh.dim == 1:
+            #     x = self.dm.getDoFCoordinates()
+            #     indMax = np.absolute(A1.diagonal()-A2.diagonal()).argmax()
+            #     print(indMax, x[indMax])
+            #     X, Y = np.meshgrid(x, x)
+            #     plt.figure()
+            #     plt.pcolormesh(X, Y, A1)
+            #     plt.colorbar()
+            #     plt.title('A1')
 
-                plt.figure()
-                plt.pcolormesh(X, Y, A2)
-                plt.colorbar()
-                plt.title('A2')
+            #     plt.figure()
+            #     plt.pcolormesh(X, Y, A2)
+            #     plt.colorbar()
+            #     plt.title('A2')
 
-                plt.figure()
-                plt.pcolormesh(X, Y, np.absolute(np.around(A1-A2, 9)), norm=matplotlib.colors.LogNorm())
-                plt.colorbar()
-                plt.title('|A1-A2|')
+            #     plt.figure()
+            #     plt.pcolormesh(X, Y, np.absolute(np.around(A1-A2, 9)), norm=matplotlib.colors.LogNorm())
+            #     plt.colorbar()
+            #     plt.title('|A1-A2|')
 
-                plt.figure()
-                # plt.pcolormesh(X, Y, np.absolute(np.around((A1-A2)/A1, 9)), norm=matplotlib.colors.LogNorm())
-                plt.pcolormesh(X, Y, np.log10(np.absolute((A1-A2)/A1)))
-                plt.colorbar()
-                plt.title('log |(A1-A2)/A1|')
+            #     plt.figure()
+            #     # plt.pcolormesh(X, Y, np.absolute(np.around((A1-A2)/A1, 9)), norm=matplotlib.colors.LogNorm())
+            #     plt.pcolormesh(X, Y, np.log10(np.absolute((A1-A2)/A1)))
+            #     plt.colorbar()
+            #     plt.title('log |(A1-A2)/A1|')
 
-                plt.show()
-            else:
-                plt.figure()
-                err = self.dm.zeros()
-                err.assign(np.absolute((A1.diagonal()-A2.diagonal())/(A1.diagonal())))
-                err.plot(flat=True)
-                plt.title('diagonal error')
+            #     plt.show()
+            # else:
+            #     plt.figure()
+            #     err = self.dm.zeros()
+            #     err.assign(np.absolute((A1.diagonal()-A2.diagonal())/(A1.diagonal())))
+            #     err.plot(flat=True)
+            #     plt.title('diagonal error')
 
-                plt.figure()
-                plt.pcolormesh(A1)
-                plt.colorbar()
-                plt.title('A1')
+            #     plt.figure()
+            #     plt.pcolormesh(A1)
+            #     plt.colorbar()
+            #     plt.title('A1')
 
-                plt.figure()
-                plt.pcolormesh(A2)
-                plt.colorbar()
-                plt.title('A2')
+            #     plt.figure()
+            #     plt.pcolormesh(A2)
+            #     plt.colorbar()
+            #     plt.title('A2')
 
-                plt.figure()
-                plt.pcolormesh(np.absolute(A1-A2), norm=matplotlib.colors.LogNorm())
-                plt.colorbar()
-                plt.title('|A1-A2|')
+            #     plt.figure()
+            #     plt.pcolormesh(np.absolute(A1-A2), norm=matplotlib.colors.LogNorm())
+            #     plt.colorbar()
+            #     plt.title('|A1-A2|')
 
-                plt.figure()
-                # plt.pcolormesh(np.absolute(np.around((A1-A2)/A1, 9)), norm=matplotlib.colors.LogNorm())
-                plt.pcolormesh(np.log10(np.absolute((A1-A2)/A1)))
-                plt.colorbar()
-                plt.title('log |(A1-A2)/A1|')
+            #     plt.figure()
+            #     # plt.pcolormesh(np.absolute(np.around((A1-A2)/A1, 9)), norm=matplotlib.colors.LogNorm())
+            #     plt.pcolormesh(np.log10(np.absolute((A1-A2)/A1)))
+            #     plt.colorbar()
+            #     plt.title('log |(A1-A2)/A1|')
 
-                plt.show()
+            #     plt.show()
         assert value < epsAbs[(self.dim, self.horizon.value)] and valueRel < epsRel
 
 

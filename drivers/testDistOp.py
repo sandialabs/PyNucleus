@@ -18,8 +18,8 @@ from PyNucleus import (dofmapFactory,
 from PyNucleus_fem.mesh import plotManager
 from PyNucleus_base.utilsFem import TimerManager, timerOutputGroup
 from PyNucleus_nl import nonlocalPoissonProblem, FRACTIONAL
-from PyNucleus_nl.clusterMethodCy import (DistributedH2Matrix_globalData,
-                                          DistributedH2Matrix_localData)
+from PyNucleus_nl.clusterMethod import (DistributedH2Matrix_globalData,
+                                        DistributedH2Matrix_localData)
 import numpy as np
 
 

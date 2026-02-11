@@ -13,12 +13,13 @@ from PyNucleus_fem.DoFMaps import P1_DoFMap, P2_DoFMap
 from PyNucleus_fem.functions import constant
 from PyNucleus_nl.nonlocalAssembly import (assembleNonlocalOperator,
                                            nonlocalBuilder)
-from PyNucleus_nl.clusterMethodCy import H2Matrix
+from PyNucleus_nl.clusterMethod import H2Matrix
 from PyNucleus_base.myTypes import REAL
 from scipy.special import gamma
-from PyNucleus_nl.kernels import getFractionalKernel
+from PyNucleus_nl.kernels import FractionalKernel
 from PyNucleus_nl.fractionalOrders import constFractionalOrder
 from PyNucleus_nl.kernelNormalization import variableFractionalLaplacianScaling
+from PyNucleus_nl.factories import fractionalOrderFactory
 import pytest
 import logging
 LOGGER = logging.getLogger(__name__)
@@ -89,9 +90,9 @@ def scaling(dim, s, horizon, refinements):
         mesh = mesh.refine()
     dm = P1_DoFMap(mesh, tag=0)
 
-    kernel1 = getFractionalKernel(mesh.dim, s, horizon)
-    scaling = variableFractionalLaplacianScaling(True)
-    kernel2 = getFractionalKernel(mesh.dim, s, horizon, scaling=scaling)
+    kernel1 = FractionalKernel.build(dim=mesh.dim, s=s, horizon=horizon)
+    variable_s = fractionalOrderFactory('varconst', s=s.value)
+    kernel2 = FractionalKernel.build(dim=mesh.dim, s=variable_s, horizon=horizon)
     print(kernel1, kernel2)
     zeroExterior = not np.isfinite(horizon.value)
     builder1 = nonlocalBuilder(dm, kernel1, zeroExterior=zeroExterior)
@@ -159,7 +160,7 @@ def h2(dim, s, refinements, element, errBnd, genKernel=False):
     params['genKernel'] = genKernel
     params['eta'] = eta
     params['maxLevels'] = maxLevels
-    kernel = getFractionalKernel(mesh.dim, s, constant(np.inf))
+    kernel = FractionalKernel.build(dim=mesh.dim, s=s, horizon=constant(np.inf))
     builder = nonlocalBuilder(DoFMap_fine, kernel, params=params, zeroExterior=True)
 
     A_d = np.array(builder.getDense().data)

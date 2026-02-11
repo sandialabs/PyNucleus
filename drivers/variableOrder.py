@@ -20,7 +20,7 @@ from PyNucleus_nl.fractionalOrders import (constFractionalOrder,
                                            leftRightFractionalOrder,
                                            smoothedLeftRightFractionalOrder,
                                            innerOuterFractionalOrder)
-from PyNucleus_nl.kernels import getFractionalKernel
+from PyNucleus_nl.kernels import FractionalKernel
 
 
 d = driver()
@@ -117,7 +117,7 @@ if d.willPlot('variableOrder'):
 for s in sVals:
     b = dm.assembleRHS(rhs)
     err = None
-    kernel = getFractionalKernel(mesh.dim, s, horizon)
+    kernel = FractionalKernel.build(dim=mesh.dim, s=s, horizon=horizon)
 
     for label, do in [('dense', d.do_dense),
                       ('dense_general', d.do_dense),
@@ -134,7 +134,7 @@ for s in sVals:
             elif label == 'H2':
                 A = dm.assembleNonlocal(kernel, matrixFormat='H2')
         import matplotlib.pyplot as plt
-        # from fractionalLaplacian.clusterMethodCy import getFractionalOrders
+        # from fractionalLaplacian.clusterMethod import getFractionalOrders
         # if label == 'H2':
         #     plt.figure()
         #     A2 = builder.getDense()

@@ -8,7 +8,7 @@
 import numpy as np
 cimport numpy as np
 
-from libc.math cimport sin, cos, M_PI as pi
+from libc.math cimport sin, cos, M_PI as pi, sqrt
 from libcpp.map cimport map
 from cpython.long cimport PyLong_FromSsize_t
 from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX, BOOL
@@ -17,7 +17,7 @@ from PyNucleus_base.intTuple cimport intTuple
 from PyNucleus_base.ip_norm cimport (ip_distributed_nonoverlapping,
                                      norm_distributed_nonoverlapping)
 from PyNucleus_fem.functions cimport function, constant
-from PyNucleus_fem.DoFMaps cimport P0_DoFMap, P1_DoFMap, Product_DoFMap
+from PyNucleus_fem.DoFMaps cimport P0_DoFMap, P1_DoFMap
 from PyNucleus_fem.DoFMaps import DoFMap2str
 from PyNucleus_fem.meshCy cimport sortEdge, encode_edge, decode_edge
 from PyNucleus_fem.femCy cimport local_matrix_t
@@ -51,22 +51,22 @@ from . fractionalOrders cimport (fractionalOrderBase,
                                  piecewiseConstantFractionalOrder,
                                  variableFractionalOrder,
                                  singleVariableUnsymmetricFractionalOrder)
-from . kernelNormalization cimport variableFractionalLaplacianScaling
-from . kernels import getFractionalKernel
-from . clusterMethodCy import (assembleFarFieldInteractions,
-                               getDoFBoxesAndCells,
-                               getFractionalOrders,
-                               getAdmissibleClusters,
-                               getCoveringClusters,
-                               symmetrizeNearFieldClusters,
-                               trimTree)
-from . clusterMethodCy cimport (refinementType,
-                                refinementParams,
-                                GEOMETRIC,
-                                MEDIAN,
-                                BARYCENTER,
-                                queryAdmissibility,
-                                INADMISSIBLE)
+from . kernelNormalization cimport (constantFractionalLaplacianScaling,
+                                    variableFractionalLaplacianScaling)
+from . clusterMethod import (assembleFarFieldInteractions,
+                             getDoFBoxesAndCells,
+                             getFractionalOrders,
+                             getAdmissibleClusters,
+                             getCoveringClusters,
+                             symmetrizeNearFieldClusters,
+                             trimTree)
+from . clusterMethod cimport (refinementType,
+                              refinementParams,
+                              GEOMETRIC,
+                              MEDIAN,
+                              BARYCENTER,
+                              queryAdmissibility,
+                              INADMISSIBLE)
 from copy import deepcopy
 import logging
 from logging import INFO
@@ -76,6 +76,7 @@ mpi4py.rc.initialize = False
 from mpi4py import MPI
 from mpi4py cimport MPI
 include "panelTypes.pxi"
+include "kernel_params.pxi"
 
 cdef REAL_t INTERFACE_DOF = np.inf
 
@@ -136,6 +137,7 @@ cdef class horizonSurfaceIntegral(function):
         REAL_t horizon
         REAL_t[:, ::1] quadNodes
         REAL_t[::1] quadWeights, y
+        REAL_t[::1] val
 
     def __init__(self, Kernel kernel, REAL_t horizon):
         cdef:
@@ -162,6 +164,8 @@ cdef class horizonSurfaceIntegral(function):
         else:
             raise NotImplementedError()
         self.y = uninitialized((self.kernel.dim), dtype=REAL)
+        self.val = uninitialized((self.kernel.valueSize), dtype=REAL)
+        assert self.kernel.valueSize == 1
 
     cdef inline REAL_t eval(self, REAL_t[::1] x):
         cdef:
@@ -172,10 +176,10 @@ cdef class horizonSurfaceIntegral(function):
         for k in range(self.quadNodes.shape[0]):
             for j in range(dim):
                 self.y[j] = x[j]+self.quadNodes[k, j]
-            self.kernel.evalParams(x, self.y)
+                self.kernel.n[j] = -self.quadNodes[k, j]/self.horizon
+            self.kernel.evalParamsPtr(x.shape[0], &x[0], &self.y[0])
             self.kernel.evalPtr(x.shape[0], &x[0], &self.y[0], &val)
-            # val = self.kernel.scalingValue*pow(self.horizon, 1-dim-2*s)/s
-            fac -= val * self.quadWeights[k]
+            fac += val * self.quadWeights[k]
         return fac
 
 
@@ -199,7 +203,8 @@ cdef class horizonCorrected(TimeStepperLinearOperator):
         assert isinstance(kernel.horizon, constant)
 
         if Ainf is None:
-            scaling = constantTwoPoint(0.5)
+            # Get kernel with infinite horizon and no scaling
+            scaling = constantFractionalLaplacianScaling(dim=kernel.dim, s=kernel.sValue, horizon=1., normalized=False, boundary=False, derivative=0, tempered=0., termNo=0)
             infiniteKernel = kernel.getModifiedKernel(horizon=constant(np.inf), scaling=scaling)
             infBuilder = nonlocalBuilder(self.dm, infiniteKernel, zeroExterior=True, comm=self.comm, logging=self.logging)
             self.Ainf = infBuilder.getH2()
@@ -242,7 +247,7 @@ cdef class horizonCorrected(TimeStepperLinearOperator):
         correction = builder.getH2()
 
         self.S = self.Ainf
-        self.facS = 2.*C
+        self.facS = C
 
         if isinstance(self.kernel.s, constFractionalOrder):
             if self.mesh.dim == 1:
@@ -252,7 +257,7 @@ cdef class horizonCorrected(TimeStepperLinearOperator):
             else:
                 raise NotImplementedError()
             s = self.kernel.sValue
-            self.M = -correction + (-vol*C*pow(horizon, 1-self.mesh.dim-2*s)/s) * self.mass
+            self.M = -correction + (vol*C*pow(horizon, 1-self.mesh.dim-2*s)/(-2.0*s)) * self.mass
         else:
             self.mass.setZero()
 
@@ -314,7 +319,7 @@ cdef class horizonCorrected(TimeStepperLinearOperator):
                         builder.local_matrix_surface.eval(contribZeroExterior, panel)
                         iM.getDoFsElem(cellNo3)
                         if builder.local_matrix_surface.symmetricLocalMatrix:
-                            iM.addToMatrixElemSym(contribZeroExterior, -2*C*fac)
+                            iM.addToMatrixElemSym(contribZeroExterior, -C*fac)
                         else:
                             raise NotImplementedError()
 
@@ -338,7 +343,7 @@ cdef class horizonCorrected(TimeStepperLinearOperator):
                         builder.local_matrix_surface.eval(contribZeroExterior, panel)
                         iM.getDoFsElem(cellNo3)
                         if builder.local_matrix_surface.symmetricLocalMatrix:
-                            iM.addToMatrixElemSym(contribZeroExterior, -2*C*fac)
+                            iM.addToMatrixElemSym(contribZeroExterior, -C*fac)
                         else:
                             raise NotImplementedError()
 
@@ -367,7 +372,7 @@ def assembleNonlocalOperator(meshBase mesh,
                              bint zeroExterior=True,
                              MPI.Comm comm=None,
                              **kwargs):
-    kernel = getFractionalKernel(mesh.dim, s, horizon)
+    kernel = FractionalKernel.build(dim=mesh.dim, s=s, horizon=horizon)
     builder = nonlocalBuilder(dm, kernel, params, zeroExterior, comm, **kwargs)
     return builder.getDense()
 
@@ -497,7 +502,7 @@ def assembleNearField(list Pnear,
                       bint zeroExterior=True,
                       comm=None,
                       **kwargs):
-    kernel = getFractionalKernel(mesh.dim, s, horizon)
+    kernel = FractionalKernel.build(dim=mesh.dim, s=s, horizon=horizon)
     builder = nonlocalBuilder(dm, kernel, params, zeroExterior, comm, logging=True, **kwargs)
     A = builder.assembleClusters(Pnear)
     return A

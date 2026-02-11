@@ -9,7 +9,7 @@ cdef enum:
     OFFSET = sizeof(void*)
 
 cdef enum:
-    NUM_KERNEL_PARAMS = 12
+    NUM_KERNEL_PARAMS = 15
 
 cdef enum kernelParams:
     fS = 0*OFFSET
@@ -23,64 +23,67 @@ cdef enum kernelParams:
     fEVAL = 8*OFFSET
     fINTERACTION = 9*OFFSET
     fEXPONENTINVERSE = 10*OFFSET
-    fTEMPERED=10*OFFSET
-    fGREENS_LAMBDA=10*OFFSET
+    fEXPONENT = 13*OFFSET
+    fTEMPERED = 10*OFFSET
+    fGREENS_LAMBDA = 10*OFFSET
     fBOUNDARY=11*OFFSET
+    fMANIFOLD=12*OFFSET
+    fLOG_SINGULARITY = 14*OFFSET
 
 
-cdef inline BOOL_t isNull(void *c_params, size_t pos):
+cdef inline BOOL_t isNull(void *c_params, size_t pos) noexcept:
     return (<void**>((<char*>c_params)+pos))[0] == NULL
 
-cdef inline BOOL_t getBOOL(void *c_params, size_t pos):
+cdef inline BOOL_t getBOOL(void *c_params, size_t pos) noexcept:
     return (<BOOL_t*>((<char*>c_params)+pos))[0]
 
-cdef inline void setBOOL(void *c_params, size_t pos, BOOL_t val):
+cdef inline void setBOOL(void *c_params, size_t pos, BOOL_t val) noexcept:
     (<BOOL_t*>((<char*>c_params)+pos))[0] = val
 
-cdef inline INDEX_t getINDEX(void *c_params, size_t pos):
+cdef inline INDEX_t getINDEX(void *c_params, size_t pos) noexcept:
     return (<INDEX_t*>((<char*>c_params)+pos))[0]
 
-cdef inline void setINDEX(void *c_params, size_t pos, INDEX_t val):
+cdef inline void setINDEX(void *c_params, size_t pos, INDEX_t val) noexcept:
     (<INDEX_t*>((<char*>c_params)+pos))[0] = val
 
-cdef inline REAL_t getREAL(void *c_params, size_t pos):
+cdef inline REAL_t getREAL(void *c_params, size_t pos) noexcept:
     return (<REAL_t*>((<char*>c_params)+pos))[0]
 
-cdef inline void setREAL(void *c_params, size_t pos, REAL_t val):
+cdef inline void setREAL(void *c_params, size_t pos, REAL_t val) noexcept:
     (<REAL_t*>((<char*>c_params)+pos))[0] = val
 
-cdef inline COMPLEX_t getCOMPLEX(void *c_params, size_t pos):
+cdef inline COMPLEX_t getCOMPLEX(void *c_params, size_t pos) noexcept:
     return (<COMPLEX_t*>((<char*>c_params)+pos))[0]
 
-cdef inline void setCOMPLEX(void *c_params, size_t pos, COMPLEX_t val):
+cdef inline void setCOMPLEX(void *c_params, size_t pos, COMPLEX_t val) noexcept:
     (<COMPLEX_t*>((<char*>c_params)+pos))[0] = val
 
 ctypedef REAL_t (*fun_t)(REAL_t *x, REAL_t *y, void *c_params)
 
-cdef inline void setFun(void *c_params, size_t pos, fun_t val):
+cdef inline void setFun(void *c_params, size_t pos, fun_t val) noexcept:
     (<fun_t*>((<char*>c_params)+pos))[0] = val
 
-cdef inline fun_t getFun(void *c_params, size_t pos):
+cdef inline fun_t getFun(void *c_params, size_t pos) noexcept:
     return (<fun_t*>((<char*>c_params)+pos))[0]
 
 ctypedef COMPLEX_t (*complex_fun_t)(REAL_t *x, REAL_t *y, void *c_params)
 
-cdef inline void setComplexFun(void *c_params, size_t pos, complex_fun_t val):
+cdef inline void setComplexFun(void *c_params, size_t pos, complex_fun_t val) noexcept:
     (<complex_fun_t*>((<char*>c_params)+pos))[0] = val
 
-cdef inline complex_fun_t getComplexFun(void *c_params, size_t pos):
+cdef inline complex_fun_t getComplexFun(void *c_params, size_t pos) noexcept:
     return (<complex_fun_t*>((<char*>c_params)+pos))[0]
 
-cdef inline REAL_t* getREALArray1D(void *c_params, size_t pos):
+cdef inline REAL_t* getREALArray1D(void *c_params, size_t pos) noexcept:
     return (<REAL_t**>((<char*>c_params)+pos))[0]
 
-cdef inline void setREALArray1D(void *c_params, size_t pos, REAL_t[::1] val):
+cdef inline void setREALArray1D(void *c_params, size_t pos, REAL_t[::1] val) noexcept:
     (<REAL_t**>((<char*>c_params)+pos))[0] = &val[0]
 
-cdef inline REAL_t* getREALArray2D(void *c_params, size_t pos):
+cdef inline REAL_t* getREALArray2D(void *c_params, size_t pos) noexcept:
     return (<REAL_t**>((<char*>c_params)+pos))[0]
 
-cdef inline void setREALArray2D(void *c_params, size_t pos, REAL_t[:, ::1] val):
+cdef inline void setREALArray2D(void *c_params, size_t pos, REAL_t[:, ::1] val) noexcept:
     (<REAL_t**>((<char*>c_params)+pos))[0] = &val[0, 0]
 
 
@@ -96,3 +99,4 @@ cpdef enum:
     EXPONENTIAL = 8
     POLYNOMIAL = 9
     MANIFOLD_FRACTIONAL = 10
+    ERROR = 11

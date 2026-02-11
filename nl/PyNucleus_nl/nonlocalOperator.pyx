@@ -7,13 +7,14 @@
 
 import numpy as np
 cimport numpy as np
-from libc.math cimport sqrt, ceil, fabs as abs
+from libc.math cimport sqrt, ceil, fabs as abs, log
 from scipy.special import factorial
 from PyNucleus_base.myTypes import INDEX, REAL, COMPLEX
 from PyNucleus_base import uninitialized
 from PyNucleus_base.blas cimport mydot
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
 from . interactionDomains cimport CUT
+from . kernelNormalization cimport constantFractionalLaplacianScaling, variableFractionalLaplacianScaling
 
 cdef:
     MASK_t ALL
@@ -23,6 +24,18 @@ include "panelTypes.pxi"
 
 cdef INDEX_t MAX_INT = np.iinfo(INDEX).max
 cdef REAL_t inf = np.inf
+
+
+cdef INDEX_t my_binom(INDEX_t a, INDEX_t b):
+    if (a == 0) or (a == 1):
+        return 1
+    elif a == 2:
+        if b == 1:
+            return 2
+        else:
+            return 1
+    else:
+        return -1
 
 
 cdef inline void getSimplexAndCenter(const INDEX_t[:, ::1] cells,
@@ -102,6 +115,14 @@ cdef class specialQuadRule:
             self.PHI = PHI
         if PHI3 is not None:
             self.PHI3 = PHI3
+
+
+cdef class singularityCancelationQuadRule(quadratureRule):
+    cdef void scaleWeights(self, scaling):
+        cdef:
+            INDEX_t i
+        for i in range(self.num_nodes):
+            self.weights[i] *= scaling
 
 
 cdef panelType MAX_PANEL = 120

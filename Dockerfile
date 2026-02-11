@@ -30,7 +30,6 @@ RUN sed -i 's/Components: main/Components: main contrib non-free/' /etc/apt/sour
 # allow running MPI as root in the container
 # bind MPI ranks to hwthreads
 ENV OMPI_MCA_hwloc_base_binding_policy=hwthread \
-    PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe \
     MPIEXEC_FLAGS=--allow-run-as-root \
     OMPI_ALLOW_RUN_AS_ROOT=1 \
     OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1 \
@@ -52,7 +51,7 @@ RUN \
 # Build PyNucleus
 # RUN --mount=type=cache,target=/root/.ccache --mount=type=cache,target=/root/.cache/pip \
 RUN \
-    make install PIP_INSTALL_FLAGS=" --break-system-packages" \
+    make install PIP_INSTALL_FLAGS=" --break-system-packages --no-build-isolation" \
     && find . -type f -name '*.c' -exec rm {} + \
     && find . -type f -name '*.cpp' -exec rm {} + \
     && rm -rf build packageTools/build base/build metisCy/build fem/build multilevelSolver/build nl/build \

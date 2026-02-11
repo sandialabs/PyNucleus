@@ -12,13 +12,13 @@ from PyNucleus_fem.quadrature cimport (simplexQuadratureRule, quadQuadratureRule
                                        simplexDuffyTransformation, simplexXiaoGimbutas)
 from PyNucleus_fem.DoFMaps cimport DoFMap
 from . bitset cimport tupleDictMASK
-from . clusterMethodCy cimport (tree_node,
-                                farFieldClusterPair,
-                                H2Matrix,
-                                DistributedH2Matrix_globalData,
-                                DistributedH2Matrix_localData,
-                                DistributedLinearOperator,
-                                VectorH2Matrix)
+from . clusterMethod cimport (tree_node,
+                              farFieldClusterPair,
+                              H2Matrix,
+                              DistributedH2Matrix_globalData,
+                              DistributedH2Matrix_localData,
+                              DistributedLinearOperator,
+                              VectorH2Matrix)
 from . nonlocalOperator cimport (double_local_matrix_t,
                                  Complexdouble_local_matrix_t,
                                  nonlocalOperator,
@@ -43,9 +43,11 @@ from PyNucleus_base.linear_operators cimport LinearOperator, ComplexLinearOperat
 from PyNucleus_base.linear_operators cimport VectorLinearOperator, ComplexVectorLinearOperator
 from PyNucleus_fem.meshCy cimport meshBase
 from PyNucleus_fem.DoFMaps cimport DoFMap
-from . kernelsCy cimport (Kernel,
-                          ComplexKernel,
-                          FractionalKernel)
+from . kernels cimport (Kernel,
+                        ComplexKernel,
+                        FractionalKernel,
+                        ErrorKernel,
+                        ComplexErrorKernel)
 
 
 include "nonlocalAssembly_decl_REAL.pxi"

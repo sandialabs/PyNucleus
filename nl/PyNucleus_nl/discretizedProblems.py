@@ -25,7 +25,7 @@ from . helpers import paramsForFractionalHierarchy
 from . nonlocalProblems import (DIRICHLET,
                                 NEUMANN, HOMOGENEOUS_NEUMANN,
                                 transientFractionalProblem)
-from . clusterMethodCy import H2Matrix, DistributedH2Matrix_globalData, DistributedH2Matrix_localData
+from . clusterMethod import H2Matrix, DistributedH2Matrix_globalData, DistributedH2Matrix_localData
 import logging
 
 
@@ -552,7 +552,7 @@ class discretizedNonlocalProblem(problem):
 
     @generates('A_derivative')
     def getDerivativeOperator(self, kernel, dmInterior, matrixFormat, eta, target_order):
-        self.A_derivative = dmInterior.assembleNonlocal(kernel.getDerivativeKernel(derivative=1),
+        self.A_derivative = dmInterior.assembleNonlocal(kernel.getGradientKernel(),
                                                         matrixFormat=matrixFormat, params={'eta': eta,
                                                                                            'target_order': target_order})
 
@@ -684,14 +684,13 @@ class discretizedNonlocalProblem(problem):
         self.adjointModelSolution = stationaryModelSolution(self, u, **data)
 
     def report(self, group):
-        group.add('kernel', repr(self.continuumProblem.kernel))
-        group.add('kernel expression', self.continuumProblem.kernel.getLongDescription())
-        group.add('problem', self.continuumProblem.problemDescription)
-        group.add('has analytic solution', self.continuumProblem.analyticSolution is not None)
+        from . kernels import Kernel
+        self.continuumProblem.report(group)
         group.add('h', self.finalMesh.h)
         group.add('hmin', self.finalMesh.hmin)
         if self.continuumProblem.kernel is not None:
-            group.add('horizon', self.continuumProblem.kernel.horizonValue)
+            if isinstance(self.continuumProblem.kernel, Kernel):
+                group.add('horizon', self.continuumProblem.kernel.horizonValue)
         else:
             group.add('horizon', 0.0)
         group.add('mesh quality', self.finalMesh.delta)

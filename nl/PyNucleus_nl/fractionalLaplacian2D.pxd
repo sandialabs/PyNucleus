@@ -14,39 +14,33 @@ from PyNucleus_fem.meshCy cimport meshBase
 from . nonlocalOperator cimport (double_local_matrix_t,
                                  nonlocalLaplacian2D,
                                  specialQuadRule,
+                                 singularityCancelationQuadRule,
                                  panelType,
                                  MASK_t)
 from . fractionalOrders cimport fractionalOrderBase
-from . kernelsCy cimport (Kernel,
-                          FractionalKernel)
+from . kernels cimport (Kernel,
+                        FractionalKernel)
 
 
 cdef class fractionalLaplacian2DZeroExterior(nonlocalLaplacian2D):
-    cdef:
-        public REAL_t[:, :, ::1] PHI_edge, PSI_edge, PHI_vertex, PSI_vertex
-        public REAL_t[:, ::1] PHI_edge2, PHI_vertex2
+    pass
 
-
-cdef class singularityCancelationQuadRule2D(quadratureRule):
+cdef class singularityCancelationQuadRule2D(singularityCancelationQuadRule):
     pass
 
 
 cdef class fractionalLaplacian2D(nonlocalLaplacian2D):
     cdef:
-        public quadratureRule qrEdge, qrVertex, qrId
-        public REAL_t[:, ::1] PSI_edge, PSI_id, PSI_vertex
         REAL_t singularityCancelationIntegrandWithinElement
         REAL_t singularityCancelationIntegrandAcrossElements
 
 
 cdef class fractionalLaplacian2D_nonsym(fractionalLaplacian2D):
-    cdef:
-        public REAL_t[:, :, ::1] PHI_edge, PHI_id, PHI_vertex
+    pass
+
+cdef class fractionalLaplacian2D_nonsym2(fractionalLaplacian2D_nonsym):
+    pass
 
 
 cdef class fractionalLaplacian2D_boundary(fractionalLaplacian2DZeroExterior):
-    cdef:
-        public quadQuadratureRule qrVertex0, qrVertex1
-        public quadratureRule qrEdge, qrVertex
-
-
+    pass

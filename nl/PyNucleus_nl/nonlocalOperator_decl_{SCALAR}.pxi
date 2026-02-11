@@ -79,6 +79,13 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
         {SCALAR}_t[:, ::1] temp
         {SCALAR}_t[:, ::1] temp2
         public REAL_t[::1] n, w
+        public quadratureRule qrVolume, qrFace, qrEdge, qrVertex, qr
+        public REAL_t[:, ::1] PSI_volume, PSI_face, PSI_edge, PSI_vertex
+        public REAL_t[:, :, ::1] PHI_volume, PHI_face, PHI_edge, PHI_vertex
+        public REAL_t[:, ::1] PHI_face2, PHI_edge2, PHI_vertex2
+        REAL_t[::1] scaling_values
+        BOOL_t multiLogKernel
+        INDEX_t termNo
     cpdef void setKernel(self, {SCALAR_label}Kernel kernel, quad_order_diagonal=*, target_order=*)
     cdef void getNearQuadRule(self, panelType panel)
     cdef inline shapeFunction getLocalShapeFunction(self, INDEX_t local_dof)
@@ -86,6 +93,11 @@ cdef class {SCALAR_label}nonlocalOperator({SCALAR_label}double_local_matrix_t):
     cdef void addQuadRule_nonSym(self, panelType panel)
     cdef void addQuadRule_boundary(self, panelType panel)
     cdef void getNonSingularNearQuadRule(self, panelType panel)
-    cdef void eval_distant(self, {SCALAR}_t[:, ::1] contrib, panelType panel, MASK_t mask=*)
+    cdef void eval_distant_sym(self, {SCALAR}_t[:, ::1] contrib, panelType panel, MASK_t mask=*)
+    cdef void eval_near_sym(self, {SCALAR}_t[:, ::1] contrib, panelType panel, MASK_t mask=*)
     cdef void eval_distant_nonsym(self, {SCALAR}_t[:, ::1] contrib, panelType panel, MASK_t mask=*)
+    cdef void eval_near_nonsym(self, {SCALAR}_t[:, ::1] contrib, panelType panel, MASK_t mask=*)
+    cdef void eval_distant_nonsym2(self, {SCALAR}_t[:, ::1] contrib, panelType panel, MASK_t mask=*)
+    cdef void eval_near_nonsym2(self, {SCALAR}_t[:, ::1] contrib, panelType panel, MASK_t mask=*)
     cdef void eval_distant_boundary(self, {SCALAR}_t[:, ::1] contrib, panelType panel, MASK_t mask=*)
+    cdef void eval_near_boundary(self, {SCALAR}_t[:, ::1] contrib, panelType panel, MASK_t mask=*)
